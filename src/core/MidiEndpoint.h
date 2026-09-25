@@ -53,7 +53,7 @@ public:
     [[nodiscard]] static MidiEndpointSelection selectPreferredOutput(
             const std::vector<MidiEndpointDescriptor>& candidates,
             const std::string& preferredManufacturer,
-            const std::string& preferredProduct) noexcept;
+            const std::string& preferredProduct);
 };
 
 } // namespace mozart::midi
