@@ -35,6 +35,7 @@ public:
     [[nodiscard]] bool isStartStopSyncEnabled() const noexcept;
 
     [[nodiscard]] LinkClockSnapshot captureAppSnapshot() const;
+    [[nodiscard]] std::chrono::microseconds hostTimeAtBeat(double beat) const;
 
 private:
     ableton::Link link_;
