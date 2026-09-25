@@ -20,10 +20,12 @@
 - [ ] MicroFreak physical MIDI test record.
 
 ## Stage 2 — Ableton Link accompanist clock
-- [ ] Link 4.0 wrapper.
-- [ ] Link enable/disable.
-- [ ] Session tempo readout.
-- [ ] Beat/phase conversion.
+- [x] Link 4.0 wrapper.
+- [x] Link enable/disable.
+- [x] Session tempo / beat / phase snapshot API.
+
+
+
 - [ ] Quantized launch.
 - [ ] Follow-session policy.
 - [ ] Scheduler look-ahead.
