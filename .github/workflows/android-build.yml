@@ -73,6 +73,9 @@ jobs:
           disable-animations: false
           script: |
             set -euo pipefail
+            adb start-server
+            adb wait-for-device
+            adb shell getprop sys.boot_completed | grep -q "1"
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.miguelduval.mozart.debug
             adb shell am start -W -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity
