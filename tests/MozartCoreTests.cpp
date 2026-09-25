@@ -102,5 +102,40 @@ int main() {
         assert(!noMatch.selected());
     }
 
+    {
+        class MockMidiOutput final : public mozart::midi::MidiOutputTransport {
+        public:
+            mozart::midi::MidiSendResult send(
+                    const mozart::midi::MidiShortMessage& message) noexcept override {
+                last = message;
+                ++sendCount;
+                return {
+                    mozart::midi::MidiTransportStatus::Ok,
+                    message.size
+                };
+            }
+
+            void close() noexcept override {}
+
+            mozart::midi::MidiShortMessage last{};
+            std::size_t sendCount = 0;
+        };
+
+        MockMidiOutput output;
+        const auto message =
+                mozart::midi::noteOn(0, 64, 111, 987654321ULL, 42);
+
+        assert(message.has_value());
+        const auto result = output.send(*message);
+        assert(result.ok());
+        assert(result.bytesSent == 3);
+        assert(output.sendCount == 1);
+        assert(output.last.status == 0x90);
+        assert(output.last.data1 == 64);
+        assert(output.last.data2 == 111);
+        assert(output.last.timestampNanos == 987654321ULL);
+        assert(output.last.portId == 42);
+    }
+
     return 0;
 }
