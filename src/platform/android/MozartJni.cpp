@@ -188,3 +188,11 @@ Java_com_miguelduval_mozart_AndroidMidiTransport_nativeSendShortMessage(
     const auto result = g_midiOutput.send(message);
     return static_cast<jint>(result.status);
 }
+
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_miguelduval_mozart_AndroidMidiTransport_nativeIsMidiOutputOpenInternal(
+        JNIEnv*,
+        jclass) {
+    return g_midiOutput.isOpen() ? JNI_TRUE : JNI_FALSE;
+}
