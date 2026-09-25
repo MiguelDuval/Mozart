@@ -40,7 +40,17 @@ void MozartRuntime::setLinkEnabled(const bool enabled) noexcept {
 }
 
 void MozartRuntime::setAccompanimentEnabled(const bool enabled) noexcept {
-    scheduler_.setArmed(enabled);
+    if (enabled) {
+        if (started_) {
+            scheduler_.start();
+        }
+        scheduler_.setArmed(true);
+        return;
+    }
+
+    scheduler_.setArmed(false);
+    scheduler_.stop();
+    sendQueue_.clearPending();
 }
 
 void MozartRuntime::setKeyScale(const musical::KeyScale& keyScale) {
