@@ -82,20 +82,29 @@ jobs:
             adb shell getprop sys.boot_completed | grep -q "1"
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.miguelduval.mozart.debug
-            timeout 15s adb shell am start -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity
+            set +e
+            timeout 5s adb shell am start -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity > /tmp/mozart-start.txt 2>&1
+            start_status=$?
+            set -e
+            echo "am start exit status: $start_status"
             sleep 3
-            adb shell pidof com.miguelduval.mozart.debug
-            adb shell dumpsys activity activities > /tmp/mozart-activity.txt
-            adb shell dumpsys window windows > /tmp/mozart-window.txt
-            adb logcat -d -t 300 > /tmp/mozart-logcat.txt
-            adb exec-out screencap -p > /tmp/mozart-screen.png
-            grep -Fq 'com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity' /tmp/mozart-activity.txt
+            adb shell pidof com.miguelduval.mozart.debug > /tmp/mozart-pid.txt || true
+            adb shell dumpsys activity activities > /tmp/mozart-activity.txt || true
+            adb shell dumpsys window windows > /tmp/mozart-window.txt || true
+            adb logcat -d -t 500 > /tmp/mozart-logcat.txt || true
+            adb exec-out screencap -p > /tmp/mozart-screen.png || true
             if grep -Fq 'FATAL EXCEPTION' /tmp/mozart-logcat.txt; then
               echo "Fatal Android exception detected."
               exit 1
             fi
+            grep -Fq 'com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity' /tmp/mozart-activity.txt
+            test -s /tmp/mozart-pid.txt
             timeout 10s adb shell uiautomator dump /sdcard/mozart-ui.xml || true
             adb exec-out cat /sdcard/mozart-ui.xml > /tmp/mozart-ui.xml 2>/dev/null || true
+            if [ "$start_status" -eq 124 ]; then
+              echo "am start timed out; activity/pid diagnostics were collected above."
+              exit 1
+            fi
 
       - name: Upload debug APK
         if: always()
