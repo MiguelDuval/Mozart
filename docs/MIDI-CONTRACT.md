@@ -43,10 +43,19 @@ The Android adapter owns:
 Android documentation states that incoming data may contain multiple messages or partial messages and realtime messages can be interleaved. The parser therefore cannot assume one callback equals one complete MIDI message.
 
 ## Output policy
+The Android setup sequence is:
 
-Prefer Android MIDI timestamps for scheduled sends when the selected transport supports them.
+**MidiManager discovery → MidiDevice open → selected device INPUT port → AMidiDevice → AMidiInputPort**
 
-Never let the domain send byte arrays directly.
+The selected input port belongs to the destination MIDI device. For Mozart's primary USB-MicroFreak path, automatic selection is restricted to USB endpoints whose product/name matches MicroFreak.
+
+Prefer Android/AMidi timestamps for scheduled sends when the selected transport supports them.
+
+The transport-neutral boundary accepts `MidiShortMessage`; platform adapters own byte packing, platform handles and port lifecycle.
+
+`AMidiInputPort_sendWithTimestamp()` may block during the actual write. It is therefore not an audio-callback API and must not be called directly from the realtime scheduler/audio callback. A dedicated MIDI transport/send context owns the blocking write path.
+
+No successful AMidi open or physical MIDI delivery is claimed without Android/physical test evidence.
 
 ## MIDI 2.0 readiness
 
