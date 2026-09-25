@@ -141,6 +141,13 @@ void AccompanimentScheduler::scheduleBar(
         const double startBeat = barStartBeat + event.startBeat;
         const double endBeat = startBeat + event.durationBeats;
 
+        // Never enqueue a note whose onset is already behind the current
+        // Link position. A late scheduler iteration may still see the
+        // beginning of the current bar inside its look-ahead window.
+        if (startBeat < snapshot.beat) {
+            continue;
+        }
+
         const auto noteOnTimestamp = beatToTimestampNanos(snapshot, startBeat);
         const auto noteOffTimestamp = beatToTimestampNanos(snapshot, endBeat);
 
