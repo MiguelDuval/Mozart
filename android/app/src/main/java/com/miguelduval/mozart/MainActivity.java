@@ -23,8 +23,12 @@ public final class MainActivity extends Activity {
                 @Override
                 public void onMidiInventoryChanged(
                         List<AndroidMidiTransport.MidiEndpoint> endpoints,
-                        AndroidMidiTransport.MidiEndpoint selectedOutput) {
-                    updateMidiStatus(endpoints, selectedOutput);
+                        AndroidMidiTransport.MidiEndpoint selectedOutput,
+                        String connectionStatus) {
+                    updateMidiStatus(
+                            endpoints,
+                            selectedOutput,
+                            connectionStatus);
                 }
             };
 
@@ -73,7 +77,8 @@ public final class MainActivity extends Activity {
 
     private void updateMidiStatus(
             List<AndroidMidiTransport.MidiEndpoint> endpoints,
-            AndroidMidiTransport.MidiEndpoint selectedOutput) {
+            AndroidMidiTransport.MidiEndpoint selectedOutput,
+            String connectionStatus) {
         final StringBuilder text = new StringBuilder();
         text.append("\n").append(nativeEngineInfo());
         text.append("\n\nMIDI endpoints discovered: ").append(endpoints.size());
@@ -87,6 +92,7 @@ public final class MainActivity extends Activity {
                     .append("\nAndroid device INPUT port selected for send");
         }
 
+        text.append("\n").append(connectionStatus);
         status.setText(text.toString());
     }
 }
