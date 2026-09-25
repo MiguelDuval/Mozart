@@ -12,8 +12,11 @@ import android.widget.TextView;
 import java.util.List;
 
 public final class MainActivity extends Activity {
+    private static final String TAG = "MozartStartup";
     static {
+        Log.i(TAG, "STARTUP: loadLibrary begin");
         System.loadLibrary("mozart");
+        Log.i(TAG, "STARTUP: loadLibrary complete");
     }
 
     private static native String nativeEngineInfo();
