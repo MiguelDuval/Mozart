@@ -82,11 +82,22 @@ jobs:
             adb shell getprop sys.boot_completed | grep -q "1"
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.miguelduval.mozart.debug
-            adb shell am start -W -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity
-            adb shell uiautomator dump /sdcard/mozart-ui.xml
+            timeout 20s adb shell am start -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity
+            for attempt in 1 2 3 4 5; do
+              if adb shell pidof com.miguelduval.mozart.debug >/dev/null 2>&1; then
+                break
+              fi
+              sleep 1
+            done
+            for attempt in 1 2 3 4 5; do
+              if adb shell uiautomator dump /sdcard/mozart-ui.xml >/tmp/mozart-uiautomator.log 2>&1; then
+                break
+              fi
+              sleep 2
+            done
             adb exec-out cat /sdcard/mozart-ui.xml > /tmp/mozart-ui.xml
             grep -Fq 'text="MOZART"' /tmp/mozart-ui.xml
-            grep -Fq 'text="C++20 core ready | MIDI foundation | Link-ready timing boundary"' /tmp/mozart-ui.xml
+            grep -Fq 'text="Manual key: F# minor"' /tmp/mozart-ui.xml
 
       - name: Upload debug APK
         if: always()
