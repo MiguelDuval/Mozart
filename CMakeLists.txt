@@ -19,14 +19,18 @@ target_include_directories(mozart-core PUBLIC
 )
 
 if(ANDROID)
+    find_library(AMIDI_LIBRARY amidi REQUIRED)
+
     add_library(mozart SHARED
         src/platform/android/MozartJni.cpp
+        src/platform/android/AndroidMidiOutput.cpp
     )
 
     target_link_libraries(mozart
         PRIVATE
         mozart-core
         log
+        ${AMIDI_LIBRARY}
     )
 else()
     add_library(mozart-platform INTERFACE)
