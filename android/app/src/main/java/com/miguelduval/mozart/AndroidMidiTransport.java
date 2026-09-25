@@ -255,7 +255,7 @@ public final class AndroidMidiTransport {
         final boolean sameOpenEndpoint =
                 openedDeviceId == selected.deviceId &&
                 openedPortNumber == selected.portNumber &&
-                nativeIsMidiOutputOpen();
+                nativeIsMidiOutputOpenInternal();
 
         final String status;
         if (sameOpenEndpoint) {
@@ -303,7 +303,7 @@ public final class AndroidMidiTransport {
 
         if (openedDeviceId == selected.deviceId &&
                 openedPortNumber == selected.portNumber &&
-                nativeIsMidiOutputOpen()) {
+                nativeIsMidiOutputOpenInternal()) {
             return;
         }
 
