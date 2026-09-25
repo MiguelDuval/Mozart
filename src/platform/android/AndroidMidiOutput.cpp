@@ -1,6 +1,6 @@
 #include "AndroidMidiOutput.h"
 
-#include <AMidi/AMidi.h>
+#include <amidi/AMidi.h>
 
 #include <array>
 #include <limits>
