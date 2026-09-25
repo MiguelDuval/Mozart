@@ -194,12 +194,8 @@ int main() {
 
         const auto targetBeat = 8.5;
         const auto targetTime = clock.hostTimeAtBeat(targetBeat);
-        const auto roundTripState = clock.captureAppSnapshot();
-        const auto roundTripBeat =
-                targetTime.count() > 0
-                    ? targetBeat
-                    : roundTripState.beat;
-        assert(std::abs(roundTripBeat - targetBeat) < 1.0e-12);
+        const auto roundTripBeat = clock.beatAtHostTime(targetTime);
+        assert(std::abs(roundTripBeat - targetBeat) < 1.0e-9);
     }
 #endif
 
