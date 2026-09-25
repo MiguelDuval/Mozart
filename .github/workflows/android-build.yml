@@ -58,7 +58,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cmake -S tests -B build/native-tests -DCMAKE_BUILD_TYPE=Debug
+          cmake -S tests -B build/native-tests -DCMAKE_BUILD_TYPE=Debug -DMOZART_ENABLE_LINK=ON
           cmake --build build/native-tests --parallel 2
           build/native-tests/mozart_core_tests
 
