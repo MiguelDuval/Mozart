@@ -3,6 +3,26 @@
 ## Layer map
 
 ```
+Musical intent / context
+        |
+        v
+Accompaniment engine
+        |
+        v
+Pattern / scheduler
+        |
+        v
+Ableton Link clock
+        |
+        v
+Android MIDI transport
+        |
+        v
+USB MIDI
+        |
+        v
+Arturia MicroFreak
+
 Android UI / lifecycle
         |
         v
@@ -29,7 +49,7 @@ Scheduler
 MIDI output
         |
         v
-External hardware / DAW / synth
+Arturia MicroFreak / other MIDI synths / DAW
 ```
 
 Optional paths:
