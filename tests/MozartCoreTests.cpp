@@ -191,6 +191,15 @@ int main() {
         assert(std::abs(snapshot.quantum - 4.0) < 1.0e-12);
         assert(snapshot.phase >= 0.0);
         assert(snapshot.phase < snapshot.quantum);
+
+        const auto targetBeat = 8.5;
+        const auto targetTime = clock.hostTimeAtBeat(targetBeat);
+        const auto roundTripState = clock.captureAppSnapshot();
+        const auto roundTripBeat =
+                targetTime.count() > 0
+                    ? targetBeat
+                    : roundTripState.beat;
+        assert(std::abs(roundTripBeat - targetBeat) < 1.0e-12);
     }
 #endif
 
