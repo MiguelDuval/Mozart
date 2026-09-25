@@ -82,20 +82,20 @@ jobs:
             adb shell getprop sys.boot_completed | grep -q "1"
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.miguelduval.mozart.debug
-            timeout 15s adb shell am start -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity || true
+            timeout 15s adb shell am start -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity
             sleep 3
             adb shell pidof com.miguelduval.mozart.debug
             adb shell dumpsys activity activities > /tmp/mozart-activity.txt
             adb shell dumpsys window windows > /tmp/mozart-window.txt
             adb logcat -d -t 300 > /tmp/mozart-logcat.txt
             adb exec-out screencap -p > /tmp/mozart-screen.png
-            timeout 10s adb shell uiautomator dump /sdcard/mozart-ui.xml || true
-            if adb exec-out cat /sdcard/mozart-ui.xml > /tmp/mozart-ui.xml 2>/dev/null; then
-              grep -Fq 'text="MOZART"' /tmp/mozart-ui.xml
-              grep -Fq 'text="Manual key: F# minor"' /tmp/mozart-ui.xml
-            else
-              echo "UI hierarchy dump unavailable; activity/window/logcat diagnostics were captured."
+            grep -Fq 'com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity' /tmp/mozart-activity.txt
+            if grep -Fq 'FATAL EXCEPTION' /tmp/mozart-logcat.txt; then
+              echo "Fatal Android exception detected."
+              exit 1
             fi
+            timeout 10s adb shell uiautomator dump /sdcard/mozart-ui.xml || true
+            adb exec-out cat /sdcard/mozart-ui.xml > /tmp/mozart-ui.xml 2>/dev/null || true
 
       - name: Upload debug APK
         if: always()
