@@ -13,32 +13,23 @@ namespace mozart::scheduler {
 namespace {
 
 [[nodiscard]] std::uint64_t beatToTimestampNanos(
-        const clock::LinkClockSnapshot& snapshot,
-        const double beat) noexcept {
-    const double deltaBeats = beat - snapshot.beat;
-    const double deltaMicros =
-            deltaBeats * (60.0 / snapshot.tempoBpm) * 1'000'000.0;
-
-    const double timestampMicros =
-            static_cast<double>(snapshot.hostTime.count()) + deltaMicros;
-
-    if (!(timestampMicros > 0.0)) {
+        const std::chrono::microseconds hostTime) noexcept {
+    if (hostTime.count() <= 0) {
         return 0;
     }
 
-    const double timestampNanos = timestampMicros * 1'000.0;
-    const double maxNanos =
-            static_cast<double>(std::numeric_limits<std::uint64_t>::max());
+    const auto micros = static_cast<std::uint64_t>(hostTime.count());
+    constexpr std::uint64_t kNanosPerMicrosecond = 1'000ULL;
 
-    if (timestampNanos >= maxNanos) {
+    if (micros > std::numeric_limits<std::uint64_t>::max() /
+            kNanosPerMicrosecond) {
         return std::numeric_limits<std::uint64_t>::max();
     }
 
-    return static_cast<std::uint64_t>(timestampNanos);
+    return micros * kNanosPerMicrosecond;
 }
 
-} // namespace
-
+}
 AccompanimentScheduler::AccompanimentScheduler(
         clock::LinkClock& clock,
         MidiSendQueue& sendQueue)
@@ -141,8 +132,10 @@ void AccompanimentScheduler::scheduleBar(
         const double startBeat = barStartBeat + event.startBeat;
         const double endBeat = startBeat + event.durationBeats;
 
-        const auto noteOnTimestamp = beatToTimestampNanos(snapshot, startBeat);
-        const auto noteOffTimestamp = beatToTimestampNanos(snapshot, endBeat);
+        const auto noteOnTimestamp =
+                beatToTimestampNanos(clock_.hostTimeAtBeat(startBeat));
+        const auto noteOffTimestamp =
+                beatToTimestampNanos(clock_.hostTimeAtBeat(endBeat));
 
         const auto noteOn =
                 midi::noteOn(
