@@ -50,6 +50,10 @@ jobs:
             exit "$status"
           fi
 
+      - name: Fetch pinned Ableton Link
+        shell: bash
+        run: bash tools/fetch_link.sh
+
       - name: Test Mozart C++ core
         shell: bash
         run: |
