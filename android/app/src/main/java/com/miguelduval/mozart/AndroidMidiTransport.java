@@ -286,8 +286,8 @@ public final class AndroidMidiTransport {
             return;
         }
 
-        pendingEndpoint = selected;
         closeOutput();
+        pendingEndpoint = selected;
 
         opening = true;
 
