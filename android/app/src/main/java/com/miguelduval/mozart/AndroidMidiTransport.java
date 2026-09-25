@@ -2,7 +2,9 @@ package com.miguelduval.mozart;
 
 import android.content.Context;
 import android.media.midi.MidiDeviceInfo;
+import android.media.midi.MidiDeviceStatus;
 import android.media.midi.MidiManager;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -13,8 +15,9 @@ import java.util.List;
 /**
  * Android-only MIDI discovery adapter.
  *
- * This class knows Android MIDI classes and port semantics. It exposes only
- * immutable transport-neutral inventory records to the rest of the app.
+ * Android owns MidiManager/MidiDeviceInfo and port semantics. The rest of the
+ * application receives immutable endpoint records and never imports Android
+ * MIDI classes.
  */
 public final class AndroidMidiTransport {
     public interface Listener {
@@ -58,7 +61,8 @@ public final class AndroidMidiTransport {
         }
 
         public String displayName() {
-            final String manufacturerPart = manufacturer.isEmpty() ? "" : manufacturer + " ";
+            final String manufacturerPart =
+                    manufacturer.isEmpty() ? "" : manufacturer + " ";
             final String productPart = product.isEmpty() ? name : product;
             final String portPart = "port " + portNumber;
             return manufacturerPart + productPart + " (" + portPart + ")";
@@ -85,8 +89,7 @@ public final class AndroidMidiTransport {
                 }
 
                 @Override
-                public void onDeviceStatusChanged(
-                        MidiDeviceStatusAdapterPlaceholder ignored) {
+                public void onDeviceStatusChanged(MidiDeviceStatus status) {
                     refresh();
                 }
             };
@@ -124,7 +127,7 @@ public final class AndroidMidiTransport {
 
         if (devices != null) {
             for (MidiDeviceInfo device : devices) {
-                final android.os.Bundle properties = device.getProperties();
+                final Bundle properties = device.getProperties();
                 final String name = safeString(
                         properties.getString(MidiDeviceInfo.PROPERTY_NAME));
                 final String manufacturer = safeString(
@@ -201,11 +204,4 @@ public final class AndroidMidiTransport {
             String[] names,
             String[] manufacturers,
             String[] products);
-
-    /*
-     * The Android framework type used by the callback is intentionally kept
-     * out of the listener contract. The actual callback override below is
-     * supplied in the companion source once the platform signature is bound.
-     */
-    private static final class MidiDeviceStatusAdapterPlaceholder {}
 }
