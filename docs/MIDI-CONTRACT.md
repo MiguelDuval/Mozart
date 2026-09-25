@@ -51,6 +51,8 @@ The selected input port belongs to the destination MIDI device. For Mozart's pri
 
 Prefer Android/AMidi timestamps for scheduled sends when the selected transport supports them.
 
+AMidi is API 29+. Mozart keeps minSdk 24, so the native layer dynamically loads `libamidi.so` at runtime rather than hard-linking it into the APK. On Android versions without AMidi, the transport reports `Unsupported` instead of making the process depend on an unavailable native library.
+
 The transport-neutral boundary accepts `MidiShortMessage`; platform adapters own byte packing, platform handles and port lifecycle.
 
 `AMidiInputPort_sendWithTimestamp()` may block during the actual write. It is therefore not an audio-callback API and must not be called directly from the realtime scheduler/audio callback. A dedicated MIDI transport/send context owns the blocking write path.
