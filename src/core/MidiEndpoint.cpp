@@ -59,6 +59,12 @@ MidiEndpointSelection MidiEndpointSelector::selectPreferredOutput(
 
         // Automatic Stage 1 selection is intentionally target-specific:
         // do not silently route to an unrelated MIDI device.
+        // The initial MicroFreak path is USB-only; other transports remain
+        // discoverable for explicit future selection.
+        if (candidate.transport != TransportKind::Usb) {
+            continue;
+        }
+
         // A preferred product/name match is mandatory for automatic selection.
         // Manufacturer matching only refines the ranking; it is never enough
         // to route MIDI to an otherwise unrelated instrument.
