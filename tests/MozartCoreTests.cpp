@@ -1,10 +1,13 @@
+#include "core/MidiEndpoint.h"
 #include "core/MidiTypes.h"
 #include "core/TransportMath.h"
 #include "generation/RhythmGenerator.h"
+#include "midi/MidiTransport.h"
 
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <vector>
 
 int main() {
     {
@@ -42,6 +45,97 @@ int main() {
         const auto b = mozart::generation::RhythmGenerator::seededVelocityPattern(32, 42);
         assert(a == b);
         assert(a.size() == 32);
+    }
+
+    {
+        using mozart::midi::MidiEndpointDescriptor;
+        using mozart::midi::MidiEndpointSelector;
+        using mozart::midi::PortDirection;
+        using mozart::midi::TransportKind;
+
+        const std::vector<MidiEndpointDescriptor> candidates{
+            MidiEndpointDescriptor{
+                10, 0, PortDirection::Output, TransportKind::Usb,
+                "Arturia MicroFreak output", "Arturia", "MicroFreak"
+            },
+            MidiEndpointDescriptor{
+                11, 0, PortDirection::Input, TransportKind::Usb,
+                "Generic USB MIDI", "Other", "Controller"
+            },
+            MidiEndpointDescriptor{
+                12, 1, PortDirection::Input, TransportKind::Bluetooth,
+                "Arturia MicroFreak", "Arturia", "MicroFreak"
+            },
+            MidiEndpointDescriptor{
+                14, 2, PortDirection::Input, TransportKind::Usb,
+                "Arturia MicroFreak", "Arturia", "MicroFreak"
+            },
+            MidiEndpointDescriptor{
+                13, 1, PortDirection::Input, TransportKind::Usb,
+                "Arturia MicroFreak", "Arturia", "MicroFreak"
+            }
+        };
+
+        const auto selection =
+                MidiEndpointSelector::selectPreferredOutput(
+                        candidates, "Arturia", "MicroFreak");
+
+        assert(selection.selected());
+        assert(*selection.candidateIndex == 3);
+        assert(candidates[*selection.candidateIndex].deviceId == 14);
+        assert(candidates[*selection.candidateIndex].portNumber == 2);
+        assert(candidates[*selection.candidateIndex].canReceiveFromMozart());
+
+        const std::vector<MidiEndpointDescriptor> unrelated{
+            MidiEndpointDescriptor{
+                21, 0, PortDirection::Input, TransportKind::Usb,
+                "Generic USB MIDI", "Other", "Controller"
+            },
+            MidiEndpointDescriptor{
+                22, 0, PortDirection::Input, TransportKind::Usb,
+                "Arturia KeyLab", "Arturia", "KeyLab"
+            }
+        };
+
+        const auto noMatch =
+                MidiEndpointSelector::selectPreferredOutput(
+                        unrelated, "Arturia", "MicroFreak");
+        assert(!noMatch.selected());
+    }
+
+    {
+        class MockMidiOutput final : public mozart::midi::MidiOutputTransport {
+        public:
+            mozart::midi::MidiSendResult send(
+                    const mozart::midi::MidiShortMessage& message) noexcept override {
+                last = message;
+                ++sendCount;
+                return {
+                    mozart::midi::MidiTransportStatus::Ok,
+                    message.size
+                };
+            }
+
+            void close() noexcept override {}
+
+            mozart::midi::MidiShortMessage last{};
+            std::size_t sendCount = 0;
+        };
+
+        MockMidiOutput output;
+        const auto message =
+                mozart::midi::noteOn(0, 64, 111, 987654321ULL, 42);
+
+        assert(message.has_value());
+        const auto result = output.send(*message);
+        assert(result.ok());
+        assert(result.bytesSent == 3);
+        assert(output.sendCount == 1);
+        assert(output.last.status == 0x90);
+        assert(output.last.data1 == 64);
+        assert(output.last.data2 == 111);
+        assert(output.last.timestampNanos == 987654321ULL);
+        assert(output.last.portId == 42);
     }
 
     return 0;
