@@ -56,6 +56,13 @@ void MidiSendQueue::stop() {
     }
 }
 
+void MidiSendQueue::clearPending() noexcept {
+    std::lock_guard<std::mutex> lock(mutex_);
+    while (!queue_.empty()) {
+        queue_.pop();
+    }
+}
+
 bool MidiSendQueue::enqueue(
         const midi::MidiShortMessage& message) noexcept {
     if (!message.isValid()) {
