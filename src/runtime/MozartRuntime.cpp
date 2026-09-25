@@ -35,7 +35,7 @@ void MozartRuntime::setLinkEnabled(const bool enabled) noexcept {
     linkClock_.setEnabled(enabled);
 
     if (!enabled) {
-        scheduler_.setArmed(false);
+        setAccompanimentEnabled(false);
     }
 }
 
