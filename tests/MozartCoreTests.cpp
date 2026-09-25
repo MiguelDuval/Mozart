@@ -13,6 +13,7 @@
 #endif
 
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <condition_variable>
