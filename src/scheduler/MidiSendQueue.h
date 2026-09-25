@@ -8,6 +8,7 @@
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <vector>
 
 namespace mozart::scheduler {
 

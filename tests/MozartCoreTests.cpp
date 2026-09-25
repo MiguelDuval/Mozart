@@ -172,7 +172,6 @@ int main() {
         assert(output.last.status == 0x90);
         assert(output.last.data1 == 64);
         assert(output.last.data2 == 111);
-        assert(output.last.data2 == 111);
         assert(output.last.timestampNanos == 987654321ULL);
         assert(output.last.portId == 42);
     }

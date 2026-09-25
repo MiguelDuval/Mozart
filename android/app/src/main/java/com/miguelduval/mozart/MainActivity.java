@@ -54,15 +54,10 @@ public final class MainActivity extends Activity {
         title.setGravity(Gravity.CENTER);
 
         status = new TextView(this);
-        status.setText("
-" + nativeEngineInfo() +
-                "
-
-MIDI discovery: waiting..." +
-                "
-Manual key: F# minor" +
-                "
-Link accompanist: stopped");
+        status.setText("\n" + nativeEngineInfo()
+                + "\n\nMIDI discovery: waiting..."
+                + "\nManual key: F# minor"
+                + "\nLink accompanist: stopped");
         status.setTextSize(16.0f);
         status.setGravity(Gravity.CENTER);
 
@@ -71,18 +66,14 @@ Link accompanist: stopped");
         start.setOnClickListener(view -> {
             nativeSetManualKeyScale(6, 1);
             nativeStartAccompaniment();
-            status.append("
-
-Accompaniment armed; waiting for Link transport.");
+            status.append("\n\nAccompaniment armed; waiting for Link transport.");
         });
 
         Button stop = new Button(this);
         stop.setText("STOP");
         stop.setOnClickListener(view -> {
             nativeStopAccompaniment();
-            status.append("
-
-Accompaniment stopped.");
+            status.append("\n\nAccompaniment stopped.");
         });
 
         root.addView(
@@ -135,28 +126,20 @@ Accompaniment stopped.");
             AndroidMidiTransport.MidiEndpoint selectedOutput,
             String connectionStatus) {
         final StringBuilder text = new StringBuilder();
-        text.append("
-").append(nativeEngineInfo());
-        text.append("
-
-MIDI endpoints discovered: ").append(endpoints.size());
+        text.append("\n").append(nativeEngineInfo());
+        text.append("\n\nMIDI endpoints discovered: ").append(endpoints.size());
 
         if (selectedOutput == null) {
-            text.append("
-MIDI OUT: no Arturia MicroFreak endpoint selected");
+            text.append("\nMIDI OUT: no Arturia MicroFreak endpoint selected");
         } else {
-            text.append("
-MIDI OUT: ")
+            text.append("\nMIDI OUT: ")
                     .append(selectedOutput.displayName())
                     .append(selectedOutput.isUsb() ? " [USB]" : " [non-USB]")
-                    .append("
-Android device INPUT port selected for send");
+                    .append("\nAndroid device INPUT port selected for send");
         }
 
-        text.append("
-").append(connectionStatus);
-        text.append("
-Manual key: F# minor");
+        text.append("\n").append(connectionStatus);
+        text.append("\nManual key: F# minor");
         status.setText(text.toString());
     }
 }
