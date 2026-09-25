@@ -6,12 +6,18 @@
 #include "midi/MidiTransport.h"
 #include "musical/KeyScale.h"
 #ifdef MOZART_ENABLE_LINK
+#include "runtime/MozartRuntime.h"
+#endif
+#ifdef MOZART_ENABLE_LINK
 #include "clock/LinkClock.h"
 #endif
 
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 int main() {
@@ -177,6 +183,71 @@ int main() {
     }
 
 #ifdef MOZART_ENABLE_LINK
+    {
+        class RecordingMidiOutput final : public mozart::midi::MidiOutputTransport {
+        public:
+            mozart::midi::MidiSendResult send(
+                    const mozart::midi::MidiShortMessage& message) noexcept override {
+                {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    messages.push_back(message);
+                }
+                condition.notify_all();
+                return {
+                    mozart::midi::MidiTransportStatus::Ok,
+                    message.size
+                };
+            }
+
+            void close() noexcept override {}
+
+            bool waitForCount(const std::size_t expected) {
+                std::unique_lock<std::mutex> lock(mutex);
+                return condition.wait_for(
+                        lock,
+                        std::chrono::milliseconds(500),
+                        [&] { return messages.size() >= expected; });
+            }
+
+            std::size_t count() const {
+                std::lock_guard<std::mutex> lock(mutex);
+                return messages.size();
+            }
+
+            mozart::midi::MidiShortMessage messageAt(const std::size_t index) const {
+                std::lock_guard<std::mutex> lock(mutex);
+                return messages.at(index);
+            }
+
+        private:
+            mutable std::mutex mutex;
+            std::condition_variable condition;
+            std::vector<mozart::midi::MidiShortMessage> messages;
+        };
+
+        RecordingMidiOutput output;
+        mozart::runtime::MozartRuntime runtime(output);
+        runtime.start();
+
+        // This mirrors the Android STOP path: accompaniment is stopped first,
+        // then Link is disabled. Only one MIDI panic pair must be emitted.
+        runtime.setAccompanimentEnabled(false);
+        assert(output.waitForCount(2));
+        assert(output.count() == 2);
+
+        const auto allNotesOff = output.messageAt(0);
+        const auto allSoundOff = output.messageAt(1);
+        assert(allNotesOff.status == 0xB0);
+        assert(allNotesOff.data1 == 123);
+        assert(allNotesOff.data2 == 0);
+        assert(allSoundOff.status == 0xB0);
+        assert(allSoundOff.data1 == 120);
+        assert(allSoundOff.data2 == 0);
+
+        runtime.setLinkEnabled(false);
+        assert(output.count() == 2);
+    }
+
     {
         mozart::clock::LinkClock clock(120.0, 4.0);
         assert(!clock.isEnabled());
