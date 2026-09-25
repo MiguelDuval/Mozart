@@ -80,7 +80,7 @@ int main() {
                         candidates, "Arturia", "MicroFreak");
 
         assert(selection.selected());
-        assert(*selection.candidateIndex == 4);
+        assert(*selection.candidateIndex == 3);
         assert(candidates[*selection.candidateIndex].deviceId == 14);
         assert(candidates[*selection.candidateIndex].portNumber == 2);
         assert(candidates[*selection.candidateIndex].canReceiveFromMozart());
