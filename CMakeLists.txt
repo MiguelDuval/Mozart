@@ -43,6 +43,8 @@ if(ANDROID)
         target_compile_definitions(mozart PRIVATE LINK_PLATFORM_LINUX=1)
     endif()
 
+    target_compile_features(mozart PRIVATE cxx_std_20)
+
     target_link_libraries(mozart
         PRIVATE
         mozart-core
