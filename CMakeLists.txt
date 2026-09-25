@@ -10,6 +10,7 @@ add_library(mozart-core STATIC
     src/core/MozartEngine.cpp
     src/core/MidiTypes.cpp
     src/core/TransportMath.cpp
+    src/core/MidiEndpoint.cpp
     src/generation/RhythmGenerator.cpp
 )
 
