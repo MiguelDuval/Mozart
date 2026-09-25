@@ -30,6 +30,7 @@
 - [ ] Link test suite.
 
 ## Stage 3 — First useful accompanist
+Current vertical slice: Manual F# minor context → deterministic seeded bass → Link look-ahead scheduler → bounded MIDI OUT queue → Android AMidi boundary. Physical MicroFreak receipt remains unverified.
 - [x] Deterministic seeded rhythm generator.
 - [ ] Kick/snare/hat-style accompaniment patterns.
 - [x] Bass accompaniment.
