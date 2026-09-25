@@ -55,6 +55,23 @@ void MozartRuntime::setAccompanimentEnabled(const bool enabled) noexcept {
     scheduler_.setArmed(false);
     scheduler_.stop();
     sendQueue_.clearPending();
+
+    // STOP must not leave a Note On sounding after its queued Note Off was
+    // discarded. Send a transport-level panic after clearing future events.
+    const auto now = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    const auto timestamp =
+            static_cast<std::uint64_t>(now + 10'000'000LL);
+
+    const auto allNotesOff = midi::controlChange(0, 123, 0, timestamp);
+    const auto allSoundOff = midi::controlChange(0, 120, 0, timestamp);
+
+    if (allNotesOff.has_value()) {
+        (void) sendQueue_.enqueue(*allNotesOff);
+    }
+    if (allSoundOff.has_value()) {
+        (void) sendQueue_.enqueue(*allSoundOff);
+    }
 }
 
 void MozartRuntime::setKeyScale(const musical::KeyScale& keyScale) {
