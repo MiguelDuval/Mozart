@@ -18,6 +18,7 @@ public final class MainActivity extends Activity {
     private static native String nativeEngineInfo();
     private static native void nativeStartAccompaniment();
     private static native void nativeStopAccompaniment();
+    private static native boolean nativeTestMidiNote();
     private static native void nativeSetManualKeyScale(
             int rootPitchClass,
             int scaleId);
@@ -69,6 +70,16 @@ public final class MainActivity extends Activity {
             status.append("\n\nAccompaniment armed; waiting for Link transport.");
         });
 
+        Button testMidi = new Button(this);
+        testMidi.setText("TEST MIDI OUT");
+        testMidi.setOnClickListener(view -> {
+            final boolean queued = nativeTestMidiNote();
+            status.append(
+                    queued
+                            ? "\n\nDiagnostic C2 note queued."
+                            : "\n\nDiagnostic C2 note could not be queued; check MIDI OUT status.");
+        });
+
         Button stop = new Button(this);
         stop.setText("STOP");
         stop.setOnClickListener(view -> {
@@ -89,6 +100,11 @@ public final class MainActivity extends Activity {
                         1.0f));
         root.addView(
                 start,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(
+                testMidi,
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
