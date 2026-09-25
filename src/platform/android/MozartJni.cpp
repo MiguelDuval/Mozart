@@ -109,6 +109,13 @@ Java_com_miguelduval_mozart_MainActivity_nativeStartAccompaniment(
     app->setAccompanimentEnabled(true);
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeTestMidiNote(
+        JNIEnv*,
+        jobject) {
+    return runtime()->sendDiagnosticNote() ? JNI_TRUE : JNI_FALSE;
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_miguelduval_mozart_MainActivity_nativeStopAccompaniment(
         JNIEnv*,
