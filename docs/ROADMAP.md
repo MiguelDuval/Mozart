@@ -21,8 +21,9 @@
 
 ## Stage 2 — Ableton Link accompanist clock
 - [x] Link 4.0 wrapper.
-- [x] Link enable/disable.
+- [ ] Link enable/disable runtime control.
 - [x] Session tempo / beat / phase snapshot API.
+- [ ] Android Link runtime/session validation.
 
 
 
