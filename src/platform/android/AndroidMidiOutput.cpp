@@ -46,12 +46,15 @@ std::int32_t AndroidMidiOutput::open(
 }
 
 bool AndroidMidiOutput::isOpen() const noexcept {
+    std::lock_guard<std::mutex> lock(mutex_);
     return device_ != nullptr && inputPort_ != nullptr;
 }
 
 midi::MidiSendResult AndroidMidiOutput::send(
         const midi::MidiShortMessage& message) noexcept {
-    if (!isOpen()) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (device_ == nullptr || inputPort_ == nullptr) {
         return {
             midi::MidiTransportStatus::NotOpen,
             0
@@ -107,6 +110,8 @@ midi::MidiSendResult AndroidMidiOutput::send(
 }
 
 void AndroidMidiOutput::close() noexcept {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     if (inputPort_ != nullptr) {
         AMidiInputPort_close(inputPort_);
         inputPort_ = nullptr;
