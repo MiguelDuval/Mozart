@@ -67,7 +67,7 @@ public final class MainActivity extends Activity {
         start.setOnClickListener(view -> {
             nativeSetManualKeyScale(6, 1);
             nativeStartAccompaniment();
-            status.append("\n\nAccompaniment armed; waiting for Link transport.");
+            status.append("\n\nAccompaniment armed; following Link timing.");
         });
 
         Button testMidi = new Button(this);
