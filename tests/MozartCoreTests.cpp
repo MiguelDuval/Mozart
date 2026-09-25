@@ -13,6 +13,7 @@
 #endif
 
 #include <cassert>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -247,6 +248,52 @@ int main() {
 
         runtime.setLinkEnabled(false);
         assert(output.count() == 2);
+    }
+
+    {
+        class CountingMidiOutput final : public mozart::midi::MidiOutputTransport {
+        public:
+            mozart::midi::MidiSendResult send(
+                    const mozart::midi::MidiShortMessage& message) noexcept override {
+                last = message;
+                ++sendCount;
+                return {
+                    mozart::midi::MidiTransportStatus::Ok,
+                    message.size
+                };
+            }
+
+            void close() noexcept override {}
+
+            mozart::midi::MidiShortMessage last{};
+            std::atomic<std::size_t> sendCount{0};
+        };
+
+        CountingMidiOutput output;
+        mozart::clock::LinkClock clock(120.0, 4.0);
+        mozart::scheduler::MidiSendQueue queue(output);
+        mozart::scheduler::AccompanimentScheduler scheduler(clock, queue);
+
+        clock.setEnabled(true);
+        queue.start();
+        scheduler.start();
+        scheduler.setArmed(true);
+
+        bool generated = false;
+        for (int attempt = 0; attempt < 100; ++attempt) {
+            if (output.sendCount.load() > 0) {
+                generated = true;
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+
+        scheduler.setArmed(false);
+        scheduler.stop();
+        queue.stop();
+
+        assert(generated);
+        assert(output.last.size == 3);
     }
 
     {
