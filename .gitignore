@@ -1,0 +1,25 @@
+# Gradle
+.gradle/
+build/
+android/.gradle/
+android/app/build/
+
+# Android / IDE
+.idea/
+*.iml
+local.properties
+
+# Native
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+CTestTestfile.cmake
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+*.keystore
+*.jks
