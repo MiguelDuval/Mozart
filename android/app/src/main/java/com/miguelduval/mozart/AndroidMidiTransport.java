@@ -1,29 +1,32 @@
 package com.miguelduval.mozart;
 
 import android.content.Context;
+import android.media.midi.MidiDevice;
 import android.media.midi.MidiDeviceInfo;
 import android.media.midi.MidiDeviceStatus;
 import android.media.midi.MidiManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 /**
- * Android-only MIDI discovery adapter.
+ * Android-only MIDI discovery and device lifecycle adapter.
  *
- * Android owns MidiManager/MidiDeviceInfo and port semantics. The rest of the
- * application receives immutable endpoint records and never imports Android
- * MIDI classes.
+ * Android owns MidiManager, MidiDeviceInfo and MidiDevice. The rest of the
+ * application receives immutable endpoint records and transport state.
  */
 public final class AndroidMidiTransport {
     public interface Listener {
         void onMidiInventoryChanged(
                 List<MidiEndpoint> endpoints,
-                MidiEndpoint selectedOutput);
+                MidiEndpoint selectedOutput,
+                String connectionStatus);
     }
 
     public static final class MidiEndpoint {
@@ -76,6 +79,13 @@ public final class AndroidMidiTransport {
     private final Handler callbackHandler = new Handler(Looper.getMainLooper());
     private final Listener listener;
 
+    private MidiDevice openedDevice;
+    private int openedDeviceId = -1;
+    private int openedPortNumber = -1;
+
+    private boolean opening;
+    private MidiEndpoint pendingEndpoint;
+
     private final MidiManager.DeviceCallback deviceCallback =
             new MidiManager.DeviceCallback() {
                 @Override
@@ -102,7 +112,10 @@ public final class AndroidMidiTransport {
 
     public void start() {
         if (midiManager == null) {
-            publish(Collections.emptyList(), null);
+            publish(
+                    Collections.emptyList(),
+                    null,
+                    "MIDI service unavailable");
             return;
         }
 
@@ -114,11 +127,15 @@ public final class AndroidMidiTransport {
         if (midiManager != null) {
             midiManager.unregisterDeviceCallback(deviceCallback);
         }
+        closeOutput();
     }
 
     public void refresh() {
         if (midiManager == null) {
-            publish(Collections.emptyList(), null);
+            publish(
+                    Collections.emptyList(),
+                    null,
+                    "MIDI service unavailable");
             return;
         }
 
@@ -181,14 +198,201 @@ public final class AndroidMidiTransport {
                         ? endpoints.get(selectedIndex)
                         : null;
 
-        publish(endpoints, selected);
+        if (selected == null) {
+            pendingEndpoint = null;
+            closeOutput();
+            publish(
+                    endpoints,
+                    null,
+                    "MIDI OUT: no Arturia MicroFreak USB endpoint selected");
+            return;
+        }
+
+        if (!selected.isDeviceInput()) {
+            pendingEndpoint = null;
+            closeOutput();
+            publish(
+                    endpoints,
+                    selected,
+                    "MIDI OUT: selected endpoint has wrong port direction");
+            return;
+        }
+
+        synchronizeOutput(devices, selected);
+
+        final boolean sameOpenEndpoint =
+                openedDeviceId == selected.deviceId &&
+                openedPortNumber == selected.portNumber &&
+                nativeIsMidiOutputOpen();
+
+        final String status;
+        if (sameOpenEndpoint) {
+            status = "connected via AMidi";
+        } else if (opening && samePendingEndpoint(selected)) {
+            status = "opening AMidi endpoint...";
+        } else {
+            status = Build.VERSION.SDK_INT >= 29
+                    ? "selected USB endpoint; opening AMidi..."
+                    : "selected USB endpoint; AMidi requires Android 10/API 29";
+        }
+
+        publish(endpoints, selected, status);
     }
 
-    private void publish(List<MidiEndpoint> endpoints, MidiEndpoint selectedOutput) {
+    /**
+     * Sends one already validated MIDI 1.0 short message through the native
+     * transport boundary. The native AMidi write may block, so the scheduler
+     * must call this from its dedicated MIDI transport/send context rather
+     * than an audio callback.
+     *
+     * @return transport status code defined by mozart::midi::MidiTransportStatus.
+     */
+    public int sendShortMessage(
+            int status,
+            int data1,
+            int data2,
+            int size,
+            long timestampNanos) {
+        return nativeSendShortMessage(
+                status,
+                data1,
+                data2,
+                size,
+                timestampNanos);
+    }
+
+    private void synchronizeOutput(
+            MidiDeviceInfo[] devices,
+            MidiEndpoint selected) {
+        if (Build.VERSION.SDK_INT < 29) {
+            pendingEndpoint = selected;
+            return;
+        }
+
+        if (openedDeviceId == selected.deviceId &&
+                openedPortNumber == selected.portNumber &&
+                nativeIsMidiOutputOpen()) {
+            return;
+        }
+
+        if (opening && samePendingEndpoint(selected)) {
+            return;
+        }
+
+        final MidiDeviceInfo target = findDeviceInfo(devices, selected.deviceId);
+        if (target == null || target.getInputPortCount() <= selected.portNumber) {
+            pendingEndpoint = null;
+            closeOutput();
+            return;
+        }
+
+        pendingEndpoint = selected;
+        closeOutput();
+
+        opening = true;
+
+        midiManager.openDevice(
+                target,
+                device -> {
+                    opening = false;
+
+                    if (device == null) {
+                        pendingEndpoint = null;
+                        publish(
+                                Collections.emptyList(),
+                                null,
+                                "MIDI OUT: Android failed to open MicroFreak device");
+                        return;
+                    }
+
+                    if (!samePendingEndpoint(selected)) {
+                        safeClose(device);
+                        return;
+                    }
+
+                    final int nativeStatus =
+                            nativeOpenMidiOutputDevice(device, selected.portNumber);
+
+                    if (nativeStatus != 0) {
+                        safeClose(device);
+                        pendingEndpoint = null;
+                        publish(
+                                Collections.emptyList(),
+                                selected,
+                                "MIDI OUT: AMidi open failed, status=" +
+                                        nativeStatus);
+                        return;
+                    }
+
+                    openedDevice = device;
+                    openedDeviceId = selected.deviceId;
+                    openedPortNumber = selected.portNumber;
+
+                    publish(
+                            Collections.emptyList(),
+                            selected,
+                            "connected via AMidi");
+                },
+                callbackHandler);
+    }
+
+    private static MidiDeviceInfo findDeviceInfo(
+            MidiDeviceInfo[] devices,
+            int deviceId) {
+        if (devices == null) {
+            return null;
+        }
+
+        for (MidiDeviceInfo device : devices) {
+            if (device.getId() == deviceId) {
+                return device;
+            }
+        }
+
+        return null;
+    }
+
+    private boolean samePendingEndpoint(MidiEndpoint endpoint) {
+        return pendingEndpoint != null &&
+                pendingEndpoint.deviceId == endpoint.deviceId &&
+                pendingEndpoint.portNumber == endpoint.portNumber;
+    }
+
+    private boolean nativeIsMidiOutputOpen() {
+        return nativeIsMidiOutputOpenInternal();
+    }
+
+    private void closeOutput() {
+        opening = false;
+        pendingEndpoint = null;
+        nativeCloseMidiOutputDevice();
+
+        if (openedDevice != null) {
+            safeClose(openedDevice);
+            openedDevice = null;
+        }
+
+        openedDeviceId = -1;
+        openedPortNumber = -1;
+    }
+
+    private void publish(
+            List<MidiEndpoint> endpoints,
+            MidiEndpoint selectedOutput,
+            String connectionStatus) {
         if (listener != null) {
             listener.onMidiInventoryChanged(
                     Collections.unmodifiableList(new ArrayList<>(endpoints)),
-                    selectedOutput);
+                    selectedOutput,
+                    connectionStatus);
+        }
+    }
+
+    private static void safeClose(MidiDevice device) {
+        try {
+            device.close();
+        } catch (IOException ignored) {
+            // Nothing else can be done for a device that is already being closed.
         }
     }
 
@@ -204,4 +408,19 @@ public final class AndroidMidiTransport {
             String[] names,
             String[] manufacturers,
             String[] products);
+
+    private static native int nativeOpenMidiOutputDevice(
+            MidiDevice midiDevice,
+            int portNumber);
+
+    private static native void nativeCloseMidiOutputDevice();
+
+    private static native boolean nativeIsMidiOutputOpenInternal();
+
+    private static native int nativeSendShortMessage(
+            int status,
+            int data1,
+            int data2,
+            int size,
+            long timestampNanos);
 }
