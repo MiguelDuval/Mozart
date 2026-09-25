@@ -45,13 +45,13 @@
 ## Stage 4 — Harmony
 - [x] Scale model.
 - [ ] Key/Scale context service with explicit source selection (Manual / Audio).
-- [x] Manual Key/Scale control.
+- [ ] Manual Key/Scale UI control.
 - [ ] Local/offline microphone key/scale detector integration.
 - [ ] Audio detector confidence/stability/hysteresis policy.
 - [ ] Performer override from Audio back to Manual.
 - [ ] Chord model.
 - [ ] Chord progression generator.
-- [ ] Bass generator.
+- [x] Bass generator.
 - [ ] Arpeggiator.
 - [ ] Voice leading.
 - [ ] Key/scale detection from MIDI input.

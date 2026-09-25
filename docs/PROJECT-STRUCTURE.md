@@ -18,16 +18,21 @@ Mozart/
 │   ├── DEPENDENCIES.md                version/licensing record
 │   ├── MIDI-CONTRACT.md               transport contract
 │   ├── LINK-TIMING.md                 shared clock contract
+│   ├── LINK-CLOCK.md                  Link wrapper contract
+│   ├── KEY-CONTEXT.md                 key/scale contract
 │   ├── AI-GENERATION.md               non-realtime AI boundary
 │   ├── SECURITY.md                    secret/network policy
-│   └── ADR-0001-foundation.md         architecture decision
+│   └── ...
 ├── src/
 │   ├── core/                          transport-neutral primitives
+│   ├── musical/                       key/scale and semantic note events
 │   ├── generation/                    deterministic generators
-│   ├── midi/                          future platform MIDI adapter
-│   ├── scheduler/                     future timestamp scheduler
+│   ├── midi/                          transport abstraction
+│   ├── clock/                         Ableton Link clock wrapper
+│   ├── scheduler/                     look-ahead + MIDI send queue
+│   ├── runtime/                       application-level orchestration
 │   ├── audio/                         future Oboe/JUCE audio layer
-│   └── platform/android/              JNI/platform bridge
+│   └── platform/android/              JNI/platform bridge + AMidi
 ├── tests/                              host-native tests
 ├── tools/                              developer scripts
 ├── CMakeLists.txt
@@ -43,6 +48,8 @@ Platform adapters can depend on transport-neutral core APIs.
 Core/domain/generator code must not depend on Android.
 
 Scheduler depends on semantic MIDI events and clock interfaces, not Android classes.
+
+Runtime orchestrates the clock, musical scheduler and transport without exposing platform handles to the musical domain.
 
 Optional AI depends on generated request/response schemas, never on realtime scheduling internals.
 
