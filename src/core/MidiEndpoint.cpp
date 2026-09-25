@@ -39,7 +39,7 @@ namespace {
 MidiEndpointSelection MidiEndpointSelector::selectPreferredOutput(
         const std::vector<MidiEndpointDescriptor>& candidates,
         const std::string& preferredManufacturer,
-        const std::string& preferredProduct) noexcept {
+        const std::string& preferredProduct) {
     struct RankedCandidate {
         std::size_t index = 0;
         int score = std::numeric_limits<int>::min();
@@ -81,6 +81,8 @@ MidiEndpointSelection MidiEndpointSelector::selectPreferredOutput(
             score += 1000;
         }
 
+        // Physical USB is preferred over other transports for the initial
+        // MicroFreak target, while the descriptor remains transport-neutral.
         if (candidate.transport == TransportKind::Usb) {
             score += 500;
         }
