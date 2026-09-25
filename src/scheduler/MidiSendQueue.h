@@ -25,6 +25,7 @@ public:
 
     void start();
     void stop();
+    void clearPending() noexcept;
 
     [[nodiscard]] bool enqueue(
             const midi::MidiShortMessage& message) noexcept;
