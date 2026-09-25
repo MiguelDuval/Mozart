@@ -51,4 +51,10 @@ std::chrono::microseconds LinkClock::hostTimeAtBeat(const double beat) const {
     return state.timeAtBeat(beat, quantum_);
 }
 
+double LinkClock::beatAtHostTime(
+        const std::chrono::microseconds hostTime) const {
+    const auto state = link_.captureAppSessionState();
+    return state.beatAtTime(hostTime, quantum_);
+}
+
 } // namespace mozart::clock
