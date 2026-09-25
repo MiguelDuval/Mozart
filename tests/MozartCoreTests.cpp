@@ -2,6 +2,7 @@
 #include "core/MidiTypes.h"
 #include "core/TransportMath.h"
 #include "generation/RhythmGenerator.h"
+#include "midi/MidiTransport.h"
 
 #include <cassert>
 #include <cmath>
