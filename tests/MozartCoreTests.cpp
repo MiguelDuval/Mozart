@@ -3,6 +3,9 @@
 #include "core/TransportMath.h"
 #include "generation/RhythmGenerator.h"
 #include "midi/MidiTransport.h"
+#ifdef MOZART_ENABLE_LINK
+#include "clock/LinkClock.h"
+#endif
 
 #include <cassert>
 #include <cmath>
@@ -137,6 +140,24 @@ int main() {
         assert(output.last.timestampNanos == 987654321ULL);
         assert(output.last.portId == 42);
     }
+
+#ifdef MOZART_ENABLE_LINK
+    {
+        mozart::clock::LinkClock clock(120.0, 4.0);
+        assert(!clock.isEnabled());
+        assert(!clock.isStartStopSyncEnabled());
+
+        const auto snapshot = clock.captureAppSnapshot();
+        assert(!snapshot.enabled);
+        assert(!snapshot.playing);
+        assert(!snapshot.inSession);
+        assert(snapshot.peers == 0);
+        assert(std::abs(snapshot.tempoBpm - 120.0) < 1.0e-9);
+        assert(std::abs(snapshot.quantum - 4.0) < 1.0e-12);
+        assert(snapshot.phase >= 0.0);
+        assert(snapshot.phase < snapshot.quantum);
+    }
+#endif
 
     return 0;
 }
