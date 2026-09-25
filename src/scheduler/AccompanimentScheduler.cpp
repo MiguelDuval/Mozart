@@ -132,6 +132,11 @@ void AccompanimentScheduler::scheduleBar(
         const double startBeat = barStartBeat + event.startBeat;
         const double endBeat = startBeat + event.durationBeats;
 
+        // Never enqueue a Note On whose musical start has already passed.
+        if (startBeat < snapshot.beat) {
+            continue;
+        }
+
         const auto noteOnTimestamp =
                 beatToTimestampNanos(clock_.hostTimeAtBeat(startBeat));
         const auto noteOffTimestamp =
