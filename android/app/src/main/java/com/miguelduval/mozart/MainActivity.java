@@ -43,10 +43,7 @@ public final class MainActivity extends Activity {
         title.setGravity(Gravity.CENTER);
 
         status = new TextView(this);
-        status.setText("
-" + nativeEngineInfo() + "
-
-MIDI discovery: waiting...");
+        status.setText("\n" + nativeEngineInfo() + "\n\nMIDI discovery: waiting...");
         status.setTextSize(16.0f);
         status.setGravity(Gravity.CENTER);
 
