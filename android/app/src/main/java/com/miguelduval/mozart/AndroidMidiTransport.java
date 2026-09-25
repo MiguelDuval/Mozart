@@ -8,6 +8,7 @@ import android.media.midi.MidiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 
 import java.io.IOException;
@@ -18,8 +19,9 @@ import java.util.List;
 /**
  * Android-only MIDI discovery and device lifecycle adapter.
  *
- * Android owns MidiManager, MidiDeviceInfo and MidiDevice. The rest of the
- * application receives immutable endpoint records and transport state.
+ * Device discovery and platform MIDI operations run on a dedicated handler
+ * thread so Activity lifecycle/UI callbacks never block on MIDI services.
+ * UI inventory notifications are marshalled back to the main thread.
  */
 public final class AndroidMidiTransport {
     public interface Listener {
@@ -76,13 +78,16 @@ public final class AndroidMidiTransport {
     private static final String PREFERRED_PRODUCT = "MicroFreak";
 
     private final MidiManager midiManager;
-    private final Handler callbackHandler = new Handler(Looper.getMainLooper());
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final HandlerThread midiThread = new HandlerThread("Mozart-MIDI");
+    private final Handler midiHandler;
     private final Listener listener;
 
     private MidiDevice openedDevice;
     private int openedDeviceId = -1;
     private int openedPortNumber = -1;
 
+    private boolean started;
     private boolean opening;
     private MidiEndpoint pendingEndpoint;
 
@@ -90,17 +95,17 @@ public final class AndroidMidiTransport {
             new MidiManager.DeviceCallback() {
                 @Override
                 public void onDeviceAdded(MidiDeviceInfo device) {
-                    refresh();
+                    requestRefresh();
                 }
 
                 @Override
                 public void onDeviceRemoved(MidiDeviceInfo device) {
-                    refresh();
+                    requestRefresh();
                 }
 
                 @Override
                 public void onDeviceStatusChanged(MidiDeviceStatus status) {
-                    refresh();
+                    requestRefresh();
                 }
             };
 
@@ -108,31 +113,58 @@ public final class AndroidMidiTransport {
         this.midiManager =
                 (MidiManager) context.getSystemService(Context.MIDI_SERVICE);
         this.listener = listener;
+
+        midiThread.start();
+        midiHandler = new Handler(midiThread.getLooper());
     }
 
     public void start() {
         if (midiManager == null) {
-            publish(
+            publishOnMain(
                     Collections.emptyList(),
                     null,
                     "MIDI service unavailable");
             return;
         }
 
-        midiManager.registerDeviceCallback(deviceCallback, callbackHandler);
-        refresh();
+        midiHandler.post(() -> {
+            if (started) {
+                return;
+            }
+
+            started = true;
+            midiManager.registerDeviceCallback(deviceCallback, midiHandler);
+            refreshInternal();
+        });
     }
 
     public void stop() {
-        if (midiManager != null) {
+        midiHandler.post(() -> {
+            if (!started && openedDevice == null && !opening) {
+                return;
+            }
+
+            started = false;
             midiManager.unregisterDeviceCallback(deviceCallback);
-        }
-        closeOutput();
+            closeOutputInternal();
+        });
     }
 
     public void refresh() {
+        requestRefresh();
+    }
+
+    private void requestRefresh() {
+        midiHandler.post(() -> {
+            if (started) {
+                refreshInternal();
+            }
+        });
+    }
+
+    private void refreshInternal() {
         if (midiManager == null) {
-            publish(
+            publishOnMain(
                     Collections.emptyList(),
                     null,
                     "MIDI service unavailable");
@@ -200,8 +232,8 @@ public final class AndroidMidiTransport {
 
         if (selected == null) {
             pendingEndpoint = null;
-            closeOutput();
-            publish(
+            closeOutputInternal();
+            publishOnMain(
                     endpoints,
                     null,
                     "MIDI OUT: no Arturia MicroFreak USB endpoint selected");
@@ -210,8 +242,8 @@ public final class AndroidMidiTransport {
 
         if (!selected.isDeviceInput()) {
             pendingEndpoint = null;
-            closeOutput();
-            publish(
+            closeOutputInternal();
+            publishOnMain(
                     endpoints,
                     selected,
                     "MIDI OUT: selected endpoint has wrong port direction");
@@ -236,7 +268,7 @@ public final class AndroidMidiTransport {
                     : "selected USB endpoint; AMidi requires Android 10/API 29";
         }
 
-        publish(endpoints, selected, status);
+        publishOnMain(endpoints, selected, status);
     }
 
     /**
@@ -282,13 +314,12 @@ public final class AndroidMidiTransport {
         final MidiDeviceInfo target = findDeviceInfo(devices, selected.deviceId);
         if (target == null || target.getInputPortCount() <= selected.portNumber) {
             pendingEndpoint = null;
-            closeOutput();
+            closeOutputInternal();
             return;
         }
 
-        closeOutput();
+        closeOutputInternal();
         pendingEndpoint = selected;
-
         opening = true;
 
         midiManager.openDevice(
@@ -298,7 +329,7 @@ public final class AndroidMidiTransport {
 
                     if (device == null) {
                         pendingEndpoint = null;
-                        publish(
+                        publishOnMain(
                                 Collections.emptyList(),
                                 null,
                                 "MIDI OUT: Android failed to open MicroFreak device");
@@ -316,7 +347,7 @@ public final class AndroidMidiTransport {
                     if (nativeStatus != 0) {
                         safeClose(device);
                         pendingEndpoint = null;
-                        publish(
+                        publishOnMain(
                                 Collections.emptyList(),
                                 selected,
                                 "MIDI OUT: AMidi open failed, status=" +
@@ -328,12 +359,12 @@ public final class AndroidMidiTransport {
                     openedDeviceId = selected.deviceId;
                     openedPortNumber = selected.portNumber;
 
-                    publish(
+                    publishOnMain(
                             Collections.emptyList(),
                             selected,
                             "connected via AMidi");
                 },
-                callbackHandler);
+                midiHandler);
     }
 
     private static MidiDeviceInfo findDeviceInfo(
@@ -358,11 +389,7 @@ public final class AndroidMidiTransport {
                 pendingEndpoint.portNumber == endpoint.portNumber;
     }
 
-    private boolean nativeIsMidiOutputOpen() {
-        return nativeIsMidiOutputOpenInternal();
-    }
-
-    private void closeOutput() {
+    private void closeOutputInternal() {
         opening = false;
         pendingEndpoint = null;
         nativeCloseMidiOutputDevice();
@@ -376,16 +403,21 @@ public final class AndroidMidiTransport {
         openedPortNumber = -1;
     }
 
-    private void publish(
+    private void publishOnMain(
             List<MidiEndpoint> endpoints,
             MidiEndpoint selectedOutput,
             String connectionStatus) {
-        if (listener != null) {
-            listener.onMidiInventoryChanged(
-                    Collections.unmodifiableList(new ArrayList<>(endpoints)),
-                    selectedOutput,
-                    connectionStatus);
-        }
+        final List<MidiEndpoint> stableEndpoints =
+                Collections.unmodifiableList(new ArrayList<>(endpoints));
+
+        mainHandler.post(() -> {
+            if (listener != null) {
+                listener.onMidiInventoryChanged(
+                        stableEndpoints,
+                        selectedOutput,
+                        connectionStatus);
+            }
+        });
     }
 
     private static void safeClose(MidiDevice device) {
