@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.22.1)
 
 project(MozartNativeTests LANGUAGES CXX)
 
+find_package(Threads REQUIRED)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -34,9 +36,12 @@ if(MOZART_ENABLE_LINK)
     target_compile_features(mozart_core_tests PRIVATE cxx_std_20)
     target_sources(mozart_core_tests PRIVATE
         ../src/clock/LinkClock.cpp
+        ../src/scheduler/MidiSendQueue.cpp
+        ../src/scheduler/AccompanimentScheduler.cpp
+        ../src/runtime/MozartRuntime.cpp
     )
     target_compile_definitions(mozart_core_tests PRIVATE
         LINK_PLATFORM_LINUX=1
     )
-    target_link_libraries(mozart_core_tests PRIVATE Ableton::Link)
+    target_link_libraries(mozart_core_tests PRIVATE Ableton::Link Threads::Threads)
 endif()
