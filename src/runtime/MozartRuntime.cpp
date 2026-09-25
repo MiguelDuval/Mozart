@@ -29,8 +29,11 @@ void MozartRuntime::stop() {
         return;
     }
 
-    scheduler_.setArmed(false);
-    scheduler_.stop();
+    // Reuse the normal accompaniment shutdown path while the MIDI send queue
+    // is still alive, so an in-flight Note On cannot leave a stuck note.
+    setAccompanimentEnabled(false);
+    setLinkEnabled(false);
+
     sendQueue_.stop();
     started_ = false;
 }
@@ -38,7 +41,9 @@ void MozartRuntime::stop() {
 void MozartRuntime::setLinkEnabled(const bool enabled) noexcept {
     linkClock_.setEnabled(enabled);
 
-    if (!enabled) {
+    // Disabling Link should stop an armed accompanist, but must not invoke the
+    // shutdown path twice when callers already stopped accompaniment first.
+    if (!enabled && accompanimentEnabled()) {
         setAccompanimentEnabled(false);
     }
 }
