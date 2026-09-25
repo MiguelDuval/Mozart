@@ -29,6 +29,7 @@ if(MOZART_ENABLE_LINK)
     endif()
 
     include("${MOZART_LINK_ROOT}/AbletonLinkConfig.cmake")
+    target_compile_features(mozart_core_tests PRIVATE cxx_std_20)
     target_sources(mozart_core_tests PRIVATE
         ../src/clock/LinkClock.cpp
     )
