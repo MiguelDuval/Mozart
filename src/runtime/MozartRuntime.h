@@ -21,6 +21,7 @@ public:
     void setLinkEnabled(bool enabled) noexcept;
     void setAccompanimentEnabled(bool enabled) noexcept;
     void setKeyScale(const musical::KeyScale& keyScale);
+    [[nodiscard]] bool sendDiagnosticNote();
 
     [[nodiscard]] bool linkEnabled() const noexcept;
     [[nodiscard]] bool accompanimentEnabled() const noexcept;
