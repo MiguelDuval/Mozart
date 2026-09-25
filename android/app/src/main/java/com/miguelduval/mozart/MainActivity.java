@@ -3,6 +3,8 @@ package com.miguelduval.mozart;
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -14,6 +16,11 @@ public final class MainActivity extends Activity {
     }
 
     private static native String nativeEngineInfo();
+    private static native void nativeStartAccompaniment();
+    private static native void nativeStopAccompaniment();
+    private static native void nativeSetManualKeyScale(
+            int rootPitchClass,
+            int scaleId);
 
     private TextView status;
     private AndroidMidiTransport midiTransport;
@@ -47,12 +54,58 @@ public final class MainActivity extends Activity {
         title.setGravity(Gravity.CENTER);
 
         status = new TextView(this);
-        status.setText("\n" + nativeEngineInfo() + "\n\nMIDI discovery: waiting...");
+        status.setText("
+" + nativeEngineInfo() +
+                "
+
+MIDI discovery: waiting..." +
+                "
+Manual key: F# minor" +
+                "
+Link accompanist: stopped");
         status.setTextSize(16.0f);
         status.setGravity(Gravity.CENTER);
 
-        root.addView(title);
-        root.addView(status);
+        Button start = new Button(this);
+        start.setText("START LINK BASS");
+        start.setOnClickListener(view -> {
+            nativeSetManualKeyScale(6, 1);
+            nativeStartAccompaniment();
+            status.append("
+
+Accompaniment armed; waiting for Link transport.");
+        });
+
+        Button stop = new Button(this);
+        stop.setText("STOP");
+        stop.setOnClickListener(view -> {
+            nativeStopAccompaniment();
+            status.append("
+
+Accompaniment stopped.");
+        });
+
+        root.addView(
+                title,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(
+                status,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        0,
+                        1.0f));
+        root.addView(
+                start,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(
+                stop,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
 
         setContentView(root);
 
@@ -69,6 +122,8 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onStop() {
+        nativeStopAccompaniment();
+
         if (midiTransport != null) {
             midiTransport.stop();
         }
@@ -80,19 +135,28 @@ public final class MainActivity extends Activity {
             AndroidMidiTransport.MidiEndpoint selectedOutput,
             String connectionStatus) {
         final StringBuilder text = new StringBuilder();
-        text.append("\n").append(nativeEngineInfo());
-        text.append("\n\nMIDI endpoints discovered: ").append(endpoints.size());
+        text.append("
+").append(nativeEngineInfo());
+        text.append("
+
+MIDI endpoints discovered: ").append(endpoints.size());
 
         if (selectedOutput == null) {
-            text.append("\nMIDI OUT: no Arturia MicroFreak endpoint selected");
+            text.append("
+MIDI OUT: no Arturia MicroFreak endpoint selected");
         } else {
-            text.append("\nMIDI OUT: ")
+            text.append("
+MIDI OUT: ")
                     .append(selectedOutput.displayName())
                     .append(selectedOutput.isUsb() ? " [USB]" : " [non-USB]")
-                    .append("\nAndroid device INPUT port selected for send");
+                    .append("
+Android device INPUT port selected for send");
         }
 
-        text.append("\n").append(connectionStatus);
+        text.append("
+").append(connectionStatus);
+        text.append("
+Manual key: F# minor");
         status.setText(text.toString());
     }
 }

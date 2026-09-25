@@ -10,45 +10,42 @@
 - [ ] First green CI on the bootstrap commit.
 
 ## Stage 1 — MIDI / MicroFreak transport
-- [ ] Android MIDI device enumeration.
-- [ ] Deterministic USB-MIDI endpoint selection.
-- [ ] Identify/select Arturia MicroFreak without accidentally selecting unrelated devices.
+- [x] Android MIDI device enumeration.
+- [x] Deterministic USB-MIDI endpoint selection.
+- [x] Identify/select Arturia MicroFreak without accidentally selecting unrelated devices.
 - [ ] MIDI IN receive queue.
-- [ ] MIDI OUT queue.
-- [ ] Timestamp preservation.
+- [x] MIDI OUT queue.
+- [x] Timestamp preservation.
 - [ ] Virtual/test MIDI adapter.
 - [ ] MicroFreak physical MIDI test record.
 
 ## Stage 2 — Ableton Link accompanist clock
 - [x] Link 4.0 wrapper.
-- [ ] Link enable/disable runtime control.
+- [x] Link enable/disable runtime control.
 - [x] Session tempo / beat / phase snapshot API.
 - [ ] Android Link runtime/session validation.
-
-
-
 - [ ] Quantized launch.
-- [ ] Follow-session policy.
-- [ ] Scheduler look-ahead.
+- [x] Follow-session policy.
+- [x] Scheduler look-ahead.
 - [ ] Link test suite.
 
 ## Stage 3 — First useful accompanist
-- [ ] Deterministic seeded rhythm generator.
+- [x] Deterministic seeded rhythm generator.
 - [ ] Kick/snare/hat-style accompaniment patterns.
-- [ ] Bass accompaniment.
+- [x] Bass accompaniment.
 - [ ] Simple arpeggio role.
 - [ ] Step density.
 - [ ] Accent.
 - [ ] Probability.
 - [ ] Ratchet.
 - [ ] Swing.
-- [ ] MIDI scheduler.
+- [x] MIDI scheduler.
 - [ ] MicroFreak external validation.
 
 ## Stage 4 — Harmony
-- [ ] Scale model.
+- [x] Scale model.
 - [ ] Key/Scale context service with explicit source selection (Manual / Audio).
-- [ ] Manual Key/Scale control.
+- [x] Manual Key/Scale control.
 - [ ] Local/offline microphone key/scale detector integration.
 - [ ] Audio detector confidence/stability/hysteresis policy.
 - [ ] Performer override from Audio back to Manual.

@@ -13,7 +13,9 @@ add_library(mozart-core STATIC
     src/core/MidiTypes.cpp
     src/core/TransportMath.cpp
     src/core/MidiEndpoint.cpp
+    src/musical/KeyScale.cpp
     src/generation/RhythmGenerator.cpp
+    src/generation/BassGenerator.cpp
 )
 
 target_include_directories(mozart-core PUBLIC
@@ -39,6 +41,9 @@ if(ANDROID)
     if(MOZART_ENABLE_LINK)
         target_sources(mozart PRIVATE
             src/clock/LinkClock.cpp
+            src/scheduler/MidiSendQueue.cpp
+            src/scheduler/AccompanimentScheduler.cpp
+            src/runtime/MozartRuntime.cpp
         )
         target_compile_definitions(mozart PRIVATE LINK_PLATFORM_LINUX=1)
     endif()

@@ -1,6 +1,8 @@
 #include <jni.h>
 
 #include <cstdint>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -8,11 +10,23 @@
 #include "core/MidiEndpoint.h"
 #include "core/MidiTypes.h"
 #include "core/MozartEngine.h"
+#include "musical/KeyScale.h"
 #include "platform/android/AndroidMidiOutput.h"
+#include "runtime/MozartRuntime.h"
 
 namespace {
 
 mozart::platform::android::AndroidMidiOutput g_midiOutput;
+std::unique_ptr<mozart::runtime::MozartRuntime> g_runtime;
+std::mutex g_runtimeMutex;
+
+mozart::runtime::MozartRuntime* runtime() {
+    std::lock_guard<std::mutex> lock(g_runtimeMutex);
+    if (!g_runtime) {
+        g_runtime = std::make_unique<mozart::runtime::MozartRuntime>(g_midiOutput);
+    }
+    return g_runtime.get();
+}
 
 [[nodiscard]] std::string javaStringToUtf8(
         JNIEnv* env,
@@ -80,6 +94,45 @@ Java_com_miguelduval_mozart_MainActivity_nativeEngineInfo(
     const auto info = engine.info();
 
     return env->NewStringUTF(info.c_str());
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeStartAccompaniment(
+        JNIEnv*,
+        jobject) {
+    auto* app = runtime();
+    app->start();
+    app->setKeyScale(
+            mozart::musical::KeyScale{
+                    6, mozart::musical::Scale::NaturalMinor});
+    app->setLinkEnabled(true);
+    app->setAccompanimentEnabled(true);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeStopAccompaniment(
+        JNIEnv*,
+        jobject) {
+    auto* app = runtime();
+    app->setAccompanimentEnabled(false);
+    app->setLinkEnabled(false);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetManualKeyScale(
+        JNIEnv*,
+        jobject,
+        jint rootPitchClass,
+        jint scaleId) {
+    if (rootPitchClass < 0 || rootPitchClass > 11 ||
+        scaleId < 0 || scaleId > 2) {
+        return;
+    }
+
+    runtime()->setKeyScale(
+            mozart::musical::KeyScale{
+                    static_cast<std::uint8_t>(rootPitchClass),
+                    static_cast<mozart::musical::Scale>(scaleId)});
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -188,7 +241,6 @@ Java_com_miguelduval_mozart_AndroidMidiTransport_nativeSendShortMessage(
     const auto result = g_midiOutput.send(message);
     return static_cast<jint>(result.status);
 }
-
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_miguelduval_mozart_AndroidMidiTransport_nativeIsMidiOutputOpenInternal(

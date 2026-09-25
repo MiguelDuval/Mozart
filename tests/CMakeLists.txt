@@ -13,7 +13,9 @@ add_executable(mozart_core_tests
     ../src/core/MidiTypes.cpp
     ../src/core/TransportMath.cpp
     ../src/core/MidiEndpoint.cpp
+    ../src/musical/KeyScale.cpp
     ../src/generation/RhythmGenerator.cpp
+    ../src/generation/BassGenerator.cpp
 )
 
 target_include_directories(mozart_core_tests PRIVATE

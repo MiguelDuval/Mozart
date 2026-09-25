@@ -1,8 +1,10 @@
 #include "core/MidiEndpoint.h"
 #include "core/MidiTypes.h"
 #include "core/TransportMath.h"
+#include "generation/BassGenerator.h"
 #include "generation/RhythmGenerator.h"
 #include "midi/MidiTransport.h"
+#include "musical/KeyScale.h"
 #ifdef MOZART_ENABLE_LINK
 #include "clock/LinkClock.h"
 #endif
@@ -48,6 +50,39 @@ int main() {
         const auto b = mozart::generation::RhythmGenerator::seededVelocityPattern(32, 42);
         assert(a == b);
         assert(a.size() == 32);
+    }
+
+    {
+        const mozart::musical::KeyScale fSharpMinor(
+                6, mozart::musical::Scale::NaturalMinor);
+
+        assert(fSharpMinor.isValid());
+        assert(fSharpMinor.containsMidiNote(42));
+        assert(fSharpMinor.containsMidiNote(45));
+        assert(fSharpMinor.containsMidiNote(49));
+        assert(!fSharpMinor.containsMidiNote(43));
+
+        const auto a =
+                mozart::generation::BassGenerator::generateBar(
+                        fSharpMinor, 2, 1234);
+        const auto b =
+                mozart::generation::BassGenerator::generateBar(
+                        fSharpMinor, 2, 1234);
+
+        assert(a == b);
+        assert(a.size() == 8);
+
+        for (const auto& event : a) {
+            assert(event.startBeat >= 0.0);
+            assert(event.startBeat < 4.0);
+            assert(event.durationBeats > 0.0);
+            assert(event.note >= 36);
+            assert(event.note < 60);
+            assert(fSharpMinor.containsMidiNote(event.note));
+            assert(event.velocity >= 88);
+            assert(event.velocity <= 119);
+            assert(event.channel == 0);
+        }
     }
 
     {
@@ -136,6 +171,7 @@ int main() {
         assert(output.sendCount == 1);
         assert(output.last.status == 0x90);
         assert(output.last.data1 == 64);
+        assert(output.last.data2 == 111);
         assert(output.last.data2 == 111);
         assert(output.last.timestampNanos == 987654321ULL);
         assert(output.last.portId == 42);
