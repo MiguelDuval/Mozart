@@ -89,6 +89,10 @@ int main() {
             MidiEndpointDescriptor{
                 21, 0, PortDirection::Input, TransportKind::Usb,
                 "Generic USB MIDI", "Other", "Controller"
+            },
+            MidiEndpointDescriptor{
+                22, 0, PortDirection::Input, TransportKind::Usb,
+                "Arturia KeyLab", "Arturia", "KeyLab"
             }
         };
 
