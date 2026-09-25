@@ -2,6 +2,7 @@ package com.miguelduval.mozart;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -42,6 +43,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle state) {
+        Log.i(TAG, "STARTUP: onCreate begin");
         super.onCreate(state);
 
         LinearLayout root = new LinearLayout(this);
@@ -115,16 +117,21 @@ public final class MainActivity extends Activity {
                         ViewGroup.LayoutParams.WRAP_CONTENT));
 
         setContentView(root);
+        Log.i(TAG, "STARTUP: setContentView complete");
 
         midiTransport = new AndroidMidiTransport(this, midiListener);
+        Log.i(TAG, "STARTUP: AndroidMidiTransport constructed");
     }
 
     @Override
     protected void onStart() {
+        Log.i(TAG, "STARTUP: onStart begin");
         super.onStart();
         if (midiTransport != null) {
+            Log.i(TAG, "STARTUP: midiTransport.start posting");
             midiTransport.start();
         }
+        Log.i(TAG, "STARTUP: onStart complete");
     }
 
     @Override
