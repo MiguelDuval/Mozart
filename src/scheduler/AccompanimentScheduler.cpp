@@ -95,7 +95,11 @@ void AccompanimentScheduler::run() {
         } else {
             const auto snapshot = clock_.captureAppSnapshot();
 
-            if (!snapshot.playing || !(snapshot.tempoBpm > 0.0)) {
+            // START/STOP Sync is intentionally not part of this stage. The
+            // local START button arms accompaniment; Link supplies the shared
+            // beat/tempo/phase timeline whether or not a remote peer is
+            // publishing a start/stop state.
+            if (!(snapshot.tempoBpm > 0.0)) {
                 scheduledBarStart_ = -1.0;
             } else {
                 const auto barStart =
