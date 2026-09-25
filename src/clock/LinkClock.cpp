@@ -46,4 +46,9 @@ LinkClockSnapshot LinkClock::captureAppSnapshot() const {
     };
 }
 
+std::chrono::microseconds LinkClock::hostTimeAtBeat(const double beat) const {
+    const auto state = link_.captureAppSessionState();
+    return state.timeAtBeat(beat, quantum_);
+}
+
 } // namespace mozart::clock
