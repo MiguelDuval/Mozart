@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <jni.h>
+#include <mutex>
 
 struct AMidiDevice;
 struct AMidiInputPort;
@@ -25,6 +26,7 @@ public:
     void close() noexcept override;
 
 private:
+    mutable std::mutex mutex_;
     AMidiDevice* device_ = nullptr;
     AMidiInputPort* inputPort_ = nullptr;
 };
