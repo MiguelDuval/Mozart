@@ -59,8 +59,10 @@ MidiEndpointSelection MidiEndpointSelector::selectPreferredOutput(
 
         // Automatic Stage 1 selection is intentionally target-specific:
         // do not silently route to an unrelated MIDI device.
-        if (!containsIgnoreCase(candidate.manufacturer, preferredManufacturer) &&
-            !containsIgnoreCase(candidate.product, preferredProduct) &&
+        // A preferred product/name match is mandatory for automatic selection.
+        // Manufacturer matching only refines the ranking; it is never enough
+        // to route MIDI to an otherwise unrelated instrument.
+        if (!containsIgnoreCase(candidate.product, preferredProduct) &&
             !containsIgnoreCase(candidate.name, preferredProduct)) {
             continue;
         }
