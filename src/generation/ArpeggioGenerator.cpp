@@ -9,7 +9,10 @@ std::vector<musical::MusicalNoteEvent> ArpeggioGenerator::generateBar(
         const musical::KeyScale& keyScale,
         const std::uint8_t baseOctave,
         const std::uint32_t seed,
-        const std::uint8_t channel) {
+        const std::uint8_t channel,
+        const PatternDensity density,
+        const PatternAccent accent,
+        const PatternSwing swing) {
     if (!keyScale.isValid() || channel > 15) {
         return {};
     }
