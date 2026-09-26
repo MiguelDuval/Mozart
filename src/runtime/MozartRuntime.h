@@ -3,6 +3,7 @@
 #include "clock/LinkClock.h"
 #include "generation/PatternAccent.h"
 #include "generation/PatternDensity.h"
+#include "generation/PatternSwing.h"
 #include "midi/MidiTransport.h"
 #include "scheduler/AccompanimentScheduler.h"
 #include "scheduler/MidiSendQueue.h"
@@ -31,6 +32,9 @@ public:
 
     void setPatternAccent(generation::PatternAccent accent) noexcept;
     [[nodiscard]] generation::PatternAccent patternAccent() const noexcept;
+
+    void setPatternSwing(generation::PatternSwing swing) noexcept;
+    [[nodiscard]] generation::PatternSwing patternSwing() const noexcept;
     [[nodiscard]] bool sendDiagnosticNote();
 
     [[nodiscard]] bool linkEnabled() const noexcept;
