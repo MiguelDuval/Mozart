@@ -57,7 +57,8 @@ private:
     MidiSendQueue& sendQueue_;
 
     mutable std::mutex stateMutex_;
-    musical::KeyScale keyScale_{6, musical::Scale::NaturalMinor};
+    musical::KeyScale requestedKeyScale_{6, musical::Scale::NaturalMinor};
+    musical::KeyScale activeKeyScale_{6, musical::Scale::NaturalMinor};
 
     std::atomic_bool running_{false};
     std::atomic_bool armed_{false};
