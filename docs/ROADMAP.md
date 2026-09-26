@@ -23,11 +23,12 @@
 - [x] Link 4.0 wrapper.
 - [x] Link enable/disable runtime control.
 - [x] Session tempo / beat / phase snapshot API.
-- [ ] Android Link runtime/session validation.
-- [ ] Quantized launch.
+- [x] Android Link runtime validation.
+- [ ] Android Link peer/session validation.
+- [x] Quantized launch.
 - [x] Follow-session policy.
 - [x] Scheduler look-ahead.
-- [ ] Link test suite.
+- [x] Link test suite.
 
 ## Stage 3 — First useful accompanist
 Current vertical slice: Manual F# minor context → deterministic seeded bass → Link look-ahead scheduler → bounded MIDI OUT queue → Android AMidi boundary. Physical MicroFreak receipt remains unverified.
