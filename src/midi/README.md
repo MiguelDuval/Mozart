@@ -20,6 +20,8 @@ The parser handles:
 
 Parsed messages enter `MidiReceiveQueue`, a bounded queue shared by transport adapters and future musical-domain consumers. The queue drops the oldest event when full so stale input cannot accumulate indefinitely.
 
+The Android ingress adapter is `AndroidMidiInput`. It opens an explicitly selected device OUTPUT port and connects a `MidiReceiver`; source selection is intentionally separate from the MicroFreak MIDI OUT auto-selection.
+
 The input queue is intentionally independent of key/scale detection. Future consumers may use it for:
 
 - MIDI-driven key/scale hints;
