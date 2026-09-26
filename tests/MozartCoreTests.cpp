@@ -224,6 +224,11 @@ int main() {
                 return messages.at(index);
             }
 
+            std::vector<mozart::midi::MidiShortMessage> messagesCopy() const {
+                std::lock_guard<std::mutex> lock(mutex);
+                return messages;
+            }
+
         private:
             mutable std::mutex mutex;
             std::condition_variable condition;
@@ -278,12 +283,20 @@ int main() {
         mozart::scheduler::AccompanimentScheduler scheduler(clock, queue);
 
         clock.setEnabled(true);
+        const auto beforeArm = clock.captureAppSnapshot();
+        const auto expectedLaunchBeat =
+                mozart::timing::nextQuantizedBeat(
+                        beforeArm.beat,
+                        beforeArm.quantum);
+        const auto expectedLaunchHostTime =
+                clock.hostTimeAtBeat(expectedLaunchBeat);
+
         queue.start();
         scheduler.start();
         scheduler.setArmed(true);
 
         bool generated = false;
-        for (int attempt = 0; attempt < 100; ++attempt) {
+        for (int attempt = 0; attempt < 300; ++attempt) {
             if (output.sendCount.load() > 0) {
                 generated = true;
                 break;
@@ -297,6 +310,14 @@ int main() {
 
         assert(generated);
         assert(output.last.size == 3);
+
+        const auto messages = output.messagesCopy();
+        assert(!messages.empty());
+        for (const auto& message : messages) {
+            assert(message.timestampNanos >=
+                    static_cast<std::uint64_t>(
+                            expectedLaunchHostTime.count()) * 1000ULL);
+        }
     }
 
     {
