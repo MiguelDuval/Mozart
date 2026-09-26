@@ -3,6 +3,7 @@
 #include "clock/LinkClock.h"
 #include "generation/ArpeggioGenerator.h"
 #include "generation/BassGenerator.h"
+#include "generation/PatternDensity.h"
 #include "musical/KeyScale.h"
 #include "scheduler/MidiSendQueue.h"
 
@@ -42,6 +43,9 @@ public:
     void setRole(AccompanimentRole role) noexcept;
     [[nodiscard]] AccompanimentRole role() const noexcept;
 
+    void setDensity(generation::PatternDensity density) noexcept;
+    [[nodiscard]] generation::PatternDensity density() const noexcept;
+
 private:
     void run();
     void scheduleEvent(
@@ -58,6 +62,8 @@ private:
     std::atomic_bool running_{false};
     std::atomic_bool armed_{false};
     std::atomic<AccompanimentRole> requestedRole_{AccompanimentRole::Bass};
+    std::atomic<generation::PatternDensity> requestedDensity_{
+            generation::PatternDensity::Full};
 
     std::mutex wakeMutex_;
     std::condition_variable wakeCondition_;
@@ -67,6 +73,7 @@ private:
     std::int64_t nextBarIndex_ = 0;
     std::size_t nextEventIndex_ = 0;
     AccompanimentRole activeRole_ = AccompanimentRole::Bass;
+    generation::PatternDensity activeDensity_ = generation::PatternDensity::Full;
     std::uint32_t seed_ = 0x4D4F5A41u;
 };
 
