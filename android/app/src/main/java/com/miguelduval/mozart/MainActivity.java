@@ -16,6 +16,7 @@ import java.util.List;
 public final class MainActivity extends Activity {
     private static final String TAG = "MozartStartup";
     private static final String RUNTIME_SMOKE_EXTRA = "mozart.runtime_smoke";
+    private static final long LINK_STATUS_POLL_MS = 500L;
     static {
         Log.i(TAG, "STARTUP: loadLibrary begin");
         System.loadLibrary("mozart");
@@ -31,8 +32,23 @@ public final class MainActivity extends Activity {
             int rootPitchClass,
             int scaleId);
 
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView status;
+    private TextView linkStatus;
     private AndroidMidiTransport midiTransport;
+    private boolean activityStarted = false;
+
+    private final Runnable linkStatusPoll = new Runnable() {
+        @Override
+        public void run() {
+            if (!activityStarted || linkStatus == null) {
+                return;
+            }
+
+            updateLinkStatus();
+            mainHandler.postDelayed(this, LINK_STATUS_POLL_MS);
+        }
+    };
 
     private final AndroidMidiTransport.Listener midiListener =
             new AndroidMidiTransport.Listener() {
@@ -74,12 +90,18 @@ public final class MainActivity extends Activity {
         status.setTextSize(16.0f);
         status.setGravity(Gravity.CENTER);
 
+        linkStatus = new TextView(this);
+        linkStatus.setText("Link: " + nativeLinkSnapshot());
+        linkStatus.setTextSize(14.0f);
+        linkStatus.setGravity(Gravity.CENTER);
+
         Button start = new Button(this);
         start.setText("START LINK BASS");
         start.setOnClickListener(view -> {
             nativeSetManualKeyScale(6, 1);
             nativeStartAccompaniment();
             status.append("\n\nAccompaniment armed; following Link timing.");
+            updateLinkStatus();
         });
 
         Button testMidi = new Button(this);
@@ -97,6 +119,7 @@ public final class MainActivity extends Activity {
         stop.setOnClickListener(view -> {
             nativeStopAccompaniment();
             status.append("\n\nAccompaniment stopped.");
+            updateLinkStatus();
         });
 
         root.addView(
@@ -110,6 +133,11 @@ public final class MainActivity extends Activity {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         0,
                         1.0f));
+        root.addView(
+                linkStatus,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(
                 start,
                 new LinearLayout.LayoutParams(
@@ -143,10 +171,17 @@ public final class MainActivity extends Activity {
         nativeSetManualKeyScale(6, 1);
         nativeStartAccompaniment();
         Log.i(TAG, "RUNTIME: Android smoke start complete");
-        Log.i(TAG, "RUNTIME: Link snapshot " + nativeLinkSnapshot());
+        Log.i(TAG, "RUNTIME: Link snapshot initial " + nativeLinkSnapshot());
 
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+        mainHandler.postDelayed(
+                () -> Log.i(
+                        TAG,
+                        "RUNTIME: Link snapshot tick " + nativeLinkSnapshot()),
+                1000L);
+
+        mainHandler.postDelayed(() -> {
             nativeStopAccompaniment();
+            Log.i(TAG, "RUNTIME: Link snapshot stopped " + nativeLinkSnapshot());
             Log.i(TAG, "RUNTIME: Android smoke stop complete");
         }, 3000L);
     }
@@ -155,6 +190,10 @@ public final class MainActivity extends Activity {
     protected void onStart() {
         Log.i(TAG, "STARTUP: onStart begin");
         super.onStart();
+        activityStarted = true;
+        updateLinkStatus();
+        mainHandler.removeCallbacks(linkStatusPoll);
+        mainHandler.post(linkStatusPoll);
         if (midiTransport != null) {
             Log.i(TAG, "STARTUP: midiTransport.start posting");
             midiTransport.start();
@@ -164,6 +203,8 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onStop() {
+        activityStarted = false;
+        mainHandler.removeCallbacks(linkStatusPoll);
         nativeStopAccompaniment();
 
         if (midiTransport != null) {
@@ -174,10 +215,17 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        mainHandler.removeCallbacks(linkStatusPoll);
         if (midiTransport != null) {
             midiTransport.shutdown();
         }
         super.onDestroy();
+    }
+
+    private void updateLinkStatus() {
+        if (linkStatus != null) {
+            linkStatus.setText("Link: " + nativeLinkSnapshot());
+        }
     }
 
     private void updateMidiStatus(
