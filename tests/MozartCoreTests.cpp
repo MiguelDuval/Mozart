@@ -94,6 +94,43 @@ int main() {
         assert(arpA == arpB);
         assert(arpA.size() == 8);
 
+        const auto sparseBass =
+                mozart::generation::BassGenerator::generateBar(
+                        fSharpMinor,
+                        2,
+                        1234,
+                        0,
+                        mozart::generation::PatternDensity::Sparse);
+        const auto normalBass =
+                mozart::generation::BassGenerator::generateBar(
+                        fSharpMinor,
+                        2,
+                        1234,
+                        0,
+                        mozart::generation::PatternDensity::Normal);
+        const auto sparseAgain =
+                mozart::generation::BassGenerator::generateBar(
+                        fSharpMinor,
+                        2,
+                        1234,
+                        0,
+                        mozart::generation::PatternDensity::Sparse);
+
+        assert(sparseBass == sparseAgain);
+        assert(!sparseBass.empty());
+        assert(sparseBass.size() <= normalBass.size());
+        assert(normalBass.size() <= a.size());
+
+        const auto sparseArp =
+                mozart::generation::ArpeggioGenerator::generateBar(
+                        fSharpMinor,
+                        4,
+                        1234,
+                        0,
+                        mozart::generation::PatternDensity::Sparse);
+        assert(!sparseArp.empty());
+        assert(sparseArp.size() <= arpA.size());
+
         for (const auto& event : arpA) {
             assert(event.startBeat >= 0.0);
             assert(event.startBeat < 4.0);
@@ -333,6 +370,19 @@ int main() {
         assert(
                 scheduler.role() ==
                 mozart::scheduler::AccompanimentRole::Bass);
+        assert(
+                scheduler.density() ==
+                mozart::generation::PatternDensity::Full);
+        scheduler.setDensity(
+                mozart::generation::PatternDensity::Sparse);
+        assert(
+                scheduler.density() ==
+                mozart::generation::PatternDensity::Sparse);
+        scheduler.setDensity(
+                mozart::generation::PatternDensity::Full);
+        assert(
+                scheduler.density() ==
+                mozart::generation::PatternDensity::Full);
 
         clock.setEnabled(true);
         const auto beforeArm = clock.captureAppSnapshot();
