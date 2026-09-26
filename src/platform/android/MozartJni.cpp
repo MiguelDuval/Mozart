@@ -138,6 +138,25 @@ Java_com_miguelduval_mozart_MainActivity_nativeTestMidiNote(
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetAccompanimentRole(
+        JNIEnv*,
+        jobject,
+        jint role) {
+    switch (role) {
+        case 0:
+            runtime()->setAccompanimentRole(
+                    mozart::scheduler::AccompanimentRole::Bass);
+            break;
+        case 1:
+            runtime()->setAccompanimentRole(
+                    mozart::scheduler::AccompanimentRole::Arpeggio);
+            break;
+        default:
+            return;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_miguelduval_mozart_MainActivity_nativeStopAccompaniment(
         JNIEnv*,
         jobject) {
