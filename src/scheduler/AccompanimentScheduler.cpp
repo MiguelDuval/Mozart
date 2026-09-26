@@ -67,6 +67,7 @@ void AccompanimentScheduler::stop() {
     activeRole_ = requestedRole_.load();
     activeDensity_ = requestedDensity_.load();
     activeAccent_ = requestedAccent_.load();
+    activeSwing_ = requestedSwing_.load();
 }
 
 void AccompanimentScheduler::setArmed(const bool armed) noexcept {
@@ -122,6 +123,16 @@ generation::PatternAccent AccompanimentScheduler::accent() const noexcept {
     return requestedAccent_.load();
 }
 
+void AccompanimentScheduler::setSwing(
+        const generation::PatternSwing swing) noexcept {
+    requestedSwing_.store(swing);
+    wakeCondition_.notify_all();
+}
+
+generation::PatternSwing AccompanimentScheduler::swing() const noexcept {
+    return requestedSwing_.load();
+}
+
 void AccompanimentScheduler::run() {
     constexpr double kLookAheadSeconds = 0.032;
     constexpr double kEpsilon = 1.0e-9;
@@ -161,6 +172,7 @@ void AccompanimentScheduler::run() {
                     activeRole_ = requestedRole_.load();
                     activeDensity_ = requestedDensity_.load();
                     activeAccent_ = requestedAccent_.load();
+                    activeSwing_ = requestedSwing_.load();
                     {
                         std::lock_guard<std::mutex> lock(stateMutex_);
                         activeKeyScale_ = requestedKeyScale_;
@@ -221,6 +233,7 @@ void AccompanimentScheduler::run() {
                         activeRole_ = requestedRole_.load();
                         activeDensity_ = requestedDensity_.load();
                         activeAccent_ = requestedAccent_.load();
+                        activeSwing_ = requestedSwing_.load();
                         {
                             std::lock_guard<std::mutex> lock(stateMutex_);
                             activeKeyScale_ = requestedKeyScale_;
