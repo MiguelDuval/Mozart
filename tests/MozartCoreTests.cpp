@@ -232,7 +232,7 @@ int main() {
         const std::uint8_t partA[]{0x90, 64};
         const std::uint8_t partB[]{110, 65, 111};
         parser.feed(partA, sizeof(partA), 200ULL, 9, runningQueue);
-        assert(runningQueue.empty());
+        assert(runningQueue.size() == 0);
         parser.feed(partB, sizeof(partB), 201ULL, 9, runningQueue);
         assert(runningQueue.size() == 2);
         assert(runningQueue.tryPop(first));
