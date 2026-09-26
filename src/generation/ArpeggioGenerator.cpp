@@ -1,5 +1,6 @@
 #include "ArpeggioGenerator.h"
 
+#include <algorithm>
 #include <array>
 
 namespace mozart::generation {
@@ -34,8 +35,16 @@ std::vector<musical::MusicalNoteEvent> ArpeggioGenerator::generateBar(
             continue;
         }
 
-        const auto velocity =
+        const auto baseVelocity =
                 static_cast<std::uint8_t>(76u + (randomValue % 40u));
+        const auto accent =
+                (i % 4 == 0)
+                        ? accentBoost(accent)
+                        : static_cast<std::uint8_t>(0);
+        const auto velocity =
+                static_cast<std::uint8_t>(
+                        std::min(127u,
+                                 static_cast<unsigned int>(baseVelocity) + accent));
 
         result.push_back(musical::MusicalNoteEvent{
             beats[i],
