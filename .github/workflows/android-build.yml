@@ -72,7 +72,7 @@ jobs:
           api-level: 36
           target: google_apis
           arch: x86_64
-          emulator-options: -no-snapshot-save -gpu off -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-snapshot-save -no-window -gpu off -noaudio -no-boot-anim -camera-back none
           emulator-boot-timeout: 900
           disable-animations: false
           script: |
