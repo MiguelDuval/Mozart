@@ -1,6 +1,7 @@
 #pragma once
 
 #include "clock/LinkClock.h"
+#include "generation/PatternDensity.h"
 #include "midi/MidiTransport.h"
 #include "scheduler/AccompanimentScheduler.h"
 #include "scheduler/MidiSendQueue.h"
@@ -23,6 +24,9 @@ public:
     void setKeyScale(const musical::KeyScale& keyScale);
     void setAccompanimentRole(scheduler::AccompanimentRole role) noexcept;
     [[nodiscard]] scheduler::AccompanimentRole accompanimentRole() const noexcept;
+
+    void setPatternDensity(generation::PatternDensity density) noexcept;
+    [[nodiscard]] generation::PatternDensity patternDensity() const noexcept;
     [[nodiscard]] bool sendDiagnosticNote();
 
     [[nodiscard]] bool linkEnabled() const noexcept;
