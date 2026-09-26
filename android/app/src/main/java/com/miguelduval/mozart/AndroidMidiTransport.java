@@ -154,6 +154,22 @@ public final class AndroidMidiTransport {
         requestRefresh();
     }
 
+    /**
+     * Fully releases the dedicated MIDI thread and any open Android MIDI
+     * resources. Called from Activity.onDestroy(), after onStop() has already
+     * posted the normal transport shutdown.
+     */
+    public void shutdown() {
+        midiHandler.post(() -> {
+            started = false;
+            if (midiManager != null) {
+                midiManager.unregisterDeviceCallback(deviceCallback);
+            }
+            closeOutputInternal();
+            midiThread.quitSafely();
+        });
+    }
+
     private void requestRefresh() {
         midiHandler.post(() -> {
             if (started) {
