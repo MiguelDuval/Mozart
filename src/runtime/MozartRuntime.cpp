@@ -110,6 +110,15 @@ generation::PatternAccent MozartRuntime::patternAccent() const noexcept {
     return scheduler_.accent();
 }
 
+void MozartRuntime::setPatternSwing(
+        const generation::PatternSwing swing) noexcept {
+    scheduler_.setSwing(swing);
+}
+
+generation::PatternSwing MozartRuntime::patternSwing() const noexcept {
+    return scheduler_.swing();
+}
+
 bool MozartRuntime::sendDiagnosticNote() {
     start();
 
