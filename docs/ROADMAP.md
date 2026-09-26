@@ -28,6 +28,7 @@
 - [x] Quantized launch.
 - [x] Follow-session policy.
 - [x] Scheduler look-ahead.
+- [x] Continuous accompaniment across Link tempo changes.
 - [x] Link test suite.
 
 ## Stage 3 — First useful accompanist
