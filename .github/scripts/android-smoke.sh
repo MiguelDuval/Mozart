@@ -32,6 +32,29 @@ system_anr_detected() {
   grep -Fq "ANR in system" "$LOGCAT_FILE"
 }
 
+extract_beat() {
+  sed -n 's/.* beat=\([^ ]*\).*/\1/p'
+}
+
+link_clock_advanced() {
+  local initial_line
+  local tick_line
+  local initial_beat
+  local tick_beat
+
+  initial_line="$(grep -F "RUNTIME: Link snapshot initial " "$LOGCAT_FILE" | tail -n 1 || true)"
+  tick_line="$(grep -F "RUNTIME: Link snapshot tick " "$LOGCAT_FILE" | tail -n 1 || true)"
+
+  [[ -n "$initial_line" && -n "$tick_line" ]] || return 1
+
+  initial_beat="$(printf '%s\n' "$initial_line" | extract_beat)"
+  tick_beat="$(printf '%s\n' "$tick_line" | extract_beat)"
+
+  [[ -n "$initial_beat" && -n "$tick_beat" ]] || return 1
+
+  awk -v initial="$initial_beat" -v tick="$tick_beat"     'BEGIN { exit !(tick > initial + 0.25) }'
+}
+
 start_app() {
   rm -f "$START_FILE" "$START_STATUS_FILE" "$START_HOST_PID_FILE"
   (
@@ -66,12 +89,13 @@ wait_for_runtime_smoke() {
     if fatal_mozart_exception; then
       return 2
     fi
-    if grep -Fq "RUNTIME: Link snapshot enabled=true" "$LOGCAT_FILE" &&
+    if grep -Fq "RUNTIME: Link snapshot initial enabled=true" "$LOGCAT_FILE" &&
        grep -Fq "startStopSync=false" "$LOGCAT_FILE" &&
-       grep -Fq "tempo=120." "$LOGCAT_FILE"; then
-      if grep -Fq "RUNTIME: Android smoke stop complete" "$LOGCAT_FILE"; then
-        return 0
-      fi
+       grep -Fq "tempo=120." "$LOGCAT_FILE" &&
+       grep -Fq "RUNTIME: Link snapshot tick enabled=true" "$LOGCAT_FILE" &&
+       grep -Fq "RUNTIME: Link snapshot stopped enabled=false" "$LOGCAT_FILE" &&
+       link_clock_advanced; then
+      return 0
     fi
     sleep 0.25
   done
@@ -129,7 +153,7 @@ collect_diagnostics
 
 printf '=== RUNTIME SMOKE ===\n'
 if [[ "$runtime_smoke_rc" -eq 0 ]]; then
-  echo "Android Link runtime smoke test passed (start, enabled snapshot, stop)."
+  echo "Android Link runtime smoke test passed (start, advancing beat, stop/disable)."
 else
   echo "Android Link runtime smoke test did not complete."
 fi
