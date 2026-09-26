@@ -11,6 +11,7 @@
 #include "core/MidiTypes.h"
 #include "core/MozartEngine.h"
 #include "musical/KeyScale.h"
+#include "midi/MidiReceiveQueue.h"
 #include "platform/android/AndroidMidiOutput.h"
 #include "runtime/MozartRuntime.h"
 
@@ -19,6 +20,9 @@ namespace {
 mozart::platform::android::AndroidMidiOutput g_midiOutput;
 std::unique_ptr<mozart::runtime::MozartRuntime> g_runtime;
 std::mutex g_runtimeMutex;
+mozart::midi::MidiReceiveQueue g_midiReceiveQueue;
+mozart::midi::MidiInputParser g_midiInputParser;
+std::mutex g_midiInputMutex;
 
 mozart::runtime::MozartRuntime* runtime() {
     std::lock_guard<std::mutex> lock(g_runtimeMutex);
@@ -249,6 +253,58 @@ Java_com_miguelduval_mozart_MainActivity_nativeSetManualKeyScale(
             mozart::musical::KeyScale{
                     static_cast<std::uint8_t>(rootPitchClass),
                     static_cast<mozart::musical::Scale>(scaleId)});
+}
+
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_AndroidMidiInput_nativeReceiveMidiBytes(
+        JNIEnv* env,
+        jclass,
+        jbyteArray data,
+        jint offset,
+        jint count,
+        jlong timestampNanos,
+        jint portId) {
+    if (data == nullptr ||
+        offset < 0 ||
+        count <= 0 ||
+        timestampNanos < 0 ||
+        portId < 0) {
+        return;
+    }
+
+    const jsize length = env->GetArrayLength(data);
+    if (offset > length || count > length - offset) {
+        return;
+    }
+
+    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(count));
+    env->GetByteArrayRegion(
+            data,
+            offset,
+            count,
+            reinterpret_cast<jbyte*>(bytes.data()));
+
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(g_midiInputMutex);
+    g_midiInputParser.feed(
+            bytes.data(),
+            bytes.size(),
+            static_cast<std::uint64_t>(timestampNanos),
+            static_cast<std::uint32_t>(portId),
+            g_midiReceiveQueue);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_AndroidMidiInput_nativeResetMidiInput(
+        JNIEnv*,
+        jclass) {
+    std::lock_guard<std::mutex> lock(g_midiInputMutex);
+    g_midiInputParser.reset();
+    g_midiReceiveQueue.clear();
 }
 
 extern "C" JNIEXPORT jint JNICALL
