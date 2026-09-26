@@ -28,8 +28,14 @@ std::vector<musical::MusicalNoteEvent> ArpeggioGenerator::generateBar(
     auto state = seed == 0 ? 0xA341316Cu : seed;
 
     for (std::size_t i = 0; i < beats.size(); ++i) {
+        const auto randomValue = next(state);
+        if (i != 0 &&
+            (randomValue % 100u) >= densityPercent(density)) {
+            continue;
+        }
+
         const auto velocity =
-                static_cast<std::uint8_t>(76u + (next(state) % 40u));
+                static_cast<std::uint8_t>(76u + (randomValue % 40u));
 
         result.push_back(musical::MusicalNoteEvent{
             beats[i],
