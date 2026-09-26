@@ -17,6 +17,11 @@ public final class MainActivity extends Activity {
     private static final String TAG = "MozartStartup";
     private static final String RUNTIME_SMOKE_EXTRA = "mozart.runtime_smoke";
     private static final long LINK_STATUS_POLL_MS = 500L;
+    private static final String[] KEY_LABELS = {
+            "C", "C#", "D", "D#", "E", "F",
+            "F#", "G", "G#", "A", "A#", "B"
+    };
+    private static final String[] SCALE_LABELS = {"MAJOR", "MINOR", "DORIAN"};
     static {
         Log.i(TAG, "STARTUP: loadLibrary begin");
         System.loadLibrary("mozart");
@@ -89,7 +94,8 @@ public final class MainActivity extends Activity {
         Log.i(TAG, "STARTUP: nativeEngineInfo complete");
         status.setText("\n" + engineInfo
                 + "\n\nMIDI discovery: waiting..."
-                + "\nManual key: F# minor"
+                + "\nManual key: " + KEY_LABELS[selectedRootPitchClass]
+                + " " + SCALE_LABELS[selectedScaleId]
                 + "\nLink accompanist: stopped");
         status.setTextSize(16.0f);
         status.setGravity(Gravity.CENTER);
@@ -100,29 +106,24 @@ public final class MainActivity extends Activity {
         linkStatus.setGravity(Gravity.CENTER);
 
         Button key = new Button(this);
-        final String[] keyLabels = {
-                "C", "C#", "D", "D#", "E", "F",
-                "F#", "G", "G#", "A", "A#", "B"
-        };
         key.setText("KEY: F#");
         key.setOnClickListener(view -> {
             selectedRootPitchClass = (selectedRootPitchClass + 1) % 12;
             nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
-            key.setText("KEY: " + keyLabels[selectedRootPitchClass]);
+            key.setText("KEY: " + KEY_LABELS[selectedRootPitchClass]);
             status.append(
-                    "\n\nKey: " + keyLabels[selectedRootPitchClass]
+                    "\n\nKey: " + KEY_LABELS[selectedRootPitchClass]
                             + " selected; change takes effect at the next bar.");
         });
 
         Button scale = new Button(this);
-        final String[] scaleLabels = {"MAJOR", "MINOR", "DORIAN"};
         scale.setText("SCALE: MINOR");
         scale.setOnClickListener(view -> {
             selectedScaleId = (selectedScaleId + 1) % 3;
             nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
-            scale.setText("SCALE: " + scaleLabels[selectedScaleId]);
+            scale.setText("SCALE: " + SCALE_LABELS[selectedScaleId]);
             status.append(
-                    "\n\nScale: " + scaleLabels[selectedScaleId]
+                    "\n\nScale: " + SCALE_LABELS[selectedScaleId]
                             + " selected; change takes effect at the next bar.");
         });
 
@@ -353,7 +354,10 @@ public final class MainActivity extends Activity {
         }
 
         text.append("\n").append(connectionStatus);
-        text.append("\nManual key: F# minor");
+        text.append("\nManual key: ")
+                .append(KEY_LABELS[selectedRootPitchClass])
+                .append(" ")
+                .append(SCALE_LABELS[selectedScaleId]);
         status.setText(text.toString());
     }
 }
