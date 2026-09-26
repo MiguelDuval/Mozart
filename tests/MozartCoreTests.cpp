@@ -370,6 +370,13 @@ int main() {
         assert(enabledSnapshot.phase >= 0.0);
         assert(enabledSnapshot.phase < enabledSnapshot.quantum);
 
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        const auto advancedSnapshot = clock.captureAppSnapshot();
+        assert(advancedSnapshot.enabled);
+        assert(advancedSnapshot.beat > enabledSnapshot.beat + 0.05);
+        assert(advancedSnapshot.phase >= 0.0);
+        assert(advancedSnapshot.phase < advancedSnapshot.quantum);
+
         clock.setEnabled(false);
         assert(!clock.isEnabled());
         const auto disabledAgain = clock.captureAppSnapshot();
