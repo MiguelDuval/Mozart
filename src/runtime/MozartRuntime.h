@@ -1,6 +1,7 @@
 #pragma once
 
 #include "clock/LinkClock.h"
+#include "generation/PatternAccent.h"
 #include "generation/PatternDensity.h"
 #include "midi/MidiTransport.h"
 #include "scheduler/AccompanimentScheduler.h"
@@ -27,6 +28,9 @@ public:
 
     void setPatternDensity(generation::PatternDensity density) noexcept;
     [[nodiscard]] generation::PatternDensity patternDensity() const noexcept;
+
+    void setPatternAccent(generation::PatternAccent accent) noexcept;
+    [[nodiscard]] generation::PatternAccent patternAccent() const noexcept;
     [[nodiscard]] bool sendDiagnosticNote();
 
     [[nodiscard]] bool linkEnabled() const noexcept;
