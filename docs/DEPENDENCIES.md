@@ -14,6 +14,7 @@ Pinned baseline as of 2026-09-25.
 | Oboe | 1.10.2 | `faa019cb12f448d18b5ab2b933272cf0c16763b2` | Android realtime audio | staged |
 | Ableton Link | 4.0 | `e9a2e414d63f55f1aad158370b007a6fbdc1eeb9` | shared musical clock | Stage 2 |
 | Tracktion Engine | 3.2.0 | `0a5f4e6a5f53d09c89b414a44386a12df7fa1ec6` | higher-level sequencing/audio | staged |
+| LiteRT | 2.2.0 target | exact revision to be pinned at integration | on-device local AI inference | planned |
 
 ## Why these versions
 
@@ -49,3 +50,11 @@ Every source dependency must be:
 - named in this document;
 - upgraded in a dedicated change;
 - rebuilt and tested before adoption.
+
+## Local AI dependency policy
+
+LiteRT is the planned Android inference runtime for the local Mozart music model. Google's current Android documentation identifies the CompiledModel API as the modern high-performance path and provides native C++ integration. The exact artifact/revision will be pinned before it enters the production build.
+
+The model artifact itself is not treated as a normal source dependency. Its checksum, training revision, dataset provenance and license/attribution manifest must be recorded separately before release.
+
+The project will not add third-party pretrained music-model weights to the production APK merely because their source repository is open. Code license, weight license and training-data provenance are evaluated separately.

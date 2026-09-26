@@ -28,7 +28,7 @@ The authoritative project rules are in:
 3. Hardware-first operation.
 4. No avoidable realtime allocations or blocking work.
 5. Small, testable vertical slices.
-6. Local/deterministic generation first; optional AI assistance behind a non-realtime provider boundary.
+6. Local/deterministic generation first; compact on-device AI music generation behind a non-realtime provider boundary.
 7. Landscape-first Android UI.
 8. Every meaningful feature backed by automated tests where practical.
 

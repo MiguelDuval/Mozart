@@ -74,17 +74,31 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [ ] Latency diagnostics.
 - [ ] Realtime-safe audio graph.
 
-## Stage 7 — AI-assisted accompaniment
-- [ ] Provider interface.
-- [ ] Structured schema.
-- [ ] Local deterministic fallback.
+## Stage 7 — Local AI music generation
+Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offline/on-device.
+
+- [ ] Define GenerationRequest / PatternProposal model contract.
+- [ ] Add local model provider interface.
+- [ ] Add model event vocabulary/tokenization contract.
+- [ ] Add LiteRT integration behind the provider boundary.
+- [ ] Add model loading/eviction lifecycle.
+- [ ] Add controlled style vocabulary (genre/subgenre/mood/rhythm/role).
+- [ ] Build licensed-data provenance manifest.
+- [ ] Build MIDI normalization and training dataset pipeline.
+- [ ] Train first compact model.
+- [ ] Add conditioning controls.
+- [ ] Add deterministic validation/post-processing.
+- [ ] Add generation latency/memory benchmarks on Android.
+- [ ] Quantize and package production model artifact.
+- [ ] Verify commercial redistribution requirements for final model and data.
+
+## Stage 8 — Optional AI providers
 - [ ] NVIDIA NIM provider.
-- [ ] Response validation.
-- [ ] Prompt templates.
-- [ ] Convert NIM musical suggestions into deterministic accompaniment plans.
+- [ ] Optional text → controlled musical request parser.
+- [ ] Higher-level arrangement / mutation suggestions.
 - [ ] Never allow NIM/network operations into realtime scheduling.
 
-## Stage 8 — Persistence
+## Stage 9 — Persistence
 - [ ] Session format v1.
 - [ ] Pattern library.
 - [ ] Presets.
@@ -92,7 +106,7 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [ ] Migration tests.
 - [ ] Backup/export.
 
-## Stage 9 — Hardening
+## Stage 10 — Hardening
 - [ ] Soak tests.
 - [ ] Disconnect/reconnect tests.
 - [ ] Sleep/resume tests.
@@ -100,7 +114,7 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [ ] Crash diagnostics.
 - [ ] Release build.
 
-## Stage 10 — Optional expansion
+## Stage 11 — Optional expansion
 - [ ] MIDI 2.0 / UMP.
 - [ ] External audio I/O.
 - [ ] Link Audio if genuinely useful.

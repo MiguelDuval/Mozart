@@ -85,14 +85,40 @@ Owns music: notes, patterns, scales, chords, scenes and user intent.
 ### Generator
 Owns deterministic pattern creation and mutation.
 
+### Local AI Generator
+Owns **non-realtime** neural music generation.
+
+The selected production target is a compact 30–60M-parameter symbolic-MIDI Transformer deployed in int8 form.
+
+It may consume:
+- genre/subgenre tags;
+- mood/energy;
+- key/scale;
+- chord context;
+- density;
+- polyphony;
+- pitch range;
+- rhythmic characteristics;
+- instrument/role;
+- seed.
+
+It returns a structured PatternProposal.
+
+It must not:
+- access Android transport APIs;
+- access the scheduler clock;
+- send MIDI directly;
+- block Link timing;
+- run from realtime callbacks.
+
 ### Scheduler
 Owns when events should leave the process.
 
 ### Audio
 Owns sample/synth rendering and realtime constraints.
 
-### AI
-Owns network/provider interaction only. It never owns timing.
+### AI Provider
+Owns optional remote/provider interaction only. It never owns timing and it cannot bypass local validation.
 
 ### UI
 Owns presentation and commands only.
@@ -108,6 +134,8 @@ Owns presentation and commands only.
 - Audio callback → network/filesystem
 - AI provider → scheduler internals
 - UI → raw MIDI bytes
+- Local AI Generator → MIDI transport
+- Local AI Generator → Link timing
 
 ## Time representation
 
@@ -127,11 +155,15 @@ The transport boundary may copy incoming bytes once.
 
 The scheduler should prepare outgoing events ahead of their send deadline.
 
+AI/model jobs use a worker queue separate from realtime transport queues.
+
 ## Error policy
 
 Every layer returns explicit errors or state objects.
 
 Do not use silent fallback for device-selection, timing or generation failures.
+
+If the local model is unavailable, deterministic generation remains available.
 
 ## Build topology
 

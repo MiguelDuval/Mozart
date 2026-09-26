@@ -99,6 +99,12 @@ Ableton Link synchronizes shared beat, tempo, phase and optional start/stop stat
 
 Optional provider interface for network or local AI generation.
 
+Production direction is now fixed: Mozart's baseline local music generator is a compact 30–60M-parameter symbolic-MIDI Transformer, deployed in int8 form and executed off the realtime path. It is intended for 4–16 bar polyphonic generation with controlled genre/subgenre, mood/energy, key/scale, density, polyphony, pitch range and role conditioning.
+
+Mozart should ship its own commercially usable model weights rather than relying on third-party pretrained checkpoints with non-commercial restrictions. Training-data provenance and redistribution permissions are part of the model release contract.
+
+The first Android inference runtime target is LiteRT behind the provider interface; the exact pinned runtime revision is selected during implementation.
+
 Initial supported concept: NVIDIA NIM-compatible OpenAI-style chat/completions endpoint selected by configuration.
 
 No model name is hard-coded into the core. Model IDs, endpoint URLs and prompts live in provider configuration, because model availability changes.
