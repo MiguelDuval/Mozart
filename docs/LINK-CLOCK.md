@@ -57,6 +57,8 @@ Manual Key/Scale selection is independent of Link timing. The Android controls c
 
 Pattern density is currently available as **Sparse (50%)**, **Normal (75%)**, or **Full (100%)**. Density changes are requested immediately but become active at the next 4-beat bar boundary, preserving the current phrase. The first event of each bar is retained so a sparse pattern cannot become completely silent.
 
+Accent is available as **Off**, **Mild**, or **Strong**. It affects only note velocity on the main quarter-note pulses; it does not alter event timing or pitch. Like role, density, and Key/Scale, an accent change is activated at the next bar boundary.
+
 ## Android runtime validation
 
 The debug Android smoke path now validates the Link lifecycle itself:
