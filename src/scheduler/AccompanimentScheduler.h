@@ -1,6 +1,7 @@
 #pragma once
 
 #include "clock/LinkClock.h"
+#include "generation/ArpeggioGenerator.h"
 #include "generation/BassGenerator.h"
 #include "musical/KeyScale.h"
 #include "scheduler/MidiSendQueue.h"
@@ -12,6 +13,11 @@
 #include <thread>
 
 namespace mozart::scheduler {
+
+enum class AccompanimentRole : std::uint8_t {
+    Bass = 0,
+    Arpeggio = 1
+};
 
 class AccompanimentScheduler final {
 public:
@@ -33,6 +39,9 @@ public:
     void setKeyScale(const musical::KeyScale& keyScale);
     [[nodiscard]] musical::KeyScale keyScale() const;
 
+    void setRole(AccompanimentRole role) noexcept;
+    [[nodiscard]] AccompanimentRole role() const noexcept;
+
 private:
     void run();
     void scheduleEvent(
@@ -48,6 +57,7 @@ private:
 
     std::atomic_bool running_{false};
     std::atomic_bool armed_{false};
+    std::atomic<AccompanimentRole> requestedRole_{AccompanimentRole::Bass};
 
     std::mutex wakeMutex_;
     std::condition_variable wakeCondition_;
@@ -56,6 +66,7 @@ private:
     double launchBarStart_ = -1.0;
     std::int64_t nextBarIndex_ = 0;
     std::size_t nextEventIndex_ = 0;
+    AccompanimentRole activeRole_ = AccompanimentRole::Bass;
     std::uint32_t seed_ = 0x4D4F5A41u;
 };
 
