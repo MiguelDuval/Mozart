@@ -2,6 +2,7 @@
 
 #include "clock/LinkClock.h"
 #include "generation/ArpeggioGenerator.h"
+#include "generation/PatternAccent.h"
 #include "generation/BassGenerator.h"
 #include "generation/PatternDensity.h"
 #include "musical/KeyScale.h"
@@ -46,6 +47,9 @@ public:
     void setDensity(generation::PatternDensity density) noexcept;
     [[nodiscard]] generation::PatternDensity density() const noexcept;
 
+    void setAccent(generation::PatternAccent accent) noexcept;
+    [[nodiscard]] generation::PatternAccent accent() const noexcept;
+
 private:
     void run();
     void scheduleEvent(
@@ -65,6 +69,8 @@ private:
     std::atomic<AccompanimentRole> requestedRole_{AccompanimentRole::Bass};
     std::atomic<generation::PatternDensity> requestedDensity_{
             generation::PatternDensity::Full};
+    std::atomic<generation::PatternAccent> requestedAccent_{
+            generation::PatternAccent::Off};
 
     std::mutex wakeMutex_;
     std::condition_variable wakeCondition_;
@@ -75,6 +81,7 @@ private:
     std::size_t nextEventIndex_ = 0;
     AccompanimentRole activeRole_ = AccompanimentRole::Bass;
     generation::PatternDensity activeDensity_ = generation::PatternDensity::Full;
+    generation::PatternAccent activeAccent_ = generation::PatternAccent::Off;
     std::uint32_t seed_ = 0x4D4F5A41u;
 };
 
