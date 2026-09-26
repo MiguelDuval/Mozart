@@ -311,7 +311,7 @@ int main() {
         scheduler.setArmed(true);
 
         bool generated = false;
-        for (int attempt = 0; attempt < 300; ++attempt) {
+        for (int attempt = 0; attempt < 800; ++attempt) {
             if (output.sendCount.load() > 0) {
                 generated = true;
                 break;
@@ -332,6 +332,24 @@ int main() {
             assert(message.timestampNanos >=
                     static_cast<std::uint64_t>(
                             expectedLaunchHostTime.count()) * 1000ULL);
+        }
+
+        std::vector<std::uint64_t> noteOnTimestamps;
+        for (const auto& message : messages) {
+            if ((message.status & 0xF0) == 0x90 && message.data2 > 0) {
+                noteOnTimestamps.push_back(message.timestampNanos);
+            }
+        }
+
+        // The rolling scheduler should expose consecutive eighth-note bass
+        // events instead of scheduling one whole bar and waiting for the next
+        // bar boundary. At 120 BPM, the generated pattern is 250 ms apart.
+        assert(noteOnTimestamps.size() >= 5);
+        for (std::size_t i = 1; i < 5; ++i) {
+            const auto deltaNanos =
+                    noteOnTimestamps[i] - noteOnTimestamps[i - 1];
+            assert(deltaNanos >= 120'000'000ULL);
+            assert(deltaNanos <= 380'000'000ULL);
         }
     }
 
