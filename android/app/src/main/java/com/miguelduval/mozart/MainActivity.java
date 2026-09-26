@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -13,6 +15,7 @@ import java.util.List;
 
 public final class MainActivity extends Activity {
     private static final String TAG = "MozartStartup";
+    private static final String RUNTIME_SMOKE_EXTRA = "mozart.runtime_smoke";
     static {
         Log.i(TAG, "STARTUP: loadLibrary begin");
         System.loadLibrary("mozart");
@@ -125,9 +128,25 @@ public final class MainActivity extends Activity {
         setContentView(root);
         Log.i(TAG, "STARTUP: setContentView complete");
 
+        if (getIntent().getBooleanExtra(RUNTIME_SMOKE_EXTRA, false)) {
+            startRuntimeSmoke();
+        }
+
         midiTransport = new AndroidMidiTransport(this, midiListener);
         Log.i(TAG, "STARTUP: AndroidMidiTransport constructed");
         Log.i(TAG, "STARTUP: onCreate complete");
+    }
+
+    private void startRuntimeSmoke() {
+        Log.i(TAG, "RUNTIME: Android smoke start begin");
+        nativeSetManualKeyScale(6, 1);
+        nativeStartAccompaniment();
+        Log.i(TAG, "RUNTIME: Android smoke start complete");
+
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            nativeStopAccompaniment();
+            Log.i(TAG, "RUNTIME: Android smoke stop complete");
+        }, 3000L);
     }
 
     @Override
@@ -149,6 +168,14 @@ public final class MainActivity extends Activity {
             midiTransport.stop();
         }
         super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (midiTransport != null) {
+            midiTransport.shutdown();
+        }
+        super.onDestroy();
     }
 
     private void updateMidiStatus(
