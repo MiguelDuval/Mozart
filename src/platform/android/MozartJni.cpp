@@ -138,6 +138,29 @@ Java_com_miguelduval_mozart_MainActivity_nativeTestMidiNote(
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetPatternDensity(
+        JNIEnv*,
+        jobject,
+        jint density) {
+    switch (density) {
+        case 0:
+            runtime()->setPatternDensity(
+                    mozart::generation::PatternDensity::Sparse);
+            break;
+        case 1:
+            runtime()->setPatternDensity(
+                    mozart::generation::PatternDensity::Normal);
+            break;
+        case 2:
+            runtime()->setPatternDensity(
+                    mozart::generation::PatternDensity::Full);
+            break;
+        default:
+            return;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_miguelduval_mozart_MainActivity_nativeSetAccompanimentRole(
         JNIEnv*,
         jobject,
