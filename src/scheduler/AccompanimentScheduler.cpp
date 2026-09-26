@@ -197,6 +197,7 @@ void AccompanimentScheduler::run() {
                         // performer can switch voices without truncating the
                         // currently running musical phrase.
                         activeRole_ = requestedRole_.load();
+                        activeDensity_ = requestedDensity_.load();
                     }
                 }
 
