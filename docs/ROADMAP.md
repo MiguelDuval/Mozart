@@ -37,7 +37,7 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [ ] Kick/snare/hat-style accompaniment patterns.
 - [x] Bass accompaniment.
 - [x] Simple arpeggio role.
-- [ ] Step density.
+- [x] Step density.
 - [ ] Accent.
 - [ ] Probability.
 - [ ] Ratchet.
@@ -48,7 +48,7 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 ## Stage 4 — Harmony
 - [x] Scale model.
 - [ ] Key/Scale context service with explicit source selection (Manual / Audio).
-- [ ] Manual Key/Scale UI control.
+- [x] Manual Key/Scale UI control.
 - [ ] Local/offline microphone key/scale detector integration.
 - [ ] Audio detector confidence/stability/hysteresis policy.
 - [ ] Performer override from Audio back to Manual.
