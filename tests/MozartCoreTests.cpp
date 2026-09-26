@@ -45,6 +45,9 @@ int main() {
         const auto beat = mozart::timing::beatAtTime(0.0, 0.0, 120.0, 1.0);
         assert(std::abs(beat - 2.0) < 1.0e-12);
         assert(std::abs(mozart::timing::quantizeBeat(3.2, 4.0) - 4.0) < 1.0e-12);
+        assert(std::abs(mozart::timing::nextQuantizedBeat(3.2, 4.0) - 4.0) < 1.0e-12);
+        assert(std::abs(mozart::timing::nextQuantizedBeat(4.0, 4.0) - 8.0) < 1.0e-12);
+        assert(std::abs(mozart::timing::nextQuantizedBeat(7.999, 4.0) - 8.0) < 1.0e-12);
     }
 
     {

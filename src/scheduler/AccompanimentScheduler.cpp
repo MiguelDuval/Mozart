@@ -60,6 +60,7 @@ void AccompanimentScheduler::stop() {
     }
 
     scheduledBarStart_ = -1.0;
+    launchBarStart_ = -1.0;
 }
 
 void AccompanimentScheduler::setArmed(const bool armed) noexcept {
@@ -101,9 +102,21 @@ void AccompanimentScheduler::run() {
             // publishing a start/stop state.
             if (!(snapshot.tempoBpm > 0.0)) {
                 scheduledBarStart_ = -1.0;
+                launchBarStart_ = -1.0;
             } else {
+                // START is quantized to the next Link quantum boundary.
+                // This prevents a mid-bar START from entering the current bar.
+                if (launchBarStart_ < 0.0) {
+                    launchBarStart_ =
+                            timing::nextQuantizedBeat(snapshot.beat, snapshot.quantum);
+                }
+
                 const auto barStart =
-                        timing::quantizeBeat(snapshot.beat, snapshot.quantum);
+                        scheduledBarStart_ < 0.0
+                                ? launchBarStart_
+                                : timing::quantizeBeat(
+                                        snapshot.beat,
+                                        snapshot.quantum);
 
                 if (barStart + kEpsilon < scheduledBarStart_) {
                     scheduledBarStart_ = -1.0;

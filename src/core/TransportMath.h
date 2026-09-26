@@ -12,4 +12,8 @@ namespace mozart::timing {
         double beat,
         double quantumBeats) noexcept;
 
+[[nodiscard]] double nextQuantizedBeat(
+        double beat,
+        double quantumBeats) noexcept;
+
 } // namespace mozart::timing
