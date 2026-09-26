@@ -27,8 +27,14 @@ std::vector<musical::MusicalNoteEvent> BassGenerator::generateBar(
     auto state = seed == 0 ? 0x9E3779B9u : seed;
 
     for (std::size_t i = 0; i < beats.size(); ++i) {
+        const auto randomValue = next(state);
+        if (i != 0 &&
+            (randomValue % 100u) >= densityPercent(density)) {
+            continue;
+        }
+
         const auto velocity =
-                static_cast<std::uint8_t>(88u + (next(state) % 32u));
+                static_cast<std::uint8_t>(88u + (randomValue % 32u));
 
         result.push_back(musical::MusicalNoteEvent{
             beats[i],
