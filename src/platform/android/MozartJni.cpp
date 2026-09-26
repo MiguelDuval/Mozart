@@ -138,6 +138,29 @@ Java_com_miguelduval_mozart_MainActivity_nativeTestMidiNote(
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetPatternAccent(
+        JNIEnv*,
+        jobject,
+        jint accent) {
+    switch (accent) {
+        case 0:
+            runtime()->setPatternAccent(
+                    mozart::generation::PatternAccent::Off);
+            break;
+        case 1:
+            runtime()->setPatternAccent(
+                    mozart::generation::PatternAccent::Mild);
+            break;
+        case 2:
+            runtime()->setPatternAccent(
+                    mozart::generation::PatternAccent::Strong);
+            break;
+        default:
+            return;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_miguelduval_mozart_MainActivity_nativeSetPatternDensity(
         JNIEnv*,
         jobject,
