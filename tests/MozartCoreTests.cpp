@@ -5,6 +5,7 @@
 #include "generation/BassGenerator.h"
 #include "generation/RhythmGenerator.h"
 #include "midi/MidiTransport.h"
+#include "midi/MidiReceiveQueue.h"
 #include "musical/KeyScale.h"
 #ifdef MOZART_ENABLE_LINK
 #include "runtime/MozartRuntime.h"
@@ -201,6 +202,66 @@ int main() {
             assert(event.velocity <= 119);
             assert(event.channel == 0);
         }
+    }
+
+
+    {
+        mozart::midi::MidiReceiveQueue queue(4);
+        mozart::midi::MidiInputParser parser;
+
+        const std::uint8_t notes[]{0x90, 60, 100, 61, 0};
+        parser.feed(notes, sizeof(notes), 123456ULL, 7, queue);
+        assert(queue.size() == 2);
+
+        mozart::midi::MidiShortMessage first{};
+        mozart::midi::MidiShortMessage second{};
+        assert(queue.tryPop(first));
+        assert(queue.tryPop(second));
+        assert(first.status == 0x90);
+        assert(first.data1 == 60);
+        assert(first.data2 == 100);
+        assert(first.timestampNanos == 123456ULL);
+        assert(first.portId == 7);
+        assert(second.status == 0x90);
+        assert(second.data1 == 61);
+        assert(second.data2 == 0);
+
+        // Running status may span Android callback boundaries.
+        parser.reset();
+        mozart::midi::MidiReceiveQueue runningQueue;
+        const std::uint8_t partA[]{0x90, 64};
+        const std::uint8_t partB[]{110, 65, 111};
+        parser.feed(partA, sizeof(partA), 200ULL, 9, runningQueue);
+        assert(runningQueue.empty());
+        parser.feed(partB, sizeof(partB), 201ULL, 9, runningQueue);
+        assert(runningQueue.size() == 2);
+        assert(runningQueue.tryPop(first));
+        assert(first.status == 0x90 && first.data1 == 64 && first.data2 == 110);
+        assert(first.timestampNanos == 201ULL);
+        assert(runningQueue.tryPop(second));
+        assert(second.status == 0x90 && second.data1 == 65 && second.data2 == 111);
+
+        // Realtime bytes are transparent to channel-voice parsing.
+        parser.reset();
+        mozart::midi::MidiReceiveQueue realtimeQueue;
+        const std::uint8_t realtime[]{0x90, 67, 120, 0xF8, 0x80, 67, 0};
+        parser.feed(realtime, sizeof(realtime), 300ULL, 10, realtimeQueue);
+        assert(realtimeQueue.size() == 2);
+
+        // The queue stays bounded and keeps the newest event when full.
+        mozart::midi::MidiReceiveQueue boundedQueue(2);
+        const auto makeNote = [](std::uint8_t note, std::uint64_t time) {
+            return mozart::midi::noteOn(0, note, 100, time, 11).value();
+        };
+        assert(boundedQueue.push(makeNote(60, 1)));
+        assert(boundedQueue.push(makeNote(61, 2)));
+        assert(boundedQueue.push(makeNote(62, 3)));
+        assert(boundedQueue.size() == 2);
+        assert(boundedQueue.droppedCount() == 1);
+        assert(boundedQueue.tryPop(first));
+        assert(first.data1 == 61 && first.timestampNanos == 2);
+        assert(boundedQueue.tryPop(second));
+        assert(second.data1 == 62 && second.timestampNanos == 3);
     }
 
     {
