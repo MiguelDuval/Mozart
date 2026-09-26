@@ -11,6 +11,7 @@ struct LinkClockSnapshot {
     bool enabled = false;
     bool playing = false;
     bool inSession = false;
+    bool startStopSyncEnabled = false;
     std::size_t peers = 0;
     double tempoBpm = 120.0;
     double beat = 0.0;
