@@ -29,6 +29,7 @@ public final class MainActivity extends Activity {
     private static native String nativeLinkSnapshot();
     private static native boolean nativeTestMidiNote();
     private static native void nativeSetAccompanimentRole(int role);
+    private static native void nativeSetPatternDensity(int density);
     private static native void nativeSetManualKeyScale(
             int rootPitchClass,
             int scaleId);
@@ -119,6 +120,20 @@ public final class MainActivity extends Activity {
             status.append("\n\nArpeggio role selected; change takes effect at the next bar.");
         });
 
+        Button density = new Button(this);
+        density.setText("DENSITY: FULL");
+        final int[] densityIndex = {2};
+        density.setOnClickListener(view -> {
+            densityIndex[0] = (densityIndex[0] + 1) % 3;
+            final int selectedDensity = densityIndex[0];
+            nativeSetPatternDensity(selectedDensity);
+            final String[] labels = {"DENSITY: SPARSE", "DENSITY: NORMAL", "DENSITY: FULL"};
+            density.setText(labels[selectedDensity]);
+            status.append(
+                    "\n\n" + labels[selectedDensity]
+                            + " selected; change takes effect at the next bar.");
+        });
+
         Button testMidi = new Button(this);
         testMidi.setText("TEST MIDI OUT");
         testMidi.setOnClickListener(view -> {
@@ -178,6 +193,11 @@ public final class MainActivity extends Activity {
 
         root.addView(
                 roleRow,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(
+                density,
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
