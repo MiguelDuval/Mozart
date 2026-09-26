@@ -111,7 +111,6 @@ void AccompanimentScheduler::run() {
                 launchBarStart_ = -1.0;
                 nextBarIndex_ = 0;
                 nextEventIndex_ = 0;
-                lastTempoBpm_ = 0.0;
             } else {
                 // The musical cursor is deliberately independent of tempo.
                 // A Link tempo change changes beat->host-time conversion, not
@@ -197,8 +196,14 @@ void AccompanimentScheduler::scheduleEvent(
                     ? nowTimestamp
                     : desiredStartTimestamp;
 
-    const auto noteOffTimestamp =
+    const auto desiredNoteOffTimestamp =
             beatToTimestampNanos(clock_.hostTimeAtBeat(endBeat));
+    const auto minimumNoteOffTimestamp =
+            noteOnTimestamp + 1'000'000ULL;
+    const auto noteOffTimestamp =
+            desiredNoteOffTimestamp < minimumNoteOffTimestamp
+                    ? minimumNoteOffTimestamp
+                    : desiredNoteOffTimestamp;
 
     const auto noteOn =
             midi::noteOn(
