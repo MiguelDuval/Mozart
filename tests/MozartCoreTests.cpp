@@ -13,6 +13,7 @@
 #include "clock/LinkClock.h"
 #endif
 
+#include <algorithm>
 #include <cassert>
 #include <atomic>
 #include <chrono>
@@ -172,8 +173,8 @@ int main() {
                         mozart::generation::PatternDensity::Full,
                         mozart::generation::PatternAccent::Strong);
         assert(flatAccent.size() == strongAccent.size());
-        assert(strongAccent[0].velocity >= flatAccent[0].velocity + 10);
-        assert(strongAccent[4].velocity >= flatAccent[4].velocity + 10);
+        assert(strongAccent[0].velocity >= std::min(127u, static_cast<unsigned int>(flatAccent[0].velocity) + 20u));
+        assert(strongAccent[4].velocity >= std::min(127u, static_cast<unsigned int>(flatAccent[4].velocity) + 20u));
         assert(strongAccent[1].velocity == flatAccent[1].velocity);
         assert(strongAccent[5].velocity == flatAccent[5].velocity);
 
