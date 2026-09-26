@@ -53,6 +53,8 @@ The role selector is intentionally quantized: choosing BASS or ARPEGGIO while pl
 
 Both roles use the same Link beat cursor and rolling look-ahead scheduler, so tempo changes affect their timestamps without restarting either sequence.
 
+Pattern density is currently available as **Sparse (50%)**, **Normal (75%)**, or **Full (100%)**. Density changes are requested immediately but become active at the next 4-beat bar boundary, preserving the current phrase. The first event of each bar is retained so a sparse pattern cannot become completely silent.
+
 ## Android runtime validation
 
 The debug Android smoke path now validates the Link lifecycle itself:
