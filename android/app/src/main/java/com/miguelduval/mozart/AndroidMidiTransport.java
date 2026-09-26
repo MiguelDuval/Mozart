@@ -61,6 +61,10 @@ public final class AndroidMidiTransport {
             return portType == MidiDeviceInfo.PortInfo.TYPE_INPUT;
         }
 
+        public boolean isDeviceOutput() {
+            return portType == MidiDeviceInfo.PortInfo.TYPE_OUTPUT;
+        }
+
         public boolean isUsb() {
             return transportType == MidiDeviceInfo.TYPE_USB;
         }
