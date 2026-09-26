@@ -80,8 +80,8 @@ adb shell am force-stop "$PACKAGE"
 adb logcat -c
 
 start_app
-wait_for_startup
-startup_rc=$?
+startup_rc=0
+wait_for_startup || startup_rc=$?
 
 if [[ "$startup_rc" -eq 2 ]]; then
   echo "Fatal Mozart Android exception detected during startup."
@@ -95,8 +95,8 @@ if [[ "$startup_rc" -eq 3 ]]; then
   timeout 20s adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
   adb logcat -c || true
   start_app
-  wait_for_startup
-  startup_rc=$?
+  startup_rc=0
+  wait_for_startup || startup_rc=$?
   if [[ "$startup_rc" -eq 2 ]]; then
     echo "Fatal Mozart Android exception detected during retry."
     collect_diagnostics
