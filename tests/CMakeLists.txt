@@ -19,6 +19,7 @@ add_executable(mozart_core_tests
     ../src/generation/RhythmGenerator.cpp
     ../src/generation/BassGenerator.cpp
     ../src/generation/ArpeggioGenerator.cpp
+    ../src/midi/MidiReceiveQueue.cpp
 )
 
 target_include_directories(mozart_core_tests PRIVATE
