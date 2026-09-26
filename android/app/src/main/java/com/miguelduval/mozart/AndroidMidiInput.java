@@ -39,6 +39,7 @@ public final class AndroidMidiInput {
     private MidiDevice openedDevice;
     private MidiOutputPort openedPort;
     private AndroidMidiTransport.MidiEndpoint openedEndpoint;
+    private AndroidMidiTransport.MidiEndpoint pendingEndpoint;
     private boolean opening;
 
     public AndroidMidiInput(Context context, Listener listener) {
@@ -93,6 +94,7 @@ public final class AndroidMidiInput {
 
         closeInternal();
         opening = true;
+        pendingEndpoint = endpoint;
         publishStatus("MIDI IN: opening " + endpoint.displayName() + "...");
 
         final MidiDeviceInfo[] devices = midiManager.getDevices();
@@ -120,6 +122,7 @@ public final class AndroidMidiInput {
                         safeClose(device);
                         return;
                     }
+                    pendingEndpoint = null;
 
                     final MidiOutputPort outputPort =
                             device.openOutputPort(endpoint.portNumber);
@@ -178,8 +181,7 @@ public final class AndroidMidiInput {
 
     private boolean sameRequestedEndpoint(
             AndroidMidiTransport.MidiEndpoint endpoint) {
-        return openedEndpoint == null ||
-                sameEndpoint(openedEndpoint, endpoint);
+        return sameEndpoint(pendingEndpoint, endpoint);
     }
 
     private static boolean sameEndpoint(
@@ -209,6 +211,7 @@ public final class AndroidMidiInput {
 
     private void closeInternal() {
         opening = false;
+        pendingEndpoint = null;
         nativeResetMidiInput();
 
         if (openedPort != null) {
