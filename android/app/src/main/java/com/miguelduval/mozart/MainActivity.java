@@ -25,6 +25,7 @@ public final class MainActivity extends Activity {
     private static native String nativeEngineInfo();
     private static native void nativeStartAccompaniment();
     private static native void nativeStopAccompaniment();
+    private static native String nativeLinkSnapshot();
     private static native boolean nativeTestMidiNote();
     private static native void nativeSetManualKeyScale(
             int rootPitchClass,
@@ -142,6 +143,7 @@ public final class MainActivity extends Activity {
         nativeSetManualKeyScale(6, 1);
         nativeStartAccompaniment();
         Log.i(TAG, "RUNTIME: Android smoke start complete");
+        Log.i(TAG, "RUNTIME: Link snapshot " + nativeLinkSnapshot());
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             nativeStopAccompaniment();
