@@ -16,6 +16,7 @@ add_library(mozart-core STATIC
     src/musical/KeyScale.cpp
     src/generation/RhythmGenerator.cpp
     src/generation/BassGenerator.cpp
+    src/generation/ArpeggioGenerator.cpp
 )
 
 target_include_directories(mozart-core PUBLIC
