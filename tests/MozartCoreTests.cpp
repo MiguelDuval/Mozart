@@ -262,6 +262,20 @@ int main() {
         assert(first.data1 == 61 && first.timestampNanos == 2);
         assert(boundedQueue.tryPop(second));
         assert(second.data1 == 62 && second.timestampNanos == 3);
+
+        const boundedSnapshot = boundedQueue.snapshot();
+        assert(boundedSnapshot.pending == 0);
+        assert(boundedSnapshot.accepted == 3);
+        assert(boundedSnapshot.dropped == 1);
+        assert(boundedSnapshot.hasLast);
+        assert(boundedSnapshot.last.data1 == 62);
+
+        boundedQueue.reset();
+        const resetSnapshot = boundedQueue.snapshot();
+        assert(resetSnapshot.pending == 0);
+        assert(resetSnapshot.accepted == 0);
+        assert(resetSnapshot.dropped == 0);
+        assert(!resetSnapshot.hasLast);
     }
 
     {
