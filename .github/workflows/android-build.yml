@@ -97,7 +97,7 @@ jobs:
             cat /tmp/mozart-start.txt || true
 
             for attempt in $(seq 1 15); do
-              adb shell pidof com.miguelduval.mozart.debug > /tmp/mozart-pid.txt 2>/dev/null || true
+              adb shell ps -A | grep -F 'al.mozart.debug' > /tmp/mozart-pid.txt 2>/dev/null || true
               if test -s /tmp/mozart-pid.txt; then
                 break
               fi
@@ -114,7 +114,7 @@ jobs:
             printf "=== START STATUS ===\n"; cat /tmp/mozart-start-status.txt || true; printf "\n=== PID ===\n"; cat /tmp/mozart-pid.txt || true; printf "\n=== START OUTPUT ===\n"; cat /tmp/mozart-start.txt || true; printf "\n=== MOZART LOG MARKERS ===\n"; grep "MozartStartup" /tmp/mozart-logcat.txt || true; printf "\n=== MOZART PS ===\n"; grep -i "mozart" /tmp/mozart-ps.txt || true
             if grep -Fq "FATAL EXCEPTION" /tmp/mozart-logcat.txt; then echo "Fatal Android exception detected."; exit 1; fi
             status="$(cat /tmp/mozart-start-status.txt 2>/dev/null || printf "%s" "124")"; echo "am start diagnostic status=$status (not used as the smoke-test pass/fail criterion)."
-            if ! test -s /tmp/mozart-pid.txt; then echo "Mozart process PID was not found."; exit 1; fi
+            if ! grep -Fq 'al.mozart.debug' /tmp/mozart-ps.txt; then echo "Mozart process was not found in process list."; exit 1; fi
             if ! grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity" /tmp/mozart-activity.txt; then echo "MainActivity was not present in activity manager state."; exit 1; fi
 
       - name: Upload debug APK
