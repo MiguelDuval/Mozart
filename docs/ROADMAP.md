@@ -43,7 +43,7 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [ ] Ratchet.
 - [ ] Swing.
 - [x] MIDI scheduler.
-- [ ] MicroFreak external validation.
+- [x] MicroFreak external validation.
 
 ## Stage 4 — Harmony
 - [x] Scale model.
