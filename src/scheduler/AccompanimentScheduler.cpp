@@ -93,6 +93,7 @@ void AccompanimentScheduler::run() {
     while (running_.load()) {
         if (!armed_.load() || !clock_.isEnabled()) {
             scheduledBarStart_ = -1.0;
+            launchBarStart_ = -1.0;
         } else {
             const auto snapshot = clock_.captureAppSnapshot();
 
