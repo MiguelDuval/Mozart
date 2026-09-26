@@ -34,6 +34,17 @@ The pinned Link 4.0 source does not define a dedicated Android platform. For the
 
 This is an integration choice at the platform boundary; it does not make Android code part of the musical domain.
 
+## Android runtime validation
+
+The debug Android smoke path now validates the Link lifecycle itself:
+
+1. Start the runtime and verify an enabled Link snapshot with the expected default tempo.
+2. Capture a second snapshot after one second and verify that the Link beat has advanced rather than remaining static.
+3. Stop accompaniment, disable Link, and verify the final snapshot reports `enabled=false`.
+4. Keep the diagnostic status visible in the Activity so a physical device can expose the same enabled/playing/peer/tempo/beat/phase state during manual testing.
+
+This validates the local Link runtime path in CI. It does **not** prove multi-device session discovery, peer synchronization, USB-MIDI hardware receipt, or physical timing quality.
+
 ## Dependency
 
 Link is pinned to:
