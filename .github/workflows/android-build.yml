@@ -83,10 +83,10 @@ jobs:
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.miguelduval.mozart.debug
             rm -f /tmp/mozart-start.txt /tmp/mozart-start-status.txt /tmp/mozart-start-host-pid.txt
-            '(adb shell am start -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity > /tmp/mozart-start.txt 2>&1; printf "%s\n" "$?" > /tmp/mozart-start-status.txt) & printf "%s\n" "$!" > /tmp/mozart-start-host-pid.txt'
+            (adb shell am start -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity > /tmp/mozart-start.txt 2>&1; printf "%s\n" "$?" > /tmp/mozart-start-status.txt) & printf "%s\n" "$!" > /tmp/mozart-start-host-pid.txt
             sleep 5
-            'if test -s /tmp/mozart-start-host-pid.txt; then kill "$(cat /tmp/mozart-start-host-pid.txt)" 2>/dev/null || true; fi'
-            'if test -s /tmp/mozart-start-status.txt; then cat /tmp/mozart-start-status.txt; else printf "%s\n" "124" > /tmp/mozart-start-status.txt; fi'
+            if test -s /tmp/mozart-start-host-pid.txt; then kill "$(cat /tmp/mozart-start-host-pid.txt)" 2>/dev/null || true; fi
+            if test -s /tmp/mozart-start-status.txt; then cat /tmp/mozart-start-status.txt; else printf "%s\n" "124" > /tmp/mozart-start-status.txt; fi
             cat /tmp/mozart-start.txt || true
             sleep 2
             adb shell pidof com.miguelduval.mozart.debug > /tmp/mozart-pid.txt || true
@@ -96,11 +96,11 @@ jobs:
             adb exec-out screencap -p > /tmp/mozart-screen.png || true
             timeout 10s adb shell uiautomator dump /sdcard/mozart-ui.xml || true
             adb exec-out cat /sdcard/mozart-ui.xml > /tmp/mozart-ui.xml 2>/dev/null || true
-            'printf "=== START STATUS ===\n"; cat /tmp/mozart-start-status.txt || true; printf "\n=== PID ===\n"; cat /tmp/mozart-pid.txt || true; printf "\n=== START OUTPUT ===\n"; cat /tmp/mozart-start.txt || true; printf "\n=== MOZART LOG MARKERS ===\n"; grep "MozartStartup" /tmp/mozart-logcat.txt || true'
-            'if grep -Fq "FATAL EXCEPTION" /tmp/mozart-logcat.txt; then echo "Fatal Android exception detected."; exit 1; fi'
-            'status="$(cat /tmp/mozart-start-status.txt 2>/dev/null || printf "%s" "124")"; if [ "$status" -ne 0 ]; then echo "am start did not return successfully (status=$status)."; exit 1; fi'
-            'if ! test -s /tmp/mozart-pid.txt; then echo "Mozart process PID was not found."; exit 1; fi'
-            'if ! grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity" /tmp/mozart-activity.txt; then echo "MainActivity was not present in activity manager state."; exit 1; fi'
+            printf "=== START STATUS ===\n"; cat /tmp/mozart-start-status.txt || true; printf "\n=== PID ===\n"; cat /tmp/mozart-pid.txt || true; printf "\n=== START OUTPUT ===\n"; cat /tmp/mozart-start.txt || true; printf "\n=== MOZART LOG MARKERS ===\n"; grep "MozartStartup" /tmp/mozart-logcat.txt || true
+            if grep -Fq "FATAL EXCEPTION" /tmp/mozart-logcat.txt; then echo "Fatal Android exception detected."; exit 1; fi
+            status="$(cat /tmp/mozart-start-status.txt 2>/dev/null || printf "%s" "124")"; if [ "$status" -ne 0 ]; then echo "am start did not return successfully (status=$status)."; exit 1; fi
+            if ! test -s /tmp/mozart-pid.txt; then echo "Mozart process PID was not found."; exit 1; fi
+            if ! grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity" /tmp/mozart-activity.txt; then echo "MainActivity was not present in activity manager state."; exit 1; fi
 
       - name: Upload debug APK
         if: always()
