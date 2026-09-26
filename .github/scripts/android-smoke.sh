@@ -66,8 +66,11 @@ wait_for_runtime_smoke() {
     if fatal_mozart_exception; then
       return 2
     fi
-    if grep -Fq "RUNTIME: Android smoke stop complete" "$LOGCAT_FILE"; then
-      return 0
+    if grep -Fq "RUNTIME: Link snapshot enabled=true" "$LOGCAT_FILE" &&
+       grep -Fq "tempo=120." "$LOGCAT_FILE"; then
+      if grep -Fq "RUNTIME: Android smoke stop complete" "$LOGCAT_FILE"; then
+        return 0
+      fi
     fi
     sleep 0.25
   done
@@ -125,7 +128,7 @@ collect_diagnostics
 
 printf '=== RUNTIME SMOKE ===\n'
 if [[ "$runtime_smoke_rc" -eq 0 ]]; then
-  echo "Android Link runtime smoke test passed."
+  echo "Android Link runtime smoke test passed (start, enabled snapshot, stop)."
 else
   echo "Android Link runtime smoke test did not complete."
 fi
