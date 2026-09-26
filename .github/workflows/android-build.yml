@@ -84,25 +84,12 @@ jobs:
             adb shell am force-stop com.miguelduval.mozart.debug
             rm -f /tmp/mozart-start.txt /tmp/mozart-start-status.txt /tmp/mozart-start-host-pid.txt
             (timeout 60s adb shell am start -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity > /tmp/mozart-start.txt 2>&1; printf "%s\n" "$?" > /tmp/mozart-start-status.txt) & printf "%s\n" "$!" > /tmp/mozart-start-host-pid.txt
-            for attempt in $(seq 1 20); do
-              if test -s /tmp/mozart-start-status.txt; then
-                break
-              fi
-              sleep 2
-            done
-            if test -s /tmp/mozart-start-host-pid.txt && ! test -s /tmp/mozart-start-status.txt; then
-              kill "$(cat /tmp/mozart-start-host-pid.txt)" 2>/dev/null || true
-            fi
+            for attempt in $(seq 1 20); do if test -s /tmp/mozart-start-status.txt; then break; fi; sleep 2; done
+            if test -s /tmp/mozart-start-host-pid.txt && ! test -s /tmp/mozart-start-status.txt; then kill "$(cat /tmp/mozart-start-host-pid.txt)" 2>/dev/null || true; fi
             if test -s /tmp/mozart-start-status.txt; then cat /tmp/mozart-start-status.txt; else printf "%s\n" "124" > /tmp/mozart-start-status.txt; fi
             cat /tmp/mozart-start.txt || true
 
-            for attempt in $(seq 1 15); do
-              adb shell ps -A | grep -F 'al.mozart.debug' > /tmp/mozart-pid.txt 2>/dev/null || true
-              if test -s /tmp/mozart-pid.txt; then
-                break
-              fi
-              sleep 2
-            done
+            for attempt in $(seq 1 15); do if adb shell ps -A | grep -F 'al.mozart.debug' > /tmp/mozart-pid.txt 2>/dev/null; then break; fi; sleep 2; done
             adb shell ps -A > /tmp/mozart-ps.txt || true
             adb shell dumpsys activity activities > /tmp/mozart-activity.txt || true
             adb shell dumpsys activity processes > /tmp/mozart-processes.txt || true
