@@ -39,6 +39,8 @@ public final class MainActivity extends Activity {
     private TextView linkStatus;
     private AndroidMidiTransport midiTransport;
     private boolean activityStarted = false;
+    private int selectedRootPitchClass = 6;
+    private int selectedScaleId = 1;
 
     private final Runnable linkStatusPoll = new Runnable() {
         @Override
@@ -97,10 +99,37 @@ public final class MainActivity extends Activity {
         linkStatus.setTextSize(14.0f);
         linkStatus.setGravity(Gravity.CENTER);
 
+        Button key = new Button(this);
+        final String[] keyLabels = {
+                "C", "C#", "D", "D#", "E", "F",
+                "F#", "G", "G#", "A", "A#", "B"
+        };
+        key.setText("KEY: F#");
+        key.setOnClickListener(view -> {
+            selectedRootPitchClass = (selectedRootPitchClass + 1) % 12;
+            nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
+            key.setText("KEY: " + keyLabels[selectedRootPitchClass]);
+            status.append(
+                    "\n\nKey: " + keyLabels[selectedRootPitchClass]
+                            + " selected; change takes effect at the next bar.");
+        });
+
+        Button scale = new Button(this);
+        final String[] scaleLabels = {"MAJOR", "MINOR", "DORIAN"};
+        scale.setText("SCALE: MINOR");
+        scale.setOnClickListener(view -> {
+            selectedScaleId = (selectedScaleId + 1) % 3;
+            nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
+            scale.setText("SCALE: " + scaleLabels[selectedScaleId]);
+            status.append(
+                    "\n\nScale: " + scaleLabels[selectedScaleId]
+                            + " selected; change takes effect at the next bar.");
+        });
+
         Button start = new Button(this);
         start.setText("START LINK BASS");
         start.setOnClickListener(view -> {
-            nativeSetManualKeyScale(6, 1);
+            nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
             nativeStartAccompaniment();
             status.append("\n\nAccompaniment armed; following Link timing.");
             updateLinkStatus();
@@ -163,6 +192,26 @@ public final class MainActivity extends Activity {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         0,
                         1.0f));
+        LinearLayout keyScaleRow = new LinearLayout(this);
+        keyScaleRow.setOrientation(LinearLayout.HORIZONTAL);
+        keyScaleRow.setGravity(Gravity.CENTER);
+        keyScaleRow.addView(
+                key,
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1.0f));
+        keyScaleRow.addView(
+                scale,
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1.0f));
+        root.addView(
+                keyScaleRow,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(
                 linkStatus,
                 new LinearLayout.LayoutParams(
