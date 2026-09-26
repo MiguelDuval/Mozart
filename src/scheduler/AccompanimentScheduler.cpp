@@ -64,6 +64,7 @@ void AccompanimentScheduler::stop() {
     launchBarStart_ = -1.0;
     nextBarIndex_ = 0;
     nextEventIndex_ = 0;
+    activeRole_ = requestedRole_.load();
 }
 
 void AccompanimentScheduler::setArmed(const bool armed) noexcept {
@@ -87,6 +88,16 @@ void AccompanimentScheduler::setKeyScale(const musical::KeyScale& keyScale) {
 musical::KeyScale AccompanimentScheduler::keyScale() const {
     std::lock_guard<std::mutex> lock(stateMutex_);
     return keyScale_;
+}
+
+void AccompanimentScheduler::setRole(
+        const AccompanimentRole role) noexcept {
+    requestedRole_.store(role);
+    wakeCondition_.notify_all();
+}
+
+AccompanimentRole AccompanimentScheduler::role() const noexcept {
+    return requestedRole_.load();
 }
 
 void AccompanimentScheduler::run() {
@@ -125,11 +136,15 @@ void AccompanimentScheduler::run() {
                                     snapshot.quantum);
                     nextBarIndex_ = 0;
                     nextEventIndex_ = 0;
+                    activeRole_ = requestedRole_.load();
                 }
 
                 const auto events =
-                        generation::BassGenerator::generateBar(
-                                keyScale(), 2, seed_, 0);
+                        activeRole_ == AccompanimentRole::Arpeggio
+                                ? generation::ArpeggioGenerator::generateBar(
+                                        keyScale(), 4, seed_, 0)
+                                : generation::BassGenerator::generateBar(
+                                        keyScale(), 2, seed_, 0);
 
                 if (events.empty()) {
                     nextBarIndex_ = 0;
@@ -165,6 +180,11 @@ void AccompanimentScheduler::run() {
                     if (nextEventIndex_ >= events.size()) {
                         nextEventIndex_ = 0;
                         ++nextBarIndex_;
+
+                        // Role changes are quantized to the next bar so a
+                        // performer can switch voices without truncating the
+                        // currently running musical phrase.
+                        activeRole_ = requestedRole_.load();
                     }
                 }
 
