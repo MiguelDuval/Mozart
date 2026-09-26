@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PACKAGE="com.miguelduval.mozart.debug"
-ACTIVITY="\${PACKAGE}/com.miguelduval.mozart.MainActivity"
+ACTIVITY="${PACKAGE}/com.miguelduval.mozart.MainActivity"
 START_TIMEOUT=90
 START_WINDOW=120
 LOGCAT_FILE=/tmp/mozart-logcat.txt
@@ -36,7 +36,7 @@ start_app() {
   rm -f "$START_FILE" "$START_STATUS_FILE" "$START_HOST_PID_FILE"
   (
     set +e
-    timeout "\${START_TIMEOUT}s" adb shell am start -n "$ACTIVITY" > "$START_FILE" 2>&1
+    timeout "${START_TIMEOUT}s" adb shell am start -n "$ACTIVITY" > "$START_FILE" 2>&1
     rc=$?
     printf '%s\n' "$rc" > "$START_STATUS_FILE"
   ) &
@@ -126,7 +126,7 @@ if [[ "$startup_rc" -ne 0 ]]; then
   if system_anr_detected; then
     echo "Android system_server remained unhealthy after the retry; smoke test cannot establish Mozart startup."
   else
-    echo "Mozart did not complete Android startup within \${START_WINDOW}s."
+    echo "Mozart did not complete Android startup within ${START_WINDOW}s."
   fi
   exit 1
 fi
