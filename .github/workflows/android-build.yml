@@ -72,7 +72,7 @@ jobs:
           api-level: 36
           target: google_apis
           arch: x86_64
-          emulator-options: -no-snapshot-save -no-window -gpu off -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-snapshot-save -gpu off -noaudio -no-boot-anim -camera-back none
           emulator-boot-timeout: 900
           disable-animations: false
           script: |
@@ -82,29 +82,25 @@ jobs:
             adb shell getprop sys.boot_completed | grep -q "1"
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.miguelduval.mozart.debug
-            set +e
-            timeout 5s adb shell am start -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity > /tmp/mozart-start.txt 2>&1
-            start_status=$?
-            set -e
-            echo "am start exit status: $start_status"
-            sleep 3
+            rm -f /tmp/mozart-start.txt /tmp/mozart-start-status.txt /tmp/mozart-start-host-pid.txt
+            '(adb shell am start -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity > /tmp/mozart-start.txt 2>&1; printf "%s\n" "$?" > /tmp/mozart-start-status.txt) & printf "%s\n" "$!" > /tmp/mozart-start-host-pid.txt'
+            sleep 5
+            'if test -s /tmp/mozart-start-host-pid.txt; then kill "$(cat /tmp/mozart-start-host-pid.txt)" 2>/dev/null || true; fi'
+            'if test -s /tmp/mozart-start-status.txt; then cat /tmp/mozart-start-status.txt; else printf "%s\n" "124" > /tmp/mozart-start-status.txt; fi'
+            cat /tmp/mozart-start.txt || true
+            sleep 2
             adb shell pidof com.miguelduval.mozart.debug > /tmp/mozart-pid.txt || true
             adb shell dumpsys activity activities > /tmp/mozart-activity.txt || true
             adb shell dumpsys window windows > /tmp/mozart-window.txt || true
-            adb logcat -d -t 500 > /tmp/mozart-logcat.txt || true
+            adb shell logcat -d -t 1000 > /tmp/mozart-logcat.txt || true
             adb exec-out screencap -p > /tmp/mozart-screen.png || true
-            if grep -Fq 'FATAL EXCEPTION' /tmp/mozart-logcat.txt; then
-              echo "Fatal Android exception detected."
-              exit 1
-            fi
-            grep -Fq 'com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity' /tmp/mozart-activity.txt
-            test -s /tmp/mozart-pid.txt
             timeout 10s adb shell uiautomator dump /sdcard/mozart-ui.xml || true
             adb exec-out cat /sdcard/mozart-ui.xml > /tmp/mozart-ui.xml 2>/dev/null || true
-            if [ "$start_status" -eq 124 ]; then
-              echo "am start timed out; activity/pid diagnostics were collected above."
-              exit 1
-            fi
+            'printf "=== START STATUS ===\n"; cat /tmp/mozart-start-status.txt || true; printf "\n=== PID ===\n"; cat /tmp/mozart-pid.txt || true; printf "\n=== START OUTPUT ===\n"; cat /tmp/mozart-start.txt || true; printf "\n=== MOZART LOG MARKERS ===\n"; grep "MozartStartup" /tmp/mozart-logcat.txt || true'
+            'if grep -Fq "FATAL EXCEPTION" /tmp/mozart-logcat.txt; then echo "Fatal Android exception detected."; exit 1; fi'
+            'status="$(cat /tmp/mozart-start-status.txt 2>/dev/null || printf "%s" "124")"; if [ "$status" -ne 0 ]; then echo "am start did not return successfully (status=$status)."; exit 1; fi'
+            'if ! test -s /tmp/mozart-pid.txt; then echo "Mozart process PID was not found."; exit 1; fi'
+            'if ! grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity" /tmp/mozart-activity.txt; then echo "MainActivity was not present in activity manager state."; exit 1; fi'
 
       - name: Upload debug APK
         if: always()
@@ -127,6 +123,10 @@ jobs:
             /tmp/mozart-window.txt
             /tmp/mozart-logcat.txt
             /tmp/mozart-screen.png
+            /tmp/mozart-start.txt
+            /tmp/mozart-start-status.txt
+            /tmp/mozart-start-host-pid.txt
+            /tmp/mozart-pid.txt
           archive: true
           if-no-files-found: ignore
           retention-days: 14
