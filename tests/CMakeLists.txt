@@ -18,6 +18,7 @@ add_executable(mozart_core_tests
     ../src/musical/KeyScale.cpp
     ../src/generation/RhythmGenerator.cpp
     ../src/generation/BassGenerator.cpp
+    ../src/generation/ArpeggioGenerator.cpp
 )
 
 target_include_directories(mozart_core_tests PRIVATE
