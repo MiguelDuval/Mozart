@@ -3,6 +3,7 @@
 #include "core/MidiTypes.h"
 #include "core/TransportMath.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -118,9 +119,6 @@ void AccompanimentScheduler::run() {
                 // A Link tempo change changes beat->host-time conversion, not
                 // which note comes next. This prevents the sequence from
                 // restarting or waiting for a new bar after a tempo change.
-                const bool tempoChanged =
-                        lastTempoBpm_ > 0.0 &&
-                        std::abs(snapshot.tempoBpm - lastTempoBpm_) > 1.0e-9;
                 lastTempoBpm_ = snapshot.tempoBpm;
 
                 if (launchBarStart_ < 0.0) {
@@ -175,7 +173,6 @@ void AccompanimentScheduler::run() {
                     }
                 }
 
-                (void) tempoChanged;
             }
         }
 
