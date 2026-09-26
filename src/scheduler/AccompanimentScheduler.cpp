@@ -29,7 +29,8 @@ namespace {
     return micros * kNanosPerMicrosecond;
 }
 
-}
+} // namespace
+
 AccompanimentScheduler::AccompanimentScheduler(
         clock::LinkClock& clock,
         MidiSendQueue& sendQueue)
@@ -59,8 +60,10 @@ void AccompanimentScheduler::stop() {
         worker_.join();
     }
 
-    scheduledBarStart_ = -1.0;
     launchBarStart_ = -1.0;
+    nextBarIndex_ = 0;
+    nextEventIndex_ = 0;
+    lastTempoBpm_ = 0.0;
 }
 
 void AccompanimentScheduler::setArmed(const bool armed) noexcept {
@@ -87,13 +90,16 @@ musical::KeyScale AccompanimentScheduler::keyScale() const {
 }
 
 void AccompanimentScheduler::run() {
-    constexpr double kLookAheadBeats = 1.0;
+    constexpr double kLookAheadSeconds = 0.032;
     constexpr double kEpsilon = 1.0e-9;
+    constexpr std::chrono::milliseconds kPollPeriod{5};
 
     while (running_.load()) {
         if (!armed_.load() || !clock_.isEnabled()) {
-            scheduledBarStart_ = -1.0;
             launchBarStart_ = -1.0;
+            nextBarIndex_ = 0;
+            nextEventIndex_ = 0;
+            lastTempoBpm_ = 0.0;
         } else {
             const auto snapshot = clock_.captureAppSnapshot();
 
@@ -101,85 +107,126 @@ void AccompanimentScheduler::run() {
             // local START button arms accompaniment; Link supplies the shared
             // beat/tempo/phase timeline whether or not a remote peer is
             // publishing a start/stop state.
-            if (!(snapshot.tempoBpm > 0.0)) {
-                scheduledBarStart_ = -1.0;
+            if (!(snapshot.tempoBpm > 0.0) ||
+                !std::isfinite(snapshot.tempoBpm)) {
                 launchBarStart_ = -1.0;
+                nextBarIndex_ = 0;
+                nextEventIndex_ = 0;
+                lastTempoBpm_ = 0.0;
             } else {
-                // START is quantized to the next Link quantum boundary.
-                // This prevents a mid-bar START from entering the current bar.
+                // The musical cursor is deliberately independent of tempo.
+                // A Link tempo change changes beat->host-time conversion, not
+                // which note comes next. This prevents the sequence from
+                // restarting or waiting for a new bar after a tempo change.
+                const bool tempoChanged =
+                        lastTempoBpm_ > 0.0 &&
+                        std::abs(snapshot.tempoBpm - lastTempoBpm_) > 1.0e-9;
+                lastTempoBpm_ = snapshot.tempoBpm;
+
                 if (launchBarStart_ < 0.0) {
+                    // START is quantized once, at arming time. After launch,
+                    // this reference beat is never recomputed from tempo.
                     launchBarStart_ =
-                            timing::nextQuantizedBeat(snapshot.beat, snapshot.quantum);
+                            timing::nextQuantizedBeat(
+                                    snapshot.beat,
+                                    snapshot.quantum);
+                    nextBarIndex_ = 0;
+                    nextEventIndex_ = 0;
                 }
 
-                const auto barStart =
-                        scheduledBarStart_ < 0.0
-                                ? launchBarStart_
-                                : timing::quantizeBeat(
-                                        snapshot.beat,
-                                        snapshot.quantum);
+                const auto events =
+                        generation::BassGenerator::generateBar(
+                                keyScale(), 2, seed_, 0);
 
-                if (barStart + kEpsilon < scheduledBarStart_) {
-                    scheduledBarStart_ = -1.0;
+                if (events.empty()) {
+                    nextBarIndex_ = 0;
+                    nextEventIndex_ = 0;
+                } else if (snapshot.beat + kEpsilon >= launchBarStart_) {
+                    const double lookAheadBeats =
+                            std::max(
+                                    0.03125,
+                                    snapshot.tempoBpm * kLookAheadSeconds / 60.0);
+
+                    // Advance the persistent cursor through every event whose
+                    // beat coordinate fits inside the short look-ahead window.
+                    // Only the timestamp mapping is tempo-dependent.
+                    while (nextEventIndex_ < events.size()) {
+                        const double eventBeat =
+                                launchBarStart_ +
+                                static_cast<double>(nextBarIndex_) *
+                                        snapshot.quantum +
+                                events[nextEventIndex_].startBeat;
+
+                        if (eventBeat > snapshot.beat + lookAheadBeats + kEpsilon) {
+                            break;
+                        }
+
+                        scheduleEvent(
+                                snapshot,
+                                events[nextEventIndex_],
+                                eventBeat);
+
+                        ++nextEventIndex_;
+                    }
+
+                    if (nextEventIndex_ >= events.size()) {
+                        nextEventIndex_ = 0;
+                        ++nextBarIndex_;
+                    }
                 }
 
-                if (barStart <= snapshot.beat + kLookAheadBeats &&
-                    barStart > scheduledBarStart_ + kEpsilon) {
-                    scheduleBar(snapshot, keyScale(), barStart);
-                    scheduledBarStart_ = barStart;
-                }
+                (void) tempoChanged;
             }
         }
 
         std::unique_lock<std::mutex> lock(wakeMutex_);
         wakeCondition_.wait_for(
                 lock,
-                std::chrono::milliseconds(10),
+                kPollPeriod,
                 [this] { return !running_.load(); });
     }
 }
 
-void AccompanimentScheduler::scheduleBar(
+void AccompanimentScheduler::scheduleEvent(
         const clock::LinkClockSnapshot& snapshot,
-        const musical::KeyScale& keyScale,
-        const double barStartBeat) {
-    const auto events =
-            generation::BassGenerator::generateBar(keyScale, 2, seed_, 0);
+        const musical::MusicalNoteEvent& event,
+        const double startBeat) {
+    const double endBeat = startBeat + event.durationBeats;
 
-    for (const auto& event : events) {
-        const double startBeat = barStartBeat + event.startBeat;
-        const double endBeat = startBeat + event.durationBeats;
+    // If the scheduler wakes up slightly late, sending the current note with
+    // an immediate monotonic timestamp is preferable to dropping a musical
+    // step. Normal operation keeps events inside the look-ahead horizon.
+    const auto nowTimestamp = beatToTimestampNanos(snapshot.hostTime);
+    const auto desiredStartTimestamp =
+            beatToTimestampNanos(clock_.hostTimeAtBeat(startBeat));
+    const auto noteOnTimestamp =
+            desiredStartTimestamp < nowTimestamp
+                    ? nowTimestamp
+                    : desiredStartTimestamp;
 
-        // Never enqueue a Note On whose musical start has already passed.
-        if (startBeat < snapshot.beat) {
-            continue;
-        }
+    const auto noteOffTimestamp =
+            beatToTimestampNanos(clock_.hostTimeAtBeat(endBeat));
 
-        const auto noteOnTimestamp =
-                beatToTimestampNanos(clock_.hostTimeAtBeat(startBeat));
-        const auto noteOffTimestamp =
-                beatToTimestampNanos(clock_.hostTimeAtBeat(endBeat));
+    const auto noteOn =
+            midi::noteOn(
+                    event.channel,
+                    event.note,
+                    event.velocity,
+                    noteOnTimestamp);
 
-        const auto noteOn =
-                midi::noteOn(
-                        event.channel,
-                        event.note,
-                        event.velocity,
-                        noteOnTimestamp);
-        const auto noteOff =
-                midi::noteOff(
-                        event.channel,
-                        event.note,
-                        0,
-                        noteOffTimestamp);
+    const auto noteOff =
+            midi::noteOff(
+                    event.channel,
+                    event.note,
+                    0,
+                    noteOffTimestamp);
 
-        if (noteOn.has_value()) {
-            (void) sendQueue_.enqueue(*noteOn);
-        }
+    if (noteOn.has_value()) {
+        (void) sendQueue_.enqueue(*noteOn);
+    }
 
-        if (noteOff.has_value()) {
-            (void) sendQueue_.enqueue(*noteOff);
-        }
+    if (noteOff.has_value()) {
+        (void) sendQueue_.enqueue(*noteOff);
     }
 }
 
