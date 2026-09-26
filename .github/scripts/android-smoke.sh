@@ -36,7 +36,7 @@ start_app() {
   rm -f "$START_FILE" "$START_STATUS_FILE" "$START_HOST_PID_FILE"
   (
     set +e
-    timeout "${START_TIMEOUT}s" adb shell am start -n "$ACTIVITY" > "$START_FILE" 2>&1
+    timeout "${START_TIMEOUT}s" adb shell am start -n "$ACTIVITY" --ez mozart.runtime_smoke true > "$START_FILE" 2>&1
     rc=$?
     printf '%s\n' "$rc" > "$START_STATUS_FILE"
   ) &
@@ -56,6 +56,20 @@ wait_for_startup() {
       return 3
     fi
     sleep 2
+  done
+  return 1
+}
+
+wait_for_runtime_smoke() {
+  for _ in $(seq 1 40); do
+    write_logcat
+    if fatal_mozart_exception; then
+      return 2
+    fi
+    if grep -Fq "RUNTIME: Android smoke stop complete" "$LOGCAT_FILE"; then
+      return 0
+    fi
+    sleep 0.25
   done
   return 1
 }
@@ -104,9 +118,19 @@ if [[ "$startup_rc" -eq 3 ]]; then
   fi
 fi
 
+runtime_smoke_rc=0
+wait_for_runtime_smoke || runtime_smoke_rc=$?
+
 collect_diagnostics
 
-printf '=== START STATUS ===\n'
+printf '=== RUNTIME SMOKE ===\n'
+if [[ "$runtime_smoke_rc" -eq 0 ]]; then
+  echo "Android Link runtime smoke test passed."
+else
+  echo "Android Link runtime smoke test did not complete."
+fi
+
+printf '\n=== START STATUS ===\n'
 cat "$START_STATUS_FILE" 2>/dev/null || true
 printf '\n=== PID ===\n'
 cat "$PID_FILE" 2>/dev/null || true
@@ -119,6 +143,16 @@ grep -i "mozart" "$PS_FILE" || true
 
 if fatal_mozart_exception; then
   echo "Fatal Mozart Android exception detected."
+  exit 1
+fi
+
+if [[ "$runtime_smoke_rc" -eq 2 ]]; then
+  echo "Fatal Mozart Android exception detected during Link runtime smoke."
+  exit 1
+fi
+
+if [[ "$runtime_smoke_rc" -ne 0 ]]; then
+  echo "Mozart Link runtime smoke did not complete start/stop cycle."
   exit 1
 fi
 
