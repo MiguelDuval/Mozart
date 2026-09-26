@@ -25,6 +25,7 @@ public:
 
     [[nodiscard]] bool linkEnabled() const noexcept;
     [[nodiscard]] bool accompanimentEnabled() const noexcept;
+    [[nodiscard]] clock::LinkClockSnapshot captureLinkSnapshot() const;
 
 private:
     clock::LinkClock linkClock_{120.0, 4.0};
