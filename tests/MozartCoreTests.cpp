@@ -131,6 +131,38 @@ int main() {
         assert(!sparseArp.empty());
         assert(sparseArp.size() <= arpA.size());
 
+        assert(
+                mozart::generation::accentBoost(
+                        mozart::generation::PatternAccent::Off) == 0);
+        assert(
+                mozart::generation::accentBoost(
+                        mozart::generation::PatternAccent::Mild) == 10);
+        assert(
+                mozart::generation::accentBoost(
+                        mozart::generation::PatternAccent::Strong) == 20);
+
+        const auto flatAccent =
+                mozart::generation::BassGenerator::generateBar(
+                        fSharpMinor,
+                        2,
+                        1234,
+                        0,
+                        mozart::generation::PatternDensity::Full,
+                        mozart::generation::PatternAccent::Off);
+        const auto strongAccent =
+                mozart::generation::BassGenerator::generateBar(
+                        fSharpMinor,
+                        2,
+                        1234,
+                        0,
+                        mozart::generation::PatternDensity::Full,
+                        mozart::generation::PatternAccent::Strong);
+        assert(flatAccent.size() == strongAccent.size());
+        assert(strongAccent[0].velocity >= flatAccent[0].velocity + 10);
+        assert(strongAccent[4].velocity >= flatAccent[4].velocity + 10);
+        assert(strongAccent[1].velocity == flatAccent[1].velocity);
+        assert(strongAccent[5].velocity == flatAccent[5].velocity);
+
         for (const auto& event : arpA) {
             assert(event.startBeat >= 0.0);
             assert(event.startBeat < 4.0);
@@ -383,6 +415,16 @@ int main() {
         assert(
                 scheduler.density() ==
                 mozart::generation::PatternDensity::Full);
+        assert(
+                scheduler.accent() ==
+                mozart::generation::PatternAccent::Off);
+        scheduler.setAccent(
+                mozart::generation::PatternAccent::Strong);
+        assert(
+                scheduler.accent() ==
+                mozart::generation::PatternAccent::Strong);
+        scheduler.setAccent(
+                mozart::generation::PatternAccent::Off);
 
         clock.setEnabled(true);
         const auto beforeArm = clock.captureAppSnapshot();
