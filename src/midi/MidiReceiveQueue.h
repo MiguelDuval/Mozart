@@ -9,6 +9,14 @@
 
 namespace mozart::midi {
 
+struct MidiReceiveSnapshot {
+    std::size_t pending = 0;
+    std::uint64_t accepted = 0;
+    std::uint64_t dropped = 0;
+    bool hasLast = false;
+    MidiShortMessage last{};
+};
+
 /**
  * Bounded transport-neutral queue for already parsed incoming MIDI 1.0
  * channel-voice messages.
@@ -40,6 +48,9 @@ public:
     [[nodiscard]] bool tryPop(MidiShortMessage& message);
 
     void clear();
+    void reset();
+
+    [[nodiscard]] MidiReceiveSnapshot snapshot() const;
 
     [[nodiscard]] std::size_t size() const;
     [[nodiscard]] std::size_t capacity() const noexcept;
@@ -49,7 +60,10 @@ private:
     const std::size_t capacity_;
     mutable std::mutex mutex_;
     std::deque<MidiShortMessage> queue_;
+    std::uint64_t acceptedCount_ = 0;
     std::uint64_t droppedCount_ = 0;
+    bool hasLast_ = false;
+    MidiShortMessage lastMessage_{};
 };
 
 /**
