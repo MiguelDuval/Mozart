@@ -31,7 +31,7 @@ Local AI must never be introduced by modifying the realtime clock/scheduler path
 - [x] Android MIDI device enumeration.
 - [x] Deterministic USB-MIDI endpoint selection.
 - [x] Identify/select Arturia MicroFreak without accidentally selecting unrelated devices.
-- [ ] MIDI IN receive queue.
+- [x] MIDI IN receive queue (bounded native queue + stream parser).
 - [x] MIDI OUT queue.
 - [x] Timestamp preservation.
 - [ ] Virtual/test MIDI adapter.
