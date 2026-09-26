@@ -83,12 +83,12 @@ void AccompanimentScheduler::setKeyScale(const musical::KeyScale& keyScale) {
     }
 
     std::lock_guard<std::mutex> lock(stateMutex_);
-    keyScale_ = keyScale;
+    requestedKeyScale_ = keyScale;
 }
 
 musical::KeyScale AccompanimentScheduler::keyScale() const {
     std::lock_guard<std::mutex> lock(stateMutex_);
-    return keyScale_;
+    return requestedKeyScale_;
 }
 
 void AccompanimentScheduler::setRole(
@@ -149,14 +149,24 @@ void AccompanimentScheduler::run() {
                     nextEventIndex_ = 0;
                     activeRole_ = requestedRole_.load();
                     activeDensity_ = requestedDensity_.load();
+                    {
+                        std::lock_guard<std::mutex> lock(stateMutex_);
+                        activeKeyScale_ = requestedKeyScale_;
+                    }
+                }
+
+                musical::KeyScale activeKeyScale;
+                {
+                    std::lock_guard<std::mutex> lock(stateMutex_);
+                    activeKeyScale = activeKeyScale_;
                 }
 
                 const auto events =
                         activeRole_ == AccompanimentRole::Arpeggio
                                 ? generation::ArpeggioGenerator::generateBar(
-                                        keyScale(), 4, seed_, 0, activeDensity_)
+                                        activeKeyScale, 4, seed_, 0, activeDensity_)
                                 : generation::BassGenerator::generateBar(
-                                        keyScale(), 2, seed_, 0, activeDensity_);
+                                        activeKeyScale, 2, seed_, 0, activeDensity_);
 
                 if (events.empty()) {
                     nextBarIndex_ = 0;
@@ -198,6 +208,10 @@ void AccompanimentScheduler::run() {
                         // currently running musical phrase.
                         activeRole_ = requestedRole_.load();
                         activeDensity_ = requestedDensity_.load();
+                        {
+                            std::lock_guard<std::mutex> lock(stateMutex_);
+                            activeKeyScale_ = requestedKeyScale_;
+                        }
                     }
                 }
 
