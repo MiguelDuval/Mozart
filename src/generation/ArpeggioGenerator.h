@@ -1,5 +1,6 @@
 #pragma once
 
+#include "PatternAccent.h"
 #include "PatternDensity.h"
 #include "musical/KeyScale.h"
 #include "musical/MusicalNote.h"
@@ -16,7 +17,8 @@ public:
             std::uint8_t baseOctave,
             std::uint32_t seed,
             std::uint8_t channel = 0,
-            PatternDensity density = PatternDensity::Full);
+            PatternDensity density = PatternDensity::Full,
+            PatternAccent accent = PatternAccent::Off);
 
 private:
     static std::uint32_t next(std::uint32_t& state) noexcept;
