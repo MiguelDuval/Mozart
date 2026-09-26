@@ -59,6 +59,8 @@ Pattern density is currently available as **Sparse (50%)**, **Normal (75%)**, or
 
 Accent is available as **Off**, **Mild**, or **Strong**. It affects only note velocity on the main quarter-note pulses; it does not alter event timing or pitch. Like role, density, and Key/Scale, an accent change is activated at the next bar boundary.
 
+Swing is available as **Off**, **Light**, or **Full**. It delays the off-beat eighth notes by a bounded musical amount (1/12 or 1/6 beat) and shortens note durations as needed to avoid overlap at the next step or bar boundary. Swing is likewise applied only at a bar boundary.
+
 ## Android runtime validation
 
 The debug Android smoke path now validates the Link lifecycle itself:
