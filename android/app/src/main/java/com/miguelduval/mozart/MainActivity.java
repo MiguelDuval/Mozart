@@ -28,6 +28,7 @@ public final class MainActivity extends Activity {
     private static native void nativeStopAccompaniment();
     private static native String nativeLinkSnapshot();
     private static native boolean nativeTestMidiNote();
+    private static native void nativeSetAccompanimentRole(int role);
     private static native void nativeSetManualKeyScale(
             int rootPitchClass,
             int scaleId);
@@ -104,6 +105,20 @@ public final class MainActivity extends Activity {
             updateLinkStatus();
         });
 
+        Button bass = new Button(this);
+        bass.setText("BASS");
+        bass.setOnClickListener(view -> {
+            nativeSetAccompanimentRole(0);
+            status.append("\n\nBass role selected; change takes effect at the next bar.");
+        });
+
+        Button arpeggio = new Button(this);
+        arpeggio.setText("ARPEGGIO");
+        arpeggio.setOnClickListener(view -> {
+            nativeSetAccompanimentRole(1);
+            status.append("\n\nArpeggio role selected; change takes effect at the next bar.");
+        });
+
         Button testMidi = new Button(this);
         testMidi.setText("TEST MIDI OUT");
         testMidi.setOnClickListener(view -> {
@@ -143,6 +158,18 @@ public final class MainActivity extends Activity {
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(
+                bass,
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1.0f));
+        root.addView(
+                arpeggio,
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1.0f));
         root.addView(
                 testMidi,
                 new LinearLayout.LayoutParams(
