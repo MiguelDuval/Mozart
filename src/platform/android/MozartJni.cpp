@@ -138,6 +138,29 @@ Java_com_miguelduval_mozart_MainActivity_nativeTestMidiNote(
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetPatternSwing(
+        JNIEnv*,
+        jobject,
+        jint swing) {
+    switch (swing) {
+        case 0:
+            runtime()->setPatternSwing(
+                    mozart::generation::PatternSwing::Off);
+            break;
+        case 1:
+            runtime()->setPatternSwing(
+                    mozart::generation::PatternSwing::Light);
+            break;
+        case 2:
+            runtime()->setPatternSwing(
+                    mozart::generation::PatternSwing::Full);
+            break;
+        default:
+            return;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_miguelduval_mozart_MainActivity_nativeSetPatternAccent(
         JNIEnv*,
         jobject,
