@@ -48,6 +48,9 @@ bool MidiReceiveQueue::push(const MidiShortMessage& message) {
     }
 
     queue_.push_back(message);
+    ++acceptedCount_;
+    lastMessage_ = message;
+    hasLast_ = true;
     return true;
 }
 
@@ -66,6 +69,26 @@ bool MidiReceiveQueue::tryPop(MidiShortMessage& message) {
 void MidiReceiveQueue::clear() {
     std::lock_guard<std::mutex> lock(mutex_);
     queue_.clear();
+}
+
+void MidiReceiveQueue::reset() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    queue_.clear();
+    acceptedCount_ = 0;
+    droppedCount_ = 0;
+    hasLast_ = false;
+    lastMessage_ = {};
+}
+
+MidiReceiveSnapshot MidiReceiveQueue::snapshot() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return MidiReceiveSnapshot{
+        queue_.size(),
+        acceptedCount_,
+        droppedCount_,
+        hasLast_,
+        lastMessage_
+    };
 }
 
 std::size_t MidiReceiveQueue::size() const {
