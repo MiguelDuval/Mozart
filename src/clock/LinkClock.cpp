@@ -37,6 +37,7 @@ LinkClockSnapshot LinkClock::captureAppSnapshot() const {
         link_.isEnabled(),
         state.isPlaying(),
         peers > 0,
+        link_.isStartStopSyncEnabled(),
         peers,
         state.tempo(),
         state.beatAtTime(hostTime, quantum_),
