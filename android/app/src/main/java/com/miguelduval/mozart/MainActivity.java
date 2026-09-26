@@ -60,7 +60,10 @@ public final class MainActivity extends Activity {
         title.setGravity(Gravity.CENTER);
 
         status = new TextView(this);
-        status.setText("\n" + nativeEngineInfo()
+        Log.i(TAG, "STARTUP: nativeEngineInfo begin");
+        final String engineInfo = nativeEngineInfo();
+        Log.i(TAG, "STARTUP: nativeEngineInfo complete");
+        status.setText("\n" + engineInfo
                 + "\n\nMIDI discovery: waiting..."
                 + "\nManual key: F# minor"
                 + "\nLink accompanist: stopped");
@@ -124,6 +127,7 @@ public final class MainActivity extends Activity {
 
         midiTransport = new AndroidMidiTransport(this, midiListener);
         Log.i(TAG, "STARTUP: AndroidMidiTransport constructed");
+        Log.i(TAG, "STARTUP: onCreate complete");
     }
 
     @Override
