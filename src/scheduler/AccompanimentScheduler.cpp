@@ -65,6 +65,7 @@ void AccompanimentScheduler::stop() {
     nextBarIndex_ = 0;
     nextEventIndex_ = 0;
     activeRole_ = requestedRole_.load();
+    activeDensity_ = requestedDensity_.load();
 }
 
 void AccompanimentScheduler::setArmed(const bool armed) noexcept {
@@ -98,6 +99,16 @@ void AccompanimentScheduler::setRole(
 
 AccompanimentRole AccompanimentScheduler::role() const noexcept {
     return requestedRole_.load();
+}
+
+void AccompanimentScheduler::setDensity(
+        const generation::PatternDensity density) noexcept {
+    requestedDensity_.store(density);
+    wakeCondition_.notify_all();
+}
+
+generation::PatternDensity AccompanimentScheduler::density() const noexcept {
+    return requestedDensity_.load();
 }
 
 void AccompanimentScheduler::run() {
@@ -137,14 +148,15 @@ void AccompanimentScheduler::run() {
                     nextBarIndex_ = 0;
                     nextEventIndex_ = 0;
                     activeRole_ = requestedRole_.load();
+                    activeDensity_ = requestedDensity_.load();
                 }
 
                 const auto events =
                         activeRole_ == AccompanimentRole::Arpeggio
                                 ? generation::ArpeggioGenerator::generateBar(
-                                        keyScale(), 4, seed_, 0)
+                                        keyScale(), 4, seed_, 0, activeDensity_)
                                 : generation::BassGenerator::generateBar(
-                                        keyScale(), 2, seed_, 0);
+                                        keyScale(), 2, seed_, 0, activeDensity_);
 
                 if (events.empty()) {
                     nextBarIndex_ = 0;
