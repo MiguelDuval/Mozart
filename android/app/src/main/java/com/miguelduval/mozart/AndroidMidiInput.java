@@ -40,6 +40,7 @@ public final class AndroidMidiInput {
     private MidiOutputPort openedPort;
     private AndroidMidiTransport.MidiEndpoint openedEndpoint;
     private AndroidMidiTransport.MidiEndpoint pendingEndpoint;
+    private MidiReceiver activeReceiver;
     private boolean opening;
 
     public AndroidMidiInput(Context context, Listener listener) {
@@ -132,12 +133,15 @@ public final class AndroidMidiInput {
                         return;
                     }
 
+                    final MidiReceiver connectionReceiver =
+                            createReceiver(portIdFor(endpoint));
                     openedDevice = device;
                     openedPort = outputPort;
                     openedEndpoint = endpoint;
+                    activeReceiver = connectionReceiver;
 
                     try {
-                        outputPort.connect(receiver);
+                        outputPort.connect(connectionReceiver);
                     } catch (RuntimeException exception) {
                         closeInternal();
                         publishStatus("MIDI IN: failed to connect MidiReceiver");
@@ -149,25 +153,27 @@ public final class AndroidMidiInput {
                 midiHandler);
     }
 
-    private final MidiReceiver receiver = new MidiReceiver() {
-        @Override
-        public void onSend(
-                byte[] msg,
-                int offset,
-                int count,
-                long timestamp) throws IOException {
-            if (msg == null || count <= 0) {
-                return;
-            }
+    private static MidiReceiver createReceiver(final int portId) {
+        return new MidiReceiver() {
+            @Override
+            public void onSend(
+                    byte[] msg,
+                    int offset,
+                    int count,
+                    long timestamp) throws IOException {
+                if (msg == null || count <= 0) {
+                    return;
+                }
 
-            nativeReceiveMidiBytes(
-                    msg,
-                    offset,
-                    count,
-                    timestamp,
-                    portIdFor(openedEndpoint));
-        }
-    };
+                nativeReceiveMidiBytes(
+                        msg,
+                        offset,
+                        count,
+                        timestamp,
+                        portId);
+            }
+        };
+    }
 
     private static int portIdFor(
             AndroidMidiTransport.MidiEndpoint endpoint) {
@@ -212,6 +218,7 @@ public final class AndroidMidiInput {
     private void closeInternal() {
         opening = false;
         pendingEndpoint = null;
+        activeReceiver = null;
         nativeResetMidiInput();
 
         if (openedPort != null) {
