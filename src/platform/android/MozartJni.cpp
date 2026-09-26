@@ -96,6 +96,25 @@ Java_com_miguelduval_mozart_MainActivity_nativeEngineInfo(
     return env->NewStringUTF(info.c_str());
 }
 
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeLinkSnapshot(
+        JNIEnv* env,
+        jobject) {
+    const auto snapshot = runtime()->captureLinkSnapshot();
+
+    const std::string text =
+            std::string("enabled=") + (snapshot.enabled ? "true" : "false") +
+            " playing=" + (snapshot.playing ? "true" : "false") +
+            " inSession=" + (snapshot.inSession ? "true" : "false") +
+            " peers=" + std::to_string(snapshot.peers) +
+            " tempo=" + std::to_string(snapshot.tempoBpm) +
+            " beat=" + std::to_string(snapshot.beat) +
+            " phase=" + std::to_string(snapshot.phase) +
+            " quantum=" + std::to_string(snapshot.quantum);
+
+    return env->NewStringUTF(text.c_str());
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_miguelduval_mozart_MainActivity_nativeStartAccompaniment(
         JNIEnv*,
