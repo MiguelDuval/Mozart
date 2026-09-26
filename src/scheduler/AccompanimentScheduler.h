@@ -35,10 +35,10 @@ public:
 
 private:
     void run();
-    void scheduleBar(
+    void scheduleEvent(
             const clock::LinkClockSnapshot& snapshot,
-            const musical::KeyScale& keyScale,
-            double barStartBeat);
+            const musical::MusicalNoteEvent& event,
+            double startBeat);
 
     clock::LinkClock& clock_;
     MidiSendQueue& sendQueue_;
