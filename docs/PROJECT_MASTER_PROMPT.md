@@ -517,6 +517,23 @@ See `docs/DEPENDENCIES.md`.
 
 ## 18. Development stages
 
+### Execution order
+
+The main implementation sequence is:
+
+**Foundation → MIDI transport → Link clock → deterministic accompanist → harmony → basic performance → local AI music generation → persistence → hardening.**
+
+Audio preview is intentionally not a prerequisite for local AI. It can be developed independently once the audio layer is ready.
+
+Before the Local AI stage is allowed to alter the product, the following gates must be true:
+
+- Link/scheduler timing is stable.
+- Deterministic accompaniment works through the full MIDI path.
+- Key/scale and basic harmonic context are stable enough to be passed into generation requests.
+- There is a usable pattern/performance workflow that can consume generated patterns.
+- The AI path remains completely outside realtime timing and can be disabled without affecting transport.
+
+
 ### Stage 0 — repository foundation
 
 - Android shell;

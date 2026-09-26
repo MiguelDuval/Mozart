@@ -1,5 +1,23 @@
 # Mozart Roadmap
 
+## Execution order and gates
+
+The project follows this dependency order for the core instrument:
+
+**Stage 0 → Stage 1 → Stage 2 → Stage 3 → Stage 4 → Stage 5 → Stage 7 (Local AI) → Stage 9 (Persistence) → Stage 10 (Hardening).**
+
+Stage 6 (Audio preview) is **independent of the Local AI gate**. It may proceed before, after, or alongside Stage 7 when it is useful, but audio must not delay local AI integration.
+
+The Local AI stage may have small preparatory/documentation work earlier when required, but production model integration starts only after these gates are satisfied:
+
+- Stage 2: Link timing and scheduler are stable.
+- Stage 3: deterministic accompaniment and MIDI output are physically validated.
+- Stage 4: key/scale and harmonic context are sufficiently stable for conditioning.
+- Stage 5: basic pattern/performance workflow exists so generated patterns have a real product destination.
+
+Local AI must never be introduced by modifying the realtime clock/scheduler path. Its output enters the existing musical-domain/pattern path and then uses the already-validated scheduler.
+
+
 ## Stage 0 — Foundation
 - [x] Empty repository converted into a documented project.
 - [x] Android/C++ build skeleton.

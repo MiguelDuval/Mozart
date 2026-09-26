@@ -87,6 +87,23 @@ Before a proposal enters the musical model:
 
 Malformed or out-of-contract AI output must never reach the MIDI transport unchanged.
 
+## Integration gate and implementation order
+
+Local AI integration is a later vertical slice, not a prerequisite for the core instrument.
+
+Required order:
+
+1. stabilize Link/scheduler and deterministic accompaniment;
+2. stabilize key/scale and harmonic context;
+3. stabilize the basic pattern/performance workflow;
+4. define the generation contract and event representation;
+5. integrate the local model on a worker thread;
+6. validate/post-process proposals through existing musical-domain constraints;
+7. benchmark memory/latency on real Android hardware;
+8. expose the first generation controls in the UI.
+
+Audio preview is not a dependency of this sequence.
+
 ## Threading and realtime rules
 
 Local model loading and inference run on a non-realtime worker.
