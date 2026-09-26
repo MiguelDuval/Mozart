@@ -34,6 +34,14 @@ The pinned Link 4.0 source does not define a dedicated Android platform. For the
 
 This is an integration choice at the platform boundary; it does not make Android code part of the musical domain.
 
+## Scheduler tempo-change policy
+
+The accompaniment scheduler keeps a persistent musical note cursor. A Link tempo change therefore changes only the beat-to-host-time conversion for newly scheduled events; it does not restart the pattern or wait for a new 4-beat quantum.
+
+The scheduler uses a short rolling look-ahead rather than placing a complete bar of future MIDI timestamps into the Android transport at once. This limits the amount of future MIDI that can become stale when another Link peer changes tempo while the pattern is already running.
+
+A late scheduler wake-up does not intentionally drop the current musical step; the event is clamped to the current monotonic host time so the sequence remains continuous. Physical timing quality still requires real-device measurement.
+
 ## Android runtime validation
 
 The debug Android smoke path now validates the Link lifecycle itself:
