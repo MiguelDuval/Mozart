@@ -446,13 +446,29 @@ public final class MainActivity extends Activity {
             }
         }
 
+        final AndroidMidiTransport.MidiEndpoint previousSelection =
+                midiInputSelection >= 0 &&
+                midiInputSelection < midiInputCandidates.size()
+                        ? midiInputCandidates.get(midiInputSelection)
+                        : null;
+
         midiInputCandidates = Collections.unmodifiableList(candidates);
 
-        if (midiInputSelection >= midiInputCandidates.size()) {
-            midiInputSelection = -1;
-            if (midiInput != null) {
-                midiInput.close();
+        if (previousSelection != null) {
+            int preservedIndex = -1;
+            for (int i = 0; i < midiInputCandidates.size(); ++i) {
+                if (sameEndpoint(previousSelection, midiInputCandidates.get(i))) {
+                    preservedIndex = i;
+                    break;
+                }
             }
+            midiInputSelection = preservedIndex;
+        } else if (midiInputSelection >= midiInputCandidates.size()) {
+            midiInputSelection = -1;
+        }
+
+        if (midiInputSelection < 0 && midiInput != null) {
+            midiInput.close();
         }
 
         if (midiInputButton != null) {
@@ -473,6 +489,15 @@ public final class MainActivity extends Activity {
                 midiInputSelection < midiInputCandidates.size()) {
             midiInput.open(midiInputCandidates.get(midiInputSelection));
         }
+    }
+
+    private static boolean sameEndpoint(
+            AndroidMidiTransport.MidiEndpoint first,
+            AndroidMidiTransport.MidiEndpoint second) {
+        return first != null &&
+                second != null &&
+                first.deviceId == second.deviceId &&
+                first.portNumber == second.portNumber;
     }
 
     private void cycleMidiInputSource() {
