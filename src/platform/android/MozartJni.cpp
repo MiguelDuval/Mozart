@@ -1,422 +1,231 @@
-#include <jni.h>
+#include "MidiReceiveQueue.h"
 
-#include <cstdint>
-#include <memory>
-#include <mutex>
-#include <string>
-#include <utility>
-#include <vector>
+#include <algorithm>
 
-#include "core/MidiEndpoint.h"
-#include "core/MidiTypes.h"
-#include "core/MozartEngine.h"
-#include "musical/KeyScale.h"
-#include "midi/MidiReceiveQueue.h"
-#include "platform/android/AndroidMidiOutput.h"
-#include "runtime/MozartRuntime.h"
-
+namespace mozart::midi {
 namespace {
 
-mozart::platform::android::AndroidMidiOutput g_midiOutput;
-std::unique_ptr<mozart::runtime::MozartRuntime> g_runtime;
-std::mutex g_runtimeMutex;
-mozart::midi::MidiReceiveQueue g_midiReceiveQueue;
-mozart::midi::MidiInputParser g_midiInputParser;
-std::mutex g_midiInputMutex;
-
-mozart::runtime::MozartRuntime* runtime() {
-    std::lock_guard<std::mutex> lock(g_runtimeMutex);
-    if (!g_runtime) {
-        g_runtime = std::make_unique<mozart::runtime::MozartRuntime>(g_midiOutput);
-    }
-    return g_runtime.get();
-}
-
-[[nodiscard]] std::string javaStringToUtf8(
-        JNIEnv* env,
-        jobjectArray values,
-        jsize index) {
-    if (values == nullptr) {
-        return {};
-    }
-
-    const auto value =
-            static_cast<jstring>(env->GetObjectArrayElement(values, index));
-    if (value == nullptr) {
-        return {};
-    }
-
-    const char* utf = env->GetStringUTFChars(value, nullptr);
-    if (utf == nullptr) {
-        env->DeleteLocalRef(value);
-        return {};
-    }
-
-    const std::string result(utf);
-    env->ReleaseStringUTFChars(value, utf);
-    env->DeleteLocalRef(value);
-    return result;
-}
-
-[[nodiscard]] std::int32_t intAt(
-        JNIEnv* env,
-        jintArray values,
-        jsize index) {
-    jint value = 0;
-    env->GetIntArrayRegion(values, index, 1, &value);
-    return static_cast<std::int32_t>(value);
-}
-
-[[nodiscard]] mozart::midi::PortDirection portDirectionFromAndroid(
-        std::int32_t value) noexcept {
-    return value == 1
-            ? mozart::midi::PortDirection::Input
-            : mozart::midi::PortDirection::Output;
-}
-
-[[nodiscard]] mozart::midi::TransportKind transportKindFromAndroid(
-        std::int32_t value) noexcept {
-    switch (value) {
-        case 1:
-            return mozart::midi::TransportKind::Usb;
-        case 2:
-            return mozart::midi::TransportKind::Bluetooth;
-        case 3:
-            return mozart::midi::TransportKind::Virtual;
+[[nodiscard]] std::uint8_t dataBytesForStatus(
+        const std::uint8_t status) noexcept {
+    const auto type = static_cast<std::uint8_t>(status & 0xF0u);
+    switch (type) {
+        case 0xC0:
+        case 0xD0:
+            return 1;
+        case 0x80:
+        case 0x90:
+        case 0xA0:
+        case 0xB0:
+        case 0xE0:
+            return 2;
         default:
-            return mozart::midi::TransportKind::Unknown;
+            return 0;
     }
+}
+
+[[nodiscard]] bool isChannelVoiceStatus(
+        const std::uint8_t value) noexcept {
+    return value >= 0x80 && value <= 0xEF;
 }
 
 } // namespace
 
-extern "C" JNIEXPORT jstring JNICALL
-Java_com_miguelduval_mozart_MainActivity_nativeEngineInfo(
-        JNIEnv* env,
-        jobject) {
-    const mozart::MozartEngine engine;
-    const auto info = engine.info();
-
-    return env->NewStringUTF(info.c_str());
+MidiReceiveQueue::MidiReceiveQueue(const std::size_t capacity)
+    : capacity_(capacity) {
+    queue_.clear();
 }
 
-extern "C" JNIEXPORT jstring JNICALL
-Java_com_miguelduval_mozart_MainActivity_nativeLinkSnapshot(
-        JNIEnv* env,
-        jobject) {
-    const auto snapshot = runtime()->captureLinkSnapshot();
-
-    const std::string text =
-            std::string("enabled=") + (snapshot.enabled ? "true" : "false") +
-            " playing=" + (snapshot.playing ? "true" : "false") +
-            " inSession=" + (snapshot.inSession ? "true" : "false") +
-            " startStopSync=" +
-                    (snapshot.startStopSyncEnabled ? "true" : "false") +
-            " peers=" + std::to_string(snapshot.peers) +
-            " tempo=" + std::to_string(snapshot.tempoBpm) +
-            " beat=" + std::to_string(snapshot.beat) +
-            " phase=" + std::to_string(snapshot.phase) +
-            " quantum=" + std::to_string(snapshot.quantum);
-
-    return env->NewStringUTF(text.c_str());
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_miguelduval_mozart_MainActivity_nativeStartAccompaniment(
-        JNIEnv*,
-        jobject) {
-    auto* app = runtime();
-    app->start();
-    app->setKeyScale(
-            mozart::musical::KeyScale{
-                    6, mozart::musical::Scale::NaturalMinor});
-    app->setLinkEnabled(true);
-    app->setAccompanimentEnabled(true);
-}
-
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_miguelduval_mozart_MainActivity_nativeTestMidiNote(
-        JNIEnv*,
-        jobject) {
-    return runtime()->sendDiagnosticNote() ? JNI_TRUE : JNI_FALSE;
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_miguelduval_mozart_MainActivity_nativeSetPatternSwing(
-        JNIEnv*,
-        jobject,
-        jint swing) {
-    switch (swing) {
-        case 0:
-            runtime()->setPatternSwing(
-                    mozart::generation::PatternSwing::Off);
-            break;
-        case 1:
-            runtime()->setPatternSwing(
-                    mozart::generation::PatternSwing::Light);
-            break;
-        case 2:
-            runtime()->setPatternSwing(
-                    mozart::generation::PatternSwing::Full);
-            break;
-        default:
-            return;
+bool MidiReceiveQueue::push(const MidiShortMessage& message) {
+    if (!message.isValid() || capacity_ == 0) {
+        return false;
     }
-}
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_miguelduval_mozart_MainActivity_nativeSetPatternAccent(
-        JNIEnv*,
-        jobject,
-        jint accent) {
-    switch (accent) {
-        case 0:
-            runtime()->setPatternAccent(
-                    mozart::generation::PatternAccent::Off);
-            break;
-        case 1:
-            runtime()->setPatternAccent(
-                    mozart::generation::PatternAccent::Mild);
-            break;
-        case 2:
-            runtime()->setPatternAccent(
-                    mozart::generation::PatternAccent::Strong);
-            break;
-        default:
-            return;
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (queue_.size() >= capacity_) {
+        queue_.pop_front();
+        ++droppedCount_;
     }
+
+    queue_.push_back(message);
+    ++acceptedCount_;
+    lastMessage_ = message;
+    hasLast_ = true;
+    return true;
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_miguelduval_mozart_MainActivity_nativeSetPatternDensity(
-        JNIEnv*,
-        jobject,
-        jint density) {
-    switch (density) {
-        case 0:
-            runtime()->setPatternDensity(
-                    mozart::generation::PatternDensity::Sparse);
-            break;
-        case 1:
-            runtime()->setPatternDensity(
-                    mozart::generation::PatternDensity::Normal);
-            break;
-        case 2:
-            runtime()->setPatternDensity(
-                    mozart::generation::PatternDensity::Full);
-            break;
-        default:
-            return;
+bool MidiReceiveQueue::tryPop(MidiShortMessage& message) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (queue_.empty()) {
+        return false;
     }
+
+    message = queue_.front();
+    queue_.pop_front();
+    return true;
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_miguelduval_mozart_MainActivity_nativeSetAccompanimentRole(
-        JNIEnv*,
-        jobject,
-        jint role) {
-    switch (role) {
-        case 0:
-            runtime()->setAccompanimentRole(
-                    mozart::scheduler::AccompanimentRole::Bass);
-            break;
-        case 1:
-            runtime()->setAccompanimentRole(
-                    mozart::scheduler::AccompanimentRole::Arpeggio);
-            break;
-        default:
-            return;
-    }
+void MidiReceiveQueue::clear() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    queue_.clear();
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_miguelduval_mozart_MainActivity_nativeStopAccompaniment(
-        JNIEnv*,
-        jobject) {
-    auto* app = runtime();
-    app->setAccompanimentEnabled(false);
-    app->setLinkEnabled(false);
+void MidiReceiveQueue::reset() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    queue_.clear();
+    acceptedCount_ = 0;
+    droppedCount_ = 0;
+    hasLast_ = false;
+    lastMessage_ = {};
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_miguelduval_mozart_MainActivity_nativeSetManualKeyScale(
-        JNIEnv*,
-        jobject,
-        jint rootPitchClass,
-        jint scaleId) {
-    if (rootPitchClass < 0 || rootPitchClass > 11 ||
-        scaleId < 0 || scaleId > 2) {
+MidiReceiveSnapshot MidiReceiveQueue::snapshot() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return MidiReceiveSnapshot{
+        queue_.size(),
+        acceptedCount_,
+        droppedCount_,
+        hasLast_,
+        lastMessage_
+    };
+}
+
+std::size_t MidiReceiveQueue::size() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return queue_.size();
+}
+
+std::size_t MidiReceiveQueue::capacity() const noexcept {
+    return capacity_;
+}
+
+std::uint64_t MidiReceiveQueue::droppedCount() const noexcept {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return droppedCount_;
+}
+
+void MidiInputParser::reset() noexcept {
+    runningStatus_ = 0;
+    pendingStatus_ = 0;
+    data_[0] = 0;
+    data_[1] = 0;
+    dataCount_ = 0;
+    expectedDataCount_ = 0;
+    inSysEx_ = false;
+}
+
+void MidiInputParser::startStatus(const std::uint8_t status) noexcept {
+    pendingStatus_ = status;
+    dataCount_ = 0;
+    expectedDataCount_ = dataBytesForStatus(status);
+
+    if (expectedDataCount_ == 0) {
+        pendingStatus_ = 0;
         return;
     }
 
-    runtime()->setKeyScale(
-            mozart::musical::KeyScale{
-                    static_cast<std::uint8_t>(rootPitchClass),
-                    static_cast<mozart::musical::Scale>(scaleId)});
+    // Channel-voice statuses establish or replace running status.
+    runningStatus_ = status;
 }
 
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_miguelduval_mozart_AndroidMidiInput_nativeReceiveMidiBytes(
-        JNIEnv* env,
-        jclass,
-        jbyteArray data,
-        jint offset,
-        jint count,
-        jlong timestampNanos,
-        jint portId) {
-    if (data == nullptr ||
-        offset < 0 ||
-        count <= 0 ||
-        timestampNanos < 0 ||
-        portId < 0) {
+void MidiInputParser::emitIfComplete(
+        const std::uint64_t timestampNanos,
+        const std::uint32_t portId,
+        MidiReceiveQueue& queue) noexcept {
+    if (pendingStatus_ == 0 || dataCount_ != expectedDataCount_) {
         return;
     }
 
-    const jsize length = env->GetArrayLength(data);
-    if (offset > length || count > length - offset) {
-        return;
-    }
-
-    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(count));
-    env->GetByteArrayRegion(
-            data,
-            offset,
-            count,
-            reinterpret_cast<jbyte*>(bytes.data()));
-
-    if (env->ExceptionCheck()) {
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(g_midiInputMutex);
-    g_midiInputParser.feed(
-            bytes.data(),
-            bytes.size(),
-            static_cast<std::uint64_t>(timestampNanos),
-            static_cast<std::uint32_t>(portId),
-            g_midiReceiveQueue);
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_miguelduval_mozart_AndroidMidiInput_nativeResetMidiInput(
-        JNIEnv*,
-        jclass) {
-    std::lock_guard<std::mutex> lock(g_midiInputMutex);
-    g_midiInputParser.reset();
-    g_midiReceiveQueue.clear();
-}
-
-extern "C" JNIEXPORT jint JNICALL
-Java_com_miguelduval_mozart_AndroidMidiTransport_nativeSelectPreferredMidiOutput(
-        JNIEnv* env,
-        jclass,
-        jintArray deviceIds,
-        jintArray portNumbers,
-        jintArray portTypes,
-        jintArray transportTypes,
-        jobjectArray names,
-        jobjectArray manufacturers,
-        jobjectArray products) {
-    if (deviceIds == nullptr ||
-        portNumbers == nullptr ||
-        portTypes == nullptr ||
-        transportTypes == nullptr ||
-        names == nullptr ||
-        manufacturers == nullptr ||
-        products == nullptr) {
-        return -1;
-    }
-
-    const jsize count = env->GetArrayLength(deviceIds);
-    if (env->GetArrayLength(portNumbers) != count ||
-        env->GetArrayLength(portTypes) != count ||
-        env->GetArrayLength(transportTypes) != count ||
-        env->GetArrayLength(names) != count ||
-        env->GetArrayLength(manufacturers) != count ||
-        env->GetArrayLength(products) != count) {
-        return -1;
-    }
-
-    std::vector<mozart::midi::MidiEndpointDescriptor> candidates;
-    candidates.reserve(static_cast<std::size_t>(count));
-
-    for (jsize i = 0; i < count; ++i) {
-        mozart::midi::MidiEndpointDescriptor candidate;
-        candidate.deviceId =
-                static_cast<std::uint32_t>(intAt(env, deviceIds, i));
-        candidate.portNumber =
-                static_cast<std::uint32_t>(intAt(env, portNumbers, i));
-        candidate.direction =
-                portDirectionFromAndroid(intAt(env, portTypes, i));
-        candidate.transport =
-                transportKindFromAndroid(intAt(env, transportTypes, i));
-        candidate.name = javaStringToUtf8(env, names, i);
-        candidate.manufacturer = javaStringToUtf8(env, manufacturers, i);
-        candidate.product = javaStringToUtf8(env, products, i);
-        candidates.push_back(std::move(candidate));
-    }
-
-    const auto selection =
-            mozart::midi::MidiEndpointSelector::selectPreferredOutput(
-                    candidates, "Arturia", "MicroFreak");
-
-    return selection.selected()
-            ? static_cast<jint>(*selection.candidateIndex)
-            : static_cast<jint>(-1);
-}
-
-extern "C" JNIEXPORT jint JNICALL
-Java_com_miguelduval_mozart_AndroidMidiTransport_nativeOpenMidiOutputDevice(
-        JNIEnv* env,
-        jclass,
-        jobject midiDevice,
-        jint portNumber) {
-    return static_cast<jint>(
-            g_midiOutput.open(env, midiDevice, static_cast<std::int32_t>(portNumber)));
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_miguelduval_mozart_AndroidMidiTransport_nativeCloseMidiOutputDevice(
-        JNIEnv*,
-        jclass) {
-    g_midiOutput.close();
-}
-
-extern "C" JNIEXPORT jint JNICALL
-Java_com_miguelduval_mozart_AndroidMidiTransport_nativeSendShortMessage(
-        JNIEnv*,
-        jclass,
-        jint status,
-        jint data1,
-        jint data2,
-        jint size,
-        jlong timestampNanos) {
-    if (status < 0 || status > 255 ||
-        data1 < 0 || data1 > 255 ||
-        data2 < 0 || data2 > 255 ||
-        size < 0 || size > 3 ||
-        timestampNanos < 0) {
-        return static_cast<jint>(
-                mozart::midi::MidiTransportStatus::InvalidMessage);
-    }
-
-    const mozart::midi::MidiShortMessage message{
-        static_cast<std::uint8_t>(status),
-        static_cast<std::uint8_t>(data1),
-        static_cast<std::uint8_t>(data2),
-        static_cast<std::uint8_t>(size),
-        static_cast<std::uint64_t>(timestampNanos),
-        0
+    MidiShortMessage message{
+        pendingStatus_,
+        data_[0],
+        static_cast<std::uint8_t>(expectedDataCount_ > 1 ? data_[1] : 0),
+        static_cast<std::uint8_t>(expectedDataCount_ + 1),
+        timestampNanos,
+        portId
     };
 
-    const auto result = g_midiOutput.send(message);
-    return static_cast<jint>(result.status);
+    queue.push(message);
+
+    dataCount_ = 0;
+    // Keep runningStatus_ for MIDI running-status continuation.
+    pendingStatus_ = runningStatus_;
+    expectedDataCount_ = dataBytesForStatus(pendingStatus_);
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_miguelduval_mozart_AndroidMidiTransport_nativeIsMidiOutputOpenInternal(
-        JNIEnv*,
-        jclass) {
-    return g_midiOutput.isOpen() ? JNI_TRUE : JNI_FALSE;
+void MidiInputParser::feed(
+        const std::uint8_t* data,
+        const std::size_t size,
+        const std::uint64_t timestampNanos,
+        const std::uint32_t portId,
+        MidiReceiveQueue& queue) noexcept {
+    if (data == nullptr || size == 0) {
+        return;
+    }
+
+    for (std::size_t i = 0; i < size; ++i) {
+        const auto value = data[i];
+
+        // MIDI realtime messages are single-byte and may be interleaved
+        // anywhere without changing running status or parser state.
+        if (value >= 0xF8) {
+            continue;
+        }
+
+        if (inSysEx_) {
+            if (value == 0xF7) {
+                inSysEx_ = false;
+                pendingStatus_ = runningStatus_;
+                dataCount_ = 0;
+                expectedDataCount_ = dataBytesForStatus(runningStatus_);
+            }
+            continue;
+        }
+
+        if (value == 0xF0) {
+            inSysEx_ = true;
+            runningStatus_ = 0;
+            pendingStatus_ = 0;
+            dataCount_ = 0;
+            expectedDataCount_ = 0;
+            continue;
+        }
+
+        if (value & 0x80u) {
+            // System common messages are deliberately outside this
+            // transport-neutral channel-voice queue.
+            if (!isChannelVoiceStatus(value)) {
+                runningStatus_ = 0;
+                pendingStatus_ = 0;
+                dataCount_ = 0;
+                expectedDataCount_ = 0;
+                continue;
+            }
+
+            startStatus(value);
+            continue;
+        }
+
+        // Data byte. Use running status when a complete status byte has not
+        // just been supplied in the current fragment.
+        if (pendingStatus_ == 0) {
+            if (runningStatus_ == 0) {
+                continue;
+            }
+            pendingStatus_ = runningStatus_;
+            expectedDataCount_ = dataBytesForStatus(runningStatus_);
+        }
+
+        if (expectedDataCount_ == 0 || dataCount_ >= 2) {
+            dataCount_ = 0;
+            pendingStatus_ = runningStatus_;
+            expectedDataCount_ = dataBytesForStatus(runningStatus_);
+        }
+
+        data_[dataCount_++] = value;
+        emitIfComplete(timestampNanos, portId, queue);
+    }
 }
+
+} // namespace mozart::midi
