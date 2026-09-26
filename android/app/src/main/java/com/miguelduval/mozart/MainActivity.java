@@ -19,6 +19,7 @@ public final class MainActivity extends Activity {
     private static final String TAG = "MozartStartup";
     private static final String RUNTIME_SMOKE_EXTRA = "mozart.runtime_smoke";
     private static final long LINK_STATUS_POLL_MS = 500L;
+    private static final long MIDI_INPUT_STATUS_POLL_MS = 500L;
     private static final String[] KEY_LABELS = {
             "C", "C#", "D", "D#", "E", "F",
             "F#", "G", "G#", "A", "A#", "B"
@@ -34,6 +35,7 @@ public final class MainActivity extends Activity {
     private static native void nativeStartAccompaniment();
     private static native void nativeStopAccompaniment();
     private static native String nativeLinkSnapshot();
+    private static native String nativeMidiInputSnapshot();
     private static native boolean nativeTestMidiNote();
     private static native void nativeSetAccompanimentRole(int role);
     private static native void nativeSetPatternDensity(int density);
@@ -46,6 +48,7 @@ public final class MainActivity extends Activity {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView status;
     private TextView linkStatus;
+    private TextView midiInputStatus;
     private AndroidMidiTransport midiTransport;
     private AndroidMidiInput midiInput;
     private Button midiInputButton;
@@ -54,6 +57,17 @@ public final class MainActivity extends Activity {
     private boolean activityStarted = false;
     private int selectedRootPitchClass = 6;
     private int selectedScaleId = 1;
+
+    private final Runnable midiInputStatusPoll = new Runnable() {
+        @Override
+        public void run() {
+            if (!activityStarted || midiInputStatus == null) {
+                return;
+            }
+            midiInputStatus.setText("MIDI IN: " + nativeMidiInputSnapshot());
+            mainHandler.postDelayed(this, MIDI_INPUT_STATUS_POLL_MS);
+        }
+    };
 
     private final Runnable linkStatusPoll = new Runnable() {
         @Override
@@ -112,6 +126,11 @@ public final class MainActivity extends Activity {
         linkStatus.setText("Link: " + nativeLinkSnapshot());
         linkStatus.setTextSize(14.0f);
         linkStatus.setGravity(Gravity.CENTER);
+
+        midiInputStatus = new TextView(this);
+        midiInputStatus.setText("MIDI IN: pending=0 received=0 dropped=0 last=none");
+        midiInputStatus.setTextSize(13.0f);
+        midiInputStatus.setGravity(Gravity.CENTER);
 
         Button key = new Button(this);
         key.setText("KEY: F#");
@@ -267,6 +286,11 @@ public final class MainActivity extends Activity {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(
+                midiInputStatus,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(
                 start,
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -367,8 +391,11 @@ public final class MainActivity extends Activity {
         super.onStart();
         activityStarted = true;
         updateLinkStatus();
+        midiInputStatus.setText("MIDI IN: " + nativeMidiInputSnapshot());
         mainHandler.removeCallbacks(linkStatusPoll);
+        mainHandler.removeCallbacks(midiInputStatusPoll);
         mainHandler.post(linkStatusPoll);
+        mainHandler.post(midiInputStatusPoll);
         if (midiTransport != null) {
             Log.i(TAG, "STARTUP: midiTransport.start posting");
             midiTransport.start();
@@ -380,6 +407,7 @@ public final class MainActivity extends Activity {
     protected void onStop() {
         activityStarted = false;
         mainHandler.removeCallbacks(linkStatusPoll);
+        mainHandler.removeCallbacks(midiInputStatusPoll);
         nativeStopAccompaniment();
 
         if (midiInput != null) {
@@ -394,6 +422,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         mainHandler.removeCallbacks(linkStatusPoll);
+        mainHandler.removeCallbacks(midiInputStatusPoll);
         if (midiInput != null) {
             midiInput.shutdown();
         }
