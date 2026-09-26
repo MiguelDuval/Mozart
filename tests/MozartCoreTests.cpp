@@ -1,6 +1,7 @@
 #include "core/MidiEndpoint.h"
 #include "core/MidiTypes.h"
 #include "core/TransportMath.h"
+#include "generation/ArpeggioGenerator.h"
 #include "generation/BassGenerator.h"
 #include "generation/RhythmGenerator.h"
 #include "midi/MidiTransport.h"
@@ -82,6 +83,28 @@ int main() {
 
         assert(a == b);
         assert(a.size() == 8);
+
+        const auto arpA =
+                mozart::generation::ArpeggioGenerator::generateBar(
+                        fSharpMinor, 4, 1234);
+        const auto arpB =
+                mozart::generation::ArpeggioGenerator::generateBar(
+                        fSharpMinor, 4, 1234);
+
+        assert(arpA == arpB);
+        assert(arpA.size() == 8);
+
+        for (const auto& event : arpA) {
+            assert(event.startBeat >= 0.0);
+            assert(event.startBeat < 4.0);
+            assert(event.durationBeats > 0.0);
+            assert(event.note >= 60);
+            assert(event.note < 96);
+            assert(fSharpMinor.containsMidiNote(event.note));
+            assert(event.velocity >= 76);
+            assert(event.velocity <= 115);
+            assert(event.channel == 0);
+        }
 
         for (const auto& event : a) {
             assert(event.startBeat >= 0.0);
@@ -296,6 +319,20 @@ int main() {
         mozart::clock::LinkClock clock(120.0, 4.0);
         mozart::scheduler::MidiSendQueue queue(output);
         mozart::scheduler::AccompanimentScheduler scheduler(clock, queue);
+
+        assert(
+                scheduler.role() ==
+                mozart::scheduler::AccompanimentRole::Bass);
+        scheduler.setRole(
+                mozart::scheduler::AccompanimentRole::Arpeggio);
+        assert(
+                scheduler.role() ==
+                mozart::scheduler::AccompanimentRole::Arpeggio);
+        scheduler.setRole(
+                mozart::scheduler::AccompanimentRole::Bass);
+        assert(
+                scheduler.role() ==
+                mozart::scheduler::AccompanimentRole::Bass);
 
         clock.setEnabled(true);
         const auto beforeArm = clock.captureAppSnapshot();
