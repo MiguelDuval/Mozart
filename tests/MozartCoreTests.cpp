@@ -329,6 +329,7 @@ int main() {
         assert(!snapshot.enabled);
         assert(!snapshot.playing);
         assert(!snapshot.inSession);
+        assert(!snapshot.startStopSyncEnabled);
         assert(snapshot.peers == 0);
         assert(std::abs(snapshot.tempoBpm - 120.0) < 1.0e-9);
         assert(std::abs(snapshot.quantum - 4.0) < 1.0e-12);
