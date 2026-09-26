@@ -263,8 +263,13 @@ int main() {
         public:
             mozart::midi::MidiSendResult send(
                     const mozart::midi::MidiShortMessage& message) noexcept override {
+                {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    messages.push_back(message);
+                }
                 last = message;
                 ++sendCount;
+                condition.notify_all();
                 return {
                     mozart::midi::MidiTransportStatus::Ok,
                     message.size
@@ -273,8 +278,18 @@ int main() {
 
             void close() noexcept override {}
 
+            std::vector<mozart::midi::MidiShortMessage> messagesCopy() const {
+                std::lock_guard<std::mutex> lock(mutex);
+                return messages;
+            }
+
             mozart::midi::MidiShortMessage last{};
             std::atomic<std::size_t> sendCount{0};
+
+        private:
+            mutable std::mutex mutex;
+            std::condition_variable condition;
+            std::vector<mozart::midi::MidiShortMessage> messages;
         };
 
         CountingMidiOutput output;
