@@ -17,14 +17,14 @@
 - [x] MIDI OUT queue.
 - [x] Timestamp preservation.
 - [ ] Virtual/test MIDI adapter.
-- [ ] MicroFreak physical MIDI test record.
+- [x] MicroFreak physical MIDI test.
 
 ## Stage 2 — Ableton Link accompanist clock
 - [x] Link 4.0 wrapper.
 - [x] Link enable/disable runtime control.
 - [x] Session tempo / beat / phase snapshot API.
 - [x] Android Link runtime validation.
-- [ ] Android Link peer/session validation.
+- [x] Android Link peer/session validation.
 - [x] Quantized launch.
 - [x] Follow-session policy.
 - [x] Scheduler look-ahead.
@@ -32,11 +32,11 @@
 - [x] Link test suite.
 
 ## Stage 3 — First useful accompanist
-Current vertical slice: Manual F# minor context → deterministic seeded bass → Link look-ahead scheduler → bounded MIDI OUT queue → Android AMidi boundary. Physical MicroFreak receipt remains unverified.
+Current vertical slice: Manual F# minor context → selectable deterministic bass/arpeggio accompaniment → Link rolling scheduler → bounded MIDI OUT queue → Android AMidi boundary. Physical MicroFreak MIDI receipt and Link tempo-following playback are verified.
 - [x] Deterministic seeded rhythm generator.
 - [ ] Kick/snare/hat-style accompaniment patterns.
 - [x] Bass accompaniment.
-- [ ] Simple arpeggio role.
+- [x] Simple arpeggio role.
 - [ ] Step density.
 - [ ] Accent.
 - [ ] Probability.
@@ -55,7 +55,7 @@ Current vertical slice: Manual F# minor context → deterministic seeded bass �
 - [ ] Chord model.
 - [ ] Chord progression generator.
 - [x] Bass generator.
-- [ ] Arpeggiator.
+- [x] Arpeggiator.
 - [ ] Voice leading.
 - [ ] Key/scale detection from MIDI input.
 
