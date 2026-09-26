@@ -45,13 +45,29 @@ std::vector<musical::MusicalNoteEvent> BassGenerator::generateBar(
                         std::min(127u,
                                  static_cast<unsigned int>(baseVelocity) + accent));
 
+        const double shiftedBeat =
+                beats[i] +
+                ((i % 2 == 1) ? swingOffsetBeats(swing) : 0.0);
+
         result.push_back(musical::MusicalNoteEvent{
-            beats[i],
+            shiftedBeat,
             0.42,
             keyScale.degreeToMidiNote(degrees[i], baseOctave),
             velocity,
             channel
         });
+    }
+
+    for (std::size_t i = 0; i < result.size(); ++i) {
+        const double nextBeat =
+                i + 1 < result.size()
+                        ? result[i + 1].startBeat
+                        : 4.0;
+        const double availableDuration = nextBeat - result[i].startBeat;
+        result[i].durationBeats =
+                std::min(
+                        result[i].durationBeats,
+                        std::max(0.05, availableDuration - 0.02));
     }
 
     return result;
