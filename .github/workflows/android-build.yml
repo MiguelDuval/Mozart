@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: android-build-${{ github.ref }}
+  group: android-build-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -50,11 +50,15 @@ jobs:
             exit "$status"
           fi
 
+      - name: Fetch pinned Ableton Link
+        shell: bash
+        run: bash tools/fetch_link.sh
+
       - name: Test Mozart C++ core
         shell: bash
         run: |
           set -euo pipefail
-          cmake -S tests -B build/native-tests -DCMAKE_BUILD_TYPE=Debug
+          cmake -S tests -B build/native-tests -DCMAKE_BUILD_TYPE=Debug -DMOZART_ENABLE_LINK=ON
           cmake --build build/native-tests --parallel 2
           build/native-tests/mozart_core_tests
 
@@ -71,18 +75,10 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu off -noaudio -no-boot-anim -camera-back none
           emulator-boot-timeout: 900
           disable-animations: true
-          script: |
-            set -euo pipefail
-            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-            adb shell am force-stop com.miguelduval.mozart.debug
-            adb shell am start -W -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity
-            adb shell uiautomator dump /sdcard/mozart-ui.xml
-            adb exec-out cat /sdcard/mozart-ui.xml > /tmp/mozart-ui.xml
-            grep -Fq 'text="MOZART"' /tmp/mozart-ui.xml
-            grep -Fq 'text="C++20 core ready | MIDI foundation | Link-ready timing boundary"' /tmp/mozart-ui.xml
+          script: bash .github/scripts/android-smoke.sh
 
       - name: Upload debug APK
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: mozart-android-debug-${{ github.sha }}
@@ -98,6 +94,17 @@ jobs:
           name: mozart-emulator-diagnostics-${{ github.sha }}
           path: |
             /tmp/mozart-ui.xml
+            /tmp/mozart-activity.txt
+            /tmp/mozart-window.txt
+            /tmp/mozart-logcat.txt
+            /tmp/mozart-screen.png
+            /tmp/mozart-start.txt
+            /tmp/mozart-start-status.txt
+            /tmp/mozart-start-host-pid.txt
+            /tmp/mozart-pid.txt
+            /tmp/mozart-ps.txt
+            /tmp/mozart-processes.txt
+            /tmp/mozart-attempt-1-logcat.txt
           archive: true
           if-no-files-found: ignore
           retention-days: 14

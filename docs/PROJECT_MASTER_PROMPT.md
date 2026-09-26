@@ -2,18 +2,22 @@
 
 ## 1. Mission
 
-Mozart is a personal Android musical instrument focused on generating, transforming and sending MIDI accompaniment/pattern material while staying locked to a shared musical clock.
+Mozart is a personal Android **MIDI accompanist** for electronic music.
+
+Its primary job is to listen to musical context and/or user control, generate useful rhythmic, bass, arpeggio and harmonic accompaniment, synchronize that accompaniment to an Ableton Link session, and send MIDI over USB to an external instrument.
+
+The primary hardware target is the **Arturia MicroFreak**. Other MIDI synthesizers, grooveboxes and DAWs should be supported through the same transport-neutral MIDI architecture.
 
 The application is intentionally not a general DAW.
 
 The first useful instrument is:
 
-**MIDI input / user intent
-→ musical domain
-→ deterministic generator
-→ quantized scheduler
-→ Ableton Link timing
-→ Android MIDI output**
+**musical context / user control
+→ accompaniment engine
+→ deterministic musical pattern
+→ Link-aligned scheduler
+→ Android USB-MIDI
+→ Arturia MicroFreak**
 
 The product should feel immediate enough to use while performing electronic music.
 
@@ -23,10 +27,10 @@ The application is initially for personal use. Distribution, licensing, cloud ac
 
 ### 2.1 Primary goals
 
-- generate useful rhythmic, melodic and harmonic MIDI material;
+- generate useful rhythmic, bass, melodic and harmonic accompaniment material;
 - respond predictably to user controls;
 - synchronize to Ableton Link tempo and beat/phase;
-- send MIDI with stable timing to external synthesizers, grooveboxes and DAWs;
+- send MIDI with stable timing over USB to the Arturia MicroFreak and, later, other external MIDI instruments and DAWs;
 - receive MIDI input when useful for triggering, transposition, chord detection and control;
 - allow fast mutation of patterns without stopping the musical clock;
 - remain functional with no network connection;
@@ -42,7 +46,7 @@ The application is initially for personal use. Distribution, licensing, cloud ac
 - scales, chord vocabulary and voice-leading;
 - deterministic randomization;
 - project/session save;
-- optional NIM-powered idea generation;
+- optional NVIDIA NIM-powered musical idea generation;
 - future external controller mapping.
 
 ### 2.3 Non-goals for the first stages
@@ -94,6 +98,12 @@ Ableton Link synchronizes shared beat, tempo, phase and optional start/stop stat
 ### AI
 
 Optional provider interface for network or local AI generation.
+
+Production direction is now fixed: Mozart's baseline local music generator is a compact 30–60M-parameter symbolic-MIDI Transformer, deployed in int8 form and executed off the realtime path. It is intended for 4–16 bar polyphonic generation with controlled genre/subgenre, mood/energy, key/scale, density, polyphony, pitch range and role conditioning.
+
+Mozart should ship its own commercially usable model weights rather than relying on third-party pretrained checkpoints with non-commercial restrictions. Training-data provenance and redistribution permissions are part of the model release contract.
+
+The first Android inference runtime target is LiteRT behind the provider interface; the exact pinned runtime revision is selected during implementation.
 
 Initial supported concept: NVIDIA NIM-compatible OpenAI-style chat/completions endpoint selected by configuration.
 
@@ -507,6 +517,23 @@ See `docs/DEPENDENCIES.md`.
 
 ## 18. Development stages
 
+### Execution order
+
+The main implementation sequence is:
+
+**Foundation → MIDI transport → Link clock → deterministic accompanist → harmony → basic performance → local AI music generation → persistence → hardening.**
+
+Audio preview is intentionally not a prerequisite for local AI. It can be developed independently once the audio layer is ready.
+
+Before the Local AI stage is allowed to alter the product, the following gates must be true:
+
+- Link/scheduler timing is stable.
+- Deterministic accompaniment works through the full MIDI path.
+- Key/scale and basic harmonic context are stable enough to be passed into generation requests.
+- There is a usable pattern/performance workflow that can consume generated patterns.
+- The AI path remains completely outside realtime timing and can be disabled without affecting transport.
+
+
 ### Stage 0 — repository foundation
 
 - Android shell;
@@ -531,23 +558,25 @@ See `docs/DEPENDENCIES.md`.
 - follower policy;
 - quantized scheduler.
 
-### Stage 3 — first instrument
+### Stage 3 — first accompanist
 
-- deterministic drum/rhythm generator;
-- MIDI output;
+- deterministic rhythm/accompaniment generator;
+- MIDI output to MicroFreak;
 - start/stop;
 - repeat;
-- variations;
-- humanize.
+- pattern variations;
+- humanize;
+- basic bass and arpeggio roles.
 
-### Stage 4 — harmonic accompaniment
+### Stage 4 — harmonic intelligence
 
 - scales;
-- chord recognition;
-- chord progression;
-- bass;
-- arpeggio;
-- voice leading.
+- chord recognition from MIDI input;
+- chord progression generation;
+- bass generation;
+- arpeggio generation;
+- voice leading;
+- accompaniment role orchestration.
 
 ### Stage 5 — performance workflow
 
@@ -585,13 +614,13 @@ See `docs/DEPENDENCIES.md`.
 
 The first meaningful acceptance is not "the app opens".
 
-It is:
+For the primary hardware scenario, it is:
 
-**user controls a musical parameter
-→ a deterministic pattern is generated
-→ pattern is quantized against Link
-→ scheduler emits MIDI
-→ external MIDI device receives the notes in time
+**user controls or supplies musical context
+→ Mozart generates accompaniment
+→ accompaniment is quantized against Ableton Link
+→ scheduler emits USB-MIDI
+→ Arturia MicroFreak receives the notes in time
 → no network is required
 → the result is repeatable from the same seed**
 
