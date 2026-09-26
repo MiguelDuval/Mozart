@@ -67,6 +67,7 @@ wait_for_runtime_smoke() {
       return 2
     fi
     if grep -Fq "RUNTIME: Link snapshot enabled=true" "$LOGCAT_FILE" &&
+       grep -Fq "startStopSync=false" "$LOGCAT_FILE" &&
        grep -Fq "tempo=120." "$LOGCAT_FILE"; then
       if grep -Fq "RUNTIME: Android smoke stop complete" "$LOGCAT_FILE"; then
         return 0
