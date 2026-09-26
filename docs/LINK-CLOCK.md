@@ -42,6 +42,17 @@ The scheduler uses a short rolling look-ahead rather than placing a complete bar
 
 A late scheduler wake-up does not intentionally drop the current musical step; the event is clamped to the current monotonic host time so the sequence remains continuous. Physical timing quality still requires real-device measurement.
 
+## Accompaniment roles
+
+The first two deterministic roles are:
+
+- **Bass** — low-register seeded eighth-note accompaniment in the selected scale.
+- **Arpeggio** — higher-register seeded eighth-note scale arpeggio.
+
+The role selector is intentionally quantized: choosing BASS or ARPEGGIO while playback is running requests the new role, and the scheduler activates it at the next 4-beat bar boundary. The current phrase is never truncated just because the performer changed role.
+
+Both roles use the same Link beat cursor and rolling look-ahead scheduler, so tempo changes affect their timestamps without restarting either sequence.
+
 ## Android runtime validation
 
 The debug Android smoke path now validates the Link lifecycle itself:
