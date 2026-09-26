@@ -158,18 +158,29 @@ public final class MainActivity extends Activity {
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
+
+        LinearLayout roleRow = new LinearLayout(this);
+        roleRow.setOrientation(LinearLayout.HORIZONTAL);
+        roleRow.setGravity(Gravity.CENTER);
+
+        roleRow.addView(
                 bass,
                 new LinearLayout.LayoutParams(
                         0,
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         1.0f));
-        root.addView(
+        roleRow.addView(
                 arpeggio,
                 new LinearLayout.LayoutParams(
                         0,
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         1.0f));
+
+        root.addView(
+                roleRow,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(
                 testMidi,
                 new LinearLayout.LayoutParams(
