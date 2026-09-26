@@ -103,6 +103,9 @@ jobs:
             status="$(cat /tmp/mozart-start-status.txt 2>/dev/null || printf "%s" "124")"; echo "am start diagnostic status=$status (not used as the smoke-test pass/fail criterion)."
             if ! grep -Fq 'al.mozart.debug' /tmp/mozart-ps.txt; then echo "Mozart process was not found in process list."; exit 1; fi
             if ! grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity" /tmp/mozart-activity.txt; then echo "MainActivity was not present in activity manager state."; exit 1; fi
+            if ! grep -Fq "STARTUP: nativeEngineInfo complete" /tmp/mozart-logcat.txt; then echo "MainActivity did not complete nativeEngineInfo()."; exit 1; fi
+            if ! grep -Fq "STARTUP: onCreate complete" /tmp/mozart-logcat.txt; then echo "MainActivity.onCreate did not complete."; exit 1; fi
+            if ! grep -Fq "STARTUP: onStart complete" /tmp/mozart-logcat.txt; then echo "MainActivity.onStart did not complete."; exit 1; fi
 
       - name: Upload debug APK
         if: always()
