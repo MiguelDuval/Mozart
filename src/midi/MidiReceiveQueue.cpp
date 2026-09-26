@@ -117,7 +117,7 @@ void MidiInputParser::emitIfComplete(
     MidiShortMessage message{
         pendingStatus_,
         data_[0],
-        expectedDataCount_ > 1 ? data_[1] : 0,
+        static_cast<std::uint8_t>(expectedDataCount_ > 1 ? data_[1] : 0),
         static_cast<std::uint8_t>(expectedDataCount_ + 1),
         timestampNanos,
         portId
