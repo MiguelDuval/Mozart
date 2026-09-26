@@ -5,6 +5,7 @@
 #include "generation/PatternAccent.h"
 #include "generation/BassGenerator.h"
 #include "generation/PatternDensity.h"
+#include "generation/PatternSwing.h"
 #include "musical/KeyScale.h"
 #include "scheduler/MidiSendQueue.h"
 
@@ -50,6 +51,9 @@ public:
     void setAccent(generation::PatternAccent accent) noexcept;
     [[nodiscard]] generation::PatternAccent accent() const noexcept;
 
+    void setSwing(generation::PatternSwing swing) noexcept;
+    [[nodiscard]] generation::PatternSwing swing() const noexcept;
+
 private:
     void run();
     void scheduleEvent(
@@ -71,6 +75,8 @@ private:
             generation::PatternDensity::Full};
     std::atomic<generation::PatternAccent> requestedAccent_{
             generation::PatternAccent::Off};
+    std::atomic<generation::PatternSwing> requestedSwing_{
+            generation::PatternSwing::Off};
 
     std::mutex wakeMutex_;
     std::condition_variable wakeCondition_;
@@ -82,6 +88,7 @@ private:
     AccompanimentRole activeRole_ = AccompanimentRole::Bass;
     generation::PatternDensity activeDensity_ = generation::PatternDensity::Full;
     generation::PatternAccent activeAccent_ = generation::PatternAccent::Off;
+    generation::PatternSwing activeSwing_ = generation::PatternSwing::Off;
     std::uint32_t seed_ = 0x4D4F5A41u;
 };
 
