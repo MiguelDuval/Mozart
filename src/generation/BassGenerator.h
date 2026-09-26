@@ -1,5 +1,6 @@
 #pragma once
 
+#include "PatternDensity.h"
 #include "musical/KeyScale.h"
 #include "musical/MusicalNote.h"
 
@@ -14,7 +15,8 @@ public:
             const musical::KeyScale& keyScale,
             std::uint8_t baseOctave,
             std::uint32_t seed,
-            std::uint8_t channel = 0);
+            std::uint8_t channel = 0,
+            PatternDensity density = PatternDensity::Full);
 
 private:
     static std::uint32_t next(std::uint32_t& state) noexcept;
