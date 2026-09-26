@@ -35,6 +35,7 @@ public final class MainActivity extends Activity {
     private static native boolean nativeTestMidiNote();
     private static native void nativeSetAccompanimentRole(int role);
     private static native void nativeSetPatternDensity(int density);
+    private static native void nativeSetPatternAccent(int accent);
     private static native void nativeSetManualKeyScale(
             int rootPitchClass,
             int scaleId);
@@ -164,6 +165,24 @@ public final class MainActivity extends Activity {
                             + " selected; change takes effect at the next bar.");
         });
 
+        Button accent = new Button(this);
+        accent.setText("ACCENT: OFF");
+        final int[] accentIndex = {0};
+        accent.setOnClickListener(view -> {
+            accentIndex[0] = (accentIndex[0] + 1) % 3;
+            final int selectedAccent = accentIndex[0];
+            nativeSetPatternAccent(selectedAccent);
+            final String[] labels = {
+                    "ACCENT: OFF",
+                    "ACCENT: MILD",
+                    "ACCENT: STRONG"
+            };
+            accent.setText(labels[selectedAccent]);
+            status.append(
+                    "\n\n" + labels[selectedAccent]
+                            + " selected; change takes effect at the next bar.");
+        });
+
         Button testMidi = new Button(this);
         testMidi.setText("TEST MIDI OUT");
         testMidi.setOnClickListener(view -> {
@@ -248,6 +267,11 @@ public final class MainActivity extends Activity {
                         ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(
                 density,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(
+                accent,
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
