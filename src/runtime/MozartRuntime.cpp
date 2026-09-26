@@ -101,6 +101,15 @@ generation::PatternDensity MozartRuntime::patternDensity() const noexcept {
     return scheduler_.density();
 }
 
+void MozartRuntime::setPatternAccent(
+        const generation::PatternAccent accent) noexcept {
+    scheduler_.setAccent(accent);
+}
+
+generation::PatternAccent MozartRuntime::patternAccent() const noexcept {
+    return scheduler_.accent();
+}
+
 bool MozartRuntime::sendDiagnosticNote() {
     start();
 
