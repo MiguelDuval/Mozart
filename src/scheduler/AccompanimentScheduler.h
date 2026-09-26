@@ -54,6 +54,7 @@ private:
     std::thread worker_;
 
     double scheduledBarStart_ = -1.0;
+    double launchBarStart_ = -1.0;
     std::uint32_t seed_ = 0x4D4F5A41u;
 };
 
