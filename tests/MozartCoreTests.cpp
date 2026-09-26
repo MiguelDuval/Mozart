@@ -340,6 +340,26 @@ int main() {
         const auto targetTime = clock.hostTimeAtBeat(targetBeat);
         const auto roundTripBeat = clock.beatAtHostTime(targetTime);
         assert(std::abs(roundTripBeat - targetBeat) < 1.0e-9);
+
+        clock.setEnabled(true);
+        assert(clock.isEnabled());
+        assert(!clock.isStartStopSyncEnabled());
+
+        const auto enabledSnapshot = clock.captureAppSnapshot();
+        assert(enabledSnapshot.enabled);
+        assert(!enabledSnapshot.startStopSyncEnabled);
+        assert(enabledSnapshot.peers == 0);
+        assert(!enabledSnapshot.inSession);
+        assert(std::abs(enabledSnapshot.tempoBpm - 120.0) < 1.0e-9);
+        assert(std::abs(enabledSnapshot.quantum - 4.0) < 1.0e-12);
+        assert(enabledSnapshot.phase >= 0.0);
+        assert(enabledSnapshot.phase < enabledSnapshot.quantum);
+
+        clock.setEnabled(false);
+        assert(!clock.isEnabled());
+        const auto disabledAgain = clock.captureAppSnapshot();
+        assert(!disabledAgain.enabled);
+        assert(!disabledAgain.startStopSyncEnabled);
     }
 #endif
 
