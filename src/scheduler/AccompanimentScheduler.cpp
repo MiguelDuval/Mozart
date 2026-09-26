@@ -66,6 +66,7 @@ void AccompanimentScheduler::stop() {
     nextEventIndex_ = 0;
     activeRole_ = requestedRole_.load();
     activeDensity_ = requestedDensity_.load();
+    activeAccent_ = requestedAccent_.load();
 }
 
 void AccompanimentScheduler::setArmed(const bool armed) noexcept {
@@ -111,6 +112,16 @@ generation::PatternDensity AccompanimentScheduler::density() const noexcept {
     return requestedDensity_.load();
 }
 
+void AccompanimentScheduler::setAccent(
+        const generation::PatternAccent accent) noexcept {
+    requestedAccent_.store(accent);
+    wakeCondition_.notify_all();
+}
+
+generation::PatternAccent AccompanimentScheduler::accent() const noexcept {
+    return requestedAccent_.load();
+}
+
 void AccompanimentScheduler::run() {
     constexpr double kLookAheadSeconds = 0.032;
     constexpr double kEpsilon = 1.0e-9;
@@ -149,6 +160,7 @@ void AccompanimentScheduler::run() {
                     nextEventIndex_ = 0;
                     activeRole_ = requestedRole_.load();
                     activeDensity_ = requestedDensity_.load();
+                    activeAccent_ = requestedAccent_.load();
                     {
                         std::lock_guard<std::mutex> lock(stateMutex_);
                         activeKeyScale_ = requestedKeyScale_;
@@ -208,6 +220,7 @@ void AccompanimentScheduler::run() {
                         // currently running musical phrase.
                         activeRole_ = requestedRole_.load();
                         activeDensity_ = requestedDensity_.load();
+                        activeAccent_ = requestedAccent_.load();
                         {
                             std::lock_guard<std::mutex> lock(stateMutex_);
                             activeKeyScale_ = requestedKeyScale_;
