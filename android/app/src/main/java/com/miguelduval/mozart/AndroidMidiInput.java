@@ -129,18 +129,17 @@ public final class AndroidMidiInput {
                         return;
                     }
 
-                    try {
-                        outputPort.connect(receiver);
-                    } catch (RuntimeException exception) {
-                        safeClose(outputPort);
-                        safeClose(device);
-                        publishStatus("MIDI IN: failed to connect MidiReceiver");
-                        return;
-                    }
-
                     openedDevice = device;
                     openedPort = outputPort;
                     openedEndpoint = endpoint;
+
+                    try {
+                        outputPort.connect(receiver);
+                    } catch (RuntimeException exception) {
+                        closeInternal();
+                        publishStatus("MIDI IN: failed to connect MidiReceiver");
+                        return;
+                    }
                     publishStatus(
                             "MIDI IN: connected " + endpoint.displayName());
                 },
@@ -236,7 +235,7 @@ public final class AndroidMidiInput {
     private static void safeClose(MidiOutputPort outputPort) {
         try {
             outputPort.close();
-        } catch (RuntimeException ignored) {
+        } catch (IOException ignored) {
             // The Android resource is already being released.
         }
     }
