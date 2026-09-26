@@ -11,6 +11,8 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public final class MainActivity extends Activity {
@@ -45,6 +47,10 @@ public final class MainActivity extends Activity {
     private TextView status;
     private TextView linkStatus;
     private AndroidMidiTransport midiTransport;
+    private AndroidMidiInput midiInput;
+    private Button midiInputButton;
+    private List<AndroidMidiTransport.MidiEndpoint> midiInputCandidates = Collections.emptyList();
+    private int midiInputSelection = -1;
     private boolean activityStarted = false;
     private int selectedRootPitchClass = 6;
     private int selectedScaleId = 1;
@@ -202,6 +208,10 @@ public final class MainActivity extends Activity {
                             + " selected; change takes effect at the next bar.");
         });
 
+        midiInputButton = new Button(this);
+        midiInputButton.setText("MIDI IN: OFF");
+        midiInputButton.setOnClickListener(view -> cycleMidiInputSource());
+
         Button testMidi = new Button(this);
         testMidi.setText("TEST MIDI OUT");
         testMidi.setOnClickListener(view -> {
@@ -300,6 +310,11 @@ public final class MainActivity extends Activity {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(
+                midiInputButton,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(
                 testMidi,
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -318,7 +333,11 @@ public final class MainActivity extends Activity {
         }
 
         midiTransport = new AndroidMidiTransport(this, midiListener);
+        midiInput = new AndroidMidiInput(
+                this,
+                message -> status.append("\n\n" + message));
         Log.i(TAG, "STARTUP: AndroidMidiTransport constructed");
+        Log.i(TAG, "STARTUP: AndroidMidiInput constructed");
         Log.i(TAG, "STARTUP: onCreate complete");
     }
 
@@ -363,6 +382,9 @@ public final class MainActivity extends Activity {
         mainHandler.removeCallbacks(linkStatusPoll);
         nativeStopAccompaniment();
 
+        if (midiInput != null) {
+            midiInput.close();
+        }
         if (midiTransport != null) {
             midiTransport.stop();
         }
@@ -372,6 +394,9 @@ public final class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         mainHandler.removeCallbacks(linkStatusPoll);
+        if (midiInput != null) {
+            midiInput.shutdown();
+        }
         if (midiTransport != null) {
             midiTransport.shutdown();
         }
@@ -388,6 +413,8 @@ public final class MainActivity extends Activity {
             List<AndroidMidiTransport.MidiEndpoint> endpoints,
             AndroidMidiTransport.MidiEndpoint selectedOutput,
             String connectionStatus) {
+        updateMidiInputCandidates(endpoints);
+
         final StringBuilder text = new StringBuilder();
         text.append("\n").append(nativeEngineInfo());
         text.append("\n\nMIDI endpoints discovered: ").append(endpoints.size());
@@ -407,5 +434,66 @@ public final class MainActivity extends Activity {
                 .append(" ")
                 .append(SCALE_LABELS[selectedScaleId]);
         status.setText(text.toString());
+    }
+
+    private void updateMidiInputCandidates(
+            List<AndroidMidiTransport.MidiEndpoint> endpoints) {
+        final List<AndroidMidiTransport.MidiEndpoint> candidates =
+                new ArrayList<>();
+        for (AndroidMidiTransport.MidiEndpoint endpoint : endpoints) {
+            if (endpoint.isDeviceOutput()) {
+                candidates.add(endpoint);
+            }
+        }
+
+        midiInputCandidates = Collections.unmodifiableList(candidates);
+
+        if (midiInputSelection >= midiInputCandidates.size()) {
+            midiInputSelection = -1;
+            if (midiInput != null) {
+                midiInput.close();
+            }
+        }
+
+        if (midiInputButton != null) {
+            if (midiInputSelection < 0) {
+                midiInputButton.setText("MIDI IN: OFF");
+            } else {
+                midiInputButton.setText(
+                        "MIDI IN: " +
+                                midiInputCandidates
+                                        .get(midiInputSelection)
+                                        .displayName());
+            }
+        }
+
+        if (activityStarted &&
+                midiInput != null &&
+                midiInputSelection >= 0 &&
+                midiInputSelection < midiInputCandidates.size()) {
+            midiInput.open(midiInputCandidates.get(midiInputSelection));
+        }
+    }
+
+    private void cycleMidiInputSource() {
+        if (midiInputCandidates.isEmpty()) {
+            status.append("\n\nMIDI IN: no device OUTPUT ports discovered.");
+            return;
+        }
+
+        midiInputSelection++;
+        if (midiInputSelection >= midiInputCandidates.size()) {
+            midiInputSelection = -1;
+            midiInput.close();
+            midiInputButton.setText("MIDI IN: OFF");
+            status.append("\n\nMIDI IN disabled.");
+            return;
+        }
+
+        final AndroidMidiTransport.MidiEndpoint endpoint =
+                midiInputCandidates.get(midiInputSelection);
+        midiInputButton.setText("MIDI IN: " + endpoint.displayName());
+        midiInput.open(endpoint);
+        status.append("\n\nMIDI IN source selected: " + endpoint.displayName());
     }
 }
