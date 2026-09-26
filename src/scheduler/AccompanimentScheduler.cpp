@@ -64,7 +64,6 @@ void AccompanimentScheduler::stop() {
     launchBarStart_ = -1.0;
     nextBarIndex_ = 0;
     nextEventIndex_ = 0;
-    lastTempoBpm_ = 0.0;
 }
 
 void AccompanimentScheduler::setArmed(const bool armed) noexcept {
@@ -100,7 +99,6 @@ void AccompanimentScheduler::run() {
             launchBarStart_ = -1.0;
             nextBarIndex_ = 0;
             nextEventIndex_ = 0;
-            lastTempoBpm_ = 0.0;
         } else {
             const auto snapshot = clock_.captureAppSnapshot();
 
@@ -119,8 +117,6 @@ void AccompanimentScheduler::run() {
                 // A Link tempo change changes beat->host-time conversion, not
                 // which note comes next. This prevents the sequence from
                 // restarting or waiting for a new bar after a tempo change.
-                lastTempoBpm_ = snapshot.tempoBpm;
-
                 if (launchBarStart_ < 0.0) {
                     // START is quantized once, at arming time. After launch,
                     // this reference beat is never recomputed from tempo.
