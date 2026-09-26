@@ -114,4 +114,8 @@ bool MozartRuntime::accompanimentEnabled() const noexcept {
     return scheduler_.isArmed();
 }
 
+clock::LinkClockSnapshot MozartRuntime::captureLinkSnapshot() const {
+    return linkClock_.captureAppSnapshot();
+}
+
 } // namespace mozart::runtime
