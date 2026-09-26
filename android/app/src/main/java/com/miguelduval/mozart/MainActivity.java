@@ -36,6 +36,7 @@ public final class MainActivity extends Activity {
     private static native void nativeSetAccompanimentRole(int role);
     private static native void nativeSetPatternDensity(int density);
     private static native void nativeSetPatternAccent(int accent);
+    private static native void nativeSetPatternSwing(int swing);
     private static native void nativeSetManualKeyScale(
             int rootPitchClass,
             int scaleId);
@@ -183,6 +184,24 @@ public final class MainActivity extends Activity {
                             + " selected; change takes effect at the next bar.");
         });
 
+        Button swing = new Button(this);
+        swing.setText("SWING: OFF");
+        final int[] swingIndex = {0};
+        swing.setOnClickListener(view -> {
+            swingIndex[0] = (swingIndex[0] + 1) % 3;
+            final int selectedSwing = swingIndex[0];
+            nativeSetPatternSwing(selectedSwing);
+            final String[] labels = {
+                    "SWING: OFF",
+                    "SWING: LIGHT",
+                    "SWING: FULL"
+            };
+            swing.setText(labels[selectedSwing]);
+            status.append(
+                    "\n\n" + labels[selectedSwing]
+                            + " selected; change takes effect at the next bar.");
+        });
+
         Button testMidi = new Button(this);
         testMidi.setText("TEST MIDI OUT");
         testMidi.setOnClickListener(view -> {
@@ -272,6 +291,11 @@ public final class MainActivity extends Activity {
                         ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(
                 accent,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(
+                swing,
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
