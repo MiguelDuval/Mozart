@@ -140,6 +140,20 @@ int main() {
         assert(
                 mozart::generation::accentBoost(
                         mozart::generation::PatternAccent::Strong) == 20);
+        assert(
+                std::abs(
+                        mozart::generation::swingOffsetBeats(
+                                mozart::generation::PatternSwing::Off)) < 1.0e-12);
+        assert(
+                std::abs(
+                        mozart::generation::swingOffsetBeats(
+                                mozart::generation::PatternSwing::Light) -
+                        1.0 / 12.0) < 1.0e-12);
+        assert(
+                std::abs(
+                        mozart::generation::swingOffsetBeats(
+                                mozart::generation::PatternSwing::Full) -
+                        1.0 / 6.0) < 1.0e-12);
 
         const auto flatAccent =
                 mozart::generation::BassGenerator::generateBar(
@@ -425,6 +439,16 @@ int main() {
                 mozart::generation::PatternAccent::Strong);
         scheduler.setAccent(
                 mozart::generation::PatternAccent::Off);
+        assert(
+                scheduler.swing() ==
+                mozart::generation::PatternSwing::Off);
+        scheduler.setSwing(
+                mozart::generation::PatternSwing::Full);
+        assert(
+                scheduler.swing() ==
+                mozart::generation::PatternSwing::Full);
+        scheduler.setSwing(
+                mozart::generation::PatternSwing::Off);
 
         clock.setEnabled(true);
         const auto beforeArm = clock.captureAppSnapshot();
