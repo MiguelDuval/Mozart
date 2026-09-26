@@ -106,6 +106,8 @@ Java_com_miguelduval_mozart_MainActivity_nativeLinkSnapshot(
             std::string("enabled=") + (snapshot.enabled ? "true" : "false") +
             " playing=" + (snapshot.playing ? "true" : "false") +
             " inSession=" + (snapshot.inSession ? "true" : "false") +
+            " startStopSync=" +
+                    (snapshot.startStopSyncEnabled ? "true" : "false") +
             " peers=" + std::to_string(snapshot.peers) +
             " tempo=" + std::to_string(snapshot.tempoBpm) +
             " beat=" + std::to_string(snapshot.beat) +
