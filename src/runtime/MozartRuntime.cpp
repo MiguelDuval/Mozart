@@ -92,6 +92,15 @@ scheduler::AccompanimentRole MozartRuntime::accompanimentRole() const noexcept {
     return scheduler_.role();
 }
 
+void MozartRuntime::setPatternDensity(
+        const generation::PatternDensity density) noexcept {
+    scheduler_.setDensity(density);
+}
+
+generation::PatternDensity MozartRuntime::patternDensity() const noexcept {
+    return scheduler_.density();
+}
+
 bool MozartRuntime::sendDiagnosticNote() {
     start();
 
