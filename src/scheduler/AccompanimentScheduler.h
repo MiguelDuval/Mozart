@@ -53,8 +53,10 @@ private:
     std::condition_variable wakeCondition_;
     std::thread worker_;
 
-    double scheduledBarStart_ = -1.0;
     double launchBarStart_ = -1.0;
+    std::int64_t nextBarIndex_ = 0;
+    std::size_t nextEventIndex_ = 0;
+    double lastTempoBpm_ = 0.0;
     std::uint32_t seed_ = 0x4D4F5A41u;
 };
 
