@@ -83,6 +83,15 @@ void MozartRuntime::setKeyScale(const musical::KeyScale& keyScale) {
     scheduler_.setKeyScale(keyScale);
 }
 
+void MozartRuntime::setAccompanimentRole(
+        const scheduler::AccompanimentRole role) noexcept {
+    scheduler_.setRole(role);
+}
+
+scheduler::AccompanimentRole MozartRuntime::accompanimentRole() const noexcept {
+    return scheduler_.role();
+}
+
 bool MozartRuntime::sendDiagnosticNote() {
     start();
 
