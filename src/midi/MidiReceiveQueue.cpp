@@ -162,6 +162,7 @@ void MidiInputParser::feed(
 
         if (value == 0xF0) {
             inSysEx_ = true;
+            runningStatus_ = 0;
             pendingStatus_ = 0;
             dataCount_ = 0;
             expectedDataCount_ = 0;
