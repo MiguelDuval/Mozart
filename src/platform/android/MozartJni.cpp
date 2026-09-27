@@ -25,6 +25,8 @@ std::unique_ptr<mozart::runtime::MozartRuntime> g_runtime;
 std::mutex g_runtimeMutex;
 mozart::midi::MidiReceiveQueue g_midiReceiveQueue;
 mozart::midi::MidiInputParser g_midiInputParser;
+mozart::midi::MidiReceiveQueue g_controllerQueue(64);
+mozart::midi::MidiInputParser g_controllerParser;
 std::mutex g_midiInputMutex;
 
 mozart::runtime::MozartRuntime* runtime() {
@@ -454,12 +456,29 @@ Java_com_miguelduval_mozart_AndroidMidiInput_nativeReceiveMidiBytes(
     }
 
     std::lock_guard<std::mutex> lock(g_midiInputMutex);
+    const auto timestamp = static_cast<std::uint64_t>(timestampNanos);
+    const auto port = static_cast<std::uint32_t>(portId);
+
     g_midiInputParser.feed(
             bytes.data(),
             bytes.size(),
-            static_cast<std::uint64_t>(timestampNanos),
-            static_cast<std::uint32_t>(portId),
+            timestamp,
+            port,
             g_midiReceiveQueue);
+
+    // Keep controller consumption separate from the observable MIDI-IN queue.
+    // The queue above remains available for future harmony/key consumers.
+    g_controllerParser.feed(
+            bytes.data(),
+            bytes.size(),
+            timestamp,
+            port,
+            g_controllerQueue);
+
+    mozart::midi::MidiShortMessage controllerMessage{};
+    while (g_controllerQueue.tryPop(controllerMessage)) {
+        runtime()->handleMidiController(controllerMessage);
+    }
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -469,6 +488,8 @@ Java_com_miguelduval_mozart_AndroidMidiInput_nativeResetMidiInput(
     std::lock_guard<std::mutex> lock(g_midiInputMutex);
     g_midiInputParser.reset();
     g_midiReceiveQueue.reset();
+    g_controllerParser.reset();
+    g_controllerQueue.reset();
 }
 
 extern "C" JNIEXPORT jint JNICALL
