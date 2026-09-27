@@ -54,6 +54,8 @@ public:
     void setScene(std::uint8_t sceneIndex) noexcept;
     [[nodiscard]] std::uint8_t scene() const noexcept;
 
+    void requestMutation() noexcept;
+
 private:
     void run();
     void applyRequestedScene() noexcept;
@@ -80,6 +82,7 @@ private:
             generation::PatternSwing::Off};
     std::atomic<std::uint8_t> requestedScene_{0};
     std::atomic<std::uint8_t> activeScene_{0};
+    std::atomic_bool mutationRequested_{false};
 
     std::mutex wakeMutex_;
     std::condition_variable wakeCondition_;
