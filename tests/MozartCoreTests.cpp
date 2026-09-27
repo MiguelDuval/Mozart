@@ -7,6 +7,7 @@
 #include "musical/AudioKeyDetector.h"
 #include "musical/AudioKeyStabilityFilter.h"
 #include "musical/AudioChromaEstimator.h"
+#include "musical/Chord.h"
 #include "midi/MidiTransport.h"
 #include "midi/MidiReceiveQueue.h"
 #include "musical/KeyScale.h"
@@ -469,6 +470,34 @@ int main() {
         assert(output.last.data2 == 111);
         assert(output.last.timestampNanos == 987654321ULL);
         assert(output.last.portId == 42);
+    }
+
+
+    {
+        using mozart::musical::Chord;
+        using mozart::musical::ChordQuality;
+
+        const Chord fMajor7(5, ChordQuality::Major7);
+        assert(fMajor7.isValid());
+        assert(fMajor7.noteCount() == 4);
+        assert(fMajor7.pitchClassAt(0) == 5);
+        assert(fMajor7.pitchClassAt(1) == 9);
+        assert(fMajor7.pitchClassAt(2) == 0);
+        assert(fMajor7.pitchClassAt(3) == 4);
+        assert(fMajor7.containsPitchClass(0));
+        assert(fMajor7.containsMidiNote(65));
+        assert(!fMajor7.containsPitchClass(2));
+
+        const Chord bDim7(11, ChordQuality::Diminished7);
+        assert(bDim7.noteCount() == 4);
+        assert(bDim7.containsPitchClass(2));
+        assert(bDim7.containsPitchClass(5));
+        assert(bDim7.containsPitchClass(8));
+
+        assert(fMajor7.midiNote(0, 3) == 53);
+        assert(fMajor7.midiNote(1, 3) == 57);
+        assert(fMajor7.midiNote(2, 3) == 60);
+        assert(fMajor7.midiNote(4, 3) == 65);
     }
 
 
