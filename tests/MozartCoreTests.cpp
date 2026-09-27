@@ -5,6 +5,7 @@
 #include "generation/ChordProgressionGenerator.h"
 #include "generation/BassGenerator.h"
 #include "generation/RhythmGenerator.h"
+#include "generation/NoteRepeat.h"
 #include "musical/AudioKeyDetector.h"
 #include "musical/AudioKeyStabilityFilter.h"
 #include "musical/AudioChromaEstimator.h"
@@ -666,6 +667,35 @@ int main() {
         assert(scene0.seed != scene1.seed);
         assert(scene1.seed != scene2.seed);
         assert(scene2.seed != scene3.seed);
+    }
+
+    {
+        using mozart::generation::NoteRepeat;
+        using mozart::generation::NoteRepeatRate;
+        using mozart::musical::MusicalNoteEvent;
+
+        const std::vector<MusicalNoteEvent> source{
+            MusicalNoteEvent{0.0, 0.4, 60, 100, 2},
+            MusicalNoteEvent{0.5, 0.3, 64, 90, 2}
+        };
+
+        const auto off = NoteRepeat::apply(source, NoteRepeatRate::Off);
+        assert(off == source);
+
+        const auto doubled = NoteRepeat::apply(source, NoteRepeatRate::Double);
+        assert(doubled.size() == 4);
+        assert(doubled[0].note == 60 && doubled[1].note == 60);
+        assert(doubled[2].note == 64 && doubled[3].note == 64);
+        assert(doubled[0].channel == 2 && doubled[3].channel == 2);
+        assert(std::abs(doubled[1].startBeat - 0.2) < 1.0e-12);
+        assert(std::abs(doubled[3].startBeat - 0.65) < 1.0e-12);
+        assert(doubled[0].durationBeats <= 0.2);
+        assert(doubled[2].durationBeats <= 0.15);
+
+        const auto quadrupled =
+                NoteRepeat::apply(source, NoteRepeatRate::Quadruple);
+        assert(quadrupled.size() == 8);
+        assert(quadrupled[7].startBeat < 0.8);
     }
 
     {
