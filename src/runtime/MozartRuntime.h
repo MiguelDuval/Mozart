@@ -6,6 +6,7 @@
 #include "generation/PatternSwing.h"
 #include "generation/NoteRepeat.h"
 #include "midi/MidiTransport.h"
+#include "midi/ControllerMapping.h"
 #include "musical/KeyContext.h"
 #include "scheduler/AccompanimentScheduler.h"
 #include <cstdint>
@@ -48,6 +49,7 @@ public:
     [[nodiscard]] std::uint8_t performanceScene() const noexcept;
     void requestPatternMutation() noexcept;
     void setNoteRepeat(generation::NoteRepeatRate rate) noexcept;
+    void handleMidiController(const midi::MidiShortMessage& message) noexcept;
     [[nodiscard]] generation::NoteRepeatRate noteRepeat() const noexcept;
 
     [[nodiscard]] bool sendDiagnosticNote();
@@ -61,6 +63,7 @@ private:
     musical::KeyContext keyContext_{};
     scheduler::MidiSendQueue sendQueue_;
     scheduler::AccompanimentScheduler scheduler_;
+    midi::ControllerMapping controllerMapping_{};
     bool started_ = false;
 };
 
