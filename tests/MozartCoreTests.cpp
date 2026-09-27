@@ -14,6 +14,7 @@
 #include "scheduler/PerformanceScene.h"
 #include "midi/MidiTransport.h"
 #include "midi/MidiReceiveQueue.h"
+#include "midi/ControllerMapping.h"
 #include "musical/KeyScale.h"
 #include "musical/KeyContext.h"
 #ifdef MOZART_ENABLE_LINK
@@ -696,6 +697,53 @@ int main() {
                 NoteRepeat::apply(source, NoteRepeatRate::Quadruple);
         assert(quadrupled.size() == 8);
         assert(quadrupled[7].startBeat < 0.8);
+    }
+
+    {
+        using mozart::midi::ControllerAction;
+        using mozart::midi::ControllerBinding;
+        using mozart::midi::ControllerMapping;
+
+        ControllerMapping mapping;
+        const auto scene = mapping.resolve(
+                mozart::midi::controlChange(0, 20, 127).value());
+        assert(scene.action == ControllerAction::Scene);
+        assert(scene.value == 127);
+
+        const auto repeat = mapping.resolve(
+                mozart::midi::controlChange(0, 24, 64).value());
+        assert(repeat.action == ControllerAction::NoteRepeat);
+        assert(repeat.value == 64);
+
+        const auto mutation = mapping.resolve(
+                mozart::midi::controlChange(0, 25, 100).value());
+        assert(mutation.action == ControllerAction::Mutation);
+
+        const auto wrongChannel = mapping.resolve(
+                mozart::midi::controlChange(1, 20, 100).value());
+        assert(wrongChannel.action == ControllerAction::None);
+
+        const auto wrongType = mapping.resolve(
+                mozart::midi::noteOn(0, 20, 100).value());
+        assert(wrongType.action == ControllerAction::None);
+
+        mapping.setBindings({
+            ControllerBinding{0, 70, ControllerAction::Accent}
+        });
+        assert(
+                mapping.resolve(
+                        mozart::midi::controlChange(0, 70, 55).value()).action ==
+                ControllerAction::Accent);
+        assert(
+                mapping.resolve(
+                        mozart::midi::controlChange(0, 20, 55).value()).action ==
+                ControllerAction::None);
+
+        mapping.resetToDefaults();
+        assert(
+                mapping.resolve(
+                        mozart::midi::controlChange(0, 20, 55).value()).action ==
+                ControllerAction::Scene);
     }
 
     {
