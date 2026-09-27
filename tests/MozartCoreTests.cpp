@@ -9,6 +9,7 @@
 #include "musical/AudioKeyStabilityFilter.h"
 #include "musical/AudioChromaEstimator.h"
 #include "musical/Chord.h"
+#include "musical/VoiceLeading.h"
 #include "midi/MidiTransport.h"
 #include "midi/MidiReceiveQueue.h"
 #include "musical/KeyScale.h"
@@ -550,6 +551,77 @@ int main() {
         assert(empty.empty());
     }
 
+
+
+    {
+        using mozart::musical::Chord;
+        using mozart::musical::ChordQuality;
+        using mozart::musical::VoiceLeading;
+        using mozart::musical::VoiceLeadingOptions;
+
+        const std::vector<Chord> progression{
+            Chord{0, ChordQuality::Major},
+            Chord{9, ChordQuality::Minor},
+            Chord{5, ChordQuality::Major},
+            Chord{7, ChordQuality::Major}
+        };
+
+        const VoiceLeadingOptions options{
+            .baseOctave = 3,
+            .minNote = 48,
+            .maxNote = 84
+        };
+
+        const auto first = VoiceLeading::generate(progression, options);
+        const auto second = VoiceLeading::generate(progression, options);
+
+        assert(first == second);
+        assert(first.size() == progression.size());
+
+        for (std::size_t chordIndex = 0;
+                chordIndex < first.size();
+                ++chordIndex) {
+            const auto& voicing = first[chordIndex];
+            assert(voicing.size() == progression[chordIndex].noteCount());
+            assert(!voicing.empty());
+            for (std::size_t voice = 0; voice < voicing.size(); ++voice) {
+                assert(voicing[voice] >= options.minNote);
+                assert(voicing[voice] <= options.maxNote);
+                assert(
+                        progression[chordIndex].containsMidiNote(
+                                voicing[voice]));
+                if (voice > 0) {
+                    assert(voicing[voice] > voicing[voice - 1]);
+                }
+            }
+        }
+
+        // C major -> A minor should use an inversion that keeps the upper
+        // voices close instead of forcing the root-position octave jump.
+        assert(first[0].size() == 3);
+        assert(first[1].size() == 3);
+        assert(
+                std::abs(
+                        static_cast<int>(first[1][0]) -
+                        static_cast<int>(first[0][0])) <= 5);
+        assert(
+                std::abs(
+                        static_cast<int>(first[1][1]) -
+                        static_cast<int>(first[0][1])) <= 7);
+        assert(
+                std::abs(
+                        static_cast<int>(first[1][2]) -
+                        static_cast<int>(first[0][2])) <= 7);
+
+        assert(VoiceLeading::generate({}, options).empty());
+
+        const VoiceLeadingOptions invalidRange{
+            .baseOctave = 3,
+            .minNote = 90,
+            .maxNote = 80
+        };
+        assert(VoiceLeading::generate(progression, invalidRange).empty());
+    }
 
     {
         using mozart::musical::AudioChromaEstimator;
