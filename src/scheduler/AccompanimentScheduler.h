@@ -8,6 +8,7 @@
 #include "generation/PatternSwing.h"
 #include "musical/KeyScale.h"
 #include "scheduler/MidiSendQueue.h"
+#include "scheduler/AccompanimentRole.h"
 #include "scheduler/PerformanceScene.h"
 
 #include <atomic>
@@ -17,11 +18,6 @@
 #include <thread>
 
 namespace mozart::scheduler {
-
-enum class AccompanimentRole : std::uint8_t {
-    Bass = 0,
-    Arpeggio = 1
-};
 
 class AccompanimentScheduler final {
 public:
