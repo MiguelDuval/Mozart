@@ -7,6 +7,7 @@
 #include "midi/MidiTransport.h"
 #include "musical/KeyContext.h"
 #include "scheduler/AccompanimentScheduler.h"
+#include <cstdint>
 #include "scheduler/MidiSendQueue.h"
 
 namespace mozart::runtime {
@@ -41,6 +42,10 @@ public:
 
     void setPatternSwing(generation::PatternSwing swing) noexcept;
     [[nodiscard]] generation::PatternSwing patternSwing() const noexcept;
+
+    void setPerformanceScene(std::uint8_t sceneIndex) noexcept;
+    [[nodiscard]] std::uint8_t performanceScene() const noexcept;
+
     [[nodiscard]] bool sendDiagnosticNote();
 
     [[nodiscard]] bool linkEnabled() const noexcept;
