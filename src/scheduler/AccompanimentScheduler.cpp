@@ -96,6 +96,7 @@ musical::KeyScale AccompanimentScheduler::keyScale() const {
 void AccompanimentScheduler::setRole(
         const AccompanimentRole role) noexcept {
     requestedRole_.store(role);
+    requestedScene_.store(PerformanceScene::kCustomScene);
     wakeCondition_.notify_all();
 }
 
@@ -106,6 +107,7 @@ AccompanimentRole AccompanimentScheduler::role() const noexcept {
 void AccompanimentScheduler::setDensity(
         const generation::PatternDensity density) noexcept {
     requestedDensity_.store(density);
+    requestedScene_.store(PerformanceScene::kCustomScene);
     wakeCondition_.notify_all();
 }
 
@@ -116,6 +118,7 @@ generation::PatternDensity AccompanimentScheduler::density() const noexcept {
 void AccompanimentScheduler::setAccent(
         const generation::PatternAccent accent) noexcept {
     requestedAccent_.store(accent);
+    requestedScene_.store(PerformanceScene::kCustomScene);
     wakeCondition_.notify_all();
 }
 
@@ -126,6 +129,7 @@ generation::PatternAccent AccompanimentScheduler::accent() const noexcept {
 void AccompanimentScheduler::setSwing(
         const generation::PatternSwing swing) noexcept {
     requestedSwing_.store(swing);
+    requestedScene_.store(PerformanceScene::kCustomScene);
     wakeCondition_.notify_all();
 }
 
@@ -146,12 +150,26 @@ std::uint8_t AccompanimentScheduler::scene() const noexcept {
 }
 
 void AccompanimentScheduler::applyRequestedScene() noexcept {
-    const auto scene = PerformanceScene::preset(requestedScene_.load());
+    const auto requestedScene = requestedScene_.load();
+    if (requestedScene == PerformanceScene::kCustomScene) {
+        activeScene_.store(PerformanceScene::kCustomScene);
+        activeRole_ = requestedRole_.load();
+        activeDensity_ = requestedDensity_.load();
+        activeAccent_ = requestedAccent_.load();
+        activeSwing_ = requestedSwing_.load();
+        return;
+    }
+
+    const auto scene = PerformanceScene::preset(requestedScene);
     activeScene_.store(scene.index);
     activeRole_ = scene.role;
     activeDensity_ = scene.density;
     activeAccent_ = scene.accent;
     activeSwing_ = scene.swing;
+    requestedRole_.store(scene.role);
+    requestedDensity_.store(scene.density);
+    requestedAccent_.store(scene.accent);
+    requestedSwing_.store(scene.swing);
     seed_ = scene.seed;
 }
 
