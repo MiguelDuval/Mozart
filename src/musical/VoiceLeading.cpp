@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <limits>
 #include <vector>
+#include <utility>
 
 namespace mozart::musical {
 namespace {
