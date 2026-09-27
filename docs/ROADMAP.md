@@ -58,10 +58,10 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [x] Bass accompaniment.
 - [x] Simple arpeggio role.
 - [x] Step density.
-- [ ] Accent.
+- [x] Accent.
 - [ ] Probability.
 - [ ] Ratchet.
-- [ ] Swing.
+- [x] Swing.
 - [x] MIDI scheduler.
 - [x] MicroFreak external validation.
 
@@ -77,7 +77,7 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [x] Chord progression generator.
 - [x] Bass generator.
 - [x] Arpeggiator.
-- [ ] Voice leading.
+- [x] Voice leading.
 - [ ] Key/scale detection from MIDI input (deferred; MIDI-IN remains optional infrastructure).
 
 ## Stage 5 — Performance
