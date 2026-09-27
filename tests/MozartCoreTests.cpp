@@ -6,6 +6,9 @@
 #include "generation/BassGenerator.h"
 #include "generation/RhythmGenerator.h"
 #include "generation/NoteRepeat.h"
+#include "generation/GenerationRequest.h"
+#include "generation/PatternProposal.h"
+#include "generation/LocalPatternProvider.h"
 #include "musical/AudioKeyDetector.h"
 #include "musical/AudioKeyStabilityFilter.h"
 #include "musical/AudioChromaEstimator.h"
@@ -37,6 +40,65 @@
 #include <vector>
 
 int main() {
+    {
+        mozart::generation::GenerationRequest request;
+        assert(request.isValid());
+
+        request.tempoBpm = 320.0;
+        assert(!request.isValid());
+        request.tempoBpm = 128.0;
+        request.minNote = 100;
+        request.maxNote = 90;
+        assert(!request.isValid());
+
+        mozart::generation::PatternProposal proposal;
+        proposal.metadata.seed = request.seed;
+        proposal.metadata.confidence = 0.75;
+        proposal.noteEvents.push_back(
+                mozart::musical::MusicalNoteEvent{0.0, 0.5, 48, 100, 0});
+        proposal.controlEvents.push_back(
+                mozart::generation::PatternControlEvent{0.5, 0, 1, 64});
+        assert(proposal.isWellFormed());
+
+        proposal.noteEvents[0].durationBeats = -0.1;
+        assert(!proposal.isWellFormed());
+
+        class StubProvider final : public mozart::generation::LocalPatternProvider {
+        public:
+            [[nodiscard]] mozart::generation::GenerationResult generate(
+                    const mozart::generation::GenerationRequest& input) override {
+                if (!input.isValid()) {
+                    return {
+                            mozart::generation::GenerationStatus::InvalidRequest,
+                            {},
+                            "invalid request"
+                    };
+                }
+
+                mozart::generation::PatternProposal generated;
+                generated.metadata.seed = input.seed;
+                generated.metadata.confidence = 1.0;
+                return {
+                        mozart::generation::GenerationStatus::Ok,
+                        generated,
+                        {}
+                };
+            }
+
+            [[nodiscard]] bool isAvailable() const noexcept override {
+                return true;
+            }
+        };
+
+        request.minNote = 36;
+        request.maxNote = 96;
+        StubProvider provider;
+        const auto result = provider.generate(request);
+        assert(result.ok());
+        assert(result.proposal.metadata.seed == request.seed);
+        assert(provider.isAvailable());
+    }
+
     {
         const auto message = mozart::midi::noteOn(0, 60, 100, 1234, 7);
         assert(message.has_value());
