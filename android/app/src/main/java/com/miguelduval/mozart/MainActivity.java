@@ -41,6 +41,7 @@ public final class MainActivity extends Activity {
     private static native String nativeMidiInputSnapshot();
     private static native boolean nativeTestMidiNote();
     private static native void nativeSetAccompanimentRole(int role);
+    private static native void nativeSetPerformanceScene(int sceneIndex);
     private static native void nativeSetPatternDensity(int density);
     private static native void nativeSetPatternAccent(int accent);
     private static native void nativeSetPatternSwing(int swing);
@@ -66,6 +67,7 @@ public final class MainActivity extends Activity {
     private boolean activityStarted = false;
     private int selectedRootPitchClass = 6;
     private int selectedScaleId = 1;
+    private int selectedSceneIndex = 0;
 
     private final Runnable keyContextStatusPoll = new Runnable() {
         @Override
@@ -404,6 +406,22 @@ public final class MainActivity extends Activity {
 
         root.addView(
                 roleRow,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        Button scene = new Button(this);
+        scene.setText("SCENE: 1");
+        scene.setOnClickListener(view -> {
+            selectedSceneIndex = (selectedSceneIndex + 1) % 4;
+            nativeSetPerformanceScene(selectedSceneIndex);
+            scene.setText("SCENE: " + (selectedSceneIndex + 1));
+            status.append(
+                    "\n\\nScene " + (selectedSceneIndex + 1)
+                            + " selected; switches at the next bar.");
+        });
+        root.addView(
+                scene,
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
