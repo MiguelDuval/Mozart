@@ -40,6 +40,8 @@ public:
             std::size_t degree,
             std::uint8_t baseOctave) const noexcept;
 
+    friend bool operator==(const Chord&, const Chord&) = default;
+
 private:
     [[nodiscard]] static const std::array<int, 4>& intervalsFor(
             ChordQuality quality) noexcept;
