@@ -6,6 +6,7 @@
 #include "generation/RhythmGenerator.h"
 #include "musical/AudioKeyDetector.h"
 #include "musical/AudioKeyStabilityFilter.h"
+#include "musical/AudioChromaEstimator.h"
 #include "midi/MidiTransport.h"
 #include "midi/MidiReceiveQueue.h"
 #include "musical/KeyScale.h"
@@ -468,6 +469,40 @@ int main() {
         assert(output.last.data2 == 111);
         assert(output.last.timestampNanos == 987654321ULL);
         assert(output.last.portId == 42);
+    }
+
+
+    {
+        using mozart::musical::AudioChromaEstimator;
+
+        constexpr std::uint32_t sampleRate = 48000;
+        constexpr std::size_t sampleCount = 4096;
+        std::vector<std::int16_t> samples(sampleCount);
+
+        constexpr double frequency = 440.0;
+        for (std::size_t i = 0; i < sampleCount; ++i) {
+            const double phase =
+                    2.0 * 3.14159265358979323846 *
+                    frequency * static_cast<double>(i) /
+                    static_cast<double>(sampleRate);
+            samples[i] = static_cast<std::int16_t>(
+                    std::sin(phase) * 30000.0);
+        }
+
+        const auto chroma = AudioChromaEstimator::estimate(
+                samples.data(),
+                samples.size(),
+                sampleRate);
+
+        std::size_t strongestPitchClass = 0;
+        for (std::size_t i = 1; i < chroma.size(); ++i) {
+            if (chroma[i] > chroma[strongestPitchClass]) {
+                strongestPitchClass = i;
+            }
+        }
+
+        assert(strongestPitchClass == 9); // A
+        assert(chroma[9] > 0.5);
     }
 
 
