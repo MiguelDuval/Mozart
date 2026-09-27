@@ -60,6 +60,7 @@ public final class MainActivity extends Activity {
     private AndroidMidiInput midiInput;
     private AndroidAudioKeyInput audioKeyInput;
     private Button midiInputButton;
+    private Button keySourceButton;
     private List<AndroidMidiTransport.MidiEndpoint> midiInputCandidates = Collections.emptyList();
     private int midiInputSelection = -1;
     private boolean activityStarted = false;
@@ -158,7 +159,8 @@ public final class MainActivity extends Activity {
         keyContextStatus.setTextSize(13.0f);
         keyContextStatus.setGravity(Gravity.CENTER);
 
-        Button keySource = new Button(this);
+        keySourceButton = new Button(this);
+        Button keySource = keySourceButton;
         keySource.setText("KEY SOURCE: MANUAL");
         keySource.setOnClickListener(view -> {
             if (audioKeyInput == null) {
@@ -478,6 +480,12 @@ public final class MainActivity extends Activity {
         Log.i(TAG, "STARTUP: onStart begin");
         super.onStart();
         activityStarted = true;
+        if (keySourceButton != null) {
+            keySourceButton.setText(
+                    audioKeyInput != null && audioKeyInput.isRunning()
+                            ? "KEY SOURCE: AUDIO"
+                            : "KEY SOURCE: MANUAL");
+        }
         updateLinkStatus();
         midiInputStatus.setText("MIDI IN: " + nativeMidiInputSnapshot());
         mainHandler.removeCallbacks(linkStatusPoll);
