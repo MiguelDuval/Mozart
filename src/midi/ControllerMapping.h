@@ -15,7 +15,9 @@ enum class ControllerAction : std::uint8_t {
     Accent = 3,
     Swing = 4,
     NoteRepeat = 5,
-    Mutation = 6
+    Mutation = 6,
+    MacroEnergy = 7,
+    MacroMotion = 8
 };
 
 struct ControllerBinding final {
