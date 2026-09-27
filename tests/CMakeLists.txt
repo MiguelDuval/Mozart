@@ -28,6 +28,7 @@ add_executable(mozart_core_tests
     ../src/generation/ChordProgressionGenerator.cpp
     ../src/generation/NoteRepeat.cpp
     ../src/midi/MidiReceiveQueue.cpp
+    ../src/midi/ControllerMapping.cpp
 )
 
 target_include_directories(mozart_core_tests PRIVATE
