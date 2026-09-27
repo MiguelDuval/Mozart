@@ -67,12 +67,12 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 
 ## Stage 4 — Harmony
 - [x] Scale model.
-- [ ] Key/Scale context service with explicit source selection (Manual / Audio).
+- [x] Key/Scale context service with explicit source selection (Manual / Audio).
 - [x] Manual Key/Scale UI control.
 - [x] Stateless chroma-to-Key/Scale estimator core (Major / Natural Minor).
 - [ ] Local/offline microphone key/scale detector integration.
-- [ ] Audio detector confidence/stability/hysteresis policy.
-- [ ] Performer override from Audio back to Manual.
+- [x] Audio detector confidence/stability/hysteresis policy.
+- [x] Performer override from Audio back to Manual.
 - [ ] Chord model.
 - [ ] Chord progression generator.
 - [x] Bass generator.

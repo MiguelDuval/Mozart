@@ -9,6 +9,7 @@
 #include "midi/MidiTransport.h"
 #include "midi/MidiReceiveQueue.h"
 #include "musical/KeyScale.h"
+#include "musical/KeyContext.h"
 #ifdef MOZART_ENABLE_LINK
 #include "runtime/MozartRuntime.h"
 #endif
@@ -467,6 +468,64 @@ int main() {
         assert(output.last.data2 == 111);
         assert(output.last.timestampNanos == 987654321ULL);
         assert(output.last.portId == 42);
+    }
+
+
+    {
+        using mozart::musical::AudioKeyDetector;
+        using mozart::musical::KeyContext;
+        using mozart::musical::KeyContextSource;
+
+        const KeyScale manualFallback(
+                6, mozart::musical::Scale::NaturalMinor);
+        const AudioKeyDetector::Chroma cMajor{
+            1.0, 0.3, 0.7, 0.4, 0.7, 0.4,
+            0.4, 0.9, 0.1, 0.4, 0.1, 0.2
+        };
+        const auto cMajorResult = AudioKeyDetector::estimate(cMajor);
+        assert(cMajorResult.valid);
+        assert(cMajorResult.keyScale.rootPitchClass() == 0);
+        assert(cMajorResult.keyScale.scale() == mozart::musical::Scale::Major);
+
+        KeyContext context(manualFallback, 0.10, 3);
+        const auto manual = context.snapshot();
+        assert(manual.source == KeyContextSource::Manual);
+        assert(manual.resolvedKeyScale.rootPitchClass() == 6);
+        assert(manual.resolvedKeyScale.scale() == mozart::musical::Scale::NaturalMinor);
+
+        context.setSource(KeyContextSource::Audio);
+        auto audioPending = context.snapshot();
+        assert(audioPending.source == KeyContextSource::Audio);
+        assert(!audioPending.audio.hasStableKey);
+        assert(audioPending.resolvedKeyScale.rootPitchClass() == 6);
+        assert(audioPending.resolvedKeyScale.scale() == mozart::musical::Scale::NaturalMinor);
+
+        context.updateAudioDetection(cMajorResult);
+        context.updateAudioDetection(cMajorResult);
+        assert(context.snapshot().resolvedKeyScale.rootPitchClass() == 6);
+        context.updateAudioDetection(cMajorResult);
+        const auto audioStable = context.snapshot();
+        assert(audioStable.audio.hasStableKey);
+        assert(audioStable.resolvedKeyScale.rootPitchClass() == 0);
+        assert(audioStable.resolvedKeyScale.scale() == mozart::musical::Scale::Major);
+
+        context.setManualKeyScale(manualFallback);
+        assert(context.source() == KeyContextSource::Audio);
+        assert(context.resolvedKeyScale().rootPitchClass() == 0);
+
+        // Direct manual selection is the performer override in the runtime;
+        // the domain object itself keeps source selection explicit.
+        context.setSource(KeyContextSource::Manual);
+        assert(context.resolvedKeyScale().rootPitchClass() == 6);
+        assert(context.resolvedKeyScale().scale() == mozart::musical::Scale::NaturalMinor);
+
+        context.setSource(KeyContextSource::Audio);
+        context.resetAudio();
+        const auto reset = context.snapshot();
+        assert(reset.source == KeyContextSource::Audio);
+        assert(!reset.audio.hasStableKey);
+        assert(reset.resolvedKeyScale.rootPitchClass() == 6);
+        assert(reset.resolvedKeyScale.scale() == mozart::musical::Scale::NaturalMinor);
     }
 
 #ifdef MOZART_ENABLE_LINK

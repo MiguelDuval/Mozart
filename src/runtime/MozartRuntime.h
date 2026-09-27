@@ -5,6 +5,7 @@
 #include "generation/PatternDensity.h"
 #include "generation/PatternSwing.h"
 #include "midi/MidiTransport.h"
+#include "musical/KeyContext.h"
 #include "scheduler/AccompanimentScheduler.h"
 #include "scheduler/MidiSendQueue.h"
 
@@ -24,6 +25,11 @@ public:
     void setLinkEnabled(bool enabled) noexcept;
     void setAccompanimentEnabled(bool enabled) noexcept;
     void setKeyScale(const musical::KeyScale& keyScale);
+    void setKeyContextSource(musical::KeyContextSource source) noexcept;
+    void updateAudioKeyDetection(
+            const musical::AudioKeyDetectionResult& result) noexcept;
+    void resetAudioKeyContext() noexcept;
+    [[nodiscard]] musical::KeyContextSnapshot captureKeyContextSnapshot() const;
     void setAccompanimentRole(scheduler::AccompanimentRole role) noexcept;
     [[nodiscard]] scheduler::AccompanimentRole accompanimentRole() const noexcept;
 
@@ -43,6 +49,7 @@ public:
 
 private:
     clock::LinkClock linkClock_{120.0, 4.0};
+    musical::KeyContext keyContext_{};
     scheduler::MidiSendQueue sendQueue_;
     scheduler::AccompanimentScheduler scheduler_;
     bool started_ = false;

@@ -80,7 +80,40 @@ void MozartRuntime::setAccompanimentEnabled(const bool enabled) noexcept {
 }
 
 void MozartRuntime::setKeyScale(const musical::KeyScale& keyScale) {
-    scheduler_.setKeyScale(keyScale);
+    if (!keyScale.isValid()) {
+        return;
+    }
+
+    // A direct manual edit is the performer's explicit override from Audio
+    // back to Manual. The scheduler receives the resolved domain context.
+    keyContext_.setManualKeyScale(keyScale);
+    keyContext_.setSource(musical::KeyContextSource::Manual);
+    scheduler_.setKeyScale(keyContext_.resolvedKeyScale());
+}
+
+void MozartRuntime::setKeyContextSource(
+        const musical::KeyContextSource source) noexcept {
+    keyContext_.setSource(source);
+    scheduler_.setKeyScale(keyContext_.resolvedKeyScale());
+}
+
+void MozartRuntime::updateAudioKeyDetection(
+        const musical::AudioKeyDetectionResult& result) noexcept {
+    const auto before = keyContext_.resolvedKeyScale();
+    keyContext_.updateAudioDetection(result);
+    const auto after = keyContext_.resolvedKeyScale();
+
+    if (before.isValid() &&
+        after.isValid() &&
+        (before.rootPitchClass() != after.rootPitchClass() ||
+         before.scale() != after.scale())) {
+        scheduler_.setKeyScale(after);
+    }
+}
+
+void MozartRuntime::resetAudioKeyContext() noexcept {
+    keyContext_.resetAudio();
+    scheduler_.setKeyScale(keyContext_.resolvedKeyScale());
 }
 
 void MozartRuntime::setAccompanimentRole(
@@ -152,6 +185,10 @@ bool MozartRuntime::accompanimentEnabled() const noexcept {
 
 clock::LinkClockSnapshot MozartRuntime::captureLinkSnapshot() const {
     return linkClock_.captureAppSnapshot();
+}
+
+musical::KeyContextSnapshot MozartRuntime::captureKeyContextSnapshot() const {
+    return keyContext_.snapshot();
 }
 
 } // namespace mozart::runtime

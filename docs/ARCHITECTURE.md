@@ -77,7 +77,9 @@ Key context may come from:
 - stabilized local Audio Key Detection from microphone input;
 - future AI-assisted interpretation as an optional input.
 
-The current audio-key work starts with a stateless chroma-to-key estimator. It does not capture audio and does not change musical context by itself. Android audio capture, temporal confidence/stability/hysteresis, and source switching remain separate layers.
+The current audio-key work consists of a stateless chroma-to-key estimator plus a temporal stability filter. `KeyContext` now owns Manual/Audio source selection, the deterministic manual fallback, stable-audio resolution, and performer override semantics. `MozartRuntime` feeds the resolved key into the scheduler without changing Link timing or MIDI transport.
+
+Microphone capture and chroma extraction remain platform-layer work. They must feed detector results into the musical-domain context from a worker path, never from the scheduler's realtime send loop.
 
 Key Context is musical-domain state. It does not own MIDI timing or transport.
 

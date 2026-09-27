@@ -53,7 +53,11 @@ The accompaniment engine consumes one resolved musical context:
 
 For the initial implementation, the performer can choose the active source/mode. Manual mode always remains available as a deterministic fallback.
 
-When Audio mode is active, a practical policy is to update the resolved key only after the detector has produced a stable result for a bounded period or sufficient analysis frames. Exact thresholds should be decided during implementation and physical testing.
+When Audio mode is active, the current domain policy requires a valid detector result with confidence >= 0.10 and the same key/scale for 3 consecutive observations. This is a stability gate rather than a calibrated probability threshold. Until a stable result exists, the previously resolved/manual key remains active.
+
+The `KeyContext` service now owns source selection, the manual fallback, audio stability state, and the resolved key presented to the accompaniment layer. `MozartRuntime` wires every resolved-key change into the scheduler. A direct manual key edit is the explicit performer override and switches the source back to Manual.
+
+Microphone capture and chroma extraction are deliberately not part of this service. The remaining integration step is an Android-local audio analysis worker that feeds detector results into `updateAudioKeyDetection()`. It must remain outside the scheduler/MIDI realtime path.
 
 Changing key context should be treated as a musical event/state transition, not as a transport-clock event. Ableton Link continues to supply timing independently.
 
