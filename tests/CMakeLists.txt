@@ -17,6 +17,7 @@ add_executable(mozart_core_tests
     ../src/core/MidiEndpoint.cpp
     ../src/musical/KeyScale.cpp
     ../src/musical/AudioKeyDetector.cpp
+    ../src/musical/AudioKeyStabilityFilter.cpp
     ../src/generation/RhythmGenerator.cpp
     ../src/generation/BassGenerator.cpp
     ../src/generation/ArpeggioGenerator.cpp
