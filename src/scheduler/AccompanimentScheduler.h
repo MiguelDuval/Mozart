@@ -5,6 +5,7 @@
 #include "generation/PatternAccent.h"
 #include "generation/BassGenerator.h"
 #include "generation/PatternDensity.h"
+#include "generation/NoteRepeat.h"
 #include "generation/PatternSwing.h"
 #include "musical/KeyScale.h"
 #include "scheduler/MidiSendQueue.h"
