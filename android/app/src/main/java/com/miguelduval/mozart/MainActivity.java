@@ -43,6 +43,7 @@ public final class MainActivity extends Activity {
     private static native void nativeSetAccompanimentRole(int role);
     private static native void nativeSetPerformanceScene(int sceneIndex);
     private static native void nativeRequestPatternMutation();
+    private static native void nativeSetNoteRepeat(int rate);
     private static native void nativeSetPatternDensity(int density);
     private static native void nativeSetPatternAccent(int accent);
     private static native void nativeSetPatternSwing(int swing);
@@ -434,8 +435,35 @@ public final class MainActivity extends Activity {
             status.append(
                     "\n\nPattern mutation requested; next bar will vary deterministically.");
         });
+
+        Button noteRepeat = new Button(this);
+        final int[] noteRepeatRate = {1};
+        noteRepeat.setText("REPEAT: OFF");
+        noteRepeat.setOnClickListener(view -> {
+            noteRepeatRate[0]++;
+            if (noteRepeatRate[0] > 4) {
+                noteRepeatRate[0] = 1;
+            }
+            nativeSetNoteRepeat(noteRepeatRate[0]);
+            final String[] labels = {
+                    "REPEAT: OFF",
+                    "REPEAT: 2X",
+                    "REPEAT: 3X",
+                    "REPEAT: 4X"
+            };
+            noteRepeat.setText(labels[noteRepeatRate[0] - 1]);
+            status.append(
+                    "\n\n" + labels[noteRepeatRate[0] - 1]
+                            + " selected; change takes effect at the next bar.");
+        });
         root.addView(
                 mutate,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        root.addView(
+                noteRepeat,
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
