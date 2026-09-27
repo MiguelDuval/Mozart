@@ -152,6 +152,15 @@ generation::PatternSwing MozartRuntime::patternSwing() const noexcept {
     return scheduler_.swing();
 }
 
+void MozartRuntime::setPerformanceScene(
+        const std::uint8_t sceneIndex) noexcept {
+    scheduler_.setScene(sceneIndex);
+}
+
+std::uint8_t MozartRuntime::performanceScene() const noexcept {
+    return scheduler_.scene();
+}
+
 bool MozartRuntime::sendDiagnosticNote() {
     start();
 
