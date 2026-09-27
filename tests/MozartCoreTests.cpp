@@ -476,7 +476,7 @@ int main() {
         using mozart::musical::KeyContext;
         using mozart::musical::KeyContextSource;
 
-        const KeyScale manualFallback(
+        const mozart::musical::KeyScale manualFallback(
                 6, mozart::musical::Scale::NaturalMinor);
         const AudioKeyDetector::Chroma cMajor{
             1.0, 0.3, 0.7, 0.4, 0.7, 0.4,
