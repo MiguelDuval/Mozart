@@ -15,6 +15,7 @@ add_library(mozart-core STATIC
     src/core/MidiEndpoint.cpp
     src/musical/KeyScale.cpp
     src/musical/AudioKeyDetector.cpp
+    src/musical/AudioKeyStabilityFilter.cpp
     src/generation/RhythmGenerator.cpp
     src/generation/BassGenerator.cpp
     src/generation/ArpeggioGenerator.cpp
