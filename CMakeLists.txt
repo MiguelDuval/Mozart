@@ -22,6 +22,7 @@ add_library(mozart-core STATIC
     src/generation/RhythmGenerator.cpp
     src/generation/BassGenerator.cpp
     src/generation/ArpeggioGenerator.cpp
+    src/generation/ChordProgressionGenerator.cpp
     src/midi/MidiReceiveQueue.cpp
 )
 
