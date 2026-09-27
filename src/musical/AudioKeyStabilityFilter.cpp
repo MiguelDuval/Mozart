@@ -12,11 +12,11 @@ AudioKeyStabilityFilter::AudioKeyStabilityFilter(
 
 void AudioKeyStabilityFilter::reset() noexcept {
     hasCandidate_ = false;
-    candidateKey_ = KeyScale{};
+    candidateKey_ = KeyScale{12, Scale::Major};
     candidateConfidence_ = 0.0;
     consecutiveObservations_ = 0;
     hasStableKey_ = false;
-    stableKey_ = KeyScale{};
+    stableKey_ = KeyScale{12, Scale::Major};
     stableConfidence_ = 0.0;
 }
 
