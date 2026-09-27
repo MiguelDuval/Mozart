@@ -254,6 +254,13 @@ Java_com_miguelduval_mozart_MainActivity_nativeSetPerformanceScene(
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeRequestPatternMutation(
+        JNIEnv*,
+        jobject) {
+    runtime()->requestPatternMutation();
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_miguelduval_mozart_MainActivity_nativeSetAccompanimentRole(
         JNIEnv*,
         jobject,
