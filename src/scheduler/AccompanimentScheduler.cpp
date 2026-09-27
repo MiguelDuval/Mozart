@@ -249,7 +249,7 @@ void AccompanimentScheduler::run() {
                 const auto events =
                         generation::NoteRepeat::apply(
                                 generatedEvents,
-                                activeNoteRepeat);
+                                activeNoteRepeat_);
 
                 if (events.empty()) {
                     nextBarIndex_ = 0;
