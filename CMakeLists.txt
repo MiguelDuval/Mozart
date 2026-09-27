@@ -55,6 +55,7 @@ if(ANDROID)
             src/scheduler/MidiSendQueue.cpp
             src/scheduler/AccompanimentScheduler.cpp
     src/scheduler/PerformanceScene.cpp
+    src/scheduler/MacroControl.cpp
             src/runtime/MozartRuntime.cpp
         )
         target_compile_definitions(mozart PRIVATE LINK_PLATFORM_LINUX=1)
