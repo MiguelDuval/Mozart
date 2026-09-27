@@ -161,6 +161,10 @@ std::uint8_t MozartRuntime::performanceScene() const noexcept {
     return scheduler_.scene();
 }
 
+void MozartRuntime::requestPatternMutation() noexcept {
+    scheduler_.requestMutation();
+}
+
 bool MozartRuntime::sendDiagnosticNote() {
     start();
 
