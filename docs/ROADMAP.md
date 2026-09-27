@@ -98,8 +98,8 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 ## Stage 7 — Local AI music generation
 Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offline/on-device.
 
-- [ ] Define GenerationRequest / PatternProposal model contract.
-- [ ] Add local model provider interface.
+- [x] Define GenerationRequest / PatternProposal model contract.
+- [x] Add local model provider interface.
 - [ ] Add model event vocabulary/tokenization contract.
 - [ ] Add LiteRT integration behind the provider boundary.
 - [ ] Add model loading/eviction lifecycle.
