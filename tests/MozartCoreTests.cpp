@@ -839,6 +839,60 @@ int main() {
 
 #ifdef MOZART_ENABLE_LINK
     {
+        class ControllerRuntimeOutput final
+                : public mozart::midi::MidiOutputTransport {
+        public:
+            mozart::midi::MidiSendResult send(
+                    const mozart::midi::MidiShortMessage& message) noexcept override {
+                last = message;
+                return {
+                    mozart::midi::MidiTransportStatus::Ok,
+                    message.size
+                };
+            }
+
+            void close() noexcept override {}
+
+            mozart::midi::MidiShortMessage last{};
+        };
+
+        ControllerRuntimeOutput output;
+        mozart::runtime::MozartRuntime runtime(output);
+
+        runtime.handleMidiController(
+                mozart::midi::controlChange(0, 20, 127).value());
+        assert(runtime.performanceScene() == 3);
+
+        runtime.handleMidiController(
+                mozart::midi::controlChange(0, 21, 0).value());
+        assert(
+                runtime.patternDensity() ==
+                mozart::generation::PatternDensity::Sparse);
+
+        runtime.handleMidiController(
+                mozart::midi::controlChange(0, 22, 127).value());
+        assert(
+                runtime.patternAccent() ==
+                mozart::generation::PatternAccent::Strong);
+
+        runtime.handleMidiController(
+                mozart::midi::controlChange(0, 23, 0).value());
+        assert(
+                runtime.patternSwing() ==
+                mozart::generation::PatternSwing::Off);
+
+        runtime.handleMidiController(
+                mozart::midi::controlChange(0, 24, 127).value());
+        assert(
+                runtime.noteRepeat() ==
+                mozart::generation::NoteRepeatRate::Quadruple);
+
+        runtime.handleMidiController(
+                mozart::midi::noteOn(0, 20, 100).value());
+        assert(runtime.performanceScene() == 3);
+    }
+
+    {
         class RecordingMidiOutput final : public mozart::midi::MidiOutputTransport {
         public:
             mozart::midi::MidiSendResult send(
