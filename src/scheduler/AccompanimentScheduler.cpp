@@ -133,6 +133,28 @@ generation::PatternSwing AccompanimentScheduler::swing() const noexcept {
     return requestedSwing_.load();
 }
 
+void AccompanimentScheduler::setScene(
+        const std::uint8_t sceneIndex) noexcept {
+    requestedScene_.store(
+            static_cast<std::uint8_t>(
+                    sceneIndex % PerformanceScene::kSceneCount));
+    wakeCondition_.notify_all();
+}
+
+std::uint8_t AccompanimentScheduler::scene() const noexcept {
+    return requestedScene_.load();
+}
+
+void AccompanimentScheduler::applyRequestedScene() noexcept {
+    const auto scene = PerformanceScene::preset(requestedScene_.load());
+    activeScene_.store(scene.index);
+    activeRole_ = scene.role;
+    activeDensity_ = scene.density;
+    activeAccent_ = scene.accent;
+    activeSwing_ = scene.swing;
+    seed_ = scene.seed;
+}
+
 void AccompanimentScheduler::run() {
     constexpr double kLookAheadSeconds = 0.032;
     constexpr double kEpsilon = 1.0e-9;
@@ -169,10 +191,7 @@ void AccompanimentScheduler::run() {
                                     snapshot.quantum);
                     nextBarIndex_ = 0;
                     nextEventIndex_ = 0;
-                    activeRole_ = requestedRole_.load();
-                    activeDensity_ = requestedDensity_.load();
-                    activeAccent_ = requestedAccent_.load();
-                    activeSwing_ = requestedSwing_.load();
+                    applyRequestedScene();
                     {
                         std::lock_guard<std::mutex> lock(stateMutex_);
                         activeKeyScale_ = requestedKeyScale_;
@@ -230,10 +249,7 @@ void AccompanimentScheduler::run() {
                         // Role changes are quantized to the next bar so a
                         // performer can switch voices without truncating the
                         // currently running musical phrase.
-                        activeRole_ = requestedRole_.load();
-                        activeDensity_ = requestedDensity_.load();
-                        activeAccent_ = requestedAccent_.load();
-                        activeSwing_ = requestedSwing_.load();
+                        applyRequestedScene();
                         {
                             std::lock_guard<std::mutex> lock(stateMutex_);
                             activeKeyScale_ = requestedKeyScale_;
