@@ -174,6 +174,71 @@ generation::NoteRepeatRate MozartRuntime::noteRepeat() const noexcept {
     return scheduler_.noteRepeat();
 }
 
+void MozartRuntime::handleMidiController(
+        const midi::MidiShortMessage& message) noexcept {
+    const auto command = controllerMapping_.resolve(message);
+    if (command.action == midi::ControllerAction::None) {
+        return;
+    }
+
+    const auto scaledIndex = [](const std::uint8_t value,
+                                const std::uint8_t count) noexcept {
+        return static_cast<std::uint8_t>(
+                (static_cast<std::uint16_t>(value) * count) / 128u);
+    };
+
+    switch (command.action) {
+        case midi::ControllerAction::Scene:
+            setPerformanceScene(
+                    static_cast<std::uint8_t>(
+                            scaledIndex(command.value,
+                                        scheduler::PerformanceScene::kSceneCount)));
+            break;
+        case midi::ControllerAction::Density:
+            setPatternDensity(
+                    command.value < 43
+                            ? generation::PatternDensity::Sparse
+                            : (command.value < 85
+                                       ? generation::PatternDensity::Normal
+                                       : generation::PatternDensity::Full));
+            break;
+        case midi::ControllerAction::Accent:
+            setPatternAccent(
+                    command.value < 43
+                            ? generation::PatternAccent::Off
+                            : (command.value < 85
+                                       ? generation::PatternAccent::Mild
+                                       : generation::PatternAccent::Strong));
+            break;
+        case midi::ControllerAction::Swing:
+            setPatternSwing(
+                    command.value < 43
+                            ? generation::PatternSwing::Off
+                            : (command.value < 85
+                                       ? generation::PatternSwing::Light
+                                       : generation::PatternSwing::Full));
+            break;
+        case midi::ControllerAction::NoteRepeat:
+            setNoteRepeat(
+                    command.value < 32
+                            ? generation::NoteRepeatRate::Off
+                            : (command.value < 64
+                                       ? generation::NoteRepeatRate::Double
+                                       : (command.value < 96
+                                                  ? generation::NoteRepeatRate::Triple
+                                                  : generation::NoteRepeatRate::Quadruple)));
+            break;
+        case midi::ControllerAction::Mutation:
+            if (command.value >= 64) {
+                requestPatternMutation();
+            }
+            break;
+        case midi::ControllerAction::None:
+        default:
+            break;
+    }
+}
+
 bool MozartRuntime::sendDiagnosticNote() {
     start();
 
