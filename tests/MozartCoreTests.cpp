@@ -2,6 +2,7 @@
 #include "core/MidiTypes.h"
 #include "core/TransportMath.h"
 #include "generation/ArpeggioGenerator.h"
+#include "generation/ChordProgressionGenerator.h"
 #include "generation/BassGenerator.h"
 #include "generation/RhythmGenerator.h"
 #include "musical/AudioKeyDetector.h"
@@ -498,6 +499,55 @@ int main() {
         assert(fMajor7.midiNote(1, 3) == 57);
         assert(fMajor7.midiNote(2, 3) == 60);
         assert(fMajor7.midiNote(4, 3) == 65);
+    }
+
+
+
+    {
+        using mozart::generation::ChordProgressionGenerator;
+        using mozart::musical::ChordQuality;
+        using mozart::musical::KeyScale;
+        using mozart::musical::Scale;
+
+        const KeyScale fSharpMinor(6, Scale::NaturalMinor);
+        const auto a =
+                ChordProgressionGenerator::generate(
+                        fSharpMinor, 8, 1234);
+        const auto b =
+                ChordProgressionGenerator::generate(
+                        fSharpMinor, 8, 1234);
+
+        assert(a.size() == 8);
+        assert(a == b);
+
+        for (const auto& chord : a) {
+            assert(chord.isValid());
+            assert(chord.noteCount() == 3);
+            for (std::size_t i = 0; i < chord.noteCount(); ++i) {
+                assert(fSharpMinor.containsPitchClass(chord.pitchClassAt(i)));
+            }
+        }
+
+        assert(
+                a[0].quality() == ChordQuality::Minor ||
+                a[0].quality() == ChordQuality::Major);
+
+        const auto major =
+                ChordProgressionGenerator::generate(
+                        KeyScale{0, Scale::Major}, 4, 1234);
+        assert(major.size() == 4);
+        for (const auto& chord : major) {
+            assert(chord.isValid());
+            for (std::size_t i = 0; i < chord.noteCount(); ++i) {
+                assert(KeyScale{0, Scale::Major}.containsPitchClass(
+                        chord.pitchClassAt(i)));
+            }
+        }
+
+        const auto empty =
+                ChordProgressionGenerator::generate(
+                        KeyScale{0, Scale::Major}, 0, 1234);
+        assert(empty.empty());
     }
 
 
