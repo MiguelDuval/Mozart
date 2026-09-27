@@ -10,6 +10,7 @@
 #include "musical/AudioChromaEstimator.h"
 #include "musical/Chord.h"
 #include "musical/VoiceLeading.h"
+#include "scheduler/PerformanceScene.h"
 #include "midi/MidiTransport.h"
 #include "midi/MidiReceiveQueue.h"
 #include "musical/KeyScale.h"
@@ -621,6 +622,50 @@ int main() {
             .maxNote = 80
         };
         assert(VoiceLeading::generate(progression, invalidRange).empty());
+    }
+
+
+    {
+        using mozart::scheduler::PerformanceScene;
+        using mozart::scheduler::AccompanimentRole;
+        using mozart::generation::PatternAccent;
+        using mozart::generation::PatternDensity;
+        using mozart::generation::PatternSwing;
+
+        const auto scene0 = PerformanceScene::preset(0);
+        const auto scene1 = PerformanceScene::preset(1);
+        const auto scene2 = PerformanceScene::preset(2);
+        const auto scene3 = PerformanceScene::preset(3);
+        const auto wrapped = PerformanceScene::preset(7);
+
+        assert(scene0.index == 0);
+        assert(scene0.role == AccompanimentRole::Bass);
+        assert(scene0.density == PatternDensity::Full);
+        assert(scene0.accent == PatternAccent::Off);
+        assert(scene0.swing == PatternSwing::Off);
+
+        assert(scene1.index == 1);
+        assert(scene1.role == AccompanimentRole::Arpeggio);
+        assert(scene1.density == PatternDensity::Normal);
+        assert(scene1.accent == PatternAccent::Mild);
+
+        assert(scene2.index == 2);
+        assert(scene2.role == AccompanimentRole::Bass);
+        assert(scene2.density == PatternDensity::Sparse);
+        assert(scene2.accent == PatternAccent::Strong);
+        assert(scene2.swing == PatternSwing::Light);
+
+        assert(scene3.index == 3);
+        assert(scene3.role == AccompanimentRole::Arpeggio);
+        assert(scene3.density == PatternDensity::Full);
+        assert(scene3.accent == PatternAccent::Strong);
+        assert(scene3.swing == PatternSwing::Full);
+
+        assert(wrapped.index == 3);
+        assert(PerformanceScene::kSceneCount == 4);
+        assert(scene0.seed != scene1.seed);
+        assert(scene1.seed != scene2.seed);
+        assert(scene2.seed != scene3.seed);
     }
 
     {
