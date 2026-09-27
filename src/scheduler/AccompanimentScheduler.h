@@ -56,6 +56,9 @@ public:
 
     void requestMutation() noexcept;
 
+    void setNoteRepeat(generation::NoteRepeatRate rate) noexcept;
+    [[nodiscard]] generation::NoteRepeatRate noteRepeat() const noexcept;
+
 private:
     void run();
     void applyRequestedScene() noexcept;
@@ -83,6 +86,8 @@ private:
     std::atomic<std::uint8_t> requestedScene_{0};
     std::atomic<std::uint8_t> activeScene_{0};
     std::atomic_bool mutationRequested_{false};
+    std::atomic<generation::NoteRepeatRate> requestedNoteRepeat_{
+            generation::NoteRepeatRate::Off};
 
     std::mutex wakeMutex_;
     std::condition_variable wakeCondition_;
@@ -95,6 +100,7 @@ private:
     generation::PatternDensity activeDensity_ = generation::PatternDensity::Full;
     generation::PatternAccent activeAccent_ = generation::PatternAccent::Off;
     generation::PatternSwing activeSwing_ = generation::PatternSwing::Off;
+    generation::NoteRepeatRate activeNoteRepeat_ = generation::NoteRepeatRate::Off;
     std::uint32_t seed_ = 0x4D4F5A41u;
 };
 
