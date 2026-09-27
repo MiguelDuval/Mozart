@@ -12,6 +12,7 @@
 #include "musical/Chord.h"
 #include "musical/VoiceLeading.h"
 #include "scheduler/PerformanceScene.h"
+#include "scheduler/MacroControl.h"
 #include "midi/MidiTransport.h"
 #include "midi/MidiReceiveQueue.h"
 #include "midi/ControllerMapping.h"
@@ -700,6 +701,35 @@ int main() {
     }
 
     {
+        using mozart::scheduler::MacroControl;
+        using mozart::scheduler::MacroControls;
+
+        const auto lowEnergy = MacroControls::map(MacroControl::Energy, 0);
+        assert(lowEnergy.density == mozart::generation::PatternDensity::Sparse);
+        assert(lowEnergy.accent == mozart::generation::PatternAccent::Off);
+
+        const auto midEnergy = MacroControls::map(MacroControl::Energy, 64);
+        assert(midEnergy.density == mozart::generation::PatternDensity::Full);
+        assert(midEnergy.accent == mozart::generation::PatternAccent::Mild);
+
+        const auto highEnergy = MacroControls::map(MacroControl::Energy, 127);
+        assert(highEnergy.density == mozart::generation::PatternDensity::Full);
+        assert(highEnergy.accent == mozart::generation::PatternAccent::Strong);
+
+        const auto lowMotion = MacroControls::map(MacroControl::Motion, 0);
+        assert(lowMotion.swing == mozart::generation::PatternSwing::Off);
+        assert(lowMotion.noteRepeat == mozart::generation::NoteRepeatRate::Off);
+
+        const auto midMotion = MacroControls::map(MacroControl::Motion, 64);
+        assert(midMotion.swing == mozart::generation::PatternSwing::Full);
+        assert(midMotion.noteRepeat == mozart::generation::NoteRepeatRate::Triple);
+
+        const auto highMotion = MacroControls::map(MacroControl::Motion, 127);
+        assert(highMotion.swing == mozart::generation::PatternSwing::Full);
+        assert(highMotion.noteRepeat == mozart::generation::NoteRepeatRate::Quadruple);
+    }
+
+    {
         using mozart::midi::ControllerAction;
         using mozart::midi::ControllerBinding;
         using mozart::midi::ControllerMapping;
@@ -718,6 +748,14 @@ int main() {
         const auto mutation = mapping.resolve(
                 mozart::midi::controlChange(0, 25, 100).value());
         assert(mutation.action == ControllerAction::Mutation);
+
+        const auto energy = mapping.resolve(
+                mozart::midi::controlChange(0, 26, 127).value());
+        assert(energy.action == ControllerAction::MacroEnergy);
+
+        const auto motion = mapping.resolve(
+                mozart::midi::controlChange(0, 27, 64).value());
+        assert(motion.action == ControllerAction::MacroMotion);
 
         const auto wrongChannel = mapping.resolve(
                 mozart::midi::controlChange(1, 20, 100).value());
@@ -886,6 +924,18 @@ int main() {
         assert(
                 runtime.noteRepeat() ==
                 mozart::generation::NoteRepeatRate::Quadruple);
+
+        runtime.handleMidiController(
+                mozart::midi::controlChange(0, 26, 127).value());
+        assert(runtime.macroEnergy() == 127);
+        assert(runtime.patternDensity() == mozart::generation::PatternDensity::Full);
+        assert(runtime.patternAccent() == mozart::generation::PatternAccent::Strong);
+
+        runtime.handleMidiController(
+                mozart::midi::controlChange(0, 27, 127).value());
+        assert(runtime.macroMotion() == 127);
+        assert(runtime.patternSwing() == mozart::generation::PatternSwing::Full);
+        assert(runtime.noteRepeat() == mozart::generation::NoteRepeatRate::Quadruple);
 
         runtime.handleMidiController(
                 mozart::midi::noteOn(0, 20, 100).value());
