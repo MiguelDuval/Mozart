@@ -86,7 +86,7 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [x] Live mutation.
 - [x] Note repeat.
 - [x] Controller mappings.
-- [ ] Macro controls.
+- [x] Macro controls.
 
 ## Stage 6 — Audio preview
 - [ ] Oboe integration.
