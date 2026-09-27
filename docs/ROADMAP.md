@@ -73,7 +73,7 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [x] Local/offline microphone key/scale detector integration.
 - [x] Audio detector confidence/stability/hysteresis policy.
 - [x] Performer override from Audio back to Manual.
-- [ ] Chord model.
+- [x] Chord model.
 - [ ] Chord progression generator.
 - [x] Bass generator.
 - [x] Arpeggiator.
