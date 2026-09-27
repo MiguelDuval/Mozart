@@ -71,10 +71,12 @@ public:
         const auto quantizeBin32 =
                 [](const std::uint8_t value) noexcept -> std::uint8_t {
             return static_cast<std::uint8_t>(
-                    std::min<std::size_t>(
-                            32,
-                            (static_cast<std::size_t>(value) * 32U + 126U) /
-                                    127U));
+                    std::max<std::size_t>(
+                            1,
+                            std::min<std::size_t>(
+                                    32,
+                                    (static_cast<std::size_t>(value) * 32U + 126U) /
+                                            127U)));
         };
 
         std::vector<Item> items;
