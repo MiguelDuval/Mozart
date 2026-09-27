@@ -70,7 +70,7 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [x] Key/Scale context service with explicit source selection (Manual / Audio).
 - [x] Manual Key/Scale UI control.
 - [x] Stateless chroma-to-Key/Scale estimator core (Major / Natural Minor).
-- [ ] Local/offline microphone key/scale detector integration.
+- [x] Local/offline microphone key/scale detector integration.
 - [x] Audio detector confidence/stability/hysteresis policy.
 - [x] Performer override from Audio back to Manual.
 - [ ] Chord model.
