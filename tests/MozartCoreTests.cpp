@@ -9,6 +9,8 @@
 #include "generation/GenerationRequest.h"
 #include "generation/PatternProposal.h"
 #include "generation/LocalPatternProvider.h"
+#include "generation/MidiEventVocabulary.h"
+#include "generation/MidiEventTokenizer.h"
 #include "musical/AudioKeyDetector.h"
 #include "musical/AudioKeyStabilityFilter.h"
 #include "musical/AudioChromaEstimator.h"
@@ -40,6 +42,55 @@
 #include <vector>
 
 int main() {
+    {
+        using mozart::generation::MidiEventToken;
+        using mozart::generation::MidiEventTokenizer;
+        using namespace mozart::generation::midi_event_vocabulary;
+
+        mozart::generation::PatternProposal proposal;
+        proposal.metadata.confidence = 1.0;
+        proposal.noteEvents.push_back(
+                mozart::musical::MusicalNoteEvent{0.0, 0.5, 36, 0, 0});
+        proposal.noteEvents.push_back(
+                mozart::musical::MusicalNoteEvent{1.0, 4.0, 64, 127, 1});
+        proposal.controlEvents.push_back(
+                mozart::generation::PatternControlEvent{0.0, 0, 74, 0});
+
+        const auto first = MidiEventTokenizer::encode(proposal);
+        const auto second = MidiEventTokenizer::encode(proposal);
+        assert(first.has_value());
+        assert(second.has_value());
+        assert(*first == *second);
+        assert(first->size() > 2);
+        assert(first->front() == kBos);
+        assert(first->back() == kEos);
+
+        bool hasNote36 = false;
+        bool hasNote64 = false;
+        bool hasController74 = false;
+        for (const MidiEventToken token : *first) {
+            assert(isValidToken(token));
+            hasNote36 = hasNote36 || token == noteToken(36);
+            hasNote64 = hasNote64 || token == noteToken(64);
+            hasController74 = hasController74 || token == controllerToken(74);
+        }
+        assert(hasNote36);
+        assert(hasNote64);
+        assert(hasController74);
+
+        auto invalidDuration = proposal;
+        invalidDuration.noteEvents[1].durationBeats = 8.1;
+        assert(!MidiEventTokenizer::encode(invalidDuration).has_value());
+
+        MidiEventTokenizer::Options tinyBudget;
+        tinyBudget.maxTokens = 3;
+        assert(!MidiEventTokenizer::encode(proposal, tinyBudget).has_value());
+
+        assert(kVocabularySize == 512);
+        assert(isValidToken(static_cast<MidiEventToken>(kVocabularySize - 1)));
+        assert(!isValidToken(static_cast<MidiEventToken>(kVocabularySize)));
+    }
+
     {
         mozart::generation::GenerationRequest request;
         assert(request.isValid());
