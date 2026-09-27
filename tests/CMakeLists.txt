@@ -50,6 +50,7 @@ if(MOZART_ENABLE_LINK)
         ../src/scheduler/MidiSendQueue.cpp
         ../src/scheduler/AccompanimentScheduler.cpp
         ../src/scheduler/PerformanceScene.cpp
+        ../src/scheduler/MacroControl.cpp
         ../src/runtime/MozartRuntime.cpp
     )
     target_compile_definitions(mozart_core_tests PRIVATE
