@@ -44,6 +44,7 @@ public final class MainActivity extends Activity {
     private static native void nativeSetPerformanceScene(int sceneIndex);
     private static native void nativeRequestPatternMutation();
     private static native void nativeSetNoteRepeat(int rate);
+    private static native void nativeSetMacro(int control, int value);
     private static native void nativeSetPatternDensity(int density);
     private static native void nativeSetPatternAccent(int accent);
     private static native void nativeSetPatternSwing(int swing);
@@ -464,6 +465,54 @@ public final class MainActivity extends Activity {
 
         root.addView(
                 noteRepeat,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        Button energy = new Button(this);
+        final int[] energyIndex = {0};
+        energy.setText("ENERGY: LOW");
+        energy.setOnClickListener(view -> {
+            energyIndex[0] = (energyIndex[0] + 1) % 3;
+            final int value = energyIndex[0] == 0 ? 0 : (energyIndex[0] == 1 ? 64 : 127);
+            nativeSetMacro(0, value);
+            final String[] labels = {"ENERGY: LOW", "ENERGY: MID", "ENERGY: HIGH"};
+            energy.setText(labels[energyIndex[0]]);
+            status.append("\n\n" + labels[energyIndex[0]]
+                    + " macro selected; change takes effect at the next bar.");
+        });
+
+        Button motion = new Button(this);
+        final int[] motionIndex = {0};
+        motion.setText("MOTION: LOW");
+        motion.setOnClickListener(view -> {
+            motionIndex[0] = (motionIndex[0] + 1) % 3;
+            final int value = motionIndex[0] == 0 ? 0 : (motionIndex[0] == 1 ? 64 : 127);
+            nativeSetMacro(1, value);
+            final String[] labels = {"MOTION: LOW", "MOTION: MID", "MOTION: HIGH"};
+            motion.setText(labels[motionIndex[0]]);
+            status.append("\n\n" + labels[motionIndex[0]]
+                    + " macro selected; change takes effect at the next bar.");
+        });
+
+        LinearLayout macroRow = new LinearLayout(this);
+        macroRow.setOrientation(LinearLayout.HORIZONTAL);
+        macroRow.setGravity(Gravity.CENTER);
+        macroRow.addView(
+                energy,
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1.0f));
+        macroRow.addView(
+                motion,
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1.0f));
+
+        root.addView(
+                macroRow,
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
