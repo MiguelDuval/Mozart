@@ -51,6 +51,9 @@ public:
     void setNoteRepeat(generation::NoteRepeatRate rate) noexcept;
     void handleMidiController(const midi::MidiShortMessage& message) noexcept;
     [[nodiscard]] generation::NoteRepeatRate noteRepeat() const noexcept;
+    void setMacro(scheduler::MacroControl control, std::uint8_t value) noexcept;
+    [[nodiscard]] std::uint8_t macroEnergy() const noexcept;
+    [[nodiscard]] std::uint8_t macroMotion() const noexcept;
 
     [[nodiscard]] bool sendDiagnosticNote();
 
