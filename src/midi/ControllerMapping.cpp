@@ -20,7 +20,9 @@ void ControllerMapping::resetToDefaults() {
         ControllerBinding{0, 22, ControllerAction::Accent},
         ControllerBinding{0, 23, ControllerAction::Swing},
         ControllerBinding{0, 24, ControllerAction::NoteRepeat},
-        ControllerBinding{0, 25, ControllerAction::Mutation}
+        ControllerBinding{0, 25, ControllerAction::Mutation},
+        ControllerBinding{0, 26, ControllerAction::MacroEnergy},
+        ControllerBinding{0, 27, ControllerAction::MacroMotion}
     };
 }
 
