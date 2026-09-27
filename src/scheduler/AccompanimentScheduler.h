@@ -8,6 +8,7 @@
 #include "generation/PatternSwing.h"
 #include "musical/KeyScale.h"
 #include "scheduler/MidiSendQueue.h"
+#include "scheduler/PerformanceScene.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -54,8 +55,12 @@ public:
     void setSwing(generation::PatternSwing swing) noexcept;
     [[nodiscard]] generation::PatternSwing swing() const noexcept;
 
+    void setScene(std::uint8_t sceneIndex) noexcept;
+    [[nodiscard]] std::uint8_t scene() const noexcept;
+
 private:
     void run();
+    void applyRequestedScene() noexcept;
     void scheduleEvent(
             const clock::LinkClockSnapshot& snapshot,
             const musical::MusicalNoteEvent& event,
@@ -77,6 +82,8 @@ private:
             generation::PatternAccent::Off};
     std::atomic<generation::PatternSwing> requestedSwing_{
             generation::PatternSwing::Off};
+    std::atomic<std::uint8_t> requestedScene_{0};
+    std::atomic<std::uint8_t> activeScene_{0};
 
     std::mutex wakeMutex_;
     std::condition_variable wakeCondition_;
