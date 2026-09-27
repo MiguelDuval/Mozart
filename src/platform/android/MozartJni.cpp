@@ -10,6 +10,8 @@
 #include "core/MidiEndpoint.h"
 #include "core/MidiTypes.h"
 #include "core/MozartEngine.h"
+#include "musical/AudioChromaEstimator.h"
+#include "musical/AudioKeyDetector.h"
 #include "musical/KeyScale.h"
 #include "midi/MidiReceiveQueue.h"
 #include "platform/android/AndroidMidiOutput.h"
@@ -255,6 +257,58 @@ Java_com_miguelduval_mozart_MainActivity_nativeSetAccompanimentRole(
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetKeyContextSource(
+        JNIEnv*,
+        jobject,
+        jint source) {
+    if (source < 0 || source > 1) {
+        return;
+    }
+
+    runtime()->setKeyContextSource(
+            static_cast<mozart::musical::KeyContextSource>(source));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeResetAudioKeyContext(
+        JNIEnv*,
+        jobject) {
+    runtime()->resetAudioKeyContext();
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeKeyContextSnapshot(
+        JNIEnv* env,
+        jobject) {
+    const auto snapshot = runtime()->captureKeyContextSnapshot();
+    const char* source =
+            snapshot.source == mozart::musical::KeyContextSource::Audio
+                    ? "AUDIO"
+                    : "MANUAL";
+
+    const std::string text =
+            std::string("source=") + source +
+            " resolved=" +
+                    std::to_string(snapshot.resolvedKeyScale.rootPitchClass()) +
+                    ":" +
+                    std::to_string(
+                            static_cast<int>(snapshot.resolvedKeyScale.scale())) +
+            " manual=" +
+                    std::to_string(snapshot.manualKeyScale.rootPitchClass()) +
+                    ":" +
+                    std::to_string(
+                            static_cast<int>(snapshot.manualKeyScale.scale())) +
+            " stable=" +
+                    (snapshot.audio.hasStableKey ? "true" : "false") +
+            " confidence=" +
+                    std::to_string(snapshot.audio.confidence) +
+            " observations=" +
+                    std::to_string(snapshot.audio.consecutiveObservations);
+
+    return env->NewStringUTF(text.c_str());
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_miguelduval_mozart_MainActivity_nativeStopAccompaniment(
         JNIEnv*,
         jobject) {
@@ -280,6 +334,41 @@ Java_com_miguelduval_mozart_MainActivity_nativeSetManualKeyScale(
                     static_cast<mozart::musical::Scale>(scaleId)});
 }
 
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_AndroidAudioKeyInput_nativeProcessAudioFrame(
+        JNIEnv* env,
+        jclass,
+        jshortArray samples,
+        jint sampleRate) {
+    if (samples == nullptr || sampleRate < 4000) {
+        return;
+    }
+
+    const jsize count = env->GetArrayLength(samples);
+    if (count < 32) {
+        return;
+    }
+
+    std::vector<std::int16_t> pcm(static_cast<std::size_t>(count));
+    env->GetShortArrayRegion(
+            samples,
+            0,
+            count,
+            reinterpret_cast<jshort*>(pcm.data()));
+
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    const auto chroma = mozart::musical::AudioChromaEstimator::estimate(
+            pcm.data(),
+            pcm.size(),
+            static_cast<std::uint32_t>(sampleRate));
+    const auto detection = mozart::musical::AudioKeyDetector::estimate(chroma);
+
+    runtime()->updateAudioKeyDetection(detection);
+}
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_miguelduval_mozart_AndroidMidiInput_nativeReceiveMidiBytes(
