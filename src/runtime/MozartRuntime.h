@@ -4,6 +4,7 @@
 #include "generation/PatternAccent.h"
 #include "generation/PatternDensity.h"
 #include "generation/PatternSwing.h"
+#include "generation/NoteRepeat.h"
 #include "midi/MidiTransport.h"
 #include "musical/KeyContext.h"
 #include "scheduler/AccompanimentScheduler.h"
@@ -46,6 +47,8 @@ public:
     void setPerformanceScene(std::uint8_t sceneIndex) noexcept;
     [[nodiscard]] std::uint8_t performanceScene() const noexcept;
     void requestPatternMutation() noexcept;
+    void setNoteRepeat(generation::NoteRepeatRate rate) noexcept;
+    [[nodiscard]] generation::NoteRepeatRate noteRepeat() const noexcept;
 
     [[nodiscard]] bool sendDiagnosticNote();
 
