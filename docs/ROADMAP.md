@@ -82,8 +82,8 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 
 ## Stage 5 — Performance
 - [x] Scene/pattern switching.
-- [ ] Quantized pattern launch.
-- [ ] Live mutation.
+- [x] Quantized pattern launch.
+- [x] Live mutation.
 - [ ] Note repeat.
 - [ ] Controller mappings.
 - [ ] Macro controls.
