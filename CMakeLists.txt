@@ -18,6 +18,7 @@ add_library(mozart-core STATIC
     src/musical/AudioKeyStabilityFilter.cpp
     src/musical/KeyContext.cpp
     src/musical/AudioChromaEstimator.cpp
+    src/musical/Chord.cpp
     src/generation/RhythmGenerator.cpp
     src/generation/BassGenerator.cpp
     src/generation/ArpeggioGenerator.cpp
