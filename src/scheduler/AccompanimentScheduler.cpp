@@ -149,6 +149,11 @@ std::uint8_t AccompanimentScheduler::scene() const noexcept {
     return requestedScene_.load();
 }
 
+void AccompanimentScheduler::requestMutation() noexcept {
+    mutationRequested_.store(true);
+    wakeCondition_.notify_all();
+}
+
 void AccompanimentScheduler::applyRequestedScene() noexcept {
     const auto requestedScene = requestedScene_.load();
     if (requestedScene == PerformanceScene::kCustomScene) {
@@ -268,6 +273,20 @@ void AccompanimentScheduler::run() {
                         // performer can switch voices without truncating the
                         // currently running musical phrase.
                         applyRequestedScene();
+
+                        if (mutationRequested_.exchange(false)) {
+                            // Re-seeding changes the deterministic generator
+                            // output for the next bar without touching Link
+                            // timing or the current bar's active pattern.
+                            seed_ = seed_ == 0 ? 0x9E3779B9u : seed_;
+                            seed_ ^= seed_ << 13;
+                            seed_ ^= seed_ >> 17;
+                            seed_ ^= seed_ << 5;
+                            if (seed_ == 0) {
+                                seed_ = 0xA341316Cu;
+                            }
+                        }
+
                         {
                             std::lock_guard<std::mutex> lock(stateMutex_);
                             activeKeyScale_ = requestedKeyScale_;
