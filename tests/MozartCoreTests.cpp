@@ -4,6 +4,7 @@
 #include "generation/ArpeggioGenerator.h"
 #include "generation/BassGenerator.h"
 #include "generation/RhythmGenerator.h"
+#include "musical/AudioKeyDetector.h"
 #include "midi/MidiTransport.h"
 #include "midi/MidiReceiveQueue.h"
 #include "musical/KeyScale.h"
@@ -204,6 +205,40 @@ int main() {
         }
     }
 
+
+    {
+        using mozart::musical::AudioKeyDetector;
+        const AudioKeyDetector::Chroma cMajor{
+            1.0, 0.3, 0.7, 0.4, 0.7, 0.4,
+            0.4, 0.9, 0.1, 0.4, 0.1, 0.2
+        };
+        const auto cMajorResult = AudioKeyDetector::estimate(cMajor);
+        assert(cMajorResult.valid);
+        assert(cMajorResult.keyScale.rootPitchClass() == 0);
+        assert(cMajorResult.keyScale.scale() == mozart::musical::Scale::Major);
+        assert(cMajorResult.confidence > 0.0);
+        assert(cMajorResult.score > cMajorResult.runnerUpScore);
+
+        const AudioKeyDetector::Chroma aMinor{
+            0.7, 0.2, 0.7, 0.4, 0.9, 0.3,
+            0.3, 0.4, 1.0, 0.4, 0.2, 0.1
+        };
+        const auto aMinorResult = AudioKeyDetector::estimate(aMinor);
+        assert(aMinorResult.valid);
+        assert(aMinorResult.keyScale.rootPitchClass() == 9);
+        assert(aMinorResult.keyScale.scale() == mozart::musical::Scale::NaturalMinor);
+        assert(aMinorResult.confidence > 0.0);
+        assert(aMinorResult.score > aMinorResult.runnerUpScore);
+
+        const AudioKeyDetector::Chroma silence{};
+        assert(!AudioKeyDetector::estimate(silence).valid);
+
+        const AudioKeyDetector::Chroma invalid{
+            1.0, 0.0, 0.0, -1.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        };
+        assert(!AudioKeyDetector::estimate(invalid).valid);
+    }
 
     {
         mozart::midi::MidiReceiveQueue queue(4);
