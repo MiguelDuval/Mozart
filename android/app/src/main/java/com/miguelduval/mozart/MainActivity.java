@@ -417,7 +417,7 @@ public final class MainActivity extends Activity {
             nativeSetPerformanceScene(selectedSceneIndex);
             scene.setText("SCENE: " + (selectedSceneIndex + 1));
             status.append(
-                    "\n\\nScene " + (selectedSceneIndex + 1)
+                    "\n\nScene " + (selectedSceneIndex + 1)
                             + " selected; switches at the next bar.");
         });
         root.addView(
