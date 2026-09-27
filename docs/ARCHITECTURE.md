@@ -79,7 +79,7 @@ Key context may come from:
 
 The current audio-key work consists of a stateless chroma-to-key estimator plus a temporal stability filter. `KeyContext` now owns Manual/Audio source selection, the deterministic manual fallback, stable-audio resolution, and performer override semantics. `MozartRuntime` feeds the resolved key into the scheduler without changing Link timing or MIDI transport.
 
-Microphone capture and chroma extraction remain platform-layer work. They must feed detector results into the musical-domain context from a worker path, never from the scheduler's realtime send loop.
+`AndroidAudioKeyInput` owns microphone capture on a worker thread. `AudioChromaEstimator` converts PCM16 frames to pitch-class energy; the stateless detector and `KeyContext` remain musical-domain code. Results cross the JNI boundary through `updateAudioKeyDetection()` and never enter the scheduler's realtime send loop.
 
 Key Context is musical-domain state. It does not own MIDI timing or transport.
 
