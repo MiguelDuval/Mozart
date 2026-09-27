@@ -3,7 +3,7 @@
 #include "generation/PatternAccent.h"
 #include "generation/PatternDensity.h"
 #include "generation/PatternSwing.h"
-#include "scheduler/AccompanimentScheduler.h"
+#include "scheduler/AccompanimentRole.h"
 
 #include <cstdint>
 
