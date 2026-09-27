@@ -261,6 +261,33 @@ Java_com_miguelduval_mozart_MainActivity_nativeRequestPatternMutation(
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetNoteRepeat(
+        JNIEnv*,
+        jobject,
+        jint rate) {
+    switch (rate) {
+        case 1:
+            runtime()->setNoteRepeat(
+                    mozart::generation::NoteRepeatRate::Off);
+            break;
+        case 2:
+            runtime()->setNoteRepeat(
+                    mozart::generation::NoteRepeatRate::Double);
+            break;
+        case 3:
+            runtime()->setNoteRepeat(
+                    mozart::generation::NoteRepeatRate::Triple);
+            break;
+        case 4:
+            runtime()->setNoteRepeat(
+                    mozart::generation::NoteRepeatRate::Quadruple);
+            break;
+        default:
+            return;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_miguelduval_mozart_MainActivity_nativeSetAccompanimentRole(
         JNIEnv*,
         jobject,
