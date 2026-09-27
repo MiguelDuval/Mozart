@@ -24,6 +24,7 @@ add_library(mozart-core STATIC
     src/generation/BassGenerator.cpp
     src/generation/ArpeggioGenerator.cpp
     src/generation/ChordProgressionGenerator.cpp
+    src/generation/NoteRepeat.cpp
     src/midi/MidiReceiveQueue.cpp
 )
 
