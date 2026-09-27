@@ -11,6 +11,7 @@
 #include "scheduler/MidiSendQueue.h"
 #include "scheduler/AccompanimentRole.h"
 #include "scheduler/PerformanceScene.h"
+#include "scheduler/MacroControl.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -59,6 +60,9 @@ public:
 
     void setNoteRepeat(generation::NoteRepeatRate rate) noexcept;
     [[nodiscard]] generation::NoteRepeatRate noteRepeat() const noexcept;
+    void setMacro(MacroControl control, std::uint8_t value) noexcept;
+    [[nodiscard]] std::uint8_t macroEnergy() const noexcept;
+    [[nodiscard]] std::uint8_t macroMotion() const noexcept;
 
 private:
     void run();
@@ -89,6 +93,8 @@ private:
     std::atomic_bool mutationRequested_{false};
     std::atomic<generation::NoteRepeatRate> requestedNoteRepeat_{
             generation::NoteRepeatRate::Off};
+    std::atomic<std::uint8_t> macroEnergy_{0};
+    std::atomic<std::uint8_t> macroMotion_{0};
 
     std::mutex wakeMutex_;
     std::condition_variable wakeCondition_;
