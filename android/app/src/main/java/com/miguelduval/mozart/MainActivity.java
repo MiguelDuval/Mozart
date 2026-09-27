@@ -1,6 +1,8 @@
 package com.miguelduval.mozart;
 
 import android.app.Activity;
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
@@ -20,6 +22,7 @@ public final class MainActivity extends Activity {
     private static final String RUNTIME_SMOKE_EXTRA = "mozart.runtime_smoke";
     private static final long LINK_STATUS_POLL_MS = 500L;
     private static final long MIDI_INPUT_STATUS_POLL_MS = 500L;
+    private static final int RECORD_AUDIO_REQUEST = 7001;
     private static final String[] KEY_LABELS = {
             "C", "C#", "D", "D#", "E", "F",
             "F#", "G", "G#", "A", "A#", "B"
@@ -44,19 +47,36 @@ public final class MainActivity extends Activity {
     private static native void nativeSetManualKeyScale(
             int rootPitchClass,
             int scaleId);
+    private static native void nativeSetKeyContextSource(int source);
+    private static native void nativeResetAudioKeyContext();
+    private static native String nativeKeyContextSnapshot();
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView status;
     private TextView linkStatus;
     private TextView midiInputStatus;
+    private TextView keyContextStatus;
     private AndroidMidiTransport midiTransport;
     private AndroidMidiInput midiInput;
+    private AndroidAudioKeyInput audioKeyInput;
     private Button midiInputButton;
     private List<AndroidMidiTransport.MidiEndpoint> midiInputCandidates = Collections.emptyList();
     private int midiInputSelection = -1;
     private boolean activityStarted = false;
     private int selectedRootPitchClass = 6;
     private int selectedScaleId = 1;
+
+    private final Runnable keyContextStatusPoll = new Runnable() {
+        @Override
+        public void run() {
+            if (!activityStarted || keyContextStatus == null) {
+                return;
+            }
+            keyContextStatus.setText(
+                    "KEY CONTEXT: " + nativeKeyContextSnapshot());
+            mainHandler.postDelayed(this, LINK_STATUS_POLL_MS);
+        }
+    };
 
     private final Runnable midiInputStatusPoll = new Runnable() {
         @Override
@@ -132,9 +152,60 @@ public final class MainActivity extends Activity {
         midiInputStatus.setTextSize(13.0f);
         midiInputStatus.setGravity(Gravity.CENTER);
 
+        keyContextStatus = new TextView(this);
+        keyContextStatus.setText(
+                "KEY CONTEXT: " + nativeKeyContextSnapshot());
+        keyContextStatus.setTextSize(13.0f);
+        keyContextStatus.setGravity(Gravity.CENTER);
+
+        Button keySource = new Button(this);
+        keySource.setText("KEY SOURCE: MANUAL");
+        keySource.setOnClickListener(view -> {
+            if (audioKeyInput == null) {
+                return;
+            }
+
+            if (audioKeyInput.isRunning()) {
+                audioKeyInput.stop();
+                nativeResetAudioKeyContext();
+                nativeSetKeyContextSource(0);
+                keySource.setText("KEY SOURCE: MANUAL");
+                status.append(
+                        "\n\nAudio key detection disabled; Manual source active.");
+                return;
+            }
+
+            if (android.os.Build.VERSION.SDK_INT >= 23 &&
+                    checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                            != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(
+                        new String[]{Manifest.permission.RECORD_AUDIO},
+                        RECORD_AUDIO_REQUEST);
+                status.append(
+                        "\n\nMicrophone permission required. Tap KEY SOURCE again after allowing it.");
+                return;
+            }
+
+            if (audioKeyInput.start()) {
+                nativeResetAudioKeyContext();
+                nativeSetKeyContextSource(1);
+                keySource.setText("KEY SOURCE: AUDIO");
+                status.append(
+                        "\n\nAudio key detection enabled; waiting for a stable result.");
+            } else {
+                status.append("\n\nAudio key detector could not start.");
+            }
+        });
+
         Button key = new Button(this);
         key.setText("KEY: F#");
         key.setOnClickListener(view -> {
+            if (audioKeyInput != null && audioKeyInput.isRunning()) {
+                audioKeyInput.stop();
+            }
+            nativeResetAudioKeyContext();
+            nativeSetKeyContextSource(0);
+            keySource.setText("KEY SOURCE: MANUAL");
             selectedRootPitchClass = (selectedRootPitchClass + 1) % 12;
             nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
             key.setText("KEY: " + KEY_LABELS[selectedRootPitchClass]);
@@ -146,6 +217,12 @@ public final class MainActivity extends Activity {
         Button scale = new Button(this);
         scale.setText("SCALE: MINOR");
         scale.setOnClickListener(view -> {
+            if (audioKeyInput != null && audioKeyInput.isRunning()) {
+                audioKeyInput.stop();
+            }
+            nativeResetAudioKeyContext();
+            nativeSetKeyContextSource(0);
+            keySource.setText("KEY SOURCE: MANUAL");
             selectedScaleId = (selectedScaleId + 1) % 3;
             nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
             scale.setText("SCALE: " + SCALE_LABELS[selectedScaleId]);
@@ -281,6 +358,16 @@ public final class MainActivity extends Activity {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(
+                keySource,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(
+                keyContextStatus,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(
                 linkStatus,
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -360,6 +447,7 @@ public final class MainActivity extends Activity {
         midiInput = new AndroidMidiInput(
                 this,
                 message -> status.append("\n\n" + message));
+        audioKeyInput = new AndroidAudioKeyInput();
         Log.i(TAG, "STARTUP: AndroidMidiTransport constructed");
         Log.i(TAG, "STARTUP: AndroidMidiInput constructed");
         Log.i(TAG, "STARTUP: onCreate complete");
@@ -394,7 +482,9 @@ public final class MainActivity extends Activity {
         midiInputStatus.setText("MIDI IN: " + nativeMidiInputSnapshot());
         mainHandler.removeCallbacks(linkStatusPoll);
         mainHandler.removeCallbacks(midiInputStatusPoll);
+        mainHandler.removeCallbacks(keyContextStatusPoll);
         mainHandler.post(linkStatusPoll);
+        mainHandler.post(keyContextStatusPoll);
         mainHandler.post(midiInputStatusPoll);
         if (midiTransport != null) {
             Log.i(TAG, "STARTUP: midiTransport.start posting");
@@ -408,7 +498,13 @@ public final class MainActivity extends Activity {
         activityStarted = false;
         mainHandler.removeCallbacks(linkStatusPoll);
         mainHandler.removeCallbacks(midiInputStatusPoll);
+        mainHandler.removeCallbacks(keyContextStatusPoll);
         nativeStopAccompaniment();
+        if (audioKeyInput != null) {
+            audioKeyInput.stop();
+        }
+        nativeResetAudioKeyContext();
+        nativeSetKeyContextSource(0);
 
         if (midiInput != null) {
             midiInput.close();
@@ -423,6 +519,12 @@ public final class MainActivity extends Activity {
     protected void onDestroy() {
         mainHandler.removeCallbacks(linkStatusPoll);
         mainHandler.removeCallbacks(midiInputStatusPoll);
+        mainHandler.removeCallbacks(keyContextStatusPoll);
+        if (audioKeyInput != null) {
+            audioKeyInput.stop();
+        }
+        nativeResetAudioKeyContext();
+        nativeSetKeyContextSource(0);
         if (midiInput != null) {
             midiInput.shutdown();
         }
