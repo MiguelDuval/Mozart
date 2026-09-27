@@ -42,6 +42,7 @@ public final class MainActivity extends Activity {
     private static native boolean nativeTestMidiNote();
     private static native void nativeSetAccompanimentRole(int role);
     private static native void nativeSetPerformanceScene(int sceneIndex);
+    private static native void nativeRequestPatternMutation();
     private static native void nativeSetPatternDensity(int density);
     private static native void nativeSetPatternAccent(int accent);
     private static native void nativeSetPatternSwing(int swing);
@@ -425,6 +426,20 @@ public final class MainActivity extends Activity {
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        Button mutate = new Button(this);
+        mutate.setText("MUTATE");
+        mutate.setOnClickListener(view -> {
+            nativeRequestPatternMutation();
+            status.append(
+                    "\n\nPattern mutation requested; next bar will vary deterministically.");
+        });
+        root.addView(
+                mutate,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+
         root.addView(
                 density,
                 new LinearLayout.LayoutParams(
