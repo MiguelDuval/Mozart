@@ -35,11 +35,11 @@ private:
     double minimumConfidence_;
     std::size_t requiredObservations_;
     bool hasCandidate_ = false;
-    KeyScale candidateKey_{};
+    KeyScale candidateKey_{12, Scale::Major};
     double candidateConfidence_ = 0.0;
     std::size_t consecutiveObservations_ = 0;
     bool hasStableKey_ = false;
-    KeyScale stableKey_{};
+    KeyScale stableKey_{12, Scale::Major};
     double stableConfidence_ = 0.0;
 };
 
