@@ -1,663 +1,552 @@
-package com.miguelduval.mozart;
+#include <jni.h>
 
-import android.app.Activity;
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.os.Bundle;
-import android.util.Log;
-import android.view.Gravity;
-import android.os.Handler;
-import android.os.Looper;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <utility>
+#include <vector>
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+#include "core/MidiEndpoint.h"
+#include "core/MidiTypes.h"
+#include "core/MozartEngine.h"
+#include "musical/AudioChromaEstimator.h"
+#include "musical/AudioKeyDetector.h"
+#include "musical/KeyScale.h"
+#include "midi/MidiReceiveQueue.h"
+#include "platform/android/AndroidMidiOutput.h"
+#include "runtime/MozartRuntime.h"
+#include "scheduler/PerformanceScene.h"
 
-public final class MainActivity extends Activity {
-    private static final String TAG = "MozartStartup";
-    private static final String RUNTIME_SMOKE_EXTRA = "mozart.runtime_smoke";
-    private static final long LINK_STATUS_POLL_MS = 500L;
-    private static final long MIDI_INPUT_STATUS_POLL_MS = 500L;
-    private static final int RECORD_AUDIO_REQUEST = 7001;
-    private static final String[] KEY_LABELS = {
-            "C", "C#", "D", "D#", "E", "F",
-            "F#", "G", "G#", "A", "A#", "B"
-    };
-    private static final String[] SCALE_LABELS = {"MAJOR", "MINOR", "DORIAN"};
-    static {
-        Log.i(TAG, "STARTUP: loadLibrary begin");
-        System.loadLibrary("mozart");
-        Log.i(TAG, "STARTUP: loadLibrary complete");
+namespace {
+
+mozart::platform::android::AndroidMidiOutput g_midiOutput;
+std::unique_ptr<mozart::runtime::MozartRuntime> g_runtime;
+std::mutex g_runtimeMutex;
+mozart::midi::MidiReceiveQueue g_midiReceiveQueue;
+mozart::midi::MidiInputParser g_midiInputParser;
+std::mutex g_midiInputMutex;
+
+mozart::runtime::MozartRuntime* runtime() {
+    std::lock_guard<std::mutex> lock(g_runtimeMutex);
+    if (!g_runtime) {
+        g_runtime = std::make_unique<mozart::runtime::MozartRuntime>(g_midiOutput);
+    }
+    return g_runtime.get();
+}
+
+[[nodiscard]] std::string javaStringToUtf8(
+        JNIEnv* env,
+        jobjectArray values,
+        jsize index) {
+    if (values == nullptr) {
+        return {};
     }
 
-    private static native String nativeEngineInfo();
-    private static native void nativeStartAccompaniment();
-    private static native void nativeStopAccompaniment();
-    private static native String nativeLinkSnapshot();
-    private static native String nativeMidiInputSnapshot();
-    private static native boolean nativeTestMidiNote();
-    private static native void nativeSetAccompanimentRole(int role);
-    private static native void nativeSetPatternDensity(int density);
-    private static native void nativeSetPatternAccent(int accent);
-    private static native void nativeSetPatternSwing(int swing);
-    private static native void nativeSetManualKeyScale(
-            int rootPitchClass,
-            int scaleId);
-    private static native void nativeSetKeyContextSource(int source);
-    private static native void nativeResetAudioKeyContext();
-    private static native String nativeKeyContextSnapshot();
-
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private TextView status;
-    private TextView linkStatus;
-    private TextView midiInputStatus;
-    private TextView keyContextStatus;
-    private AndroidMidiTransport midiTransport;
-    private AndroidMidiInput midiInput;
-    private AndroidAudioKeyInput audioKeyInput;
-    private Button midiInputButton;
-    private Button keySourceButton;
-    private List<AndroidMidiTransport.MidiEndpoint> midiInputCandidates = Collections.emptyList();
-    private int midiInputSelection = -1;
-    private boolean activityStarted = false;
-    private int selectedRootPitchClass = 6;
-    private int selectedScaleId = 1;
-
-    private final Runnable keyContextStatusPoll = new Runnable() {
-        @Override
-        public void run() {
-            if (!activityStarted || keyContextStatus == null) {
-                return;
-            }
-            keyContextStatus.setText(
-                    "KEY CONTEXT: " + nativeKeyContextSnapshot());
-            mainHandler.postDelayed(this, LINK_STATUS_POLL_MS);
-        }
-    };
-
-    private final Runnable midiInputStatusPoll = new Runnable() {
-        @Override
-        public void run() {
-            if (!activityStarted || midiInputStatus == null) {
-                return;
-            }
-            midiInputStatus.setText("MIDI IN: " + nativeMidiInputSnapshot());
-            mainHandler.postDelayed(this, MIDI_INPUT_STATUS_POLL_MS);
-        }
-    };
-
-    private final Runnable linkStatusPoll = new Runnable() {
-        @Override
-        public void run() {
-            if (!activityStarted || linkStatus == null) {
-                return;
-            }
-
-            updateLinkStatus();
-            mainHandler.postDelayed(this, LINK_STATUS_POLL_MS);
-        }
-    };
-
-    private final AndroidMidiTransport.Listener midiListener =
-            new AndroidMidiTransport.Listener() {
-                @Override
-                public void onMidiInventoryChanged(
-                        List<AndroidMidiTransport.MidiEndpoint> endpoints,
-                        AndroidMidiTransport.MidiEndpoint selectedOutput,
-                        String connectionStatus) {
-                    updateMidiStatus(
-                            endpoints,
-                            selectedOutput,
-                            connectionStatus);
-                }
-            };
-
-    @Override
-    protected void onCreate(Bundle state) {
-        Log.i(TAG, "STARTUP: onCreate begin");
-        super.onCreate(state);
-
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER);
-        root.setPadding(48, 48, 48, 48);
-
-        TextView title = new TextView(this);
-        title.setText("MOZART");
-        title.setTextSize(28.0f);
-        title.setGravity(Gravity.CENTER);
-
-        status = new TextView(this);
-        Log.i(TAG, "STARTUP: nativeEngineInfo begin");
-        final String engineInfo = nativeEngineInfo();
-        Log.i(TAG, "STARTUP: nativeEngineInfo complete");
-        status.setText("\n" + engineInfo
-                + "\n\nMIDI discovery: waiting..."
-                + "\nManual key: " + KEY_LABELS[selectedRootPitchClass]
-                + " " + SCALE_LABELS[selectedScaleId]
-                + "\nLink accompanist: stopped");
-        status.setTextSize(16.0f);
-        status.setGravity(Gravity.CENTER);
-
-        linkStatus = new TextView(this);
-        linkStatus.setText("Link: " + nativeLinkSnapshot());
-        linkStatus.setTextSize(14.0f);
-        linkStatus.setGravity(Gravity.CENTER);
-
-        midiInputStatus = new TextView(this);
-        midiInputStatus.setText("MIDI IN: pending=0 received=0 dropped=0 last=none");
-        midiInputStatus.setTextSize(13.0f);
-        midiInputStatus.setGravity(Gravity.CENTER);
-
-        keyContextStatus = new TextView(this);
-        keyContextStatus.setText(
-                "KEY CONTEXT: " + nativeKeyContextSnapshot());
-        keyContextStatus.setTextSize(13.0f);
-        keyContextStatus.setGravity(Gravity.CENTER);
-
-        keySourceButton = new Button(this);
-        Button keySource = keySourceButton;
-        keySource.setText("KEY SOURCE: MANUAL");
-        keySource.setOnClickListener(view -> {
-            if (audioKeyInput == null) {
-                return;
-            }
-
-            if (audioKeyInput.isRunning()) {
-                audioKeyInput.stop();
-                nativeResetAudioKeyContext();
-                nativeSetKeyContextSource(0);
-                keySource.setText("KEY SOURCE: MANUAL");
-                status.append(
-                        "\n\nAudio key detection disabled; Manual source active.");
-                return;
-            }
-
-            if (android.os.Build.VERSION.SDK_INT >= 23 &&
-                    checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-                            != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(
-                        new String[]{Manifest.permission.RECORD_AUDIO},
-                        RECORD_AUDIO_REQUEST);
-                status.append(
-                        "\n\nMicrophone permission required. Tap KEY SOURCE again after allowing it.");
-                return;
-            }
-
-            if (audioKeyInput.start()) {
-                nativeResetAudioKeyContext();
-                nativeSetKeyContextSource(1);
-                keySource.setText("KEY SOURCE: AUDIO");
-                status.append(
-                        "\n\nAudio key detection enabled; waiting for a stable result.");
-            } else {
-                status.append("\n\nAudio key detector could not start.");
-            }
-        });
-
-        Button key = new Button(this);
-        key.setText("KEY: F#");
-        key.setOnClickListener(view -> {
-            if (audioKeyInput != null && audioKeyInput.isRunning()) {
-                audioKeyInput.stop();
-            }
-            nativeResetAudioKeyContext();
-            nativeSetKeyContextSource(0);
-            keySource.setText("KEY SOURCE: MANUAL");
-            selectedRootPitchClass = (selectedRootPitchClass + 1) % 12;
-            nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
-            key.setText("KEY: " + KEY_LABELS[selectedRootPitchClass]);
-            status.append(
-                    "\n\nKey: " + KEY_LABELS[selectedRootPitchClass]
-                            + " selected; change takes effect at the next bar.");
-        });
-
-        Button scale = new Button(this);
-        scale.setText("SCALE: MINOR");
-        scale.setOnClickListener(view -> {
-            if (audioKeyInput != null && audioKeyInput.isRunning()) {
-                audioKeyInput.stop();
-            }
-            nativeResetAudioKeyContext();
-            nativeSetKeyContextSource(0);
-            keySource.setText("KEY SOURCE: MANUAL");
-            selectedScaleId = (selectedScaleId + 1) % 3;
-            nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
-            scale.setText("SCALE: " + SCALE_LABELS[selectedScaleId]);
-            status.append(
-                    "\n\nScale: " + SCALE_LABELS[selectedScaleId]
-                            + " selected; change takes effect at the next bar.");
-        });
-
-        Button start = new Button(this);
-        start.setText("START LINK BASS");
-        start.setOnClickListener(view -> {
-            nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
-            nativeStartAccompaniment();
-            status.append("\n\nAccompaniment armed; following Link timing.");
-            updateLinkStatus();
-        });
-
-        Button bass = new Button(this);
-        bass.setText("BASS");
-        bass.setOnClickListener(view -> {
-            nativeSetAccompanimentRole(0);
-            status.append("\n\nBass role selected; change takes effect at the next bar.");
-        });
-
-        Button arpeggio = new Button(this);
-        arpeggio.setText("ARPEGGIO");
-        arpeggio.setOnClickListener(view -> {
-            nativeSetAccompanimentRole(1);
-            status.append("\n\nArpeggio role selected; change takes effect at the next bar.");
-        });
-
-        Button density = new Button(this);
-        density.setText("DENSITY: FULL");
-        final int[] densityIndex = {2};
-        density.setOnClickListener(view -> {
-            densityIndex[0] = (densityIndex[0] + 1) % 3;
-            final int selectedDensity = densityIndex[0];
-            nativeSetPatternDensity(selectedDensity);
-            final String[] labels = {"DENSITY: SPARSE", "DENSITY: NORMAL", "DENSITY: FULL"};
-            density.setText(labels[selectedDensity]);
-            status.append(
-                    "\n\n" + labels[selectedDensity]
-                            + " selected; change takes effect at the next bar.");
-        });
-
-        Button accent = new Button(this);
-        accent.setText("ACCENT: OFF");
-        final int[] accentIndex = {0};
-        accent.setOnClickListener(view -> {
-            accentIndex[0] = (accentIndex[0] + 1) % 3;
-            final int selectedAccent = accentIndex[0];
-            nativeSetPatternAccent(selectedAccent);
-            final String[] labels = {
-                    "ACCENT: OFF",
-                    "ACCENT: MILD",
-                    "ACCENT: STRONG"
-            };
-            accent.setText(labels[selectedAccent]);
-            status.append(
-                    "\n\n" + labels[selectedAccent]
-                            + " selected; change takes effect at the next bar.");
-        });
-
-        Button swing = new Button(this);
-        swing.setText("SWING: OFF");
-        final int[] swingIndex = {0};
-        swing.setOnClickListener(view -> {
-            swingIndex[0] = (swingIndex[0] + 1) % 3;
-            final int selectedSwing = swingIndex[0];
-            nativeSetPatternSwing(selectedSwing);
-            final String[] labels = {
-                    "SWING: OFF",
-                    "SWING: LIGHT",
-                    "SWING: FULL"
-            };
-            swing.setText(labels[selectedSwing]);
-            status.append(
-                    "\n\n" + labels[selectedSwing]
-                            + " selected; change takes effect at the next bar.");
-        });
-
-        midiInputButton = new Button(this);
-        midiInputButton.setText("MIDI IN: OFF");
-        midiInputButton.setOnClickListener(view -> cycleMidiInputSource());
-
-        Button testMidi = new Button(this);
-        testMidi.setText("TEST MIDI OUT");
-        testMidi.setOnClickListener(view -> {
-            final boolean queued = nativeTestMidiNote();
-            status.append(
-                    queued
-                            ? "\n\nDiagnostic C2 note queued."
-                            : "\n\nDiagnostic C2 note could not be queued; check MIDI OUT status.");
-        });
-
-        Button stop = new Button(this);
-        stop.setText("STOP");
-        stop.setOnClickListener(view -> {
-            nativeStopAccompaniment();
-            status.append("\n\nAccompaniment stopped.");
-            updateLinkStatus();
-        });
-
-        root.addView(
-                title,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                status,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        0,
-                        1.0f));
-        LinearLayout keyScaleRow = new LinearLayout(this);
-        keyScaleRow.setOrientation(LinearLayout.HORIZONTAL);
-        keyScaleRow.setGravity(Gravity.CENTER);
-        keyScaleRow.addView(
-                key,
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1.0f));
-        keyScaleRow.addView(
-                scale,
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1.0f));
-        root.addView(
-                keyScaleRow,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                keySource,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                keyContextStatus,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                linkStatus,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                midiInputStatus,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                start,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        LinearLayout roleRow = new LinearLayout(this);
-        roleRow.setOrientation(LinearLayout.HORIZONTAL);
-        roleRow.setGravity(Gravity.CENTER);
-
-        roleRow.addView(
-                bass,
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1.0f));
-        roleRow.addView(
-                arpeggio,
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1.0f));
-
-        root.addView(
-                roleRow,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                density,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                accent,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                swing,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                midiInputButton,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                testMidi,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                stop,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        setContentView(root);
-        Log.i(TAG, "STARTUP: setContentView complete");
-
-        if (getIntent().getBooleanExtra(RUNTIME_SMOKE_EXTRA, false)) {
-            startRuntimeSmoke();
-        }
-
-        midiTransport = new AndroidMidiTransport(this, midiListener);
-        midiInput = new AndroidMidiInput(
-                this,
-                message -> status.append("\n\n" + message));
-        audioKeyInput = new AndroidAudioKeyInput();
-        Log.i(TAG, "STARTUP: AndroidMidiTransport constructed");
-        Log.i(TAG, "STARTUP: AndroidMidiInput constructed");
-        Log.i(TAG, "STARTUP: onCreate complete");
+    const auto value =
+            static_cast<jstring>(env->GetObjectArrayElement(values, index));
+    if (value == nullptr) {
+        return {};
     }
 
-    private void startRuntimeSmoke() {
-        Log.i(TAG, "RUNTIME: Android smoke start begin");
-        nativeSetManualKeyScale(6, 1);
-        nativeStartAccompaniment();
-        Log.i(TAG, "RUNTIME: Android smoke start complete");
-        Log.i(TAG, "RUNTIME: Link snapshot initial " + nativeLinkSnapshot());
-
-        mainHandler.postDelayed(
-                () -> Log.i(
-                        TAG,
-                        "RUNTIME: Link snapshot tick " + nativeLinkSnapshot()),
-                1000L);
-
-        mainHandler.postDelayed(() -> {
-            nativeStopAccompaniment();
-            Log.i(TAG, "RUNTIME: Link snapshot stopped " + nativeLinkSnapshot());
-            Log.i(TAG, "RUNTIME: Android smoke stop complete");
-        }, 3000L);
+    const char* utf = env->GetStringUTFChars(value, nullptr);
+    if (utf == nullptr) {
+        env->DeleteLocalRef(value);
+        return {};
     }
 
-    @Override
-    protected void onStart() {
-        Log.i(TAG, "STARTUP: onStart begin");
-        super.onStart();
-        activityStarted = true;
-        if (keySourceButton != null) {
-            keySourceButton.setText(
-                    audioKeyInput != null && audioKeyInput.isRunning()
-                            ? "KEY SOURCE: AUDIO"
-                            : "KEY SOURCE: MANUAL");
-        }
-        updateLinkStatus();
-        midiInputStatus.setText("MIDI IN: " + nativeMidiInputSnapshot());
-        mainHandler.removeCallbacks(linkStatusPoll);
-        mainHandler.removeCallbacks(midiInputStatusPoll);
-        mainHandler.removeCallbacks(keyContextStatusPoll);
-        mainHandler.post(linkStatusPoll);
-        mainHandler.post(keyContextStatusPoll);
-        mainHandler.post(midiInputStatusPoll);
-        if (midiTransport != null) {
-            Log.i(TAG, "STARTUP: midiTransport.start posting");
-            midiTransport.start();
-        }
-        Log.i(TAG, "STARTUP: onStart complete");
+    const std::string result(utf);
+    env->ReleaseStringUTFChars(value, utf);
+    env->DeleteLocalRef(value);
+    return result;
+}
+
+[[nodiscard]] std::int32_t intAt(
+        JNIEnv* env,
+        jintArray values,
+        jsize index) {
+    jint value = 0;
+    env->GetIntArrayRegion(values, index, 1, &value);
+    return static_cast<std::int32_t>(value);
+}
+
+[[nodiscard]] mozart::midi::PortDirection portDirectionFromAndroid(
+        std::int32_t value) noexcept {
+    return value == 1
+            ? mozart::midi::PortDirection::Input
+            : mozart::midi::PortDirection::Output;
+}
+
+[[nodiscard]] mozart::midi::TransportKind transportKindFromAndroid(
+        std::int32_t value) noexcept {
+    switch (value) {
+        case 1:
+            return mozart::midi::TransportKind::Usb;
+        case 2:
+            return mozart::midi::TransportKind::Bluetooth;
+        case 3:
+            return mozart::midi::TransportKind::Virtual;
+        default:
+            return mozart::midi::TransportKind::Unknown;
+    }
+}
+
+} // namespace
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeMidiInputSnapshot(
+        JNIEnv* env,
+        jobject) {
+    const auto snapshot = g_midiReceiveQueue.snapshot();
+
+    std::string text =
+            "pending=" + std::to_string(snapshot.pending) +
+            " received=" + std::to_string(snapshot.accepted) +
+            " dropped=" + std::to_string(snapshot.dropped);
+
+    if (snapshot.hasLast) {
+        text +=
+                " lastStatus=" + std::to_string(snapshot.last.status) +
+                " note=" + std::to_string(snapshot.last.data1) +
+                " velocity=" + std::to_string(snapshot.last.data2) +
+                " timeNs=" + std::to_string(snapshot.last.timestampNanos) +
+                " port=" + std::to_string(snapshot.last.portId);
+    } else {
+        text += " last=none";
     }
 
-    @Override
-    protected void onStop() {
-        activityStarted = false;
-        mainHandler.removeCallbacks(linkStatusPoll);
-        mainHandler.removeCallbacks(midiInputStatusPoll);
-        mainHandler.removeCallbacks(keyContextStatusPoll);
-        nativeStopAccompaniment();
-        if (audioKeyInput != null) {
-            audioKeyInput.stop();
-        }
-        nativeResetAudioKeyContext();
-        nativeSetKeyContextSource(0);
+    return env->NewStringUTF(text.c_str());
+}
 
-        if (midiInput != null) {
-            midiInput.close();
-        }
-        if (midiTransport != null) {
-            midiTransport.stop();
-        }
-        super.onStop();
-    }
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeEngineInfo(
+        JNIEnv* env,
+        jobject) {
+    const mozart::MozartEngine engine;
+    const auto info = engine.info();
 
-    @Override
-    protected void onDestroy() {
-        mainHandler.removeCallbacks(linkStatusPoll);
-        mainHandler.removeCallbacks(midiInputStatusPoll);
-        mainHandler.removeCallbacks(keyContextStatusPoll);
-        if (audioKeyInput != null) {
-            audioKeyInput.stop();
-        }
-        nativeResetAudioKeyContext();
-        nativeSetKeyContextSource(0);
-        if (midiInput != null) {
-            midiInput.shutdown();
-        }
-        if (midiTransport != null) {
-            midiTransport.shutdown();
-        }
-        super.onDestroy();
-    }
+    return env->NewStringUTF(info.c_str());
+}
 
-    private void updateLinkStatus() {
-        if (linkStatus != null) {
-            linkStatus.setText("Link: " + nativeLinkSnapshot());
-        }
-    }
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeLinkSnapshot(
+        JNIEnv* env,
+        jobject) {
+    const auto snapshot = runtime()->captureLinkSnapshot();
 
-    private void updateMidiStatus(
-            List<AndroidMidiTransport.MidiEndpoint> endpoints,
-            AndroidMidiTransport.MidiEndpoint selectedOutput,
-            String connectionStatus) {
-        updateMidiInputCandidates(endpoints);
+    const std::string text =
+            std::string("enabled=") + (snapshot.enabled ? "true" : "false") +
+            " playing=" + (snapshot.playing ? "true" : "false") +
+            " inSession=" + (snapshot.inSession ? "true" : "false") +
+            " startStopSync=" +
+                    (snapshot.startStopSyncEnabled ? "true" : "false") +
+            " peers=" + std::to_string(snapshot.peers) +
+            " tempo=" + std::to_string(snapshot.tempoBpm) +
+            " beat=" + std::to_string(snapshot.beat) +
+            " phase=" + std::to_string(snapshot.phase) +
+            " quantum=" + std::to_string(snapshot.quantum);
 
-        final StringBuilder text = new StringBuilder();
-        text.append("\n").append(nativeEngineInfo());
-        text.append("\n\nMIDI endpoints discovered: ").append(endpoints.size());
+    return env->NewStringUTF(text.c_str());
+}
 
-        if (selectedOutput == null) {
-            text.append("\nMIDI OUT: no Arturia MicroFreak endpoint selected");
-        } else {
-            text.append("\nMIDI OUT: ")
-                    .append(selectedOutput.displayName())
-                    .append(selectedOutput.isUsb() ? " [USB]" : " [non-USB]")
-                    .append("\nAndroid device INPUT port selected for send");
-        }
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeStartAccompaniment(
+        JNIEnv*,
+        jobject) {
+    auto* app = runtime();
+    app->start();
+    app->setKeyScale(
+            mozart::musical::KeyScale{
+                    6, mozart::musical::Scale::NaturalMinor});
+    app->setLinkEnabled(true);
+    app->setAccompanimentEnabled(true);
+}
 
-        text.append("\n").append(connectionStatus);
-        text.append("\nManual key: ")
-                .append(KEY_LABELS[selectedRootPitchClass])
-                .append(" ")
-                .append(SCALE_LABELS[selectedScaleId]);
-        status.setText(text.toString());
-    }
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeTestMidiNote(
+        JNIEnv*,
+        jobject) {
+    return runtime()->sendDiagnosticNote() ? JNI_TRUE : JNI_FALSE;
+}
 
-    private void updateMidiInputCandidates(
-            List<AndroidMidiTransport.MidiEndpoint> endpoints) {
-        final List<AndroidMidiTransport.MidiEndpoint> candidates =
-                new ArrayList<>();
-        for (AndroidMidiTransport.MidiEndpoint endpoint : endpoints) {
-            if (endpoint.isDeviceOutput()) {
-                candidates.add(endpoint);
-            }
-        }
-
-        final AndroidMidiTransport.MidiEndpoint previousSelection =
-                midiInputSelection >= 0 &&
-                midiInputSelection < midiInputCandidates.size()
-                        ? midiInputCandidates.get(midiInputSelection)
-                        : null;
-
-        midiInputCandidates = Collections.unmodifiableList(candidates);
-
-        if (previousSelection != null) {
-            int preservedIndex = -1;
-            for (int i = 0; i < midiInputCandidates.size(); ++i) {
-                if (sameEndpoint(previousSelection, midiInputCandidates.get(i))) {
-                    preservedIndex = i;
-                    break;
-                }
-            }
-            midiInputSelection = preservedIndex;
-        } else if (midiInputSelection >= midiInputCandidates.size()) {
-            midiInputSelection = -1;
-        }
-
-        if (midiInputSelection < 0 && midiInput != null) {
-            midiInput.close();
-        }
-
-        if (midiInputButton != null) {
-            if (midiInputSelection < 0) {
-                midiInputButton.setText("MIDI IN: OFF");
-            } else {
-                midiInputButton.setText(
-                        "MIDI IN: " +
-                                midiInputCandidates
-                                        .get(midiInputSelection)
-                                        .displayName());
-            }
-        }
-
-        if (activityStarted &&
-                midiInput != null &&
-                midiInputSelection >= 0 &&
-                midiInputSelection < midiInputCandidates.size()) {
-            midiInput.open(midiInputCandidates.get(midiInputSelection));
-        }
-    }
-
-    private static boolean sameEndpoint(
-            AndroidMidiTransport.MidiEndpoint first,
-            AndroidMidiTransport.MidiEndpoint second) {
-        return first != null &&
-                second != null &&
-                first.deviceId == second.deviceId &&
-                first.portNumber == second.portNumber;
-    }
-
-    private void cycleMidiInputSource() {
-        if (midiInputCandidates.isEmpty()) {
-            status.append("\n\nMIDI IN: no device OUTPUT ports discovered.");
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetPatternSwing(
+        JNIEnv*,
+        jobject,
+        jint swing) {
+    switch (swing) {
+        case 0:
+            runtime()->setPatternSwing(
+                    mozart::generation::PatternSwing::Off);
+            break;
+        case 1:
+            runtime()->setPatternSwing(
+                    mozart::generation::PatternSwing::Light);
+            break;
+        case 2:
+            runtime()->setPatternSwing(
+                    mozart::generation::PatternSwing::Full);
+            break;
+        default:
             return;
-        }
-
-        midiInputSelection++;
-        if (midiInputSelection >= midiInputCandidates.size()) {
-            midiInputSelection = -1;
-            midiInput.close();
-            midiInputButton.setText("MIDI IN: OFF");
-            status.append("\n\nMIDI IN disabled.");
-            return;
-        }
-
-        final AndroidMidiTransport.MidiEndpoint endpoint =
-                midiInputCandidates.get(midiInputSelection);
-        midiInputButton.setText("MIDI IN: " + endpoint.displayName());
-        midiInput.open(endpoint);
-        status.append("\n\nMIDI IN source selected: " + endpoint.displayName());
     }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetPatternAccent(
+        JNIEnv*,
+        jobject,
+        jint accent) {
+    switch (accent) {
+        case 0:
+            runtime()->setPatternAccent(
+                    mozart::generation::PatternAccent::Off);
+            break;
+        case 1:
+            runtime()->setPatternAccent(
+                    mozart::generation::PatternAccent::Mild);
+            break;
+        case 2:
+            runtime()->setPatternAccent(
+                    mozart::generation::PatternAccent::Strong);
+            break;
+        default:
+            return;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetPatternDensity(
+        JNIEnv*,
+        jobject,
+        jint density) {
+    switch (density) {
+        case 0:
+            runtime()->setPatternDensity(
+                    mozart::generation::PatternDensity::Sparse);
+            break;
+        case 1:
+            runtime()->setPatternDensity(
+                    mozart::generation::PatternDensity::Normal);
+            break;
+        case 2:
+            runtime()->setPatternDensity(
+                    mozart::generation::PatternDensity::Full);
+            break;
+        default:
+            return;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetPerformanceScene(
+        JNIEnv*,
+        jobject,
+        jint sceneIndex) {
+    if (sceneIndex < 0 ||
+        sceneIndex >= static_cast<jint>(
+                mozart::scheduler::PerformanceScene::kSceneCount)) {
+        return;
+    }
+
+    runtime()->setPerformanceScene(
+            static_cast<std::uint8_t>(sceneIndex));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetAccompanimentRole(
+        JNIEnv*,
+        jobject,
+        jint role) {
+    switch (role) {
+        case 0:
+            runtime()->setAccompanimentRole(
+                    mozart::scheduler::AccompanimentRole::Bass);
+            break;
+        case 1:
+            runtime()->setAccompanimentRole(
+                    mozart::scheduler::AccompanimentRole::Arpeggio);
+            break;
+        default:
+            return;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetKeyContextSource(
+        JNIEnv*,
+        jobject,
+        jint source) {
+    if (source < 0 || source > 1) {
+        return;
+    }
+
+    runtime()->setKeyContextSource(
+            static_cast<mozart::musical::KeyContextSource>(source));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeResetAudioKeyContext(
+        JNIEnv*,
+        jobject) {
+    runtime()->resetAudioKeyContext();
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeKeyContextSnapshot(
+        JNIEnv* env,
+        jobject) {
+    const auto snapshot = runtime()->captureKeyContextSnapshot();
+    const char* source =
+            snapshot.source == mozart::musical::KeyContextSource::Audio
+                    ? "AUDIO"
+                    : "MANUAL";
+
+    const std::string text =
+            std::string("source=") + source +
+            " resolved=" +
+                    std::to_string(snapshot.resolvedKeyScale.rootPitchClass()) +
+                    ":" +
+                    std::to_string(
+                            static_cast<int>(snapshot.resolvedKeyScale.scale())) +
+            " manual=" +
+                    std::to_string(snapshot.manualKeyScale.rootPitchClass()) +
+                    ":" +
+                    std::to_string(
+                            static_cast<int>(snapshot.manualKeyScale.scale())) +
+            " stable=" +
+                    (snapshot.audio.hasStableKey ? "true" : "false") +
+            " confidence=" +
+                    std::to_string(snapshot.audio.confidence) +
+            " observations=" +
+                    std::to_string(snapshot.audio.consecutiveObservations);
+
+    return env->NewStringUTF(text.c_str());
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeStopAccompaniment(
+        JNIEnv*,
+        jobject) {
+    auto* app = runtime();
+    app->setAccompanimentEnabled(false);
+    app->setLinkEnabled(false);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetManualKeyScale(
+        JNIEnv*,
+        jobject,
+        jint rootPitchClass,
+        jint scaleId) {
+    if (rootPitchClass < 0 || rootPitchClass > 11 ||
+        scaleId < 0 || scaleId > 2) {
+        return;
+    }
+
+    runtime()->setKeyScale(
+            mozart::musical::KeyScale{
+                    static_cast<std::uint8_t>(rootPitchClass),
+                    static_cast<mozart::musical::Scale>(scaleId)});
+}
+
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_AndroidAudioKeyInput_nativeProcessAudioFrame(
+        JNIEnv* env,
+        jclass,
+        jshortArray samples,
+        jint sampleRate) {
+    if (samples == nullptr || sampleRate < 4000) {
+        return;
+    }
+
+    const jsize count = env->GetArrayLength(samples);
+    if (count < 32) {
+        return;
+    }
+
+    std::vector<std::int16_t> pcm(static_cast<std::size_t>(count));
+    env->GetShortArrayRegion(
+            samples,
+            0,
+            count,
+            reinterpret_cast<jshort*>(pcm.data()));
+
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    const auto chroma = mozart::musical::AudioChromaEstimator::estimate(
+            pcm.data(),
+            pcm.size(),
+            static_cast<std::uint32_t>(sampleRate));
+    const auto detection = mozart::musical::AudioKeyDetector::estimate(chroma);
+
+    runtime()->updateAudioKeyDetection(detection);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_AndroidMidiInput_nativeReceiveMidiBytes(
+        JNIEnv* env,
+        jclass,
+        jbyteArray data,
+        jint offset,
+        jint count,
+        jlong timestampNanos,
+        jint portId) {
+    if (data == nullptr ||
+        offset < 0 ||
+        count <= 0 ||
+        timestampNanos < 0 ||
+        portId < 0) {
+        return;
+    }
+
+    const jsize length = env->GetArrayLength(data);
+    if (offset > length || count > length - offset) {
+        return;
+    }
+
+    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(count));
+    env->GetByteArrayRegion(
+            data,
+            offset,
+            count,
+            reinterpret_cast<jbyte*>(bytes.data()));
+
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(g_midiInputMutex);
+    g_midiInputParser.feed(
+            bytes.data(),
+            bytes.size(),
+            static_cast<std::uint64_t>(timestampNanos),
+            static_cast<std::uint32_t>(portId),
+            g_midiReceiveQueue);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_AndroidMidiInput_nativeResetMidiInput(
+        JNIEnv*,
+        jclass) {
+    std::lock_guard<std::mutex> lock(g_midiInputMutex);
+    g_midiInputParser.reset();
+    g_midiReceiveQueue.reset();
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_miguelduval_mozart_AndroidMidiTransport_nativeSelectPreferredMidiOutput(
+        JNIEnv* env,
+        jclass,
+        jintArray deviceIds,
+        jintArray portNumbers,
+        jintArray portTypes,
+        jintArray transportTypes,
+        jobjectArray names,
+        jobjectArray manufacturers,
+        jobjectArray products) {
+    if (deviceIds == nullptr ||
+        portNumbers == nullptr ||
+        portTypes == nullptr ||
+        transportTypes == nullptr ||
+        names == nullptr ||
+        manufacturers == nullptr ||
+        products == nullptr) {
+        return -1;
+    }
+
+    const jsize count = env->GetArrayLength(deviceIds);
+    if (env->GetArrayLength(portNumbers) != count ||
+        env->GetArrayLength(portTypes) != count ||
+        env->GetArrayLength(transportTypes) != count ||
+        env->GetArrayLength(names) != count ||
+        env->GetArrayLength(manufacturers) != count ||
+        env->GetArrayLength(products) != count) {
+        return -1;
+    }
+
+    std::vector<mozart::midi::MidiEndpointDescriptor> candidates;
+    candidates.reserve(static_cast<std::size_t>(count));
+
+    for (jsize i = 0; i < count; ++i) {
+        mozart::midi::MidiEndpointDescriptor candidate;
+        candidate.deviceId =
+                static_cast<std::uint32_t>(intAt(env, deviceIds, i));
+        candidate.portNumber =
+                static_cast<std::uint32_t>(intAt(env, portNumbers, i));
+        candidate.direction =
+                portDirectionFromAndroid(intAt(env, portTypes, i));
+        candidate.transport =
+                transportKindFromAndroid(intAt(env, transportTypes, i));
+        candidate.name = javaStringToUtf8(env, names, i);
+        candidate.manufacturer = javaStringToUtf8(env, manufacturers, i);
+        candidate.product = javaStringToUtf8(env, products, i);
+        candidates.push_back(std::move(candidate));
+    }
+
+    const auto selection =
+            mozart::midi::MidiEndpointSelector::selectPreferredOutput(
+                    candidates, "Arturia", "MicroFreak");
+
+    return selection.selected()
+            ? static_cast<jint>(*selection.candidateIndex)
+            : static_cast<jint>(-1);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_miguelduval_mozart_AndroidMidiTransport_nativeOpenMidiOutputDevice(
+        JNIEnv* env,
+        jclass,
+        jobject midiDevice,
+        jint portNumber) {
+    return static_cast<jint>(
+            g_midiOutput.open(env, midiDevice, static_cast<std::int32_t>(portNumber)));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_AndroidMidiTransport_nativeCloseMidiOutputDevice(
+        JNIEnv*,
+        jclass) {
+    g_midiOutput.close();
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_miguelduval_mozart_AndroidMidiTransport_nativeSendShortMessage(
+        JNIEnv*,
+        jclass,
+        jint status,
+        jint data1,
+        jint data2,
+        jint size,
+        jlong timestampNanos) {
+    if (status < 0 || status > 255 ||
+        data1 < 0 || data1 > 255 ||
+        data2 < 0 || data2 > 255 ||
+        size < 0 || size > 3 ||
+        timestampNanos < 0) {
+        return static_cast<jint>(
+                mozart::midi::MidiTransportStatus::InvalidMessage);
+    }
+
+    const mozart::midi::MidiShortMessage message{
+        static_cast<std::uint8_t>(status),
+        static_cast<std::uint8_t>(data1),
+        static_cast<std::uint8_t>(data2),
+        static_cast<std::uint8_t>(size),
+        static_cast<std::uint64_t>(timestampNanos),
+        0
+    };
+
+    const auto result = g_midiOutput.send(message);
+    return static_cast<jint>(result.status);
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_miguelduval_mozart_AndroidMidiTransport_nativeIsMidiOutputOpenInternal(
+        JNIEnv*,
+        jclass) {
+    return g_midiOutput.isOpen() ? JNI_TRUE : JNI_FALSE;
 }
