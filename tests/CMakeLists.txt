@@ -26,6 +26,7 @@ add_executable(mozart_core_tests
     ../src/generation/BassGenerator.cpp
     ../src/generation/ArpeggioGenerator.cpp
     ../src/generation/ChordProgressionGenerator.cpp
+    ../src/generation/NoteRepeat.cpp
     ../src/midi/MidiReceiveQueue.cpp
 )
 
