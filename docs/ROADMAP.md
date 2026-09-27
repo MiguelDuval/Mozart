@@ -69,6 +69,7 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [x] Scale model.
 - [ ] Key/Scale context service with explicit source selection (Manual / Audio).
 - [x] Manual Key/Scale UI control.
+- [x] Stateless chroma-to-Key/Scale estimator core (Major / Natural Minor).
 - [ ] Local/offline microphone key/scale detector integration.
 - [ ] Audio detector confidence/stability/hysteresis policy.
 - [ ] Performer override from Audio back to Manual.
@@ -77,7 +78,7 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [x] Bass generator.
 - [x] Arpeggiator.
 - [ ] Voice leading.
-- [ ] Key/scale detection from MIDI input.
+- [ ] Key/scale detection from MIDI input (deferred; MIDI-IN remains optional infrastructure).
 
 ## Stage 5 — Performance
 - [ ] Scene/pattern switching.
