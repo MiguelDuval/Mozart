@@ -67,12 +67,14 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
 
       - name: Run Android emulator smoke test
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
         with:
-          api-level: 36
+          api-level: 35
           target: google_apis
           arch: x86_64
-          emulator-options: -no-snapshot-save -no-window -gpu off -noaudio -no-boot-anim -camera-back none
+          profile: pixel_7
+          force-avd-creation: true
+          emulator-options: -no-snapshot-save -no-snapshot-load -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           emulator-boot-timeout: 900
           disable-animations: true
           script: bash .github/scripts/android-smoke.sh
