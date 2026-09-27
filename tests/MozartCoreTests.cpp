@@ -889,7 +889,9 @@ int main() {
 
         runtime.handleMidiController(
                 mozart::midi::noteOn(0, 20, 100).value());
-        assert(runtime.performanceScene() == 3);
+        assert(
+                runtime.performanceScene() ==
+                mozart::scheduler::PerformanceScene::kCustomScene);
     }
 
     {
