@@ -100,7 +100,7 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 
 - [x] Define GenerationRequest / PatternProposal model contract.
 - [x] Add local model provider interface.
-- [ ] Add model event vocabulary/tokenization contract.
+- [x] Add model event vocabulary/tokenization contract.
 - [ ] Add LiteRT integration behind the provider boundary.
 - [ ] Add model loading/eviction lifecycle.
 - [ ] Add controlled style vocabulary (genre/subgenre/mood/rhythm/role).
