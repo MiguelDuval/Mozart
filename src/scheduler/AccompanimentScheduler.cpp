@@ -154,6 +154,17 @@ void AccompanimentScheduler::requestMutation() noexcept {
     wakeCondition_.notify_all();
 }
 
+void AccompanimentScheduler::setNoteRepeat(
+        const generation::NoteRepeatRate rate) noexcept {
+    requestedNoteRepeat_.store(rate);
+    requestedScene_.store(PerformanceScene::kCustomScene);
+    wakeCondition_.notify_all();
+}
+
+generation::NoteRepeatRate AccompanimentScheduler::noteRepeat() const noexcept {
+    return requestedNoteRepeat_.load();
+}
+
 void AccompanimentScheduler::applyRequestedScene() noexcept {
     const auto requestedScene = requestedScene_.load();
     if (requestedScene == PerformanceScene::kCustomScene) {
@@ -162,6 +173,7 @@ void AccompanimentScheduler::applyRequestedScene() noexcept {
         activeDensity_ = requestedDensity_.load();
         activeAccent_ = requestedAccent_.load();
         activeSwing_ = requestedSwing_.load();
+        activeNoteRepeat_ = requestedNoteRepeat_.load();
         return;
     }
 
@@ -171,6 +183,7 @@ void AccompanimentScheduler::applyRequestedScene() noexcept {
     activeDensity_ = scene.density;
     activeAccent_ = scene.accent;
     activeSwing_ = scene.swing;
+    activeNoteRepeat_ = requestedNoteRepeat_.load();
     requestedRole_.store(scene.role);
     requestedDensity_.store(scene.density);
     requestedAccent_.store(scene.accent);
@@ -227,12 +240,16 @@ void AccompanimentScheduler::run() {
                     activeKeyScale = activeKeyScale_;
                 }
 
-                const auto events =
+                const auto generatedEvents =
                         activeRole_ == AccompanimentRole::Arpeggio
                                 ? generation::ArpeggioGenerator::generateBar(
                                         activeKeyScale, 4, seed_, 0, activeDensity_)
                                 : generation::BassGenerator::generateBar(
                                         activeKeyScale, 2, seed_, 0, activeDensity_);
+                const auto events =
+                        generation::NoteRepeat::apply(
+                                generatedEvents,
+                                activeNoteRepeat);
 
                 if (events.empty()) {
                     nextBarIndex_ = 0;
