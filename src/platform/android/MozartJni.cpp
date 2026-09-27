@@ -290,6 +290,21 @@ Java_com_miguelduval_mozart_MainActivity_nativeSetNoteRepeat(
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetMacro(
+        JNIEnv*,
+        jobject,
+        jint control,
+        jint value) {
+    if (control < 0 || control > 1 || value < 0 || value > 127) {
+        return;
+    }
+
+    runtime()->setMacro(
+            static_cast<mozart::scheduler::MacroControl>(control),
+            static_cast<std::uint8_t>(value));
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_miguelduval_mozart_MainActivity_nativeSetAccompanimentRole(
         JNIEnv*,
         jobject,
