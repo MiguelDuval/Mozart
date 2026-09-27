@@ -11,6 +11,7 @@ namespace mozart::scheduler {
 
 struct PerformanceScene final {
     static constexpr std::uint8_t kSceneCount = 4;
+    static constexpr std::uint8_t kCustomScene = 0xFFu;
 
     std::uint8_t index = 0;
     AccompanimentRole role = AccompanimentRole::Bass;
