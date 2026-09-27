@@ -165,6 +165,35 @@ generation::NoteRepeatRate AccompanimentScheduler::noteRepeat() const noexcept {
     return requestedNoteRepeat_.load();
 }
 
+void AccompanimentScheduler::setMacro(
+        const MacroControl control,
+        const std::uint8_t value) noexcept {
+    const auto state = MacroControls::map(control, value);
+    switch (control) {
+        case MacroControl::Energy:
+            macroEnergy_.store(value);
+            requestedDensity_.store(state.density);
+            requestedAccent_.store(state.accent);
+            break;
+        case MacroControl::Motion:
+            macroMotion_.store(value);
+            requestedSwing_.store(state.swing);
+            requestedNoteRepeat_.store(state.noteRepeat);
+            break;
+    }
+
+    requestedScene_.store(PerformanceScene::kCustomScene);
+    wakeCondition_.notify_all();
+}
+
+std::uint8_t AccompanimentScheduler::macroEnergy() const noexcept {
+    return macroEnergy_.load();
+}
+
+std::uint8_t AccompanimentScheduler::macroMotion() const noexcept {
+    return macroMotion_.load();
+}
+
 void AccompanimentScheduler::applyRequestedScene() noexcept {
     const auto requestedScene = requestedScene_.load();
     if (requestedScene == PerformanceScene::kCustomScene) {
