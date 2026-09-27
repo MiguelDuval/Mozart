@@ -5,6 +5,7 @@
 #include "generation/BassGenerator.h"
 #include "generation/RhythmGenerator.h"
 #include "musical/AudioKeyDetector.h"
+#include "musical/AudioKeyStabilityFilter.h"
 #include "midi/MidiTransport.h"
 #include "midi/MidiReceiveQueue.h"
 #include "musical/KeyScale.h"
@@ -232,6 +233,70 @@ int main() {
 
         const AudioKeyDetector::Chroma silence{};
         assert(!AudioKeyDetector::estimate(silence).valid);
+
+        const AudioKeyDetector::Chroma invalid{
+            1.0, 0.0, 0.0, -1.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        };
+        assert(!AudioKeyDetector::estimate(invalid).valid);
+    }
+
+    {
+        using mozart::musical::AudioKeyDetector;
+        using mozart::musical::AudioKeyStabilityFilter;
+
+        const AudioKeyDetector::Chroma cMajor{
+            1.0, 0.3, 0.7, 0.4, 0.7, 0.4,
+            0.4, 0.9, 0.1, 0.4, 0.1, 0.2
+        };
+        const auto cMajorResult = AudioKeyDetector::estimate(cMajor);
+        assert(cMajorResult.valid);
+        assert(cMajorResult.keyScale.rootPitchClass() == 0);
+        assert(cMajorResult.keyScale.scale() == mozart::musical::Scale::Major);
+        assert(cMajorResult.confidence > 0.0);
+        assert(cMajorResult.score > cMajorResult.runnerUpScore);
+
+        AudioKeyStabilityFilter filter(0.10, 3);
+        assert(!filter.snapshot().hasStableKey);
+        filter.update(cMajorResult);
+        assert(!filter.snapshot().hasStableKey);
+        filter.update(cMajorResult);
+        assert(!filter.snapshot().hasStableKey);
+        filter.update(cMajorResult);
+        const auto stable = filter.snapshot();
+        assert(stable.hasStableKey);
+        assert(stable.keyScale.rootPitchClass() == 0);
+        assert(stable.keyScale.scale() == mozart::musical::Scale::Major);
+        assert(stable.confidence >= cMajorResult.confidence);
+
+        const AudioKeyDetector::Chroma aMinor{
+            0.7, 0.2, 0.7, 0.4, 0.9, 0.3,
+            0.3, 0.4, 1.0, 0.4, 0.2, 0.1
+        };
+        const auto aMinorResult = AudioKeyDetector::estimate(aMinor);
+        assert(aMinorResult.valid);
+        assert(aMinorResult.keyScale.rootPitchClass() == 9);
+        assert(aMinorResult.keyScale.scale() == mozart::musical::Scale::NaturalMinor);
+        assert(aMinorResult.confidence > 0.0);
+        assert(aMinorResult.score > aMinorResult.runnerUpScore);
+
+        filter.reset();
+        filter.update(aMinorResult);
+        assert(!filter.snapshot().hasStableKey);
+        filter.update(aMinorResult);
+        filter.update(aMinorResult);
+        assert(filter.snapshot().hasStableKey);
+        assert(filter.snapshot().keyScale.rootPitchClass() == 9);
+
+        const AudioKeyDetector::Chroma silence{};
+        const auto silenceResult = AudioKeyDetector::estimate(silence);
+        assert(!silenceResult.valid);
+        filter.update(silenceResult);
+        assert(filter.snapshot().consecutiveObservations == 0);
+        assert(filter.snapshot().hasStableKey);
+        
+        filter.reset();
+        assert(!filter.snapshot().hasStableKey);
 
         const AudioKeyDetector::Chroma invalid{
             1.0, 0.0, 0.0, -1.0, 0.0, 0.0,
