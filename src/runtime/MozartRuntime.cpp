@@ -165,6 +165,15 @@ void MozartRuntime::requestPatternMutation() noexcept {
     scheduler_.requestMutation();
 }
 
+void MozartRuntime::setNoteRepeat(
+        const generation::NoteRepeatRate rate) noexcept {
+    scheduler_.setNoteRepeat(rate);
+}
+
+generation::NoteRepeatRate MozartRuntime::noteRepeat() const noexcept {
+    return scheduler_.noteRepeat();
+}
+
 bool MozartRuntime::sendDiagnosticNote() {
     start();
 
