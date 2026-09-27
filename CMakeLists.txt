@@ -26,6 +26,7 @@ add_library(mozart-core STATIC
     src/generation/ChordProgressionGenerator.cpp
     src/generation/NoteRepeat.cpp
     src/midi/MidiReceiveQueue.cpp
+    src/midi/ControllerMapping.cpp
 )
 
 target_include_directories(mozart-core PUBLIC
