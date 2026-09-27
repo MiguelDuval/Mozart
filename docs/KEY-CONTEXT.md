@@ -57,7 +57,7 @@ When Audio mode is active, the current domain policy requires a valid detector r
 
 The `KeyContext` service now owns source selection, the manual fallback, audio stability state, and the resolved key presented to the accompaniment layer. `MozartRuntime` wires every resolved-key change into the scheduler. A direct manual key edit is the explicit performer override and switches the source back to Manual.
 
-Microphone capture and chroma extraction are deliberately not part of this service. The remaining integration step is an Android-local audio analysis worker that feeds detector results into `updateAudioKeyDetection()`. It must remain outside the scheduler/MIDI realtime path.
+The Android-local integration is now a small worker around `AudioRecord`: PCM16 frames are converted into a 12-bin chroma estimate by `AudioChromaEstimator`, passed to `AudioKeyDetector`, then submitted to `MozartRuntime::updateAudioKeyDetection()`. The worker stays outside the scheduler/MIDI realtime path. Microphone permission remains an Android UI concern; the musical domain owns only the resulting context.
 
 Changing key context should be treated as a musical event/state transition, not as a transport-clock event. Ableton Link continues to supply timing independently.
 
