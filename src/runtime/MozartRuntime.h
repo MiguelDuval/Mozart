@@ -45,6 +45,7 @@ public:
 
     void setPerformanceScene(std::uint8_t sceneIndex) noexcept;
     [[nodiscard]] std::uint8_t performanceScene() const noexcept;
+    void requestPatternMutation() noexcept;
 
     [[nodiscard]] bool sendDiagnosticNote();
 
