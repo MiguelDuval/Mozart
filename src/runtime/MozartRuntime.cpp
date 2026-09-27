@@ -174,6 +174,20 @@ generation::NoteRepeatRate MozartRuntime::noteRepeat() const noexcept {
     return scheduler_.noteRepeat();
 }
 
+void MozartRuntime::setMacro(
+        const scheduler::MacroControl control,
+        const std::uint8_t value) noexcept {
+    scheduler_.setMacro(control, value);
+}
+
+std::uint8_t MozartRuntime::macroEnergy() const noexcept {
+    return scheduler_.macroEnergy();
+}
+
+std::uint8_t MozartRuntime::macroMotion() const noexcept {
+    return scheduler_.macroMotion();
+}
+
 void MozartRuntime::handleMidiController(
         const midi::MidiShortMessage& message) noexcept {
     const auto command = controllerMapping_.resolve(message);
@@ -232,6 +246,12 @@ void MozartRuntime::handleMidiController(
             if (command.value >= 64) {
                 requestPatternMutation();
             }
+            break;
+        case midi::ControllerAction::MacroEnergy:
+            setMacro(scheduler::MacroControl::Energy, command.value);
+            break;
+        case midi::ControllerAction::MacroMotion:
+            setMacro(scheduler::MacroControl::Motion, command.value);
             break;
         case midi::ControllerAction::None:
         default:
