@@ -81,7 +81,7 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [ ] Key/scale detection from MIDI input (deferred; MIDI-IN remains optional infrastructure).
 
 ## Stage 5 — Performance
-- [ ] Scene/pattern switching.
+- [x] Scene/pattern switching.
 - [ ] Quantized pattern launch.
 - [ ] Live mutation.
 - [ ] Note repeat.
