@@ -20,6 +20,7 @@ add_executable(mozart_core_tests
     ../src/musical/AudioKeyStabilityFilter.cpp
     ../src/musical/KeyContext.cpp
     ../src/musical/AudioChromaEstimator.cpp
+    ../src/musical/Chord.cpp
     ../src/generation/RhythmGenerator.cpp
     ../src/generation/BassGenerator.cpp
     ../src/generation/ArpeggioGenerator.cpp
