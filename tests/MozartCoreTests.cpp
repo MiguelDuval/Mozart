@@ -524,7 +524,7 @@ int main() {
             assert(chord.isValid());
             assert(chord.noteCount() == 3);
             for (std::size_t i = 0; i < chord.noteCount(); ++i) {
-                assert(fSharpMinor.containsPitchClass(chord.pitchClassAt(i)));
+                assert(fSharpMinor.containsMidiNote(chord.pitchClassAt(i) + 60));
             }
         }
 
@@ -539,8 +539,8 @@ int main() {
         for (const auto& chord : major) {
             assert(chord.isValid());
             for (std::size_t i = 0; i < chord.noteCount(); ++i) {
-                assert(KeyScale{0, Scale::Major}.containsPitchClass(
-                        chord.pitchClassAt(i)));
+                assert(KeyScale{0, Scale::Major}.containsMidiNote(
+                        chord.pitchClassAt(i) + 60));
             }
         }
 
