@@ -85,7 +85,7 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [x] Quantized pattern launch.
 - [x] Live mutation.
 - [x] Note repeat.
-- [ ] Controller mappings.
+- [x] Controller mappings.
 - [ ] Macro controls.
 
 ## Stage 6 — Audio preview
