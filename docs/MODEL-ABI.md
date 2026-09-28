@@ -33,6 +33,19 @@ The internal C++ token type is `std::uint16_t`.
 
 The musical grid is **1/16 beat** by default.
 
+## Conditioning vocabulary
+
+The runtime-neutral generation request now carries four explicit control axes in addition to the primary style:
+
+- substyle: `generic`, `techno`, `dark_techno`, `hard_techno`, `trap`, `dark_trap`, `custom`;
+- mood: `neutral`, `driving`, `dark`, `aggressive`, `hypnotic`, `tense`, `atmospheric`, `custom`;
+- rhythm: `straight`, `syncopated`, `swing`, `half_time`, `double_time`, `broken`, `custom`;
+- role: `bass`, `arpeggio`, `chords`, `lead`, `drums`, `percussion`, `texture`, `custom`.
+
+The conditioning vocabulary ID is `mozart-conditioning-v1`.
+
+These tags are a model-independent contract. They do not prescribe how a future checkpoint encodes them into tensors. That mapping remains part of the model-dependent ABI and must be frozen from the actual export.
+
 ## Serialization semantics
 
 A generated pattern is represented as an ordered token stream:
@@ -156,7 +169,8 @@ The project currently has:
 - tokenizer/detokenizer contract;
 - provider interface;
 - strict validation;
-- LiteRT 2.2.0 SDK preparation.
+- LiteRT 2.2.0 SDK preparation;
+- runtime-neutral conditioning vocabulary for style, substyle, mood, rhythm and role.
 
 The project does **not** yet have:
 
