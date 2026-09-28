@@ -9,7 +9,9 @@ KeyScale::KeyScale(
       scale_(scale) {}
 
 bool KeyScale::isValid() const noexcept {
-    return rootPitchClass_ < 12;
+    return rootPitchClass_ < 12 &&
+            static_cast<std::uint8_t>(scale_) <=
+                    static_cast<std::uint8_t>(Scale::Dorian);
 }
 
 std::uint8_t KeyScale::rootPitchClass() const noexcept {
