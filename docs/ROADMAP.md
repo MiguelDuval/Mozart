@@ -113,6 +113,7 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Connect Lab selection to native ModelCatalog selection state.
 - [ ] Connect selected model to actual native generation backend execution.
 - [x] Add debug-only ONNX Runtime inspection for external model tensor ABI.
+- [x] Keep ONNX Runtime out of the commercial release dependency set via debug-only packaging.
 - [ ] Add concrete external-runtime inference adapters (ONNX and/or LiteRT).
 - [ ] Bind conditioning fields to the production model's tensor representation after the model ABI is frozen.
 - [ ] Build licensed-data provenance manifest.
