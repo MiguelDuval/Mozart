@@ -74,3 +74,4 @@ add_executable(mozart_pattern_variation_tests
 target_include_directories(mozart_pattern_variation_tests PRIVATE
     ../src
 )
+target_compile_features(mozart_pattern_variation_tests PRIVATE cxx_std_20)
