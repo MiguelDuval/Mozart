@@ -10,12 +10,6 @@ ARCHIVE="${ROOT_DIR}/build/litert_cc_sdk-v${LITERT_VERSION}.zip"
 
 mkdir -p "${ROOT_DIR}/build" "${DEST_DIR}"
 
-if command -v sha256sum >/dev/null 2>&1; then
-    SHA256_BIN="sha256sum"
-else
-    SHA256_BIN="shasum -a 256"
-fi
-
 if [[ -f "${ARCHIVE}" ]]; then
     echo "Using cached LiteRT SDK archive: ${ARCHIVE}"
 else
@@ -24,7 +18,15 @@ else
         --output "${ARCHIVE}" "${LITERT_URL}"
 fi
 
-actual_sha="$(eval "${SHA256_BIN} \"${ARCHIVE}\"" | awk '{print $1}')"
+if command -v sha256sum >/dev/null 2>&1; then
+    actual_sha="$(sha256sum "${ARCHIVE}" | awk '{print $1}')"
+elif command -v shasum >/dev/null 2>&1; then
+    actual_sha="$(shasum -a 256 "${ARCHIVE}" | awk '{print $1}')"
+else
+    echo "ERROR: sha256sum or shasum is required." >&2
+    exit 1
+fi
+
 if [[ "${actual_sha}" != "${LITERT_SHA256}" ]]; then
     echo "ERROR: LiteRT SDK checksum mismatch." >&2
     echo "Expected: ${LITERT_SHA256}" >&2
@@ -42,7 +44,7 @@ if [[ ! -f "${DEST_DIR}/CMakeLists.txt" ]]; then
     exit 1
 fi
 
-printf '%s\\n' "${LITERT_VERSION}" > "${DEST_DIR}/VERSION"
-printf '%s\\n' "${LITERT_SHA256}" > "${DEST_DIR}/SHA256"
+printf '%s\n' "${LITERT_VERSION}" > "${DEST_DIR}/VERSION"
+printf '%s\n' "${LITERT_SHA256}" > "${DEST_DIR}/SHA256"
 
 echo "LiteRT C++ SDK ${LITERT_VERSION} is ready at ${DEST_DIR}"
