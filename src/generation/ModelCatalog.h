@@ -3,6 +3,7 @@
 #include "generation/TokenInferenceBackend.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -61,6 +62,11 @@ public:
         return true;
     }
 
+    [[nodiscard]] const ModelCatalogEntry* modelAt(
+            const std::size_t index) const noexcept {
+        return index < models_.size() ? &models_[index] : nullptr;
+    }
+
     [[nodiscard]] const ModelCatalogEntry* findModel(
             const std::string_view modelId) const noexcept {
         for (const auto& model : models_) {
@@ -69,6 +75,18 @@ public:
             }
         }
         return nullptr;
+    }
+
+    [[nodiscard]] bool setEnabled(
+            const std::string_view modelId,
+            const bool enabled) noexcept {
+        for (auto& model : models_) {
+            if (model.modelId == modelId) {
+                model.enabled = enabled;
+                return true;
+            }
+        }
+        return false;
     }
 
     [[nodiscard]] TokenInferenceBackend* resolveBackend(
