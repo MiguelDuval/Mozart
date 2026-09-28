@@ -242,7 +242,11 @@ Java_com_miguelduval_mozart_MainActivity_nativeSelectedModelSnapshot(
             std::string("selected=") +
             (modelId.empty() ? "none" : modelId) +
             " class=" +
-            (privateExperimental ? "private_experimental" : "none");
+            (privateExperimental ? "private_experimental" : "none") +
+            " backend=" +
+            (runtime()->selectedModelBackendAvailable()
+                    ? "available"
+                    : "unavailable");
 
     return env->NewStringUTF(text.c_str());
 }
