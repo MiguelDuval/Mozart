@@ -197,6 +197,92 @@ int main() {
         assert(provider.isAvailable());
     }
 
+
+    {
+        using mozart::generation::GenerationRequest;
+        using mozart::generation::PatternProposal;
+        using mozart::generation::PatternProposalValidator;
+        using mozart::generation::PatternValidationStatus;
+
+        GenerationRequest request;
+        request.bars = 1;
+        request.polyphony = 2;
+        request.minNote = 48;
+        request.maxNote = 60;
+        request.density = 1.0;
+
+        PatternProposal proposal;
+        proposal.metadata.seed = request.seed;
+        proposal.metadata.confidence = 0.9;
+        proposal.noteEvents = {
+                {0.0, 2.0, 49, 100, 0},
+                {0.0, 2.0, 49, 100, 0},
+                {0.0, 2.0, 51, 0, 0},
+                {0.0, 2.0, 54, 90, 0}
+        };
+        proposal.controlEvents = {
+                {1.0, 0, 74, 64},
+                {1.0, 0, 74, 64}
+        };
+
+        const auto first = PatternProposalValidator::validate(request, proposal);
+        assert(first.ok());
+        assert(first.status == PatternValidationStatus::Ok);
+        assert(first.proposal.noteEvents.size() == 2);
+        assert(first.proposal.noteEvents[0].note == 49);
+        assert(first.proposal.noteEvents[1].note == 52);
+        assert(first.proposal.noteEvents[1].velocity == 1);
+        assert(first.proposal.controlEvents.size() == 1);
+
+        auto permuted = proposal;
+        std::reverse(permuted.noteEvents.begin(), permuted.noteEvents.end());
+        const auto second = PatternProposalValidator::validate(request, permuted);
+        assert(second.ok());
+        assert(second.proposal == first.proposal);
+
+        auto densityRequest = request;
+        densityRequest.polyphony = 1;
+        densityRequest.density = 0.25;
+
+        PatternProposal dense;
+        dense.metadata.seed = densityRequest.seed;
+        dense.metadata.confidence = 1.0;
+        dense.noteEvents = {
+                {0.0, 0.20, 49, 100, 0},
+                {0.25, 0.20, 50, 100, 0},
+                {0.50, 0.20, 52, 100, 0},
+                {0.75, 0.20, 54, 100, 0},
+                {1.00, 0.20, 56, 100, 0},
+                {1.25, 0.20, 57, 100, 0}
+        };
+
+        const auto densityResult =
+                PatternProposalValidator::validate(densityRequest, dense);
+        assert(densityResult.ok());
+        assert(densityResult.proposal.noteEvents.size() == 4);
+        assert(densityResult.proposal.noteEvents.back().startBeat == 0.75);
+
+        auto outside = proposal;
+        outside.noteEvents = {{3.9, 0.2, 54, 100, 0}};
+        const auto outsideResult =
+                PatternProposalValidator::validate(request, outside);
+        assert(outsideResult.status == PatternValidationStatus::InvalidProposal);
+        assert(!outsideResult.ok());
+
+        auto impossible = request;
+        impossible.minNote = 60;
+        impossible.maxNote = 60;
+        PatternProposal unrepresentable;
+        unrepresentable.metadata.confidence = 1.0;
+        unrepresentable.noteEvents = {{0.0, 0.5, 60, 100, 0}};
+        const auto impossibleResult =
+                PatternProposalValidator::validate(impossible, unrepresentable);
+        assert(
+                impossibleResult.status ==
+                PatternValidationStatus::NoUsableEvents);
+        assert(!impossibleResult.ok());
+    }
+
     {
         const auto message = mozart::midi::noteOn(0, 60, 100, 1234, 7);
         assert(message.has_value());
