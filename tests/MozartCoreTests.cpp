@@ -74,6 +74,19 @@ int main() {
         const auto invalid = provider.generate(request);
         assert(invalid.status == mozart::generation::GenerationStatus::InvalidRequest);
         assert(!invalid.ok());
+
+        request.tempoBpm = 128.0;
+        request.role = mozart::generation::GenerationRole::Lead;
+        const auto unsupported = provider.generate(request);
+        assert(unsupported.status == mozart::generation::GenerationStatus::Unavailable);
+        assert(!unsupported.ok());
+
+        request.role = mozart::generation::GenerationRole::Bass;
+        request.minNote = 60;
+        request.maxNote = 60;
+        const auto rangeFailure = provider.generate(request);
+        assert(rangeFailure.status == mozart::generation::GenerationStatus::Failed);
+        assert(!rangeFailure.ok());
     }
 
     {
