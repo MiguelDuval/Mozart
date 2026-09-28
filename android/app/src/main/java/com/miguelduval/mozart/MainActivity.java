@@ -273,6 +273,13 @@ public final class MainActivity extends Activity {
             status.append("\n\nArpeggio role selected; change takes effect at the next bar.");
         });
 
+        Button drums = new Button(this);
+        drums.setText("DRUMS");
+        drums.setOnClickListener(view -> {
+            nativeSetAccompanimentRole(2);
+            status.append("\n\nDrums role selected; change takes effect at the next bar.");
+        });
+
         Button density = new Button(this);
         density.setText("DENSITY: FULL");
         final int[] densityIndex = {2};
@@ -414,6 +421,12 @@ public final class MainActivity extends Activity {
                         1.0f));
         roleRow.addView(
                 arpeggio,
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1.0f));
+        roleRow.addView(
+                drums,
                 new LinearLayout.LayoutParams(
                         0,
                         ViewGroup.LayoutParams.WRAP_CONTENT,
