@@ -35,6 +35,8 @@ The authoritative project rules are in:
 7. Landscape-first Android UI.
 8. Every meaningful feature backed by automated tests where practical.
 
+Debug builds include a separate Experimental Model Lab for evaluating external model artifacts; production builds do not package those artifacts.
+
 ## Technology baseline
 
 - Android
