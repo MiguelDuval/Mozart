@@ -68,6 +68,7 @@ public final class MainActivity extends Activity {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView status;
     private TextView linkStatus;
+    private TextView midiOutputStatus;
     private TextView midiInputStatus;
     private TextView keyContextStatus;
     private AndroidMidiTransport midiTransport;
@@ -138,48 +139,133 @@ public final class MainActivity extends Activity {
         Log.i(TAG, "STARTUP: onCreate begin");
         super.onCreate(state);
 
+        final int bg = Color.rgb(11, 14, 19);
+        final int panel = Color.rgb(20, 25, 32);
+        final int panelAlt = Color.rgb(24, 30, 38);
+        final int textPrimary = Color.rgb(239, 244, 248);
+        final int textSecondary = Color.rgb(159, 173, 185);
+        final int accent = Color.rgb(53, 214, 181);
+        final int accentDark = Color.rgb(23, 92, 82);
+        final int warning = Color.rgb(244, 181, 74);
+        final int stopColor = Color.rgb(224, 92, 99);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER);
-        root.setPadding(48, 48, 48, 48);
+        root.setBackgroundColor(bg);
+        root.setPadding(dp(10), dp(8), dp(10), dp(6));
 
-        TextView title = new TextView(this);
-        title.setText("MOZART");
-        title.setTextSize(28.0f);
-        title.setGravity(Gravity.CENTER);
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
 
-        status = new TextView(this);
+        LinearLayout titleBlock = new LinearLayout(this);
+        titleBlock.setOrientation(LinearLayout.VERTICAL);
+        titleBlock.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView title = label("MOZART", 20.0f, textPrimary);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        TextView subtitle = label("LIVE ACCOMPANIST  •  LINK  •  MIDI", 10.0f, textSecondary);
+
+        titleBlock.addView(title);
+        titleBlock.addView(subtitle);
+
+        header.addView(titleBlock, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f));
+
+        LinearLayout liveStatus = new LinearLayout(this);
+        liveStatus.setOrientation(LinearLayout.VERTICAL);
+        liveStatus.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+
+        linkStatus = label("LINK  •  " + nativeLinkSnapshot(), 11.0f, accent);
+        linkStatus.setGravity(Gravity.END);
+        keyContextStatus = label("KEY  •  " + nativeKeyContextSnapshot(), 10.0f, textSecondary);
+        keyContextStatus.setGravity(Gravity.END);
+
+        liveStatus.addView(linkStatus);
+        liveStatus.addView(keyContextStatus);
+        header.addView(liveStatus);
+
+        root.addView(header, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(46)));
+
+        status = label("", 10.0f, textSecondary);
+        status.setGravity(Gravity.CENTER_VERTICAL);
+        status.setMaxLines(2);
+        status.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        status.setPadding(dp(8), 0, dp(8), 0);
+        status.setBackground(roundRect(panelAlt, dp(8), Color.TRANSPARENT, 0));
         Log.i(TAG, "STARTUP: nativeEngineInfo begin");
         final String engineInfo = nativeEngineInfo();
         Log.i(TAG, "STARTUP: nativeEngineInfo complete");
-        status.setText("\n" + engineInfo
-                + "\n\nMIDI discovery: waiting..."
-                + "\nManual key: " + KEY_LABELS[selectedRootPitchClass]
-                + " " + SCALE_LABELS[selectedScaleId]
-                + "\nLink accompanist: stopped");
-        status.setTextSize(16.0f);
-        status.setGravity(Gravity.CENTER);
+        status.setText("READY  •  " + engineInfo);
 
-        linkStatus = new TextView(this);
-        linkStatus.setText("Link: " + nativeLinkSnapshot());
-        linkStatus.setTextSize(14.0f);
-        linkStatus.setGravity(Gravity.CENTER);
+        root.addView(status, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(34)));
 
-        midiInputStatus = new TextView(this);
-        midiInputStatus.setText("MIDI IN: pending=0 received=0 dropped=0 last=none");
-        midiInputStatus.setTextSize(13.0f);
-        midiInputStatus.setGravity(Gravity.CENTER);
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setVerticalScrollBarEnabled(true);
+        scroll.setClipToPadding(false);
 
-        keyContextStatus = new TextView(this);
-        keyContextStatus.setText(
-                "KEY CONTEXT: " + nativeKeyContextSnapshot());
-        keyContextStatus.setTextSize(13.0f);
-        keyContextStatus.setGravity(Gravity.CENTER);
+        LinearLayout columns = new LinearLayout(this);
+        columns.setOrientation(LinearLayout.HORIZONTAL);
+        columns.setPadding(0, dp(6), 0, dp(10));
 
-        keySourceButton = new Button(this);
-        Button keySource = keySourceButton;
-        keySource.setText("KEY SOURCE: MANUAL");
-        keySource.setOnClickListener(view -> {
+        LinearLayout left = new LinearLayout(this);
+        left.setOrientation(LinearLayout.VERTICAL);
+        left.setPadding(0, 0, dp(4), 0);
+
+        LinearLayout right = new LinearLayout(this);
+        right.setOrientation(LinearLayout.VERTICAL);
+        right.setPadding(dp(4), 0, 0, 0);
+
+        columns.addView(left, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f));
+        columns.addView(right, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f));
+        scroll.addView(columns);
+        root.addView(scroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
+
+        // ---- LEFT: musical context + transport ----
+        LinearLayout contextCard = section("MUSICAL CONTEXT", panel, textSecondary);
+        LinearLayout keyScaleRow = row();
+        Button key = controlButton("KEY  F#", false, textPrimary, panelAlt);
+        Button scale = controlButton("SCALE  MINOR", false, textPrimary, panelAlt);
+
+        key.setOnClickListener(view -> {
+            if (audioKeyInput != null && audioKeyInput.isRunning()) {
+                audioKeyInput.stop();
+            }
+            nativeResetAudioKeyContext();
+            nativeSetKeyContextSource(0);
+            keySourceButton.setText("KEY SOURCE  MANUAL");
+            selectedRootPitchClass = (selectedRootPitchClass + 1) % 12;
+            nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
+            key.setText("KEY  " + KEY_LABELS[selectedRootPitchClass]);
+            appendStatus("KEY  " + KEY_LABELS[selectedRootPitchClass]
+                    + " • next bar");
+        });
+
+        scale.setOnClickListener(view -> {
+            if (audioKeyInput != null && audioKeyInput.isRunning()) {
+                audioKeyInput.stop();
+            }
+            nativeResetAudioKeyContext();
+            nativeSetKeyContextSource(0);
+            keySourceButton.setText("KEY SOURCE  MANUAL");
+            selectedScaleId = (selectedScaleId + 1) % 3;
+            nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
+            scale.setText("SCALE  " + SCALE_LABELS[selectedScaleId]);
+            appendStatus("SCALE  " + SCALE_LABELS[selectedScaleId]
+                    + " • next bar");
+        });
+
+        addEqual(keyScaleRow, key, scale);
+        contextCard.addView(keyScaleRow);
+
+        keySourceButton = controlButton("KEY SOURCE  MANUAL", false, textPrimary, panelAlt);
+        keySourceButton.setOnClickListener(view -> {
             if (audioKeyInput == null) {
                 return;
             }
@@ -188,9 +274,8 @@ public final class MainActivity extends Activity {
                 audioKeyInput.stop();
                 nativeResetAudioKeyContext();
                 nativeSetKeyContextSource(0);
-                keySource.setText("KEY SOURCE: MANUAL");
-                status.append(
-                        "\n\nAudio key detection disabled; Manual source active.");
+                keySourceButton.setText("KEY SOURCE  MANUAL");
+                appendStatus("AUDIO KEY  OFF");
                 return;
             }
 
@@ -200,271 +285,156 @@ public final class MainActivity extends Activity {
                 requestPermissions(
                         new String[]{Manifest.permission.RECORD_AUDIO},
                         RECORD_AUDIO_REQUEST);
-                status.append(
-                        "\n\nMicrophone permission required. Tap KEY SOURCE again after allowing it.");
+                appendStatus("MIC PERMISSION  REQUIRED");
                 return;
             }
 
             if (audioKeyInput.start()) {
                 nativeResetAudioKeyContext();
                 nativeSetKeyContextSource(1);
-                keySource.setText("KEY SOURCE: AUDIO");
-                status.append(
-                        "\n\nAudio key detection enabled; waiting for a stable result.");
+                keySourceButton.setText("KEY SOURCE  AUDIO");
+                appendStatus("AUDIO KEY  ON • waiting for stable result");
             } else {
-                status.append("\n\nAudio key detector could not start.");
+                appendStatus("AUDIO KEY  could not start");
             }
         });
+        contextCard.addView(keySourceButton);
 
-        Button key = new Button(this);
-        key.setText("KEY: F#");
-        key.setOnClickListener(view -> {
-            if (audioKeyInput != null && audioKeyInput.isRunning()) {
-                audioKeyInput.stop();
-            }
-            nativeResetAudioKeyContext();
-            nativeSetKeyContextSource(0);
-            keySource.setText("KEY SOURCE: MANUAL");
-            selectedRootPitchClass = (selectedRootPitchClass + 1) % 12;
-            nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
-            key.setText("KEY: " + KEY_LABELS[selectedRootPitchClass]);
-            status.append(
-                    "\n\nKey: " + KEY_LABELS[selectedRootPitchClass]
-                            + " selected; change takes effect at the next bar.");
-        });
+        left.addView(contextCard, sectionParams());
 
-        Button scale = new Button(this);
-        scale.setText("SCALE: MINOR");
-        scale.setOnClickListener(view -> {
-            if (audioKeyInput != null && audioKeyInput.isRunning()) {
-                audioKeyInput.stop();
-            }
-            nativeResetAudioKeyContext();
-            nativeSetKeyContextSource(0);
-            keySource.setText("KEY SOURCE: MANUAL");
-            selectedScaleId = (selectedScaleId + 1) % 3;
-            nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
-            scale.setText("SCALE: " + SCALE_LABELS[selectedScaleId]);
-            status.append(
-                    "\n\nScale: " + SCALE_LABELS[selectedScaleId]
-                            + " selected; change takes effect at the next bar.");
-        });
-
-        Button start = new Button(this);
-        start.setText("START LINK");
+        LinearLayout transportCard = section("LINK & TRANSPORT", panel, textSecondary);
+        transportCard.addView(label("LINK", 9.0f, textSecondary));
+        Button start = controlButton("START LINK", true, textPrimary, accentDark);
         start.setOnClickListener(view -> {
             nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
             nativeStartAccompaniment();
-            status.append("\n\nAccompaniment armed; following Link timing.");
+            appendStatus("ACCOMPANIMENT  STARTED");
             updateLinkStatus();
         });
 
-        Button bass = new Button(this);
-        bass.setText("BASS");
+        Button stop = controlButton("STOP", true, textPrimary, stopColor);
+        stop.setOnClickListener(view -> {
+            nativeStopAccompaniment();
+            appendStatus("ACCOMPANIMENT  STOPPED");
+            updateLinkStatus();
+        });
+
+        LinearLayout transportButtons = row();
+        addEqual(transportButtons, start, stop);
+        transportCard.addView(transportButtons);
+
+        midiOutputStatus = label("MIDI OUT  •  discovering...", 10.0f, textSecondary);
+        midiOutputStatus.setGravity(Gravity.CENTER_VERTICAL);
+        midiOutputStatus.setMaxLines(2);
+        midiOutputStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        transportCard.addView(midiOutputStatus, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(32)));
+
+        Button testMidi = controlButton("TEST MIDI OUT", true, textPrimary, warning);
+        testMidi.setOnClickListener(view -> {
+            final boolean queued = nativeTestMidiNote();
+            appendStatus(queued
+                    ? "TEST MIDI  C2 QUEUED"
+                    : "TEST MIDI  FAILED • check MIDI OUT");
+        });
+        transportCard.addView(testMidi);
+
+        left.addView(transportCard, sectionParams());
+
+        LinearLayout midiInCard = section("MIDI INPUT", panel, textSecondary);
+        midiInputButton = controlButton("MIDI IN  OFF", false, textPrimary, panelAlt);
+        midiInputButton.setOnClickListener(view -> cycleMidiInputSource());
+        midiInCard.addView(midiInputButton);
+
+        midiInputStatus = label("MIDI IN  •  pending=0 received=0 dropped=0", 10.0f, textSecondary);
+        midiInputStatus.setMaxLines(2);
+        midiInputStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        midiInCard.addView(midiInputStatus, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(32)));
+        left.addView(midiInCard, sectionParams());
+
+        // ---- RIGHT: performance controls ----
+        LinearLayout roleCard = section("ACCOMPANIMENT", panel, textSecondary);
+        LinearLayout roleRow = row();
+        Button bass = controlButton("BASS", false, textPrimary, panelAlt);
+        Button arpeggio = controlButton("ARPEGGIO", false, textPrimary, panelAlt);
+        Button drums = controlButton("DRUMS", false, textPrimary, panelAlt);
+
         bass.setOnClickListener(view -> {
             nativeSetAccompanimentRole(0);
-            status.append("\n\nBass role selected; change takes effect at the next bar.");
+            appendStatus("ROLE  BASS • next bar");
         });
-
-        Button arpeggio = new Button(this);
-        arpeggio.setText("ARPEGGIO");
         arpeggio.setOnClickListener(view -> {
             nativeSetAccompanimentRole(1);
-            status.append("\n\nArpeggio role selected; change takes effect at the next bar.");
+            appendStatus("ROLE  ARPEGGIO • next bar");
         });
-
-        Button drums = new Button(this);
-        drums.setText("DRUMS");
         drums.setOnClickListener(view -> {
             nativeSetAccompanimentRole(2);
-            status.append("\n\nDrums role selected; change takes effect at the next bar.");
+            appendStatus("ROLE  DRUMS • next bar");
         });
 
-        Button density = new Button(this);
-        density.setText("DENSITY: FULL");
+        addEqual(roleRow, bass, arpeggio, drums);
+        roleCard.addView(roleRow);
+
+        Button scene = controlButton("SCENE  1", false, textPrimary, panelAlt);
+        scene.setOnClickListener(view -> {
+            selectedSceneIndex = (selectedSceneIndex + 1) % 4;
+            nativeSetPerformanceScene(selectedSceneIndex);
+            scene.setText("SCENE  " + (selectedSceneIndex + 1));
+            appendStatus("SCENE  " + (selectedSceneIndex + 1) + " • next bar");
+        });
+        roleCard.addView(scene);
+
+        Button mutate = controlButton("MUTATE", true, textPrimary, accentDark);
+        mutate.setOnClickListener(view -> {
+            nativeRequestPatternMutation();
+            appendStatus("MUTATION  REQUESTED • next bar");
+        });
+        roleCard.addView(mutate);
+
+        LinearLayout rhythmRow = row();
+        Button density = controlButton("DENSITY  FULL", false, textPrimary, panelAlt);
         final int[] densityIndex = {2};
         density.setOnClickListener(view -> {
             densityIndex[0] = (densityIndex[0] + 1) % 3;
             final int selectedDensity = densityIndex[0];
             nativeSetPatternDensity(selectedDensity);
-            final String[] labels = {"DENSITY: SPARSE", "DENSITY: NORMAL", "DENSITY: FULL"};
+            final String[] labels = {"DENSITY  SPARSE", "DENSITY  NORMAL", "DENSITY  FULL"};
             density.setText(labels[selectedDensity]);
-            status.append(
-                    "\n\n" + labels[selectedDensity]
-                            + " selected; change takes effect at the next bar.");
+            appendStatus(labels[selectedDensity] + " • next bar");
         });
 
-        Button accent = new Button(this);
-        accent.setText("ACCENT: OFF");
+        Button accentButton = controlButton("ACCENT  OFF", false, textPrimary, panelAlt);
         final int[] accentIndex = {0};
-        accent.setOnClickListener(view -> {
+        accentButton.setOnClickListener(view -> {
             accentIndex[0] = (accentIndex[0] + 1) % 3;
             final int selectedAccent = accentIndex[0];
             nativeSetPatternAccent(selectedAccent);
-            final String[] labels = {
-                    "ACCENT: OFF",
-                    "ACCENT: MILD",
-                    "ACCENT: STRONG"
-            };
-            accent.setText(labels[selectedAccent]);
-            status.append(
-                    "\n\n" + labels[selectedAccent]
-                            + " selected; change takes effect at the next bar.");
+            final String[] labels = {"ACCENT  OFF", "ACCENT  MILD", "ACCENT  STRONG"};
+            accentButton.setText(labels[selectedAccent]);
+            appendStatus(labels[selectedAccent] + " • next bar");
         });
 
-        Button swing = new Button(this);
-        swing.setText("SWING: OFF");
+        Button swing = controlButton("SWING  OFF", false, textPrimary, panelAlt);
         final int[] swingIndex = {0};
         swing.setOnClickListener(view -> {
             swingIndex[0] = (swingIndex[0] + 1) % 3;
             final int selectedSwing = swingIndex[0];
             nativeSetPatternSwing(selectedSwing);
-            final String[] labels = {
-                    "SWING: OFF",
-                    "SWING: LIGHT",
-                    "SWING: FULL"
-            };
+            final String[] labels = {"SWING  OFF", "SWING  LIGHT", "SWING  FULL"};
             swing.setText(labels[selectedSwing]);
-            status.append(
-                    "\n\n" + labels[selectedSwing]
-                            + " selected; change takes effect at the next bar.");
+            appendStatus(labels[selectedSwing] + " • next bar");
         });
 
-        midiInputButton = new Button(this);
-        midiInputButton.setText("MIDI IN: OFF");
-        midiInputButton.setOnClickListener(view -> cycleMidiInputSource());
+        addEqual(rhythmRow, density, accentButton, swing);
+        roleCard.addView(rhythmRow);
+        right.addView(roleCard, sectionParams());
 
-        Button testMidi = new Button(this);
-        testMidi.setText("TEST MIDI OUT");
-        testMidi.setOnClickListener(view -> {
-            final boolean queued = nativeTestMidiNote();
-            status.append(
-                    queued
-                            ? "\n\nDiagnostic C2 note queued."
-                            : "\n\nDiagnostic C2 note could not be queued; check MIDI OUT status.");
-        });
+        LinearLayout macroCard = section("MACROS & REPEAT", panel, textSecondary);
+        LinearLayout macroRow = row();
 
-        Button stop = new Button(this);
-        stop.setText("STOP");
-        stop.setOnClickListener(view -> {
-            nativeStopAccompaniment();
-            status.append("\n\nAccompaniment stopped.");
-            updateLinkStatus();
-        });
-
-        root.addView(
-                title,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                status,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        0,
-                        1.0f));
-        LinearLayout keyScaleRow = new LinearLayout(this);
-        keyScaleRow.setOrientation(LinearLayout.HORIZONTAL);
-        keyScaleRow.setGravity(Gravity.CENTER);
-        keyScaleRow.addView(
-                key,
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1.0f));
-        keyScaleRow.addView(
-                scale,
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1.0f));
-        root.addView(
-                keyScaleRow,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                keySource,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                keyContextStatus,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                linkStatus,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                midiInputStatus,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                start,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        LinearLayout roleRow = new LinearLayout(this);
-        roleRow.setOrientation(LinearLayout.HORIZONTAL);
-        roleRow.setGravity(Gravity.CENTER);
-
-        roleRow.addView(
-                bass,
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1.0f));
-        roleRow.addView(
-                arpeggio,
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1.0f));
-        roleRow.addView(
-                drums,
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1.0f));
-
-        root.addView(
-                roleRow,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        Button scene = new Button(this);
-        scene.setText("SCENE: 1");
-        scene.setOnClickListener(view -> {
-            selectedSceneIndex = (selectedSceneIndex + 1) % 4;
-            nativeSetPerformanceScene(selectedSceneIndex);
-            scene.setText("SCENE: " + (selectedSceneIndex + 1));
-            status.append(
-                    "\n\nScene " + (selectedSceneIndex + 1)
-                            + " selected; switches at the next bar.");
-        });
-        root.addView(
-                scene,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        Button mutate = new Button(this);
-        mutate.setText("MUTATE");
-        mutate.setOnClickListener(view -> {
-            nativeRequestPatternMutation();
-            status.append(
-                    "\n\nPattern mutation requested; next bar will vary deterministically.");
-        });
-
-        Button noteRepeat = new Button(this);
+        Button noteRepeat = controlButton("REPEAT  OFF", false, textPrimary, panelAlt);
         final int[] noteRepeatRate = {1};
-        noteRepeat.setText("REPEAT: OFF");
         noteRepeat.setOnClickListener(view -> {
             noteRepeatRate[0]++;
             if (noteRepeatRate[0] > 4) {
@@ -472,117 +442,56 @@ public final class MainActivity extends Activity {
             }
             nativeSetNoteRepeat(noteRepeatRate[0]);
             final String[] labels = {
-                    "REPEAT: OFF",
-                    "REPEAT: 2X",
-                    "REPEAT: 3X",
-                    "REPEAT: 4X"
+                    "REPEAT  OFF",
+                    "REPEAT  2X",
+                    "REPEAT  3X",
+                    "REPEAT  4X"
             };
             noteRepeat.setText(labels[noteRepeatRate[0] - 1]);
-            status.append(
-                    "\n\n" + labels[noteRepeatRate[0] - 1]
-                            + " selected; change takes effect at the next bar.");
+            appendStatus(labels[noteRepeatRate[0] - 1] + " • next bar");
         });
-        root.addView(
-                mutate,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        root.addView(
-                noteRepeat,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        Button energy = new Button(this);
+        Button energy = controlButton("ENERGY  LOW", false, textPrimary, panelAlt);
         final int[] energyIndex = {0};
-        energy.setText("ENERGY: LOW");
         energy.setOnClickListener(view -> {
             energyIndex[0] = (energyIndex[0] + 1) % 3;
             final int value = energyIndex[0] == 0 ? 0 : (energyIndex[0] == 1 ? 64 : 127);
             nativeSetMacro(0, value);
-            final String[] labels = {"ENERGY: LOW", "ENERGY: MID", "ENERGY: HIGH"};
+            final String[] labels = {"ENERGY  LOW", "ENERGY  MID", "ENERGY  HIGH"};
             energy.setText(labels[energyIndex[0]]);
-            status.append("\n\n" + labels[energyIndex[0]]
-                    + " macro selected; change takes effect at the next bar.");
+            appendStatus(labels[energyIndex[0]] + " • next bar");
         });
 
-        Button motion = new Button(this);
+        Button motion = controlButton("MOTION  LOW", false, textPrimary, panelAlt);
         final int[] motionIndex = {0};
-        motion.setText("MOTION: LOW");
         motion.setOnClickListener(view -> {
             motionIndex[0] = (motionIndex[0] + 1) % 3;
             final int value = motionIndex[0] == 0 ? 0 : (motionIndex[0] == 1 ? 64 : 127);
             nativeSetMacro(1, value);
-            final String[] labels = {"MOTION: LOW", "MOTION: MID", "MOTION: HIGH"};
+            final String[] labels = {"MOTION  LOW", "MOTION  MID", "MOTION  HIGH"};
             motion.setText(labels[motionIndex[0]]);
-            status.append("\n\n" + labels[motionIndex[0]]
-                    + " macro selected; change takes effect at the next bar.");
+            appendStatus(labels[motionIndex[0]] + " • next bar");
         });
 
-        LinearLayout macroRow = new LinearLayout(this);
-        macroRow.setOrientation(LinearLayout.HORIZONTAL);
-        macroRow.setGravity(Gravity.CENTER);
-        macroRow.addView(
-                energy,
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1.0f));
-        macroRow.addView(
-                motion,
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1.0f));
+        addEqual(macroRow, noteRepeat, energy, motion);
+        macroCard.addView(macroRow);
+        right.addView(macroCard, sectionParams());
 
-        root.addView(
-                macroRow,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        root.addView(
-                density,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                accent,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                swing,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                midiInputButton,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(
-                testMidi,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
         if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
-            Button experimentalModels = new Button(this);
-            experimentalModels.setText("EXPERIMENTAL MODELS");
+            LinearLayout labCard = section("EXPERIMENTAL / DEBUG", panel, textSecondary);
+            Button experimentalModels = controlButton("EXPERIMENTAL MODELS", false, textPrimary, panelAlt);
             experimentalModels.setOnClickListener(view -> experimentalModelLab.show());
-            root.addView(
-                    experimentalModels,
-                    new LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT));
-        }
+            labCard.addView(experimentalModels);
 
-        root.addView(
-                stop,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
+            Button clearModel = controlButton("CLEAR MODEL SELECTION", false, textSecondary, panelAlt);
+            clearModel.setOnClickListener(view -> {
+                nativeClearSelectedModel();
+                selectedExperimentalModelId = "";
+                appendStatus("EXPERIMENTAL MODEL  CLEARED");
+            });
+            labCard.addView(clearModel);
+            right.addView(labCard, sectionParams());
+        }
 
         setContentView(root);
         Log.i(TAG, "STARTUP: setContentView complete");
@@ -594,7 +503,7 @@ public final class MainActivity extends Activity {
         midiTransport = new AndroidMidiTransport(this, midiListener);
         midiInput = new AndroidMidiInput(
                 this,
-                message -> status.append("\n\n" + message));
+                message -> appendStatus(message));
         audioKeyInput = new AndroidAudioKeyInput();
         experimentalModelLab = new ExperimentalModelLab(
                 this,
@@ -608,21 +517,134 @@ public final class MainActivity extends Activity {
                     final boolean selected = nativeSelectExperimentalModel(model.modelId);
                     if (selected) {
                         selectedExperimentalModelId = model.modelId;
-                        status.append(
-                                "\n\nExperimental model selected: "
-                                        + model.modelId
-                                        + "\n"
-                                        + nativeSelectedModelSnapshot());
+                        appendStatus("MODEL  " + model.modelId + " SELECTED");
                     } else {
-                        status.append(
-                                "\n\nExperimental model could not be selected: "
-                                        + model.modelId
-                                        + "\nCheck descriptor registration/backend configuration.");
+                        appendStatus("MODEL  " + model.modelId + " NOT SELECTED");
                     }
                 });
         Log.i(TAG, "STARTUP: AndroidMidiTransport constructed");
         Log.i(TAG, "STARTUP: AndroidMidiInput constructed");
         Log.i(TAG, "STARTUP: onCreate complete");
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private TextView label(String text, float sizeSp, int color) {
+        TextView view = new TextView(this);
+        view.setText(text);
+        view.setTextSize(sizeSp);
+        view.setTextColor(color);
+        view.setGravity(Gravity.CENTER_VERTICAL);
+        return view;
+    }
+
+    private LinearLayout section(String title, int backgroundColor, int secondaryColor) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(10), dp(8), dp(10), dp(8));
+        card.setBackground(roundRect(backgroundColor, dp(12), Color.rgb(49, 59, 70), dp(1)));
+
+        TextView heading = label(title, 10.0f, secondaryColor);
+        heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        card.addView(heading, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(18)));
+        return card;
+    }
+
+    private LinearLayout.LayoutParams sectionParams() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, 0, 0, dp(6));
+        return params;
+    }
+
+    private LinearLayout row() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        return row;
+    }
+
+    private void addEqual(LinearLayout row, Button... buttons) {
+        for (Button button : buttons) {
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    0, dp(38), 1.0f);
+            params.setMargins(dp(2), dp(2), dp(2), dp(2));
+            row.addView(button, params);
+        }
+    }
+
+    private Button controlButton(
+            String text,
+            boolean emphasized,
+            int textColor,
+            int fillColor) {
+        Button button = new Button(this);
+        button.setText(text);
+        button.setTextColor(textColor);
+        button.setTextSize(10.5f);
+        button.setGravity(Gravity.CENTER);
+        button.setAllCaps(false);
+        button.setTypeface(Typeface.DEFAULT, emphasized
+                ? Typeface.BOLD
+                : Typeface.NORMAL);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setPadding(dp(6), 0, dp(6), 0);
+        button.setBackground(roundRect(fillColor, dp(9), Color.rgb(59, 70, 82), dp(1)));
+        return button;
+    }
+
+    private GradientDrawable roundRect(
+            int fillColor,
+            int radius,
+            int strokeColor,
+            int strokeWidth) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(fillColor);
+        drawable.setCornerRadius(radius);
+        if (strokeWidth > 0) {
+            drawable.setStroke(strokeWidth, strokeColor);
+        }
+        return drawable;
+    }
+
+    private void appendStatus(String message) {
+        if (status == null || message == null) {
+            return;
+        }
+
+        String clean = message.trim();
+        if (clean.isEmpty()) {
+            return;
+        }
+
+        String current = status.getText() == null
+                ? ""
+                : status.getText().toString().trim();
+        if (current.startsWith("READY") && current.contains("Engine")) {
+            current = "";
+        }
+
+        String combined = current.isEmpty()
+                ? clean
+                : current + "\n" + clean;
+
+        String[] lines = combined.split("\\n");
+        int first = Math.max(0, lines.length - 2);
+        StringBuilder visible = new StringBuilder();
+        for (int i = first; i < lines.length; ++i) {
+            if (visible.length() > 0) {
+                visible.append("\n");
+            }
+            visible.append(lines[i]);
+        }
+        status.setText(visible.toString());
     }
 
     private void startRuntimeSmoke() {
@@ -724,25 +746,18 @@ public final class MainActivity extends Activity {
             String connectionStatus) {
         updateMidiInputCandidates(endpoints);
 
-        final StringBuilder text = new StringBuilder();
-        text.append("\n").append(nativeEngineInfo());
-        text.append("\n\nMIDI endpoints discovered: ").append(endpoints.size());
-
-        if (selectedOutput == null) {
-            text.append("\nMIDI OUT: no Arturia MicroFreak endpoint selected");
-        } else {
-            text.append("\nMIDI OUT: ")
-                    .append(selectedOutput.displayName())
-                    .append(selectedOutput.isUsb() ? " [USB]" : " [non-USB]")
-                    .append("\nAndroid device INPUT port selected for send");
+        if (midiOutputStatus != null) {
+            final String output;
+            if (selectedOutput == null) {
+                output = "MIDI OUT  •  no MicroFreak selected";
+            } else {
+                output = "MIDI OUT  •  " + selectedOutput.displayName()
+                        + (selectedOutput.isUsb() ? "  [USB]" : "  [NON-USB]");
+            }
+            midiOutputStatus.setText(output);
         }
-
-        text.append("\n").append(connectionStatus);
-        text.append("\nManual key: ")
-                .append(KEY_LABELS[selectedRootPitchClass])
-                .append(" ")
-                .append(SCALE_LABELS[selectedScaleId]);
-        status.setText(text.toString());
+        appendStatus("MIDI  " + connectionStatus
+                + "  •  endpoints=" + endpoints.size());
     }
 
     private void updateMidiInputCandidates(
@@ -811,7 +826,7 @@ public final class MainActivity extends Activity {
 
     private void cycleMidiInputSource() {
         if (midiInputCandidates.isEmpty()) {
-            status.append("\n\nMIDI IN: no device OUTPUT ports discovered.");
+            appendStatus("\n\nMIDI IN: no device OUTPUT ports discovered.");
             return;
         }
 
@@ -820,7 +835,7 @@ public final class MainActivity extends Activity {
             midiInputSelection = -1;
             midiInput.close();
             midiInputButton.setText("MIDI IN: OFF");
-            status.append("\n\nMIDI IN disabled.");
+            appendStatus("\n\nMIDI IN disabled.");
             return;
         }
 
@@ -828,6 +843,6 @@ public final class MainActivity extends Activity {
                 midiInputCandidates.get(midiInputSelection);
         midiInputButton.setText("MIDI IN: " + endpoint.displayName());
         midiInput.open(endpoint);
-        status.append("\n\nMIDI IN source selected: " + endpoint.displayName());
+        appendStatus("\n\nMIDI IN source selected: " + endpoint.displayName());
     }
 }
