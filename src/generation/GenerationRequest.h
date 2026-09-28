@@ -61,7 +61,16 @@ struct GenerationRequest final {
             return std::isfinite(value) && value >= 0.0 && value <= 1.0;
         };
 
-        return keyScale.isValid() &&
+        const auto styleValid =
+                static_cast<std::uint8_t>(style) <=
+                        static_cast<std::uint8_t>(GenerationStyle::Custom);
+        const auto roleValid =
+                static_cast<std::uint8_t>(role) <=
+                        static_cast<std::uint8_t>(GenerationRole::Custom);
+
+        return styleValid &&
+                roleValid &&
+                keyScale.isValid() &&
                 std::isfinite(tempoBpm) &&
                 tempoBpm >= 20.0 &&
                 tempoBpm <= 300.0 &&
@@ -70,6 +79,7 @@ struct GenerationRequest final {
                 polyphony >= kMinPolyphony &&
                 polyphony <= kMaxPolyphony &&
                 minNote <= maxNote &&
+                maxNote <= 127 &&
                 density >= 0.0 &&
                 density <= 1.0 &&
                 unitRange(energy) &&
