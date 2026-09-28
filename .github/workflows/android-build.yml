@@ -60,7 +60,7 @@ jobs:
           set -euo pipefail
           bash -n tools/fetch_litert.sh
           bash tools/fetch_litert.sh
-          test -f third_party/litert/CMakeLists.txt
+          test -f third_party/litert/litert_cc_sdk/CMakeLists.txt
           test "$(cat third_party/litert/VERSION)" = "2.2.0"
           test "$(cat third_party/litert/SHA256)" = "0aa619d80aef27303ad9c6e3759a20110f77e7b11ade9b68061b8c6e5904b0c6"
 
