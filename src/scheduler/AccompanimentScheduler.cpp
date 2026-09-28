@@ -2,6 +2,7 @@
 
 #include "core/MidiTypes.h"
 #include "core/TransportMath.h"
+#include "generation/DrumPatternGenerator.h"
 
 #include <algorithm>
 #include <chrono>
@@ -273,8 +274,11 @@ void AccompanimentScheduler::run() {
                         activeRole_ == AccompanimentRole::Arpeggio
                                 ? generation::ArpeggioGenerator::generateBar(
                                         activeKeyScale, 4, seed_, 0, activeDensity_)
-                                : generation::BassGenerator::generateBar(
-                                        activeKeyScale, 2, seed_, 0, activeDensity_);
+                                : (activeRole_ == AccompanimentRole::Drums
+                                           ? generation::DrumPatternGenerator::generateBar(
+                                                   seed_, activeDensity_)
+                                           : generation::BassGenerator::generateBar(
+                                                   activeKeyScale, 2, seed_, 0, activeDensity_));
                 const auto events =
                         generation::NoteRepeat::apply(
                                 generatedEvents,
