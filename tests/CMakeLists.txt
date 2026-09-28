@@ -16,12 +16,14 @@ add_executable(mozart_core_tests
     ../src/core/TransportMath.cpp
     ../src/core/MidiEndpoint.cpp
     ../src/musical/KeyScale.cpp
+    ../src/musical/Chord.cpp
     ../src/musical/AudioKeyDetector.cpp
     ../src/musical/AudioKeyStabilityFilter.cpp
     ../src/musical/KeyContext.cpp
     ../src/musical/AudioChromaEstimator.cpp
     ../src/musical/Chord.cpp
     ../src/musical/VoiceLeading.cpp
+    ../src/generation/RhythmGenerator.cpp
     ../src/generation/RhythmGenerator.cpp
     ../src/generation/BassGenerator.cpp
     ../src/generation/ArpeggioGenerator.cpp
