@@ -39,8 +39,8 @@ rm -rf "${DEST_DIR}"
 mkdir -p "${DEST_DIR}"
 unzip -q "${ARCHIVE}" -d "${DEST_DIR}"
 
-if [[ ! -f "${DEST_DIR}/CMakeLists.txt" ]]; then
-    echo "ERROR: extracted LiteRT SDK does not contain CMakeLists.txt at its root." >&2
+if [[ ! -f "${DEST_DIR}/litert_cc_sdk/CMakeLists.txt" ]]; then
+    echo "ERROR: extracted LiteRT SDK does not contain litert_cc_sdk/CMakeLists.txt." >&2
     exit 1
 fi
 
