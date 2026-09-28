@@ -107,6 +107,10 @@ public:
         return false;
     }
 
+    [[nodiscard]] TokenInferenceBackend* resolveSelectedBackend() const noexcept {
+        return resolveBackend(selectedModelId_);
+    }
+
     [[nodiscard]] TokenInferenceBackend* resolveBackend(
             const std::string_view modelId) const noexcept {
         const auto* model = findModel(modelId);
