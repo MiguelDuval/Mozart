@@ -108,6 +108,35 @@ int main() {
         assert(StyleVocabulary::isValidSlug("custom"));
         assert(!StyleVocabulary::isValidSlug("unknown"));
 
+        using mozart::generation::GenerationMood;
+        using mozart::generation::GenerationRhythm;
+        using mozart::generation::GenerationRole;
+        using mozart::generation::GenerationSubstyle;
+        assert(
+                StyleVocabulary::substyleFromSlug("dark_trap") ==
+                GenerationSubstyle::DarkTrap);
+        assert(
+                StyleVocabulary::isValidSubstyleSlug("dark_trap"));
+        assert(
+                !StyleVocabulary::isValidSubstyleSlug("unknown_substyle"));
+        assert(
+                StyleVocabulary::moodFromSlug("hypnotic") ==
+                GenerationMood::Hypnotic);
+        assert(
+                StyleVocabulary::isValidMoodSlug("atmospheric"));
+        assert(!StyleVocabulary::isValidMoodSlug("unknown_mood"));
+        assert(
+                StyleVocabulary::rhythmFromSlug("half_time") ==
+                GenerationRhythm::HalfTime);
+        assert(
+                StyleVocabulary::isValidRhythmSlug("double_time"));
+        assert(!StyleVocabulary::isValidRhythmSlug("unknown_rhythm"));
+        assert(StyleVocabulary::roleSlug(GenerationRole::Bass) == "bass");
+        assert(
+                StyleVocabulary::roleFromSlug("texture") ==
+                GenerationRole::Texture);
+        assert(!StyleVocabulary::isValidRoleSlug("unknown_role"));
+
         const auto dark = StyleVocabulary::profile(GenerationStyle::DarkTechno);
         assert(dark.slug == "dark_techno");
         assert(dark.displayName == "Dark Techno");
