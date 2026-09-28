@@ -112,7 +112,8 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Add Android debug-only Experimental Model Lab selector UI.
 - [x] Connect Lab selection to native ModelCatalog selection state.
 - [ ] Connect selected model to actual native generation backend execution.
-- [ ] Add concrete external-runtime adapters (for example ONNX and/or LiteRT).
+- [x] Add debug-only ONNX Runtime inspection for external model tensor ABI.
+- [ ] Add concrete external-runtime inference adapters (ONNX and/or LiteRT).
 - [ ] Bind conditioning fields to the production model's tensor representation after the model ABI is frozen.
 - [ ] Build licensed-data provenance manifest.
 - [ ] Build MIDI normalization and training dataset pipeline.
