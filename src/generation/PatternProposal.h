@@ -324,11 +324,13 @@ private:
         std::vector<musical::MusicalNoteEvent> accepted;
         accepted.reserve(events.size());
 
+        constexpr double kBeatEpsilon = 1.0e-9;
+
         for (const auto& candidate : events) {
             std::size_t activeCount = 0;
             for (const auto& active : accepted) {
                 if (active.startBeat + active.durationBeats >
-                        candidate.startBeat) {
+                        candidate.startBeat + kBeatEpsilon) {
                     ++activeCount;
                     if (activeCount >=
                             static_cast<std::size_t>(maxPolyphony)) {
