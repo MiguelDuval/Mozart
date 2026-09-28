@@ -53,7 +53,7 @@ Local AI must never be introduced by modifying the realtime clock/scheduler path
 ## Stage 3 — First useful accompanist
 Current vertical slice: Manual F# minor context → selectable deterministic bass/arpeggio accompaniment → Link rolling scheduler → bounded MIDI OUT queue → Android AMidi boundary. Physical MicroFreak MIDI receipt and Link tempo-following playback are verified.
 - [x] Deterministic seeded rhythm generator.
-- [ ] Kick/snare/hat-style accompaniment patterns.
+- [x] Kick/snare/hat-style accompaniment patterns.
 - [x] Bass accompaniment.
 - [x] Simple arpeggio role.
 - [x] Step density.
