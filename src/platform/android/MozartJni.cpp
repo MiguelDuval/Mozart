@@ -37,6 +37,23 @@ mozart::runtime::MozartRuntime* runtime() {
     return g_runtime.get();
 }
 
+[[nodiscard]] std::string jstringToUtf8(
+        JNIEnv* env,
+        jstring value) {
+    if (value == nullptr) {
+        return {};
+    }
+
+    const char* utf = env->GetStringUTFChars(value, nullptr);
+    if (utf == nullptr) {
+        return {};
+    }
+
+    const std::string result(utf);
+    env->ReleaseStringUTFChars(value, utf);
+    return result;
+}
+
 [[nodiscard]] std::string javaStringToUtf8(
         JNIEnv* env,
         jobjectArray values,
@@ -169,6 +186,65 @@ Java_com_miguelduval_mozart_MainActivity_nativeTestMidiNote(
         JNIEnv*,
         jobject) {
     return runtime()->sendDiagnosticNote() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeRegisterExperimentalModel(
+        JNIEnv* env,
+        jobject,
+        jstring modelId,
+        jstring displayName,
+        jstring backendId,
+        jstring artifactPath,
+        jstring manifestPath) {
+    mozart::generation::ModelCatalogEntry entry;
+    entry.modelId = jstringToUtf8(env, modelId);
+    entry.displayName = jstringToUtf8(env, displayName);
+    entry.backendId = jstringToUtf8(env, backendId);
+    entry.artifactPath = jstringToUtf8(env, artifactPath);
+    entry.manifestPath = jstringToUtf8(env, manifestPath);
+    entry.distributionClass =
+            mozart::generation::ModelDistributionClass::PrivateExperimental;
+    entry.enabled = true;
+
+    return runtime()->registerModel(std::move(entry))
+            ? JNI_TRUE
+            : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSelectExperimentalModel(
+        JNIEnv* env,
+        jobject,
+        jstring modelId) {
+    const auto value = jstringToUtf8(env, modelId);
+    return runtime()->selectModel(value)
+            ? JNI_TRUE
+            : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeClearSelectedModel(
+        JNIEnv*,
+        jobject) {
+    runtime()->clearSelectedModel();
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSelectedModelSnapshot(
+        JNIEnv* env,
+        jobject) {
+    const auto modelId = runtime()->selectedModelId();
+    const bool privateExperimental =
+            runtime()->selectedModelIsPrivateExperimental();
+
+    const std::string text =
+            std::string("selected=") +
+            (modelId.empty() ? "none" : modelId) +
+            " class=" +
+            (privateExperimental ? "private_experimental" : "none");
+
+    return env->NewStringUTF(text.c_str());
 }
 
 extern "C" JNIEXPORT void JNICALL
