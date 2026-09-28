@@ -73,7 +73,7 @@ public:
     }
 
     [[nodiscard]] bool selectModel(
-            const std::string_view modelId) noexcept {
+            const std::string_view modelId) {
         for (const auto& model : models_) {
             if (model.modelId == modelId && model.enabled) {
                 selectedModelId_ = model.modelId;
