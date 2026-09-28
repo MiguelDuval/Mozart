@@ -148,21 +148,28 @@ public:
         }
 
         // Canonicalize pitch/velocity before enforcing musical constraints.
+        // Percussion uses fixed MIDI pitches (GM-style drum mapping) rather than
+        // musical key/scale projection.
+        const bool percussionRole =
+                request.role == GenerationRole::Drums ||
+                request.role == GenerationRole::Percussion;
         for (auto& event : output.noteEvents) {
-            const auto projected =
-                    nearestScaleNote(
-                            event.note,
-                            request.minNote,
-                            request.maxNote,
-                            request.keyScale);
-            if (!projected.has_value()) {
-                return {
-                        PatternValidationStatus::NoUsableEvents,
-                        {},
-                        "note cannot be represented inside the requested key/pitch range"
-                };
+            if (!percussionRole) {
+                const auto projected =
+                        nearestScaleNote(
+                                event.note,
+                                request.minNote,
+                                request.maxNote,
+                                request.keyScale);
+                if (!projected.has_value()) {
+                    return {
+                            PatternValidationStatus::NoUsableEvents,
+                            {},
+                            "note cannot be represented inside the requested key/pitch range"
+                    };
+                }
+                event.note = *projected;
             }
-            event.note = *projected;
             if (event.velocity == 0) {
                 event.velocity = 1;
             }
@@ -178,7 +185,8 @@ public:
                                 patternLengthBeats *
                                 4.0 *
                                 request.density *
-                                static_cast<double>(request.polyphony)));
+                                static_cast<double>(request.polyphony) *
+                                static_cast<double>(request.ratchet)));
         if (output.noteEvents.size() > maxDenseEvents) {
             output.noteEvents.resize(maxDenseEvents);
         }
