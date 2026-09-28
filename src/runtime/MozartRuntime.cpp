@@ -315,6 +315,10 @@ bool MozartRuntime::selectedModelIsPrivateExperimental() const noexcept {
     return !modelId.empty() && modelCatalog_.isPrivateExperimental(modelId);
 }
 
+bool MozartRuntime::selectedModelBackendAvailable() const noexcept {
+    return modelCatalog_.resolveSelectedBackend() != nullptr;
+}
+
 musical::KeyContextSnapshot MozartRuntime::captureKeyContextSnapshot() const {
     return keyContext_.snapshot();
 }
