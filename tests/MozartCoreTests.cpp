@@ -149,6 +149,17 @@ int main() {
         request.maxNote = 90;
         assert(!request.isValid());
 
+        request.minNote = 36;
+        request.maxNote = 96;
+        request.chordProgression = {
+                mozart::musical::Chord(
+                        0, mozart::musical::ChordQuality::Major),
+                mozart::musical::Chord(
+                        12, mozart::musical::ChordQuality::Minor)
+        };
+        assert(!request.isValid());
+        request.chordProgression.clear();
+
         mozart::generation::PatternProposal proposal;
         proposal.metadata.seed = request.seed;
         proposal.metadata.confidence = 0.75;
