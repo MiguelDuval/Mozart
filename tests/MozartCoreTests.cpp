@@ -361,6 +361,22 @@ int main() {
         };
 
         StubTokenBackend backend;
+
+        mozart::generation::PatternProposal directSource;
+        directSource.metadata.confidence = 1.0;
+        directSource.noteEvents = {
+                {0.0, 0.5, 49, 100, 0},
+                {1.0, 0.5, 59, 127, 0}
+        };
+        const auto directEncoded =
+                MidiEventTokenizer::encode(directSource);
+        assert(directEncoded.has_value());
+        assert(directEncoded->size() == 10);
+        const auto directDecoded =
+                mozart::generation::MidiEventDetokenizer::decode(*directEncoded);
+        assert(directDecoded.has_value());
+        assert(directDecoded->noteEvents.size() == 2);
+
         LocalNeuralPatternProvider provider(backend);
 
         mozart::generation::GenerationRequest request;
