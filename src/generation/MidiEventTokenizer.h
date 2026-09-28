@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -21,8 +22,13 @@ public:
     };
 
     [[nodiscard]] static std::optional<std::vector<MidiEventToken>> encode(
+            const PatternProposal& proposal) {
+        return encode(proposal, Options{});
+    }
+
+    [[nodiscard]] static std::optional<std::vector<MidiEventToken>> encode(
             const PatternProposal& proposal,
-            const Options& options = {}) {
+            const Options& options) {
         if (!proposal.isWellFormed() ||
             !std::isfinite(options.beatGrid) ||
             options.beatGrid <= 0.0 ||
@@ -45,7 +51,7 @@ public:
                 return std::nullopt;
             }
             const double value = beat / grid;
-            if (value > static_cast<double>(INT64_MAX)) {
+            if (value > static_cast<double>(std::numeric_limits<std::int64_t>::max())) {
                 return std::nullopt;
             }
             return static_cast<std::int64_t>(
