@@ -107,3 +107,20 @@ Style labels should initially be represented as **controlled tags** (genre/subge
 - No note-by-note realtime neural inference.
 - No direct AI-to-MIDI hardware output without validation.
 - No dependency on a cloud AI provider for basic generation.
+
+
+## Amendment — Experimental Model Lab
+
+The production decision does not require Mozart to wait for a commercially distributable third-party checkpoint.
+
+Mozart therefore maintains a permanent Experimental Model Lab for private technical evaluation. External checkpoints may be connected through the universal TokenInferenceBackend boundary and selected through ModelCatalog.
+
+This does not change the production licensing decision:
+
+- experimental weights are not shipped in commercial APK/AAB artifacts;
+- experimental weights are not committed to Git;
+- experimental usage remains subject to the actual model license/terms;
+- all experimental outputs still pass Mozart's tokenizer/detokenizer and PatternProposalValidator path;
+- a model is promoted to production only after its weights, training data, provenance and redistribution rights are approved.
+
+This amendment deliberately separates technical model discovery from commercial model approval.
