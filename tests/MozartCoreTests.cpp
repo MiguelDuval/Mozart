@@ -9,6 +9,7 @@
 #include "generation/GenerationRequest.h"
 #include "generation/PatternProposal.h"
 #include "generation/LocalPatternProvider.h"
+#include "generation/DeterministicPatternProvider.h"
 #include "generation/MidiEventVocabulary.h"
 #include "generation/MidiEventTokenizer.h"
 #include "musical/AudioKeyDetector.h"
@@ -42,6 +43,39 @@
 #include <vector>
 
 int main() {
+    {
+        mozart::generation::GenerationRequest request;
+        request.role = mozart::generation::GenerationRole::Bass;
+        request.bars = 2;
+        request.density = 0.5;
+        request.seed = 12345;
+
+        mozart::generation::DeterministicPatternProvider provider;
+        assert(provider.isAvailable());
+
+        const auto result = provider.generate(request);
+        assert(result.ok());
+        assert(result.proposal.metadata.generatorId == "deterministic-local-v1");
+        assert(result.proposal.metadata.seed == request.seed);
+        assert(!result.proposal.noteEvents.empty());
+        for (const auto& event : result.proposal.noteEvents) {
+            assert(event.startBeat >= 0.0);
+            assert(event.startBeat < 8.0);
+            assert(event.note >= 36);
+            assert(event.note < 60);
+        }
+
+        request.role = mozart::generation::GenerationRole::Arpeggio;
+        const auto arpResult = provider.generate(request);
+        assert(arpResult.ok());
+        assert(!arpResult.proposal.noteEvents.empty());
+
+        request.tempoBpm = 10.0;
+        const auto invalid = provider.generate(request);
+        assert(invalid.status == mozart::generation::GenerationStatus::InvalidRequest);
+        assert(!invalid.ok());
+    }
+
     {
         using mozart::generation::MidiEventToken;
         using mozart::generation::MidiEventTokenizer;
