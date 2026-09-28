@@ -108,7 +108,7 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [ ] Build MIDI normalization and training dataset pipeline.
 - [ ] Train first compact model.
 - [ ] Add conditioning controls.
-- [ ] Add deterministic validation/post-processing.
+- [x] Add deterministic validation/post-processing.
 - [ ] Add generation latency/memory benchmarks on Android.
 - [ ] Quantize and package production model artifact.
 - [ ] Verify commercial redistribution requirements for final model and data.
