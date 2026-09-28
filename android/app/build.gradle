@@ -40,4 +40,9 @@ android {
             version "3.22.1"
         }
     }
+
+    // Experimental Model Lab dependency: never packaged into release builds.
+    dependencies {
+        debugImplementation "com.microsoft.onnxruntime:onnxruntime-android:1.30.0"
+    }
 }
