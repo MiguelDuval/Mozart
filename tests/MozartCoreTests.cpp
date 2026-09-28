@@ -588,6 +588,51 @@ int main() {
         assert(catalog.selectedModel() != nullptr);
         assert(catalog.selectedModel()->modelId == "private-test-model");
         assert(catalog.resolveSelectedBackend() == &backend);
+        assert(catalog.resolveSelectedBackend()->isAvailable());
+        assert(catalog.modelCount() == 1);
+
+        class UnavailableCatalogBackend final : public TokenInferenceBackend {
+        public:
+            [[nodiscard]] TokenInferenceResult generateTokens(
+                    const mozart::generation::GenerationRequest&,
+                    const std::size_t) override {
+                return {
+                        TokenInferenceStatus::Unavailable,
+                        {},
+                        0.0,
+                        0,
+                        "unavailable test backend"
+                };
+            }
+
+            [[nodiscard]] bool isAvailable() const noexcept override {
+                return false;
+            }
+
+            [[nodiscard]] std::string id() const override {
+                return "catalog-unavailable-backend";
+            }
+        };
+
+        UnavailableCatalogBackend unavailableBackend;
+        ModelCatalog unavailableCatalog;
+        assert(unavailableCatalog.registerBackend(unavailableBackend));
+        assert(unavailableCatalog.registerModel({
+                "unavailable-model",
+                "Unavailable Model",
+                "catalog-unavailable-backend",
+                "/data/user/0/mozart/models/unavailable.onnx",
+                "/data/user/0/mozart/models/unavailable.manifest",
+                ModelDistributionClass::PrivateExperimental,
+                true
+        }));
+        assert(unavailableCatalog.selectModel("unavailable-model"));
+        assert(unavailableCatalog.resolveSelectedBackend() == &unavailableBackend);
+        // Selection may succeed before a runtime/backend becomes usable; the
+        // runtime-facing availability flag must reflect the backend itself.
+        assert(!unavailableCatalog.resolveSelectedBackend()->isAvailable());
+
+        assert(catalog.modelCount() == 1);
         assert(catalog.modelCount() == 1);
         assert(catalog.backendCount() == 1);
         assert(catalog.setEnabled("private-test-model", false));
