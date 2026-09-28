@@ -25,6 +25,7 @@ add_executable(mozart_core_tests
     ../src/generation/RhythmGenerator.cpp
     ../src/generation/BassGenerator.cpp
     ../src/generation/ArpeggioGenerator.cpp
+    ../src/generation/DrumPatternGenerator.cpp
     ../src/generation/ChordProgressionGenerator.cpp
     ../src/generation/NoteRepeat.cpp
     ../src/generation/DeterministicPatternProvider.cpp
@@ -66,6 +67,7 @@ add_executable(mozart_pattern_variation_tests
     ../src/musical/KeyScale.cpp
     ../src/generation/BassGenerator.cpp
     ../src/generation/ArpeggioGenerator.cpp
+    ../src/generation/DrumPatternGenerator.cpp
     ../src/generation/DeterministicPatternProvider.cpp
 )
 
