@@ -25,6 +25,7 @@ model_revision
 model_file
 model_format
 model_sha256
+distribution_class
 vocabulary_id
 vocabulary_size
 context_length_tokens
@@ -63,6 +64,7 @@ model_revision: <FROZEN>
 model_file: <FROZEN>
 model_format: <FROZEN>
 model_sha256: <FROZEN>
+distribution_class: commercial | private_experimental
 
 vocabulary_id: mozart-midi-events-v1
 vocabulary_size: 512
@@ -148,6 +150,12 @@ Freeze the manifest only after the production checkpoint has been selected.
 7. Record training-data provenance and all implementation/weights/data redistribution licenses.
 8. Add a model manifest validation test before enabling the LiteRT backend.
 9. Run native/provider tests plus an Android inference smoke test with the exact model artifact.
+
+## Distribution compatibility gate
+
+A manifest with distribution_class `private_experimental` must never be used as evidence that the model may be redistributed. The classification records Mozart's packaging intent; the model's actual license remains authoritative.
+
+A production/commercial manifest must use `commercial` only after the implementation, weights, training-data and redistribution audit is complete.
 
 ## Runtime compatibility gates
 
