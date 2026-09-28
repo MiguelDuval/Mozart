@@ -7,6 +7,7 @@
 #include "generation/RhythmGenerator.h"
 #include "generation/NoteRepeat.h"
 #include "generation/GenerationRequest.h"
+#include "generation/StyleVocabulary.h"
 #include "generation/PatternProposal.h"
 #include "generation/LocalPatternProvider.h"
 #include "generation/TokenInferenceBackend.h"
@@ -91,6 +92,48 @@ int main() {
         const auto rangeFailure = provider.generate(request);
         assert(rangeFailure.status == mozart::generation::GenerationStatus::Failed);
         assert(!rangeFailure.ok());
+    }
+
+    {
+        using mozart::generation::GenerationStyle;
+        using mozart::generation::GenerationRequest;
+        using mozart::generation::StyleVocabulary;
+
+        assert(StyleVocabulary::fromSlug("electronic") == GenerationStyle::Electronic);
+        assert(StyleVocabulary::fromSlug("techno") == GenerationStyle::Techno);
+        assert(StyleVocabulary::fromSlug("dark_techno") == GenerationStyle::DarkTechno);
+        assert(StyleVocabulary::fromSlug("hard_techno") == GenerationStyle::HardTechno);
+        assert(StyleVocabulary::fromSlug("trap") == GenerationStyle::Trap);
+        assert(StyleVocabulary::fromSlug("unknown") == GenerationStyle::Custom);
+        assert(StyleVocabulary::isValidSlug("custom"));
+        assert(!StyleVocabulary::isValidSlug("unknown"));
+
+        const auto dark = StyleVocabulary::profile(GenerationStyle::DarkTechno);
+        assert(dark.slug == "dark_techno");
+        assert(dark.displayName == "Dark Techno");
+        assert(dark.defaultEnergy > dark.defaultEnergy - 0.01);
+        assert(dark.defaultDensity > 0.0);
+        assert(dark.defaultSyncopation >= 0.0);
+        assert(dark.defaultSyncopation <= 1.0);
+
+        const auto hard = StyleVocabulary::profile(GenerationStyle::HardTechno);
+        assert(hard.defaultEnergy > dark.defaultEnergy);
+        assert(hard.defaultDensity > dark.defaultDensity);
+
+        GenerationRequest request;
+        request.style = GenerationStyle::Trap;
+        request.energy = 0.0;
+        request.density = 0.0;
+        request.syncopation = 0.0;
+        request.swing = 0.0;
+        request.variation = 0.0;
+        StyleVocabulary::applyDefaults(request);
+        assert(request.isValid());
+        assert(std::abs(request.energy - 0.72) < 1.0e-12);
+        assert(std::abs(request.density - 0.64) < 1.0e-12);
+        assert(std::abs(request.syncopation - 0.58) < 1.0e-12);
+        assert(std::abs(request.swing - 0.10) < 1.0e-12);
+        assert(std::abs(request.variation - 0.66) < 1.0e-12);
     }
 
     {
