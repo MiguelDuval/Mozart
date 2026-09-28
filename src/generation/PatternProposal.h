@@ -173,7 +173,10 @@ public:
         const auto maxDenseEvents =
                 static_cast<std::size_t>(
                         std::ceil(
-                                patternLengthBeats * 4.0 * request.density));
+                                patternLengthBeats *
+                                4.0 *
+                                request.density *
+                                static_cast<double>(request.polyphony)));
         if (output.noteEvents.size() > maxDenseEvents) {
             output.noteEvents.resize(maxDenseEvents);
         }
