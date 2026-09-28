@@ -184,7 +184,8 @@ public:
         }
 
         if (output.noteEvents.empty() && output.controlEvents.empty() &&
-            request.density > 0.0) {
+            request.density > 0.0 &&
+            request.probability > 0.0) {
             return {
                     PatternValidationStatus::NoUsableEvents,
                     {},
