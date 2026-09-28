@@ -2,6 +2,7 @@
 
 #include "generation/ArpeggioGenerator.h"
 #include "generation/BassGenerator.h"
+#include "generation/PatternVariation.h"
 #include "musical/MusicalNote.h"
 
 #include <utility>
@@ -70,6 +71,12 @@ GenerationResult DeterministicPatternProvider::generate(
             proposal.noteEvents.push_back(event);
         }
     }
+
+    proposal.noteEvents = PatternVariation::apply(
+            proposal.noteEvents,
+            request.probability,
+            request.ratchet,
+            request.seed);
 
     proposal.metadata.confidence = proposal.noteEvents.empty() ? 0.0 : 1.0;
     if (proposal.noteEvents.size() > PatternProposal::kMaxNoteEvents) {
