@@ -11,7 +11,9 @@ Chord::Chord(
       quality_(quality) {}
 
 bool Chord::isValid() const noexcept {
-    return rootPitchClass_ < 12;
+    return rootPitchClass_ < 12 &&
+            static_cast<std::uint8_t>(quality_) <=
+                    static_cast<std::uint8_t>(ChordQuality::Diminished7);
 }
 
 std::uint8_t Chord::rootPitchClass() const noexcept {
