@@ -119,7 +119,7 @@ public:
             }
 
             if (isControllerToken(token)) {
-                if (index + 2 >= tokens.size()) {
+                if (index + 1 >= tokens.size()) {
                     return std::nullopt;
                 }
 
