@@ -105,7 +105,8 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [ ] Freeze production model tensor ABI.
 - [ ] Add LiteRT integration behind the provider boundary.
 - [ ] Add model loading/eviction lifecycle.
-- [x] Add controlled style vocabulary foundation (genre/style slugs and deterministic default conditioning profiles).\n- [ ] Expand style vocabulary with explicit substyle/mood/rhythm/role conditioning for the production model.
+- [x] Add controlled style vocabulary foundation (genre/style slugs and deterministic default conditioning profiles).
+- [ ] Expand style vocabulary with explicit substyle/mood/rhythm/role conditioning for the production model.
 - [ ] Build licensed-data provenance manifest.
 - [ ] Build MIDI normalization and training dataset pipeline.
 - [ ] Train first compact model.
