@@ -91,6 +91,11 @@ public:
         return findModel(selectedModelId_);
     }
 
+    [[nodiscard]] const ModelCatalogEntry* modelAt(
+            const std::size_t index) const noexcept {
+        return index < models_.size() ? &models_[index] : nullptr;
+    }
+
     [[nodiscard]] std::string selectedModelId() const {
         return selectedModelId_;
     }
