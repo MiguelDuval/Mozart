@@ -3,6 +3,7 @@ package com.miguelduval.mozart;
 import android.app.Activity;
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.content.pm.ApplicationInfo;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
@@ -65,6 +66,8 @@ public final class MainActivity extends Activity {
     private AndroidAudioKeyInput audioKeyInput;
     private Button midiInputButton;
     private Button keySourceButton;
+    private ExperimentalModelLab experimentalModelLab;
+    private String selectedExperimentalModelId = "";
     private List<AndroidMidiTransport.MidiEndpoint> midiInputCandidates = Collections.emptyList();
     private int midiInputSelection = -1;
     private boolean activityStarted = false;
@@ -542,6 +545,17 @@ public final class MainActivity extends Activity {
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
+        if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            Button experimentalModels = new Button(this);
+            experimentalModels.setText("EXPERIMENTAL MODELS");
+            experimentalModels.setOnClickListener(view -> experimentalModelLab.show());
+            root.addView(
+                    experimentalModels,
+                    new LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+
         root.addView(
                 stop,
                 new LinearLayout.LayoutParams(
@@ -560,6 +574,14 @@ public final class MainActivity extends Activity {
                 this,
                 message -> status.append("\n\n" + message));
         audioKeyInput = new AndroidAudioKeyInput();
+        experimentalModelLab = new ExperimentalModelLab(
+                this,
+                modelId -> {
+                    selectedExperimentalModelId = modelId;
+                    status.append(
+                            "\n\nExperimental model selected: " + modelId
+                                    + "\nModel runtime adapter will consume this selection when connected.");
+                });
         Log.i(TAG, "STARTUP: AndroidMidiTransport constructed");
         Log.i(TAG, "STARTUP: AndroidMidiInput constructed");
         Log.i(TAG, "STARTUP: onCreate complete");
