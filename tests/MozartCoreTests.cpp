@@ -139,6 +139,75 @@ int main() {
     }
 
     {
+        using mozart::generation::MidiEventDetokenizer;
+        using mozart::generation::MidiEventToken;
+        using namespace mozart::generation::midi_event_vocabulary;
+
+        mozart::generation::PatternProposal source;
+        source.metadata.confidence = 1.0;
+        source.noteEvents = {
+                {0.0, 0.5, 36, 100, 0},
+                {1.0, 0.25, 64, 127, 1}
+        };
+        source.controlEvents = {
+                {1.0, 0, 74, 64}
+        };
+
+        const auto encoded =
+                mozart::generation::MidiEventTokenizer::encode(source);
+        assert(encoded.has_value());
+
+        const auto decoded = MidiEventDetokenizer::decode(*encoded);
+        assert(decoded.has_value());
+        assert(decoded->isWellFormed());
+        assert(decoded->noteEvents.size() == source.noteEvents.size());
+        assert(decoded->controlEvents.size() == source.controlEvents.size());
+        assert(decoded->noteEvents[0].note == 36);
+        assert(decoded->noteEvents[1].note == 64);
+        assert(decoded->controlEvents[0].controller == 74);
+        assert(decoded->noteEvents[0].startBeat == 0.0);
+        assert(decoded->noteEvents[1].startBeat == 1.0);
+        assert(decoded->controlEvents[0].startBeat == 1.0);
+
+        std::vector<MidiEventToken> noChannel{
+                kBos,
+                noteToken(60),
+                velocityToken(16),
+                durationToken(4),
+                kEos
+        };
+        assert(!MidiEventDetokenizer::decode(noChannel).has_value());
+
+        std::vector<MidiEventToken> truncatedNote{
+                kBos,
+                channelToken(0),
+                noteToken(60),
+                velocityToken(16),
+                kEos
+        };
+        assert(!MidiEventDetokenizer::decode(truncatedNote).has_value());
+
+        std::vector<MidiEventToken> invalidShift{
+                kBos,
+                channelToken(0),
+                timeShiftToken(64),
+                timeShiftToken(64),
+                timeShiftToken(64),
+                kEos
+        };
+        MidiEventDetokenizer::Options bounded;
+        bounded.maxTimeShiftSteps = 100;
+        assert(!MidiEventDetokenizer::decode(invalidShift, bounded).has_value());
+
+        std::vector<MidiEventToken> invalidPadding{
+                kBos,
+                kPad,
+                kEos
+        };
+        assert(!MidiEventDetokenizer::decode(invalidPadding).has_value());
+    }
+
+    {
         mozart::generation::GenerationRequest request;
         assert(request.isValid());
 
