@@ -16,7 +16,7 @@ import java.util.Properties;
 
 public final class ExperimentalModelLab {
     public interface Listener {
-        void onModelSelected(String modelId);
+        void onModelSelected(ModelCandidate model);
     }
 
     public static final class ModelCandidate {
@@ -150,7 +150,7 @@ public final class ExperimentalModelLab {
             item.setPadding(24, 24, 24, 24);
             item.setOnClickListener(view -> {
                 if (listener != null) {
-                    listener.onModelSelected(model.modelId);
+                    listener.onModelSelected(model);
                 }
             });
             list.addView(item);
