@@ -92,6 +92,10 @@ Owns deterministic pattern creation and mutation.
 ### Local AI Generator
 Owns **non-realtime** neural music generation.
 
+Model selection is separated from model runtime. `ModelCatalog` maps stable model IDs to non-owning `TokenInferenceBackend` implementations. The same boundary supports commercial production models and the permanent Experimental Model Lab.
+
+Private experimental models are loaded from developer/user-controlled storage and are never part of the distributed app artifact. Their classification is packaging metadata, not a license override.
+
 The selected production target is a compact 30–60M-parameter symbolic-MIDI Transformer deployed in int8 form.
 
 It may consume:
@@ -124,6 +128,9 @@ Owns sample/synth rendering and realtime constraints.
 ### AI Provider
 Owns optional remote/provider interaction only. It never owns timing and it cannot bypass local validation.
 
+### Experimental Model Lab
+Owns development-time selection and loading of external model artifacts through `ModelCatalog`. It may evaluate models that are not eligible for commercial redistribution, subject to their actual licenses/terms. It must remain outside the realtime path and outside production packaging.
+
 ### UI
 Owns presentation and commands only.
 
@@ -140,6 +147,9 @@ Owns presentation and commands only.
 - UI → raw MIDI bytes
 - Local AI Generator → MIDI transport
 - Local AI Generator → Link timing
+- Experimental Model Lab → MIDI transport
+- Experimental Model Lab → Link timing
+- Experimental model artifact → production packaging
 
 ## Time representation
 
