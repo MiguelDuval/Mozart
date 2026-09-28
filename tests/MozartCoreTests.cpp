@@ -1796,6 +1796,76 @@ int main() {
                 output.firstNote.data1 == 42);
     }
 
+
+    {
+        class AccentSwingOutput final
+                : public mozart::midi::MidiOutputTransport {
+        public:
+            mozart::midi::MidiSendResult send(
+                    const mozart::midi::MidiShortMessage& message) noexcept override {
+                if (message.size == 3 &&
+                    (message.status & 0xF0) == 0x90 &&
+                    message.data2 > 0) {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    noteOns.push_back(message);
+                    condition.notify_all();
+                }
+                return {
+                        mozart::midi::MidiTransportStatus::Ok,
+                        message.size
+                };
+            }
+
+            void close() noexcept override {}
+
+            bool waitForNotes(const std::size_t expected) {
+                std::unique_lock<std::mutex> lock(mutex);
+                return condition.wait_for(
+                        lock,
+                        std::chrono::milliseconds(1000),
+                        [&] { return noteOns.size() >= expected; });
+            }
+
+            std::vector<mozart::midi::MidiShortMessage> copyNotes() const {
+                std::lock_guard<std::mutex> lock(mutex);
+                return noteOns;
+            }
+
+        private:
+            mutable std::mutex mutex;
+            std::condition_variable condition;
+            std::vector<mozart::midi::MidiShortMessage> noteOns;
+        };
+
+        AccentSwingOutput output;
+        mozart::clock::LinkClock clock(120.0, 4.0);
+        mozart::scheduler::MidiSendQueue queue(output);
+        mozart::scheduler::AccompanimentScheduler scheduler(clock, queue);
+
+        scheduler.setRole(mozart::scheduler::AccompanimentRole::Bass);
+        scheduler.setDensity(mozart::generation::PatternDensity::Full);
+        scheduler.setAccent(mozart::generation::PatternAccent::Strong);
+        scheduler.setSwing(mozart::generation::PatternSwing::Light);
+
+        clock.setEnabled(true);
+        queue.start();
+        scheduler.start();
+        scheduler.setArmed(true);
+
+        assert(output.waitForNotes(2));
+
+        scheduler.setArmed(false);
+        scheduler.stop();
+        queue.stop();
+
+        const auto notes = output.copyNotes();
+        assert(notes.size() >= 2);
+        assert(notes[0].data2 >= 100);
+        const auto delta = notes[1].timestampNanos - notes[0].timestampNanos;
+        assert(delta >= 280'000'000ULL);
+        assert(delta <= 330'000'000ULL);
+    }
+
     {
         class RecordingMidiOutput final : public mozart::midi::MidiOutputTransport {
         public:
