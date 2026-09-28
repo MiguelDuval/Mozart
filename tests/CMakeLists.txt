@@ -60,3 +60,15 @@ if(MOZART_ENABLE_LINK)
     )
     target_link_libraries(mozart_core_tests PRIVATE Ableton::Link Threads::Threads)
 endif()
+
+add_executable(mozart_pattern_variation_tests
+    PatternVariationTests.cpp
+    ../src/musical/KeyScale.cpp
+    ../src/generation/BassGenerator.cpp
+    ../src/generation/ArpeggioGenerator.cpp
+    ../src/generation/DeterministicPatternProvider.cpp
+)
+
+target_include_directories(mozart_pattern_variation_tests PRIVATE
+    ../src
+)
