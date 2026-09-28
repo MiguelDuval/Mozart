@@ -32,6 +32,23 @@ The provider returns structured data.
 
 It does not return arbitrary executable MIDI bytes.
 
+For neural providers the transport-neutral model path is:
+
+```
+GenerationRequest
+    -> model input encoding
+    -> model inference
+    -> MidiEventToken stream
+    -> strict MidiEventDetokenizer
+    -> PatternProposalValidator
+    -> validated PatternProposal
+```
+
+Every provider must apply the same deterministic validation gate before its
+proposal is accepted by the musical engine. The deterministic local provider
+uses this same validator, so the offline fallback and the future LiteRT path
+share the same output contract.
+
 A local model provider and future remote providers use the same boundary.
 
 ## Request
