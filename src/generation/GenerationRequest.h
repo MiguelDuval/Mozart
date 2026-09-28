@@ -3,6 +3,7 @@
 #include "musical/Chord.h"
 #include "musical/KeyScale.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -75,7 +76,11 @@ struct GenerationRequest final {
                 unitRange(syncopation) &&
                 unitRange(swing) &&
                 unitRange(variation) &&
-                chordProgression.size() <= static_cast<std::size_t>(bars) * 4U;
+                chordProgression.size() <= static_cast<std::size_t>(bars) * 4U &&
+                std::all_of(
+                        chordProgression.begin(),
+                        chordProgression.end(),
+                        [](const auto& chord) { return chord.isValid(); });
     }
 };
 
