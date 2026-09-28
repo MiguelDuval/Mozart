@@ -316,17 +316,19 @@ private:
         accepted.reserve(events.size());
 
         for (const auto& candidate : events) {
-            accepted.erase(
-                    std::remove_if(
-                            accepted.begin(),
-                            accepted.end(),
-                            [&](const auto& active) {
-                                return active.startBeat + active.durationBeats <=
-                                        candidate.startBeat;
-                            }),
-                    accepted.end());
+            std::size_t activeCount = 0;
+            for (const auto& active : accepted) {
+                if (active.startBeat + active.durationBeats >
+                        candidate.startBeat) {
+                    ++activeCount;
+                    if (activeCount >=
+                            static_cast<std::size_t>(maxPolyphony)) {
+                        break;
+                    }
+                }
+            }
 
-            if (accepted.size() < static_cast<std::size_t>(maxPolyphony)) {
+            if (activeCount < static_cast<std::size_t>(maxPolyphony)) {
                 accepted.push_back(candidate);
             }
         }
