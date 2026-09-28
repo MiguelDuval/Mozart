@@ -3,6 +3,7 @@
 #include "generation/MidiEventVocabulary.h"
 #include "generation/PatternProposal.h"
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -50,10 +51,7 @@ public:
             if (!midi_event_vocabulary::isValidToken(token) ||
                 token == midi_event_vocabulary::kPad ||
                 token == midi_event_vocabulary::kBos ||
-                token == midi_event_vocabulary::kEos ||
-                token >= midi_event_vocabulary::kChannelBase &&
-                token < midi_event_vocabulary::kNoteBase &&
-                false) {
+                token == midi_event_vocabulary::kEos) {
                 return std::nullopt;
             }
 
@@ -83,7 +81,7 @@ public:
             }
 
             if (isNoteToken(token)) {
-                if (index + 3 >= tokens.size()) {
+                if (index + 1 >= tokens.size()) {
                     return std::nullopt;
                 }
 
@@ -166,7 +164,7 @@ public:
 
 private:
     [[nodiscard]] static bool isFinitePositive(const double value) noexcept {
-        return value > 0.0 && value == value && value != std::numeric_limits<double>::infinity();
+        return std::isfinite(value) && value > 0.0;
     }
 
     [[nodiscard]] static bool isChannelToken(
