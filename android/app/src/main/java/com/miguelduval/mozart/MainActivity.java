@@ -588,11 +588,13 @@ public final class MainActivity extends Activity {
         button.setTextSize(10.5f);
         button.setGravity(Gravity.CENTER);
         button.setAllCaps(false);
+        button.setSingleLine(true);
+        button.setEllipsize(android.text.TextUtils.TruncateAt.END);
         button.setTypeface(Typeface.DEFAULT, emphasized
                 ? Typeface.BOLD
                 : Typeface.NORMAL);
-        button.setMinHeight(0);
-        button.setMinimumHeight(0);
+        button.setMinHeight(dp(38));
+        button.setMinimumHeight(dp(38));
         button.setMinWidth(0);
         button.setMinimumWidth(0);
         button.setPadding(dp(6), 0, dp(6), 0);
