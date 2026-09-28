@@ -15,6 +15,7 @@ Pinned baseline as of 2026-09-28.
 | Ableton Link | 4.0 | `e9a2e414d63f55f1aad158370b007a6fbdc1eeb9` | shared musical clock | Stage 2 |
 | Tracktion Engine | 3.2.0 | `0a5f4e6a5f53d09c89b414a44386a12df7fa1ec6` | higher-level sequencing/audio | staged |
 | LiteRT C++ SDK | 2.2.0 | release `v2.2.0`; SHA-256 `0aa619d80aef27303ad9c6e3759a20110f77e7b11ade9b68061b8c6e5904b0c6` | on-device local AI inference | preparation |
+| ONNX Runtime Android | 1.30.0 | official Maven Central AAR | Experimental Model Lab ONNX inspection | debug-only |
 
 ## Why these versions
 
@@ -28,7 +29,7 @@ Tracktion Engine 3.2.0 is staged and is not required by the realtime MIDI vertic
 
 LiteRT 2.2.0 is the first pinned local-AI runtime target. The official release publishes a C++ SDK asset, and the repository now verifies that asset by SHA-256 before extraction. The exact runtime packaging is intentionally deferred until the Mozart model tensor contract is frozen.
 
-See `docs/LITERT.md` for the reproducible SDK boundary and integration gates.
+See `docs/LITERT.md` for the reproducible SDK boundary and integration gates. ONNX Runtime 1.30.0 is intentionally debug-only for Experimental Model Lab inspection; it is not part of the commercial release dependency set.
 
 ## Licensing notes
 
