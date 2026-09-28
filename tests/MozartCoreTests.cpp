@@ -634,7 +634,6 @@ int main() {
         assert(!unavailableCatalog.resolveSelectedBackend()->isAvailable());
 
         assert(catalog.modelCount() == 1);
-        assert(catalog.modelCount() == 1);
         assert(catalog.backendCount() == 1);
         assert(catalog.setEnabled("private-test-model", false));
         assert(catalog.resolveBackend("private-test-model") == nullptr);
