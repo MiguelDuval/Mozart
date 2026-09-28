@@ -398,6 +398,10 @@ Java_com_miguelduval_mozart_MainActivity_nativeSetAccompanimentRole(
             runtime()->setAccompanimentRole(
                     mozart::scheduler::AccompanimentRole::Arpeggio);
             break;
+        case 2:
+            runtime()->setAccompanimentRole(
+                    mozart::scheduler::AccompanimentRole::Drums);
+            break;
         default:
             return;
     }
