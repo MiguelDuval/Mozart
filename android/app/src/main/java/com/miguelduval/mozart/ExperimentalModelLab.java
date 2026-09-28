@@ -12,6 +12,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import android.os.Handler;
+import android.os.Looper;
+
 import java.util.Properties;
 
 public final class ExperimentalModelLab {
@@ -42,6 +45,7 @@ public final class ExperimentalModelLab {
 
     private final Context context;
     private final Listener listener;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public ExperimentalModelLab(Context context, Listener listener) {
         this.context = context;
@@ -109,6 +113,18 @@ public final class ExperimentalModelLab {
         return models;
     }
 
+    private void inspectOnnx(ModelCandidate model) {
+        new Thread(() -> {
+            final String inspection =
+                    OnnxModelInspector.inspect(new File(model.artifactPath));
+            mainHandler.post(() -> new AlertDialog.Builder(context)
+                    .setTitle("ONNX MODEL ABI")
+                    .setMessage(inspection)
+                    .setPositiveButton("OK", null)
+                    .show());
+        }, "mozart-onnx-inspector").start();
+    }
+
     public void show() {
         final List<ModelCandidate> models = discover();
         if (models.isEmpty()) {
@@ -151,6 +167,9 @@ public final class ExperimentalModelLab {
             item.setOnClickListener(view -> {
                 if (listener != null) {
                     listener.onModelSelected(model);
+                }
+                if (model.artifactPath.toLowerCase().endsWith(".onnx")) {
+                    inspectOnnx(model);
                 }
             });
             list.addView(item);
