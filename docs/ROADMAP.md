@@ -109,7 +109,8 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Define runtime-neutral substyle/mood/rhythm/role conditioning vocabulary.
 - [x] Add universal model catalog/backend selection boundary for commercial and private experimental models.
 - [x] Define permanent Experimental Model Lab boundary (external model files stay outside repository/release artifacts).
-- [ ] Add Android Experimental Model Lab selector UI for development/experimental builds.
+- [x] Add Android debug-only Experimental Model Lab selector UI.
+- [ ] Connect Lab selection to native runtime model selection and generation.
 - [ ] Add concrete external-runtime adapters (for example ONNX and/or LiteRT).
 - [ ] Bind conditioning fields to the production model's tensor representation after the model ABI is frozen.
 - [ ] Build licensed-data provenance manifest.
