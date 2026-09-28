@@ -67,6 +67,8 @@ struct GenerationRequest final {
     static constexpr std::uint8_t kMaxBars = 16;
     static constexpr std::uint8_t kMinPolyphony = 1;
     static constexpr std::uint8_t kMaxPolyphony = 16;
+    static constexpr std::uint8_t kMinRatchet = 1;
+    static constexpr std::uint8_t kMaxRatchet = 4;
 
     GenerationStyle style = GenerationStyle::Techno;
     GenerationSubstyle substyle = GenerationSubstyle::Techno;
@@ -83,6 +85,8 @@ struct GenerationRequest final {
     std::uint8_t maxNote = 96;
 
     double density = 1.0;
+    double probability = 1.0;
+    std::uint8_t ratchet = 1;
     double energy = 0.5;
     double syncopation = 0.25;
     double swing = 0.0;
@@ -128,6 +132,10 @@ struct GenerationRequest final {
                 maxNote <= 127 &&
                 density >= 0.0 &&
                 density <= 1.0 &&
+                probability >= 0.0 &&
+                probability <= 1.0 &&
+                ratchet >= kMinRatchet &&
+                ratchet <= kMaxRatchet &&
                 unitRange(energy) &&
                 unitRange(syncopation) &&
                 unitRange(swing) &&
