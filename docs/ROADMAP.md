@@ -17,7 +17,6 @@ The Local AI stage may have small preparatory/documentation work earlier when re
 
 Local AI must never be introduced by modifying the realtime clock/scheduler path. Its output enters the existing musical-domain/pattern path and then uses the already-validated scheduler.
 
-
 ## Stage 0 — Foundation
 - [x] Empty repository converted into a documented project.
 - [x] Android/C++ build skeleton.
@@ -101,6 +100,7 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Define GenerationRequest / PatternProposal model contract.
 - [x] Add local model provider interface.
 - [x] Add model event vocabulary/tokenization contract.
+- [x] Pin LiteRT 2.2.0 C++ SDK and add reproducible checksum-verified fetch path.
 - [ ] Add LiteRT integration behind the provider boundary.
 - [ ] Add model loading/eviction lifecycle.
 - [ ] Add controlled style vocabulary (genre/subgenre/mood/rhythm/role).
