@@ -273,12 +273,24 @@ void AccompanimentScheduler::run() {
                 const auto generatedEvents =
                         activeRole_ == AccompanimentRole::Arpeggio
                                 ? generation::ArpeggioGenerator::generateBar(
-                                        activeKeyScale, 4, seed_, 0, activeDensity_)
+                                        activeKeyScale,
+                                        4,
+                                        seed_,
+                                        0,
+                                        activeDensity_,
+                                        activeAccent_,
+                                        activeSwing_)
                                 : (activeRole_ == AccompanimentRole::Drums
                                            ? generation::DrumPatternGenerator::generateBar(
                                                    seed_, activeDensity_)
                                            : generation::BassGenerator::generateBar(
-                                                   activeKeyScale, 2, seed_, 0, activeDensity_));
+                                                   activeKeyScale,
+                                                   2,
+                                                   seed_,
+                                                   0,
+                                                   activeDensity_,
+                                                   activeAccent_,
+                                                   activeSwing_));
                 const auto events =
                         generation::NoteRepeat::apply(
                                 generatedEvents,
