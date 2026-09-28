@@ -294,6 +294,27 @@ clock::LinkClockSnapshot MozartRuntime::captureLinkSnapshot() const {
     return linkClock_.captureAppSnapshot();
 }
 
+bool MozartRuntime::registerModel(generation::ModelCatalogEntry entry) {
+    return modelCatalog_.registerModel(std::move(entry));
+}
+
+bool MozartRuntime::selectModel(const std::string_view modelId) noexcept {
+    return modelCatalog_.selectModel(modelId);
+}
+
+void MozartRuntime::clearSelectedModel() noexcept {
+    modelCatalog_.clearSelection();
+}
+
+std::string MozartRuntime::selectedModelId() const {
+    return modelCatalog_.selectedModelId();
+}
+
+bool MozartRuntime::selectedModelIsPrivateExperimental() const noexcept {
+    const auto modelId = modelCatalog_.selectedModelId();
+    return !modelId.empty() && modelCatalog_.isPrivateExperimental(modelId);
+}
+
 musical::KeyContextSnapshot MozartRuntime::captureKeyContextSnapshot() const {
     return keyContext_.snapshot();
 }
