@@ -58,8 +58,8 @@ Current vertical slice: Manual F# minor context → selectable deterministic bas
 - [x] Simple arpeggio role.
 - [x] Step density.
 - [x] Accent.
-- [ ] Probability.
-- [ ] Ratchet.
+- [x] Probability.
+- [x] Ratchet.
 - [x] Swing.
 - [x] MIDI scheduler.
 - [x] MicroFreak external validation.
