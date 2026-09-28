@@ -1768,11 +1768,10 @@ int main() {
         mozart::scheduler::MidiSendQueue queue(output);
         mozart::scheduler::AccompanimentScheduler scheduler(clock, queue);
 
-        scheduler.setRole(
-                static_cast<mozart::scheduler::AccompanimentRole>(2));
+        scheduler.setRole(mozart::scheduler::AccompanimentRole::Drums);
         assert(
                 scheduler.role() ==
-                static_cast<mozart::scheduler::AccompanimentRole>(2));
+                mozart::scheduler::AccompanimentRole::Drums);
 
         clock.setEnabled(true);
         queue.start();
