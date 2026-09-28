@@ -327,8 +327,8 @@ int main() {
                 mozart::generation::PatternProposal source;
                 source.metadata.confidence = 1.0;
                 source.noteEvents = {
-                        {0.0, 0.5, request.minNote, 100, 0},
-                        {1.0, 0.5, request.maxNote, 127, 0}
+                        {0.0, 0.5, 49, 100, 0},
+                        {1.0, 0.5, 59, 127, 0}
                 };
 
                 const auto encoded = MidiEventTokenizer::encode(source);
@@ -365,8 +365,9 @@ int main() {
 
         mozart::generation::GenerationRequest request;
         request.bars = 1;
-        request.minNote = 48;
-        request.maxNote = 60;
+        request.polyphony = 2;
+        request.minNote = 49;
+        request.maxNote = 59;
         request.density = 1.0;
 
         const auto result = provider.generate(request);
