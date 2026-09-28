@@ -111,8 +111,8 @@ int main() {
         const auto dark = StyleVocabulary::profile(GenerationStyle::DarkTechno);
         assert(dark.slug == "dark_techno");
         assert(dark.displayName == "Dark Techno");
-        assert(dark.defaultEnergy > dark.defaultEnergy - 0.01);
-        assert(dark.defaultDensity > 0.0);
+        assert(std::abs(dark.defaultEnergy - 0.78) < 1.0e-12);
+        assert(std::abs(dark.defaultDensity - 0.82) < 1.0e-12);
         assert(dark.defaultSyncopation >= 0.0);
         assert(dark.defaultSyncopation <= 1.0);
 
