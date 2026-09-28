@@ -80,9 +80,20 @@ GenerationResult DeterministicPatternProvider::generate(
         };
     }
 
+    const auto validation = PatternProposalValidator::validate(
+            request,
+            proposal);
+    if (!validation.ok()) {
+        return {
+                GenerationStatus::Failed,
+                {},
+                validation.message
+        };
+    }
+
     return {
             GenerationStatus::Ok,
-            std::move(proposal),
+            std::move(validation.proposal),
             {}
     };
 }
