@@ -586,6 +586,7 @@ int main() {
         assert(catalog.selectedModelId() == "private-test-model");
         assert(catalog.selectedModel() != nullptr);
         assert(catalog.selectedModel()->modelId == "private-test-model");
+        assert(catalog.resolveSelectedBackend() == &backend);
         assert(catalog.modelCount() == 1);
         assert(catalog.backendCount() == 1);
         assert(catalog.setEnabled("private-test-model", false));
