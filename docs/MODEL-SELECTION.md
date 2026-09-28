@@ -6,6 +6,8 @@ Track external symbolic-MIDI model candidates before Mozart freezes a production
 
 The production target remains a compact 30–60M parameter causal symbolic-MIDI Transformer, deployable locally and quantized for Android.
 
+External checkpoints are now allowed as **private experimental models** through the Experimental Model Lab. This separates technical evaluation from commercial approval: an experimental checkpoint can be tested without becoming a dependency of the distributed Mozart artifact.
+
 This document is a research log, not a release approval. A candidate is not commercially approved merely because its code repository is permissively licensed; the exact model weights, tokenizer, training data and redistribution terms must all pass review.
 
 ## Evaluation gates
@@ -104,6 +106,12 @@ Status: HOLD FOR LICENSE/ARCHITECTURE CLARIFICATION.
 
 Source:
 https://huggingface.co/SimoneZanetti00/MIDIT-checkpoints
+
+## Experimental-model policy
+
+Candidates that are technically useful but fail the current commercial provenance/license gate should be evaluated through the Experimental Model Lab rather than promoted to production. Their weights stay outside Git and outside distributed APK/AAB artifacts.
+
+The model must still pass Mozart's runtime adapter, token detokenizer and PatternProposalValidator gates before its musical output is considered usable.
 
 ## Current engineering consequence
 
