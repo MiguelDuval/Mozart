@@ -586,15 +586,13 @@ public final class MainActivity extends Activity {
         experimentalModelLab = new ExperimentalModelLab(
                 this,
                 model -> {
-                    final boolean registered = nativeRegisterExperimentalModel(
+                    nativeRegisterExperimentalModel(
                             model.modelId,
                             model.displayName,
                             model.backendId,
                             model.artifactPath,
                             model.manifestPath);
-                    final boolean selected = registered
-                            ? nativeSelectExperimentalModel(model.modelId)
-                            : nativeSelectExperimentalModel(model.modelId);
+                    final boolean selected = nativeSelectExperimentalModel(model.modelId);
                     if (selected) {
                         selectedExperimentalModelId = model.modelId;
                         status.append(
