@@ -116,6 +116,11 @@ public:
         return resolveBackend(selectedModelId_);
     }
 
+    [[nodiscard]] bool selectedBackendAvailable() const noexcept {
+        const auto* backend = resolveSelectedBackend();
+        return backend != nullptr && backend->isAvailable();
+    }
+
     [[nodiscard]] TokenInferenceBackend* resolveBackend(
             const std::string_view modelId) const noexcept {
         const auto* model = findModel(modelId);
