@@ -20,6 +20,37 @@ enum class GenerationStyle : std::uint8_t {
     Custom = 5
 };
 
+enum class GenerationSubstyle : std::uint8_t {
+    Generic = 0,
+    Techno = 1,
+    DarkTechno = 2,
+    HardTechno = 3,
+    Trap = 4,
+    DarkTrap = 5,
+    Custom = 6
+};
+
+enum class GenerationMood : std::uint8_t {
+    Neutral = 0,
+    Driving = 1,
+    Dark = 2,
+    Aggressive = 3,
+    Hypnotic = 4,
+    Tense = 5,
+    Atmospheric = 6,
+    Custom = 7
+};
+
+enum class GenerationRhythm : std::uint8_t {
+    Straight = 0,
+    Syncopated = 1,
+    Swing = 2,
+    HalfTime = 3,
+    DoubleTime = 4,
+    Broken = 5,
+    Custom = 6
+};
+
 enum class GenerationRole : std::uint8_t {
     Bass = 0,
     Arpeggio = 1,
@@ -38,6 +69,9 @@ struct GenerationRequest final {
     static constexpr std::uint8_t kMaxPolyphony = 16;
 
     GenerationStyle style = GenerationStyle::Techno;
+    GenerationSubstyle substyle = GenerationSubstyle::Techno;
+    GenerationMood mood = GenerationMood::Driving;
+    GenerationRhythm rhythm = GenerationRhythm::Straight;
     GenerationRole role = GenerationRole::Bass;
     musical::KeyScale keyScale{6, musical::Scale::NaturalMinor};
     std::vector<musical::Chord> chordProgression{};
@@ -64,11 +98,23 @@ struct GenerationRequest final {
         const auto styleValid =
                 static_cast<std::uint8_t>(style) <=
                         static_cast<std::uint8_t>(GenerationStyle::Custom);
+        const auto substyleValid =
+                static_cast<std::uint8_t>(substyle) <=
+                        static_cast<std::uint8_t>(GenerationSubstyle::Custom);
+        const auto moodValid =
+                static_cast<std::uint8_t>(mood) <=
+                        static_cast<std::uint8_t>(GenerationMood::Custom);
+        const auto rhythmValid =
+                static_cast<std::uint8_t>(rhythm) <=
+                        static_cast<std::uint8_t>(GenerationRhythm::Custom);
         const auto roleValid =
                 static_cast<std::uint8_t>(role) <=
                         static_cast<std::uint8_t>(GenerationRole::Custom);
 
         return styleValid &&
+                substyleValid &&
+                moodValid &&
+                rhythmValid &&
                 roleValid &&
                 keyScale.isValid() &&
                 std::isfinite(tempoBpm) &&
