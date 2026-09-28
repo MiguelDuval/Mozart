@@ -110,7 +110,8 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Add universal model catalog/backend selection boundary for commercial and private experimental models.
 - [x] Define permanent Experimental Model Lab boundary (external model files stay outside repository/release artifacts).
 - [x] Add Android debug-only Experimental Model Lab selector UI.
-- [ ] Connect Lab selection to native runtime model selection and generation.
+- [x] Connect Lab selection to native ModelCatalog selection state.
+- [ ] Connect selected model to actual native generation backend execution.
 - [ ] Add concrete external-runtime adapters (for example ONNX and/or LiteRT).
 - [ ] Bind conditioning fields to the production model's tensor representation after the model ABI is frozen.
 - [ ] Build licensed-data provenance manifest.
