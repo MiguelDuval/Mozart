@@ -18,6 +18,15 @@ GenerationResult DeterministicPatternProvider::generate(
         };
     }
 
+    if (request.role != GenerationRole::Bass &&
+        request.role != GenerationRole::Arpeggio) {
+        return {
+                GenerationStatus::Unavailable,
+                {},
+                "deterministic provider does not support the requested role"
+        };
+    }
+
     PatternProposal proposal;
     proposal.metadata.seed = request.seed;
     proposal.metadata.generatorId = "deterministic-local-v1";
@@ -49,6 +58,14 @@ GenerationResult DeterministicPatternProvider::generate(
                                                    : PatternDensity::Full));
 
         for (auto event : events) {
+            if (event.note < request.minNote ||
+                event.note > request.maxNote) {
+                return {
+                        GenerationStatus::Failed,
+                        {},
+                        "deterministic provider generated a note outside the requested range"
+                };
+            }
             event.startBeat += static_cast<double>(bar) * 4.0;
             proposal.noteEvents.push_back(event);
         }
