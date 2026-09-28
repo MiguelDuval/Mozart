@@ -15,6 +15,9 @@ CMakeFiles/
 CMakeCache.txt
 CTestTestfile.cmake
 
+# External dependency worktrees / extracted SDKs
+third_party/litert/
+
 # OS
 .DS_Store
 Thumbs.db
