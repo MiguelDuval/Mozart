@@ -8,6 +8,7 @@
 #include "generation/NoteRepeat.h"
 #include "generation/GenerationRequest.h"
 #include "generation/StyleVocabulary.h"
+#include "generation/ModelCatalog.h"
 #include "generation/PatternProposal.h"
 #include "generation/LocalPatternProvider.h"
 #include "generation/TokenInferenceBackend.h"
