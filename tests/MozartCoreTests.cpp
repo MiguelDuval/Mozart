@@ -579,8 +579,15 @@ int main() {
         assert(catalog.resolveBackend("private-test-model") == &backend);
         assert(catalog.resolveBackend("missing-model") == nullptr);
         assert(catalog.resolveBackend("private-test-model") == &backend);
+        assert(catalog.modelAt(0) == model);
+        assert(catalog.modelAt(1) == nullptr);
         assert(catalog.modelCount() == 1);
         assert(catalog.backendCount() == 1);
+        assert(catalog.setEnabled("private-test-model", false));
+        assert(catalog.resolveBackend("private-test-model") == nullptr);
+        assert(!catalog.setEnabled("missing-model", true));
+        assert(catalog.setEnabled("private-test-model", true));
+        assert(catalog.resolveBackend("private-test-model") == &backend);
 
         model = nullptr;
         catalog.clear();
