@@ -1,11 +1,16 @@
 #pragma once
 
+#include "generation/GenerationRequest.h"
 #include "musical/MusicalNote.h"
 
+#include <algorithm>
+
 #include <cmath>
+#include <optional>
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace mozart::generation {
