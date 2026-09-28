@@ -289,4 +289,22 @@ public:
     }
 };
 
+inline constexpr std::string_view kConditioningVocabularyId =
+        "mozart-conditioning-v1";
+
+static_assert(
+        StyleVocabulary::fromSlug("dark_techno") ==
+        GenerationStyle::DarkTechno);
+static_assert(
+        StyleVocabulary::substyleFromSlug("dark_trap") ==
+        GenerationSubstyle::DarkTrap);
+static_assert(
+        StyleVocabulary::moodFromSlug("hypnotic") == GenerationMood::Hypnotic);
+static_assert(
+        StyleVocabulary::rhythmFromSlug("half_time") == GenerationRhythm::HalfTime);
+static_assert(StyleVocabulary::roleSlug(GenerationRole::Bass) == "bass");
+static_assert(
+        StyleVocabulary::profile(GenerationStyle::Trap).defaultRhythm ==
+        GenerationRhythm::HalfTime);
+
 } // namespace mozart::generation
