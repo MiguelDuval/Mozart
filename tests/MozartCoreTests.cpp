@@ -14,6 +14,7 @@
 #include "generation/TokenInferenceBackend.h"
 #include "generation/LocalNeuralPatternProvider.h"
 #include "generation/DeterministicPatternProvider.h"
+#include "generation/DrumPatternGenerator.h"
 #include "generation/MidiEventVocabulary.h"
 #include "generation/MidiEventTokenizer.h"
 #include "generation/MidiEventDetokenizer.h"
@@ -2001,5 +2002,51 @@ int main() {
     }
 #endif
 
+
+    {
+        mozart::generation::GenerationRequest request;
+        request.role = mozart::generation::GenerationRole::Drums;
+        request.bars = 2;
+        request.density = 1.0;
+        request.probability = 1.0;
+        request.ratchet = 1;
+        request.seed = 12345;
+
+        mozart::generation::DeterministicPatternProvider provider;
+        const auto first = provider.generate(request);
+        assert(first.ok());
+        assert(!first.proposal.noteEvents.empty());
+
+        bool hasKick = false;
+        bool hasSnare = false;
+        bool hasHat = false;
+        for (const auto& event : first.proposal.noteEvents) {
+            assert(event.channel == 9);
+            assert(event.note == 36 || event.note == 38 || event.note == 42);
+            hasKick = hasKick || event.note == 36;
+            hasSnare = hasSnare || event.note == 38;
+            hasHat = hasHat || event.note == 42;
+        }
+        assert(hasKick);
+        assert(hasSnare);
+        assert(hasHat);
+
+        const auto repeat = provider.generate(request);
+        assert(repeat.ok());
+        assert(repeat.proposal == first.proposal);
+
+        request.probability = 0.0;
+        const auto muted = provider.generate(request);
+        assert(muted.ok());
+        assert(muted.proposal.noteEvents.empty());
+
+        request.probability = 1.0;
+        request.ratchet = 2;
+        const auto ratcheted = provider.generate(request);
+        assert(ratcheted.ok());
+        assert(
+                ratcheted.proposal.noteEvents.size() ==
+                first.proposal.noteEvents.size() * 2U);
+    }
     return 0;
 }
