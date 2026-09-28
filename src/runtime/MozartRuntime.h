@@ -65,7 +65,7 @@ public:
 
     [[nodiscard]] bool registerModel(
             generation::ModelCatalogEntry entry);
-    [[nodiscard]] bool selectModel(std::string_view modelId) noexcept;
+    [[nodiscard]] bool selectModel(std::string_view modelId);
     void clearSelectedModel() noexcept;
     [[nodiscard]] std::string selectedModelId() const;
     [[nodiscard]] bool selectedModelIsPrivateExperimental() const noexcept;
