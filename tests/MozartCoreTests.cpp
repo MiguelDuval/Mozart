@@ -487,6 +487,79 @@ int main() {
 
 
     {
+        using mozart::generation::ModelCatalog;
+        using mozart::generation::ModelCatalogEntry;
+        using mozart::generation::ModelDistributionClass;
+        using mozart::generation::TokenInferenceBackend;
+        using mozart::generation::TokenInferenceResult;
+        using mozart::generation::TokenInferenceStatus;
+
+        class CatalogBackend final : public TokenInferenceBackend {
+        public:
+            [[nodiscard]] TokenInferenceResult generateTokens(
+                    const mozart::generation::GenerationRequest&,
+                    const std::size_t) override {
+                return {
+                        TokenInferenceStatus::Unavailable,
+                        {},
+                        0.0,
+                        0,
+                        "catalog test"
+                };
+            }
+
+            [[nodiscard]] bool isAvailable() const noexcept override {
+                return true;
+            }
+
+            [[nodiscard]] std::string id() const override {
+                return "catalog-test-backend";
+            }
+        };
+
+        CatalogBackend backend;
+        ModelCatalog catalog;
+        assert(catalog.registerBackend(backend));
+        assert(!catalog.registerBackend(backend));
+
+        assert(catalog.registerModel({
+                "private-test-model",
+                "Private Test Model",
+                "catalog-test-backend",
+                "/data/user/0/mozart/models/private-test.tflite",
+                "/data/user/0/mozart/models/private-test.manifest",
+                ModelDistributionClass::PrivateExperimental,
+                true
+        }));
+        assert(!catalog.registerModel({
+                "private-test-model",
+                "Duplicate",
+                "catalog-test-backend",
+                {},
+                {},
+                ModelDistributionClass::PrivateExperimental,
+                true
+        }));
+
+        const auto* model = catalog.findModel("private-test-model");
+        assert(model != nullptr);
+        assert(model->displayName == "Private Test Model");
+        assert(model->distributionClass == ModelDistributionClass::PrivateExperimental);
+        assert(catalog.isPrivateExperimental("private-test-model"));
+        assert(!catalog.isPrivateExperimental("missing-model"));
+        assert(catalog.resolveBackend("private-test-model") == &backend);
+        assert(catalog.resolveBackend("missing-model") == nullptr);
+        assert(catalog.resolveBackend("private-test-model") == &backend);
+        assert(catalog.modelCount() == 1);
+        assert(catalog.backendCount() == 1);
+
+        model = nullptr;
+        catalog.clear();
+        assert(catalog.modelCount() == 0);
+        assert(catalog.backendCount() == 0);
+    }
+
+    {
         using mozart::generation::GenerationRequest;
         using mozart::generation::PatternProposal;
         using mozart::generation::PatternProposalValidator;
