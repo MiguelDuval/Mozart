@@ -182,7 +182,9 @@ The repository currently provides:
 
 The Android debug-only Experimental Model Lab selector is now present. It discovers descriptors from app-private experimental-models storage and sends the selected model descriptor through JNI into the native ModelCatalog selection state.
 
-Concrete external-runtime adapters and native generation execution are the next implementation layers.
+For ONNX artifacts the lab also performs asynchronous model inspection through ONNX Runtime 1.30.0 and reports the actual input/output tensor ABI. This is inspection only; it does not yet perform model generation.
+
+Concrete external-runtime inference adapters and native generation execution are the next implementation layers.
 
 ## Related documents
 
