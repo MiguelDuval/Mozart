@@ -44,6 +44,8 @@ struct PatternProposal final {
     std::vector<PatternControlEvent> controlEvents{};
     PatternProposalMetadata metadata{};
 
+    friend bool operator==(const PatternProposal&, const PatternProposal&) = default;
+
     [[nodiscard]] bool isWellFormed() const noexcept {
         if (metadata.schemaVersion != PatternProposalMetadata::kSchemaVersion ||
             !std::isfinite(metadata.confidence) ||
