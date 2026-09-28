@@ -298,7 +298,7 @@ bool MozartRuntime::registerModel(generation::ModelCatalogEntry entry) {
     return modelCatalog_.registerModel(std::move(entry));
 }
 
-bool MozartRuntime::selectModel(const std::string_view modelId) noexcept {
+bool MozartRuntime::selectModel(const std::string_view modelId) {
     return modelCatalog_.selectModel(modelId);
 }
 
