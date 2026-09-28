@@ -1739,6 +1739,64 @@ int main() {
                 mozart::scheduler::PerformanceScene::kCustomScene);
     }
 
+
+    {
+        class DrumSchedulerOutput final
+                : public mozart::midi::MidiOutputTransport {
+        public:
+            mozart::midi::MidiSendResult send(
+                    const mozart::midi::MidiShortMessage& message) noexcept override {
+                if (message.size == 3 && (message.status & 0xF0) == 0x90 &&
+                    message.data2 > 0) {
+                    firstNote = message;
+                    noteReceived.store(true);
+                }
+                return {
+                        mozart::midi::MidiTransportStatus::Ok,
+                        message.size
+                };
+            }
+
+            void close() noexcept override {}
+
+            mozart::midi::MidiShortMessage firstNote{};
+            std::atomic_bool noteReceived{false};
+        };
+
+        DrumSchedulerOutput output;
+        mozart::clock::LinkClock clock(120.0, 4.0);
+        mozart::scheduler::MidiSendQueue queue(output);
+        mozart::scheduler::AccompanimentScheduler scheduler(clock, queue);
+
+        scheduler.setRole(
+                static_cast<mozart::scheduler::AccompanimentRole>(2));
+        assert(
+                scheduler.role() ==
+                static_cast<mozart::scheduler::AccompanimentRole>(2));
+
+        clock.setEnabled(true);
+        queue.start();
+        scheduler.start();
+        scheduler.setArmed(true);
+
+        for (int attempt = 0;
+             attempt < 400 && !output.noteReceived.load();
+             ++attempt) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+
+        scheduler.setArmed(false);
+        scheduler.stop();
+        queue.stop();
+
+        assert(output.noteReceived.load());
+        assert(output.firstNote.channel() == 10);
+        assert(
+                output.firstNote.data1 == 36 ||
+                output.firstNote.data1 == 38 ||
+                output.firstNote.data1 == 42);
+    }
+
     {
         class RecordingMidiOutput final : public mozart::midi::MidiOutputTransport {
         public:
