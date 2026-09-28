@@ -159,6 +159,28 @@ int main() {
         };
         assert(!request.isValid());
         request.chordProgression.clear();
+        request.style =
+                static_cast<mozart::generation::GenerationStyle>(255);
+        assert(!request.isValid());
+        request.style = mozart::generation::GenerationStyle::Techno;
+
+        request.role =
+                static_cast<mozart::generation::GenerationRole>(255);
+        assert(!request.isValid());
+        request.role = mozart::generation::GenerationRole::Bass;
+
+        request.keyScale =
+                mozart::musical::KeyScale{
+                        6,
+                        static_cast<mozart::musical::Scale>(255)};
+        assert(!request.isValid());
+        request.keyScale =
+                mozart::musical::KeyScale{
+                        6, mozart::musical::Scale::NaturalMinor};
+
+        request.maxNote = 255;
+        assert(!request.isValid());
+        request.maxNote = 96;
 
         mozart::generation::PatternProposal proposal;
         proposal.metadata.seed = request.seed;
@@ -272,6 +294,36 @@ int main() {
         assert(densityResult.ok());
         assert(densityResult.proposal.noteEvents.size() == 4);
         assert(densityResult.proposal.noteEvents.back().startBeat == 0.75);
+
+        auto polyphonicDensityRequest = request;
+        polyphonicDensityRequest.bars = 1;
+        polyphonicDensityRequest.polyphony = 4;
+        polyphonicDensityRequest.density = 0.5;
+
+        PatternProposal polyphonicDense;
+        polyphonicDense.metadata.seed = polyphonicDensityRequest.seed;
+        polyphonicDense.metadata.confidence = 1.0;
+        polyphonicDense.noteEvents.clear();
+        const std::uint8_t notes[] = {
+                49, 50, 52, 54, 56, 57, 59, 61,
+                62, 64, 66, 68
+        };
+        for (std::size_t i = 0; i < 12; ++i) {
+            polyphonicDense.noteEvents.push_back(
+                    mozart::musical::MusicalNoteEvent{
+                            static_cast<double>(i) * 0.25,
+                            0.10,
+                            notes[i],
+                            100,
+                            0});
+        }
+
+        const auto polyphonicDensityResult =
+                PatternProposalValidator::validate(
+                        polyphonicDensityRequest,
+                        polyphonicDense);
+        assert(polyphonicDensityResult.ok());
+        assert(polyphonicDensityResult.proposal.noteEvents.size() == 12);
 
         auto outside = proposal;
         outside.noteEvents = {{3.9, 0.2, 54, 100, 0}};
