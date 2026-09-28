@@ -588,7 +588,7 @@ int main() {
         assert(catalog.selectedModel() != nullptr);
         assert(catalog.selectedModel()->modelId == "private-test-model");
         assert(catalog.resolveSelectedBackend() == &backend);
-        assert(catalog.resolveSelectedBackend()->isAvailable());
+        assert(catalog.selectedBackendAvailable());
         assert(catalog.modelCount() == 1);
 
         class UnavailableCatalogBackend final : public TokenInferenceBackend {
@@ -628,6 +628,7 @@ int main() {
         }));
         assert(unavailableCatalog.selectModel("unavailable-model"));
         assert(unavailableCatalog.resolveSelectedBackend() == &unavailableBackend);
+        assert(!unavailableCatalog.selectedBackendAvailable());
         // Selection may succeed before a runtime/backend becomes usable; the
         // runtime-facing availability flag must reflect the backend itself.
         assert(!unavailableCatalog.resolveSelectedBackend()->isAvailable());
