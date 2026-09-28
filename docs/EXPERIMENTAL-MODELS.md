@@ -180,7 +180,9 @@ The repository currently provides:
 - strict detokenization and proposal validation;
 - a production model manifest template.
 
-The Android Experimental Model Lab UI and concrete external-runtime adapters are the next implementation layers.
+The Android debug-only Experimental Model Lab selector is now present. It discovers descriptors from app-private experimental-models storage, but generation is not yet switched by the selected ID.
+
+Concrete external-runtime adapters and native generation selection are the next implementation layers.
 
 ## Related documents
 
