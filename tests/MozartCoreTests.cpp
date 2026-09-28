@@ -1790,7 +1790,7 @@ int main() {
         queue.stop();
 
         assert(output.noteReceived.load());
-        assert(output.firstNote.channel() == 10);
+        assert((output.firstNote.status & 0x0F) == 9);
         assert(
                 output.firstNote.data1 == 36 ||
                 output.firstNote.data1 == 38 ||
