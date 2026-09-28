@@ -251,7 +251,7 @@ public final class MainActivity extends Activity {
         });
 
         Button start = new Button(this);
-        start.setText("START LINK BASS");
+        start.setText("START LINK");
         start.setOnClickListener(view -> {
             nativeSetManualKeyScale(selectedRootPitchClass, selectedScaleId);
             nativeStartAccompaniment();
