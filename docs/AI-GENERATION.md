@@ -25,7 +25,6 @@ The design is informed by open symbolic-music research such as FIGARO and REMI-s
 ```
 interface MusicGenerationProvider {
     generate(request) -> PatternProposal
-}
 ```
 
 The provider returns structured data.
@@ -44,18 +43,11 @@ GenerationRequest
     -> validated PatternProposal
 ```
 
-Every provider must apply the same deterministic validation gate before its
-proposal is accepted by the musical engine. The deterministic local provider
-uses this same validator, so the offline fallback and the future LiteRT path
-share the same output contract.
+Every provider must apply the same deterministic validation gate before its proposal is accepted by the musical engine. The deterministic local provider uses this same validator, so the offline fallback and the future LiteRT path share the same output contract.
 
 A local model provider and future remote providers use the same boundary.
 
-The neural provider is split into two responsibilities: a generic
-`TokenInferenceBackend` owns model-runtime interaction, while
-`LocalNeuralPatternProvider` owns detokenization and the common Mozart
-validation gate. LiteRT will implement the backend interface; it must not be
-embedded into the musical-domain classes.
+The neural provider is split into two responsibilities: a generic `TokenInferenceBackend` owns model-runtime interaction, while `LocalNeuralPatternProvider` owns detokenization and the common Mozart validation gate. LiteRT will implement the backend interface; it must not be embedded into the musical-domain classes.
 
 ## Request
 
@@ -120,12 +112,23 @@ Required order:
 2. stabilize key/scale and harmonic context;
 3. stabilize the basic pattern/performance workflow;
 4. define the generation contract and event representation;
-5. integrate the local model on a worker thread;
-6. validate/post-process proposals through existing musical-domain constraints;
-7. benchmark memory/latency on real Android hardware;
-8. expose the first generation controls in the UI.
+5. freeze the model tensor/token ABI and pin the LiteRT runtime;
+6. integrate the local model on a worker thread;
+7. validate/post-process proposals through existing musical-domain constraints;
+8. benchmark memory/latency on real Android hardware;
+9. expose the first generation controls in the UI.
 
 Audio preview is not a dependency of this sequence.
+
+## LiteRT runtime
+
+The first deployment target is **LiteRT 2.2.0** behind the provider boundary.
+
+The repository contains a reproducible SDK fetch path in `tools/fetch_litert.sh`. The official C++ SDK asset is verified by SHA-256 before extraction. See `docs/LITERT.md`.
+
+The actual LiteRT runtime/model wiring remains gated on the frozen model tensor contract. Do not add LiteRT calls to the scheduler, Link clock, MIDI receive path, or audio callback.
+
+The runtime layer is responsible for tensor inference; Mozart remains responsible for token encoding, event validation and final musical rendering.
 
 ## Threading and realtime rules
 
@@ -140,11 +143,13 @@ Never call local or remote AI from:
 
 Generation must be cancellable/bounded where practical and must never block transport progress.
 
-## Android runtime
+## Android runtime packaging
 
-The first deployment target is LiteRT behind the provider boundary. The runtime is responsible for model inference; Mozart remains responsible for token/event encoding, validation and final musical rendering.
+Keep the LiteRT C++ SDK headers/CMake integration separate from the Android runtime library packaging.
 
-The exact LiteRT revision is not hard-coded into the domain and will be pinned when integration begins.
+The SDK is intentionally not vendored into Git. The extracted SDK is created locally/CI by `tools/fetch_litert.sh`.
+
+Runtime packaging is added only after the model ABI is frozen and the corresponding Android inference smoke test exists.
 
 ## Commercial-safety rules
 
