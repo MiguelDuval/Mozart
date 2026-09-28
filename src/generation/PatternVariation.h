@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 namespace mozart::generation {
@@ -74,7 +75,7 @@ private:
 
         const double unit =
                 static_cast<double>(state) /
-                static_cast<double>(UINT32_MAX);
+                static_cast<double>(std::numeric_limits<std::uint32_t>::max());
         return unit < probability;
     }
 };
