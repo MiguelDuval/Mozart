@@ -2009,6 +2009,7 @@ int main() {
         request.density = 1.0;
         request.probability = 1.0;
         request.ratchet = 1;
+        request.polyphony = 3;
         request.seed = 12345;
 
         mozart::generation::DeterministicPatternProvider provider;
@@ -2029,6 +2030,17 @@ int main() {
         assert(hasKick);
         assert(hasSnare);
         assert(hasHat);
+
+        bool hasLayeredStep = false;
+        for (const auto& firstEvent : first.proposal.noteEvents) {
+            for (const auto& secondEvent : first.proposal.noteEvents) {
+                if (&firstEvent != &secondEvent &&
+                    firstEvent.startBeat == secondEvent.startBeat) {
+                    hasLayeredStep = true;
+                }
+            }
+        }
+        assert(hasLayeredStep);
 
         const auto repeat = provider.generate(request);
         assert(repeat.ok());
