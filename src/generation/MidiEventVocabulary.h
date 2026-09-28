@@ -29,7 +29,7 @@ constexpr std::size_t kTimeShiftBinCount = 64;
 
 constexpr MidiEventToken kDurationBase =
         kTimeShiftBase + static_cast<MidiEventToken>(kTimeShiftBinCount);
-constexpr std::size_t kDurationBinCount = 128;
+constexpr std::size_t kDurationBinCount = 96;
 
 constexpr MidiEventToken kControllerBase =
         kDurationBase + static_cast<MidiEventToken>(kDurationBinCount);
