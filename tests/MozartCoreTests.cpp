@@ -14,6 +14,7 @@
 #include "generation/DeterministicPatternProvider.h"
 #include "generation/MidiEventVocabulary.h"
 #include "generation/MidiEventTokenizer.h"
+#include "generation/MidiEventDetokenizer.h"
 #include "musical/AudioKeyDetector.h"
 #include "musical/AudioKeyStabilityFilter.h"
 #include "musical/AudioChromaEstimator.h"
