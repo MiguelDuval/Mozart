@@ -376,6 +376,21 @@ int main() {
                 mozart::generation::MidiEventDetokenizer::decode(*directEncoded);
         assert(directDecoded.has_value());
         assert(directDecoded->noteEvents.size() == 2);
+        assert(directDecoded->noteEvents[0].note == 49);
+        assert(directDecoded->noteEvents[1].note == 59);
+
+        mozart::generation::GenerationRequest directRequest;
+        directRequest.bars = 1;
+        directRequest.polyphony = 2;
+        directRequest.minNote = 49;
+        directRequest.maxNote = 59;
+        directRequest.density = 1.0;
+        const auto directValidation =
+                mozart::generation::PatternProposalValidator::validate(
+                        directRequest,
+                        *directDecoded);
+        assert(directValidation.ok());
+        assert(directValidation.proposal.noteEvents.size() == 2);
 
         LocalNeuralPatternProvider provider(backend);
 
