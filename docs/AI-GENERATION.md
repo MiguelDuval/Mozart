@@ -25,6 +25,7 @@ The design is informed by open symbolic-music research such as FIGARO and REMI-s
 ```
 interface MusicGenerationProvider {
     generate(request) -> PatternProposal
+}
 ```
 
 The provider returns structured data.
@@ -72,7 +73,7 @@ A request can include:
 - seed;
 - constraints.
 
-Controlled style vocabulary should initially use explicit tags such as electronic → techno → dark techno or hip-hop → trap → dark trap. A future text parser may map natural-language requests into these tags, but a general-purpose LLM is not required for the baseline generator.
+Controlled style vocabulary should initially use explicit tags such as electronic -> techno -> dark techno or hip-hop -> trap -> dark trap. A future text parser may map natural-language requests into these tags, but a general-purpose LLM is not required for the baseline generator.
 
 ## Response
 
@@ -150,6 +151,12 @@ Keep the LiteRT C++ SDK headers/CMake integration separate from the Android runt
 The SDK is intentionally not vendored into Git. The extracted SDK is created locally/CI by `tools/fetch_litert.sh`.
 
 Runtime packaging is added only after the model ABI is frozen and the corresponding Android inference smoke test exists.
+
+## Model manifest
+
+The model-dependent ABI is recorded in a versioned manifest alongside each production model artifact. The repository template is `docs/MODEL-MANIFEST.md`.
+
+The manifest is the handoff point between model export and the LiteRT backend. It must be generated from the actual exported model rather than filled with guessed tensor names or shapes.
 
 ## Commercial-safety rules
 
