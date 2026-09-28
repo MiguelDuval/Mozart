@@ -62,11 +62,6 @@ public:
         return true;
     }
 
-    [[nodiscard]] const ModelCatalogEntry* modelAt(
-            const std::size_t index) const noexcept {
-        return index < models_.size() ? &models_[index] : nullptr;
-    }
-
     [[nodiscard]] const ModelCatalogEntry* findModel(
             const std::string_view modelId) const noexcept {
         for (const auto& model : models_) {
@@ -75,6 +70,29 @@ public:
             }
         }
         return nullptr;
+    }
+
+    [[nodiscard]] bool selectModel(
+            const std::string_view modelId) noexcept {
+        for (const auto& model : models_) {
+            if (model.modelId == modelId && model.enabled) {
+                selectedModelId_ = model.modelId;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void clearSelection() noexcept {
+        selectedModelId_.clear();
+    }
+
+    [[nodiscard]] const ModelCatalogEntry* selectedModel() const noexcept {
+        return findModel(selectedModelId_);
+    }
+
+    [[nodiscard]] std::string selectedModelId() const {
+        return selectedModelId_;
     }
 
     [[nodiscard]] bool setEnabled(
@@ -123,11 +141,13 @@ public:
     void clear() noexcept {
         models_.clear();
         backends_.clear();
+        selectedModelId_.clear();
     }
 
 private:
     std::vector<ModelCatalogEntry> models_{};
     std::vector<TokenInferenceBackend*> backends_{};
+    std::string selectedModelId_{};
 };
 
 } // namespace mozart::generation
