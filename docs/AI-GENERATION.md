@@ -48,6 +48,10 @@ Every provider must apply the same deterministic validation gate before its prop
 
 A local model provider and future remote providers use the same boundary.
 
+Mozart also has a permanent Experimental Model Lab boundary. External or non-redistributable checkpoints may be selected for private development through the model catalog, but their artifacts remain outside Git and outside distributed APK/AAB packages. Experimental models use exactly the same token detokenization and PatternProposalValidator gates as production models.
+
+The universal selection path is `modelId -> ModelCatalog -> TokenInferenceBackend`. The backend may use LiteRT, ONNX or another runtime, while the musical engine sees only Mozart's token contract.
+
 The neural provider is split into two responsibilities: a generic `TokenInferenceBackend` owns model-runtime interaction, while `LocalNeuralPatternProvider` owns detokenization and the common Mozart validation gate. LiteRT will implement the backend interface; it must not be embedded into the musical-domain classes.
 
 ## Request
@@ -154,7 +158,7 @@ Runtime packaging is added only after the model ABI is frozen and the correspond
 
 ## Model manifest
 
-The model-dependent ABI is recorded in a versioned manifest alongside each production model artifact. The repository template is `docs/MODEL-MANIFEST.md`.
+The model-dependent ABI is recorded in a versioned manifest alongside each production model artifact. The repository template is `docs/MODEL-MANIFEST.md`. Experimental model handling and release separation are defined in `docs/EXPERIMENTAL-MODELS.md`.
 
 The manifest is the handoff point between model export and the LiteRT backend. It must be generated from the actual exported model rather than filled with guessed tensor names or shapes.
 
