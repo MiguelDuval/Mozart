@@ -27,6 +27,118 @@
 #include "midi/ControllerMapping.h"
 #include "musical/KeyScale.h"
 #include "musical/KeyContext.h"
+    {
+        class FakeTokenBackend final : public mozart::generation::TokenInferenceBackend {
+        public:
+            mozart::generation::TokenInferenceResult result;
+
+            mozart::generation::TokenInferenceResult generateTokens(
+                    const mozart::generation::GenerationRequest&,
+                    const std::size_t maxTokens) override {
+                if (result.tokens.size() > maxTokens) {
+                    return {
+                            mozart::generation::TokenInferenceStatus::Failed,
+                            {},
+                            0.0,
+                            0,
+                            "fake backend token budget exceeded"
+                    };
+                }
+                return result;
+            }
+
+            bool isAvailable() const noexcept override {
+                return available;
+            }
+
+            std::string id() const override {
+                return "fake-test-backend";
+            }
+
+            bool available = true;
+        };
+
+        mozart::generation::GenerationRequest request;
+        request.bars = 1;
+        request.density = 1.0;
+        request.keyScale = mozart::musical::KeyScale{
+                0, mozart::musical::Scale::Major};
+        request.minNote = 48;
+        request.maxNote = 72;
+
+        mozart::generation::PatternProposal source;
+        source.noteEvents.push_back(
+                mozart::musical::MusicalNoteEvent{0.0, 0.5, 60, 100, 0});
+
+        const auto encoded = mozart::generation::MidiEventTokenizer::encode(source);
+        assert(encoded.has_value());
+
+        FakeTokenBackend backend;
+        backend.result = {
+                mozart::generation::TokenInferenceStatus::Ok,
+                *encoded,
+                0.75,
+                12,
+                "ok"
+        };
+
+        mozart::generation::LocalNeuralPatternProvider provider(backend);
+        const auto generated = provider.generate(request);
+        assert(generated.status == mozart::generation::GenerationStatus::Ok);
+        assert(generated.ok());
+        assert(generated.proposal.metadata.generatorId == "fake-test-backend");
+        assert(generated.proposal.metadata.seed == request.seed);
+        assert(std::abs(generated.proposal.metadata.confidence - 0.75) < 1.0e-12);
+        assert(generated.proposal.metadata.generationTimeMs == 12);
+        assert(generated.proposal.noteEvents.size() == 1);
+        assert(generated.proposal.noteEvents[0].note == 60);
+
+        backend.available = false;
+        const auto unavailable = provider.generate(request);
+        assert(unavailable.status == mozart::generation::GenerationStatus::Unavailable);
+        assert(!unavailable.ok());
+
+        backend.available = true;
+        backend.result = {
+                mozart::generation::TokenInferenceStatus::Ok,
+                {
+                        mozart::generation::midi_event_vocabulary::kBos,
+                        mozart::generation::midi_event_vocabulary::channelToken(0),
+                        mozart::generation::midi_event_vocabulary::noteToken(60),
+                        mozart::generation::midi_event_vocabulary::velocityToken(10),
+                        mozart::generation::midi_event_vocabulary::kEos
+                },
+                0.5,
+                1,
+                "malformed"
+        };
+        const auto malformed = provider.generate(request);
+        assert(malformed.status == mozart::generation::GenerationStatus::Failed);
+        assert(!malformed.ok());
+
+        backend.result = {
+                mozart::generation::TokenInferenceStatus::Ok,
+                *encoded,
+                1.25,
+                1,
+                "invalid confidence"
+        };
+        const auto invalidConfidence = provider.generate(request);
+        assert(invalidConfidence.status == mozart::generation::GenerationStatus::Failed);
+        assert(!invalidConfidence.ok());
+
+        backend.result = {
+                mozart::generation::TokenInferenceStatus::Failed,
+                {},
+                0.0,
+                0,
+                "inference failed"
+        };
+        const auto failed = provider.generate(request);
+        assert(failed.status == mozart::generation::GenerationStatus::Failed);
+        assert(!failed.ok());
+    }
+
 #ifdef MOZART_ENABLE_LINK
 #include "runtime/MozartRuntime.h"
 #endif
