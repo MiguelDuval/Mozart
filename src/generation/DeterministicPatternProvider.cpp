@@ -2,6 +2,7 @@
 
 #include "generation/ArpeggioGenerator.h"
 #include "generation/BassGenerator.h"
+#include "generation/DrumPatternGenerator.h"
 #include "generation/PatternVariation.h"
 #include "musical/MusicalNote.h"
 
@@ -20,7 +21,8 @@ GenerationResult DeterministicPatternProvider::generate(
     }
 
     if (request.role != GenerationRole::Bass &&
-        request.role != GenerationRole::Arpeggio) {
+        request.role != GenerationRole::Arpeggio &&
+        request.role != GenerationRole::Drums) {
         return {
                 GenerationStatus::Unavailable,
                 {},
@@ -35,6 +37,13 @@ GenerationResult DeterministicPatternProvider::generate(
     for (std::uint8_t bar = 0; bar < request.bars; ++bar) {
         const auto seed = request.seed ^
                 (0x9E3779B9u * (static_cast<std::uint32_t>(bar) + 1U));
+        const auto density =
+                request.density < 0.34
+                        ? PatternDensity::Sparse
+                        : (request.density < 0.67
+                                   ? PatternDensity::Normal
+                                   : PatternDensity::Full);
+
         const auto events =
                 request.role == GenerationRole::Arpeggio
                         ? ArpeggioGenerator::generateBar(
@@ -42,25 +51,20 @@ GenerationResult DeterministicPatternProvider::generate(
                                 4,
                                 seed,
                                 0,
-                                request.density < 0.34
-                                        ? PatternDensity::Sparse
-                                        : (request.density < 0.67
-                                                   ? PatternDensity::Normal
-                                                   : PatternDensity::Full))
-                        : BassGenerator::generateBar(
-                                request.keyScale,
-                                2,
-                                seed,
-                                0,
-                                request.density < 0.34
-                                        ? PatternDensity::Sparse
-                                        : (request.density < 0.67
-                                                   ? PatternDensity::Normal
-                                                   : PatternDensity::Full));
+                                density)
+                        : (request.role == GenerationRole::Drums
+                                   ? DrumPatternGenerator::generateBar(seed, density)
+                                   : BassGenerator::generateBar(
+                                           request.keyScale,
+                                           2,
+                                           seed,
+                                           0,
+                                           density));
 
         for (auto event : events) {
-            if (event.note < request.minNote ||
-                event.note > request.maxNote) {
+            if (request.role != GenerationRole::Drums &&
+                (event.note < request.minNote ||
+                 event.note > request.maxNote)) {
                 return {
                         GenerationStatus::Failed,
                         {},
