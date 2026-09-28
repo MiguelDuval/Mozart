@@ -81,7 +81,7 @@ public:
             }
 
             if (isNoteToken(token)) {
-                if (index + 1 >= tokens.size()) {
+                if (index + 2 >= tokens.size()) {
                     return std::nullopt;
                 }
 
