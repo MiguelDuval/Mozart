@@ -14,7 +14,6 @@
 #include "generation/TokenInferenceBackend.h"
 #include "generation/LocalNeuralPatternProvider.h"
 #include "generation/DeterministicPatternProvider.h"
-#include "generation/DrumPatternGenerator.h"
 #include "generation/MidiEventVocabulary.h"
 #include "generation/MidiEventTokenizer.h"
 #include "generation/MidiEventDetokenizer.h"
