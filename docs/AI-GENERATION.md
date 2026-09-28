@@ -51,6 +51,12 @@ share the same output contract.
 
 A local model provider and future remote providers use the same boundary.
 
+The neural provider is split into two responsibilities: a generic
+`TokenInferenceBackend` owns model-runtime interaction, while
+`LocalNeuralPatternProvider` owns detokenization and the common Mozart
+validation gate. LiteRT will implement the backend interface; it must not be
+embedded into the musical-domain classes.
+
 ## Request
 
 Key/scale context should normally come from Mozart's local musical-domain state.

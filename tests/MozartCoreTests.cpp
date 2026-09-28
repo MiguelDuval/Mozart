@@ -9,6 +9,8 @@
 #include "generation/GenerationRequest.h"
 #include "generation/PatternProposal.h"
 #include "generation/LocalPatternProvider.h"
+#include "generation/TokenInferenceBackend.h"
+#include "generation/LocalNeuralPatternProvider.h"
 #include "generation/DeterministicPatternProvider.h"
 #include "generation/MidiEventVocabulary.h"
 #include "generation/MidiEventTokenizer.h"
@@ -297,6 +299,113 @@ int main() {
         assert(result.ok());
         assert(result.proposal.metadata.seed == request.seed);
         assert(provider.isAvailable());
+    }
+
+    {
+        using mozart::generation::LocalNeuralPatternProvider;
+        using mozart::generation::MidiEventTokenizer;
+        using mozart::generation::TokenInferenceBackend;
+        using mozart::generation::TokenInferenceResult;
+        using mozart::generation::TokenInferenceStatus;
+
+        class StubTokenBackend final : public TokenInferenceBackend {
+        public:
+            [[nodiscard]] TokenInferenceResult generateTokens(
+                    const mozart::generation::GenerationRequest& request,
+                    const std::size_t maxTokens) override {
+                if (maxTokens < 8) {
+                    return {
+                            TokenInferenceStatus::Failed,
+                            {},
+                            0.0,
+                            0,
+                            "token budget too small"
+                    };
+                }
+
+                mozart::generation::PatternProposal source;
+                source.metadata.confidence = 1.0;
+                source.noteEvents = {
+                        {0.0, 0.5, request.minNote, 100, 0},
+                        {1.0, 0.5, request.maxNote, 127, 0}
+                };
+
+                const auto encoded = MidiEventTokenizer::encode(source);
+                if (!encoded.has_value() || encoded->size() > maxTokens) {
+                    return {
+                            TokenInferenceStatus::Failed,
+                            {},
+                            0.0,
+                            0,
+                            "failed to encode stub token stream"
+                    };
+                }
+
+                return {
+                        TokenInferenceStatus::Ok,
+                        *encoded,
+                        0.82,
+                        7,
+                        {}
+                };
+            }
+
+            [[nodiscard]] bool isAvailable() const noexcept override {
+                return true;
+            }
+
+            [[nodiscard]] std::string id() const override {
+                return "stub-token-backend";
+            }
+        };
+
+        StubTokenBackend backend;
+        LocalNeuralPatternProvider provider(backend);
+
+        mozart::generation::GenerationRequest request;
+        request.bars = 1;
+        request.minNote = 48;
+        request.maxNote = 60;
+        request.density = 1.0;
+
+        const auto result = provider.generate(request);
+        assert(result.ok());
+        assert(result.proposal.metadata.generatorId == "stub-token-backend");
+        assert(std::abs(result.proposal.metadata.confidence - 0.82) < 1.0e-12);
+        assert(result.proposal.metadata.generationTimeMs == 7);
+        assert(result.proposal.noteEvents.size() == 2);
+
+        class UnavailableBackend final : public TokenInferenceBackend {
+        public:
+            [[nodiscard]] TokenInferenceResult generateTokens(
+                    const mozart::generation::GenerationRequest&,
+                    const std::size_t) override {
+                return {
+                        TokenInferenceStatus::Unavailable,
+                        {},
+                        0.0,
+                        0,
+                        "test backend unavailable"
+                };
+            }
+
+            [[nodiscard]] bool isAvailable() const noexcept override {
+                return false;
+            }
+
+            [[nodiscard]] std::string id() const override {
+                return "unavailable";
+            }
+        };
+
+        UnavailableBackend unavailableBackend;
+        LocalNeuralPatternProvider unavailableProvider(unavailableBackend);
+        assert(!unavailableProvider.isAvailable());
+        const auto unavailable = unavailableProvider.generate(request);
+        assert(
+                unavailable.status ==
+                mozart::generation::GenerationStatus::Unavailable);
+        assert(!unavailable.ok());
     }
 
 
