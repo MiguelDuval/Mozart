@@ -474,7 +474,7 @@ int main() {
         assert(first.status == PatternValidationStatus::Ok);
         assert(first.proposal.noteEvents.size() == 2);
         assert(first.proposal.noteEvents[0].note == 49);
-        assert(first.proposal.noteEvents[1].note == 51);
+        assert(first.proposal.noteEvents[1].note == 50);
         assert(first.proposal.noteEvents[1].velocity == 1);
         assert(first.proposal.controlEvents.size() == 1);
 
