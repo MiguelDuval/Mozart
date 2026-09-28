@@ -1,0 +1,12 @@
+# Private experimental model descriptor
+#
+# Save as:
+# <app-private>/experimental-models/<model-id>/model.properties
+#
+# The model artifact itself is NOT stored in Git.
+
+modelId=example-model
+displayName=Example Experimental Model
+backendId=example-backend
+artifact=model.tflite
+manifest=model.manifest
