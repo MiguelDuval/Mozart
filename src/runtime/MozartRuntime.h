@@ -4,12 +4,14 @@
 #include "generation/PatternAccent.h"
 #include "generation/PatternDensity.h"
 #include "generation/PatternSwing.h"
+#include "generation/ModelCatalog.h"
 #include "generation/NoteRepeat.h"
 #include "midi/MidiTransport.h"
 #include "midi/ControllerMapping.h"
 #include "musical/KeyContext.h"
 #include "scheduler/AccompanimentScheduler.h"
 #include <cstdint>
+#include <string_view>
 #include "scheduler/MidiSendQueue.h"
 
 namespace mozart::runtime {
@@ -61,12 +63,20 @@ public:
     [[nodiscard]] bool accompanimentEnabled() const noexcept;
     [[nodiscard]] clock::LinkClockSnapshot captureLinkSnapshot() const;
 
+    [[nodiscard]] bool registerModel(
+            generation::ModelCatalogEntry entry);
+    [[nodiscard]] bool selectModel(std::string_view modelId) noexcept;
+    void clearSelectedModel() noexcept;
+    [[nodiscard]] std::string selectedModelId() const;
+    [[nodiscard]] bool selectedModelIsPrivateExperimental() const noexcept;
+
 private:
     clock::LinkClock linkClock_{120.0, 4.0};
     musical::KeyContext keyContext_{};
     scheduler::MidiSendQueue sendQueue_;
     scheduler::AccompanimentScheduler scheduler_;
     midi::ControllerMapping controllerMapping_{};
+    generation::ModelCatalog modelCatalog_{};
     bool started_ = false;
 };
 
