@@ -69,6 +69,7 @@ public:
     void clearSelectedModel() noexcept;
     [[nodiscard]] std::string selectedModelId() const;
     [[nodiscard]] bool selectedModelIsPrivateExperimental() const noexcept;
+    [[nodiscard]] bool selectedModelBackendAvailable() const noexcept;
 
 private:
     clock::LinkClock linkClock_{120.0, 4.0};
