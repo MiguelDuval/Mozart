@@ -2,7 +2,6 @@ package com.miguelduval.mozart;
 
 import android.app.AlertDialog;
 import android.content.Context;
-import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -12,10 +11,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
+
 import android.os.Handler;
 import android.os.Looper;
-
-import java.util.Properties;
 
 public final class ExperimentalModelLab {
     public interface Listener {
@@ -165,6 +164,24 @@ public final class ExperimentalModelLab {
             item.setTextSize(16.0f);
             item.setPadding(24, 24, 24, 24);
             item.setOnClickListener(view -> {
+                final File artifact = new File(model.artifactPath);
+                final File manifest = new File(model.manifestPath);
+                if (!artifact.isFile()) {
+                    new AlertDialog.Builder(context)
+                            .setTitle("MODEL UNAVAILABLE")
+                            .setMessage("Artifact is missing:\n" + artifact.getAbsolutePath())
+                            .setPositiveButton("OK", null)
+                            .show();
+                    return;
+                }
+                if (!manifest.isFile()) {
+                    new AlertDialog.Builder(context)
+                            .setTitle("MODEL UNAVAILABLE")
+                            .setMessage("Manifest is missing:\n" + manifest.getAbsolutePath())
+                            .setPositiveButton("OK", null)
+                            .show();
+                    return;
+                }
                 if (listener != null) {
                     listener.onModelSelected(model);
                 }
