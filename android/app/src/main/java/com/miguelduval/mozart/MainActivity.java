@@ -55,6 +55,15 @@ public final class MainActivity extends Activity {
     private static native void nativeSetKeyContextSource(int source);
     private static native void nativeResetAudioKeyContext();
     private static native String nativeKeyContextSnapshot();
+    private static native boolean nativeRegisterExperimentalModel(
+            String modelId,
+            String displayName,
+            String backendId,
+            String artifactPath,
+            String manifestPath);
+    private static native boolean nativeSelectExperimentalModel(String modelId);
+    private static native void nativeClearSelectedModel();
+    private static native String nativeSelectedModelSnapshot();
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView status;
@@ -576,11 +585,29 @@ public final class MainActivity extends Activity {
         audioKeyInput = new AndroidAudioKeyInput();
         experimentalModelLab = new ExperimentalModelLab(
                 this,
-                modelId -> {
-                    selectedExperimentalModelId = modelId;
-                    status.append(
-                            "\n\nExperimental model selected: " + modelId
-                                    + "\nModel runtime adapter will consume this selection when connected.");
+                model -> {
+                    final boolean registered = nativeRegisterExperimentalModel(
+                            model.modelId,
+                            model.displayName,
+                            model.backendId,
+                            model.artifactPath,
+                            model.manifestPath);
+                    final boolean selected = registered
+                            ? nativeSelectExperimentalModel(model.modelId)
+                            : nativeSelectExperimentalModel(model.modelId);
+                    if (selected) {
+                        selectedExperimentalModelId = model.modelId;
+                        status.append(
+                                "\n\nExperimental model selected: "
+                                        + model.modelId
+                                        + "\n"
+                                        + nativeSelectedModelSnapshot());
+                    } else {
+                        status.append(
+                                "\n\nExperimental model could not be selected: "
+                                        + model.modelId
+                                        + "\nCheck descriptor registration/backend configuration.");
+                    }
                 });
         Log.i(TAG, "STARTUP: AndroidMidiTransport constructed");
         Log.i(TAG, "STARTUP: AndroidMidiInput constructed");
