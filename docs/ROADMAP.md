@@ -101,6 +101,8 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Add local model provider interface.
 - [x] Add model event vocabulary/tokenization contract.
 - [x] Pin LiteRT 2.2.0 C++ SDK and add reproducible checksum-verified fetch path.
+- [x] Freeze runtime-neutral symbolic token ABI and document model-dependent ABI fields.
+- [ ] Freeze production model tensor ABI.
 - [ ] Add LiteRT integration behind the provider boundary.
 - [ ] Add model loading/eviction lifecycle.
 - [ ] Add controlled style vocabulary (genre/subgenre/mood/rhythm/role).
