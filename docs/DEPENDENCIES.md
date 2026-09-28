@@ -1,6 +1,6 @@
 # Mozart Dependencies
 
-Pinned baseline as of 2026-09-25.
+Pinned baseline as of 2026-09-28.
 
 | Dependency | Version | Source revision | Role | Current use |
 |---|---|---|---|---|
@@ -14,19 +14,21 @@ Pinned baseline as of 2026-09-25.
 | Oboe | 1.10.2 | `faa019cb12f448d18b5ab2b933272cf0c16763b2` | Android realtime audio | staged |
 | Ableton Link | 4.0 | `e9a2e414d63f55f1aad158370b007a6fbdc1eeb9` | shared musical clock | Stage 2 |
 | Tracktion Engine | 3.2.0 | `0a5f4e6a5f53d09c89b414a44386a12df7fa1ec6` | higher-level sequencing/audio | staged |
-| LiteRT | 2.2.0 target | exact revision to be pinned at integration | on-device local AI inference | planned |
+| LiteRT C++ SDK | 2.2.0 | release `v2.2.0`; SHA-256 `0aa619d80aef27303ad9c6e3759a20110f77e7b11ade9b68061b8c6e5904b0c6` | on-device local AI inference | preparation |
 
 ## Why these versions
 
-JUCE 9.0.2 is the current 9.x stable release observed on 2026-09-25. Its 9.0.2 release includes multiple audio/file-format and UMP fixes. [JUCE release](https://github.com/juce-framework/JUCE/releases)
+JUCE 9.0.2 is the pinned 9.x baseline used by the project.
 
-Oboe 1.10.2 is the current 1.10 patch baseline used by the upstream project at the time of bootstrap. The upstream project documents Android low-latency audio, latency tuning and Android-specific workarounds. [Oboe](https://github.com/google/oboe)
+Oboe 1.10.2 is the pinned Android low-latency audio baseline.
 
-Ableton Link 4.0 is the stable 4.x cross-platform Link release. Link 4.0 adds Link Audio support, but Mozart initially uses the clock/timing portion only. [Link releases](https://github.com/Ableton/link/releases)
+Ableton Link 4.0 is the pinned shared musical clock baseline.
 
-Tracktion Engine 3.2.0 is the current tagged release observed in the repository and requires C++20; it supports Android. [Tracktion Engine](https://github.com/Tracktion/tracktion_engine)
+Tracktion Engine 3.2.0 is staged and is not required by the realtime MIDI vertical slice.
 
-Android Gradle Plugin 9.4.0 is the current stable line as of September 2026, and requires Gradle 9.6.0. [Android Developers](https://developer.android.com/build/releases/agp-9-4-0-release-notes)
+LiteRT 2.2.0 is the first pinned local-AI runtime target. The official release publishes a C++ SDK asset, and the repository now verifies that asset by SHA-256 before extraction. The exact runtime packaging is intentionally deferred until the Mozart model tensor contract is frozen.
+
+See `docs/LITERT.md` for the reproducible SDK boundary and integration gates.
 
 ## Licensing notes
 
@@ -40,21 +42,25 @@ Licenses matter even for a personal project, and especially if distribution chan
 
 Before any public redistribution, run a dependency/license audit and decide whether the GPL/AGPL/commercial obligations fit the intended distribution model.
 
+LiteRT and the production model require separate checks for source-code/runtime licensing, model-weight licensing, and training-data provenance. An open-source runtime does not automatically make model weights or training data redistributable.
+
 ## Dependency policy
 
 Never depend on a moving branch.
 
 Every source dependency must be:
 
-- pinned to an immutable commit;
+- pinned to an immutable commit or release artifact;
 - named in this document;
 - upgraded in a dedicated change;
 - rebuilt and tested before adoption.
 
 ## Local AI dependency policy
 
-LiteRT is the planned Android inference runtime for the local Mozart music model. Google's current Android documentation identifies the CompiledModel API as the modern high-performance path and provides native C++ integration. The exact artifact/revision will be pinned before it enters the production build.
+LiteRT is the planned Android inference runtime for the local Mozart music model.
 
-The model artifact itself is not treated as a normal source dependency. Its checksum, training revision, dataset provenance and license/attribution manifest must be recorded separately before release.
+The repository does **not** vendor the SDK or production model into Git. The SDK is fetched reproducibly with `tools/fetch_litert.sh`, and the extracted directory is ignored.
+
+The model artifact is not treated as a normal source dependency. Its checksum, training revision, dataset provenance and license/attribution manifest must be recorded separately before release.
 
 The project will not add third-party pretrained music-model weights to the production APK merely because their source repository is open. Code license, weight license and training-data provenance are evaluated separately.
