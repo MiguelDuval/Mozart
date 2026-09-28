@@ -1396,7 +1396,6 @@ int main() {
         assert(reset.resolvedKeyScale.scale() == mozart::musical::Scale::NaturalMinor);
     }
 
-#ifdef MOZART_ENABLE_LINK
     {
         class FakeTokenBackend final : public mozart::generation::TokenInferenceBackend {
         public:
@@ -1509,6 +1508,7 @@ int main() {
         assert(!failed.ok());
     }
 
+#ifdef MOZART_ENABLE_LINK
     {
         class ControllerRuntimeOutput final
                 : public mozart::midi::MidiOutputTransport {
