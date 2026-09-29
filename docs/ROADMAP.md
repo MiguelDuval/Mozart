@@ -114,6 +114,8 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [ ] Connect selected model to actual native generation backend execution.
 - [x] Add debug-only ONNX Runtime inspection for external model tensor ABI.
 - [x] Keep ONNX Runtime out of the commercial release dependency set via debug-only packaging.
+- [x] Define licensed-data provenance manifest schema and CI validation.
+- [x] Add strict Standard MIDI File structural validation for the training pipeline.
 - [ ] Add concrete external-runtime inference adapters (ONNX and/or LiteRT).
 - [ ] Bind conditioning fields to the production model's tensor representation after the model ABI is frozen.
 - [ ] Build licensed-data provenance manifest.
