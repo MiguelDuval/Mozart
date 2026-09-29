@@ -17,6 +17,9 @@ from mozart_tokenizer import VOCABULARY_ID, VOCABULARY_SIZE, encode
 def build_example(
     midi_path: Path,
     *,
+    source_id: str,
+    source_revision: str,
+    source_path: str | None = None,
     style: str = "electronic",
     substyle: str = "generic",
     mood: str = "neutral",
@@ -25,6 +28,13 @@ def build_example(
     seed: int = 0,
 ) -> dict:
     normalized = normalize_file(midi_path)
+
+    source_id = source_id.strip()
+    source_revision = source_revision.strip()
+    if not source_id:
+        raise ValueError("source_id must not be empty")
+    if not source_revision:
+        raise ValueError("source_revision must not be empty")
 
     if not 4 <= normalized.length_bars <= 16:
         raise ValueError(
@@ -38,6 +48,9 @@ def build_example(
 
     return {
         "schema_version": 1,
+        "source_id": source_id,
+        "source_revision": source_revision,
+        "source_path": source_path if source_path is not None else midi_path.as_posix(),
         "vocabulary_id": VOCABULARY_ID,
         "vocabulary_size": VOCABULARY_SIZE,
         "conditioning": {
@@ -86,6 +99,9 @@ def build_example(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("midi_file", type=Path)
+    parser.add_argument("--source-id", required=True)
+    parser.add_argument("--source-revision", required=True)
+    parser.add_argument("--source-path")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--style", default="electronic")
     parser.add_argument("--substyle", default="generic")
@@ -98,6 +114,9 @@ def main() -> int:
     try:
         result = build_example(
             args.midi_file,
+            source_id=args.source_id,
+            source_revision=args.source_revision,
+            source_path=args.source_path,
             style=args.style,
             substyle=args.substyle,
             mood=args.mood,
