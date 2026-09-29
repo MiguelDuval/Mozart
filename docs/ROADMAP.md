@@ -128,8 +128,9 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Add deterministic source-aware 4–16 bar windowing for long MIDI files.
 - [ ] Add concrete external-runtime inference adapters (ONNX and/or LiteRT).
 - [ ] Bind conditioning fields to the production model's tensor representation after the model ABI is frozen.
+- [x] Record and audit public MIDI dataset candidates without approving them for production.
 - [ ] Build licensed-data provenance manifest.
-- [ ] Build MIDI normalization and training dataset pipeline.
+- [x] Build MIDI normalization and training dataset pipeline.
 - [ ] Train first compact model.
 - [ ] Add conditioning controls.
 - [x] Add deterministic validation/post-processing.
