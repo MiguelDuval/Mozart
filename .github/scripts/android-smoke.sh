@@ -21,7 +21,9 @@ RETRY_LOGCAT_FILE=/tmp/mozart-attempt-1-logcat.txt
 rm -f "$LOGCAT_FILE" "$START_FILE" "$START_STATUS_FILE" "$START_HOST_PID_FILE" "$PID_FILE" "$PS_FILE" "$ACTIVITY_FILE" "$PROCESSES_FILE" "$WINDOW_FILE" "$SCREEN_FILE" "$UI_FILE" "$RETRY_LOGCAT_FILE"
 
 write_logcat() {
-  timeout 20s adb shell logcat -d -t 2000 > "$LOGCAT_FILE" 2>/dev/null || true
+  # Keep startup/runtime assertions focused on Mozart's own tagged logs.
+  # The old global tail could evict early startup markers on a busy emulator.
+  timeout 20s adb shell logcat -d -v brief -t 5000 -s MozartStartup:I "*:S" > "$LOGCAT_FILE" 2>/dev/null || true
 }
 
 fatal_mozart_exception() {
