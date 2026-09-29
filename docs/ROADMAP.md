@@ -116,6 +116,7 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Keep ONNX Runtime out of the commercial release dependency set via debug-only packaging.
 - [x] Define licensed-data provenance manifest schema and CI validation.
 - [x] Add strict Standard MIDI File structural validation for the training pipeline.
+- [x] Add deterministic MIDI file discovery inventory with SHA-256 checksums.
 - [x] Add deterministic SMF → Mozart musical-event normalization (PPQ/1-16 beat quantization, note pairing, CC and timing metadata).
 - [x] Make normalized musical bar counts meter-aware for 3/4, 4/4 and other supported signatures.
 - [x] Add Python training-side implementation of the frozen 512-token ABI with golden vectors.
@@ -123,6 +124,7 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Build split-ready training examples with explicit source identity.
 - [x] Build deterministic bounded JSONL training shards and baseline corpus statistics.
 - [x] Add per-example musical quality statistics and deterministic corpus QA/rejection reporting.
+- [ ] Add deterministic source-aware 4–16 bar windowing for long MIDI files.
 - [ ] Add concrete external-runtime inference adapters (ONNX and/or LiteRT).
 - [ ] Bind conditioning fields to the production model's tensor representation after the model ABI is frozen.
 - [ ] Build licensed-data provenance manifest.
