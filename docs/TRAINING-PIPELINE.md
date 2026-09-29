@@ -103,6 +103,16 @@ The pipeline should preserve enough context for the model to learn:
 
 Examples may be derived as continuation pairs later, but the underlying source identity remains part of split bookkeeping.
 
+The current training-example tool emits the split-bookkeeping fields directly on every
+record:
+
+- `source_id`;
+- `source_revision`;
+- `source_path`.
+
+The source identity fields are required inputs, not guessed from the filename, so an
+immutable musical-source revision must be supplied explicitly by the offline pipeline.
+
 ## Deterministic splitting
 
 Splits must be deterministic and source-grouped.
@@ -116,6 +126,23 @@ The assignment key is a stable hash of:
 The file/window path is not part of the group key because multiple files or windows may belong to the same musical source. Fixed bucket ranges assign the group to train/validation/test.
 
 The current default is 90% train, 5% validation and 5% test. Repeated pipeline runs with the same seed and manifest therefore produce the same source-group assignments while avoiding source leakage.
+
+The shard builder applies a second validation gate: a `source_id + source_revision`
+group is rejected when records carrying that group appear in more than one split.
+Records are sorted deterministically before writing bounded JSONL shards.
+
+## Training shard output
+
+The current offline tooling writes one or more bounded JSONL shards per split plus
+`dataset-statistics.json`. The statistics currently cover record counts, split counts,
+token-count totals/min/max/mean, bar-length totals/min/max/mean, and style/role
+conditioning counts. They also record the manifest checksum when supplied and the
+split/token vocabulary revisions.
+
+This is the first corpus-packaging layer, not the final dataset evidence package:
+full rejection-reason statistics, source/license distributions, pitch/velocity/
+polyphony histograms, and canonical duplicate detection remain required before a
+production dataset is approved.
 
 ## Conditioning records
 
