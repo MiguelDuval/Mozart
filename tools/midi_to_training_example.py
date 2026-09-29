@@ -41,10 +41,31 @@ def build_example(
             f"training example length must be 4..16 bars; got {normalized.length_bars}"
         )
 
+    if not normalized.notes and not normalized.controls:
+        raise ValueError("training example contains no usable musical events")
+    if len(normalized.notes) > 4096:
+        raise ValueError(
+            f"training example exceeds 4096 note events; got {len(normalized.notes)}"
+        )
+    if len(normalized.controls) > 1024:
+        raise ValueError(
+            f"training example exceeds 1024 controller events; got {len(normalized.controls)}"
+        )
+
     tokenized = encode(
         [item.__dict__ for item in normalized.notes],
         [item.__dict__ for item in normalized.controls],
     )
+
+    polyphony_by_step: dict[int, int] = {}
+    pitch_histogram = [0] * 128
+    velocity_histogram = [0] * 32
+    for note in normalized.notes:
+        step = round(note.start_beat / (1.0 / 16.0))
+        polyphony_by_step[step] = polyphony_by_step.get(step, 0) + 1
+        pitch_histogram[note.note] += 1
+        velocity_bin = min(32, max(1, (note.velocity * 32 + 126) // 127))
+        velocity_histogram[velocity_bin - 1] += 1
 
     return {
         "schema_version": 1,
@@ -70,6 +91,13 @@ def build_example(
         "music": {
             "length_beats": normalized.length_beats,
             "length_bars": normalized.length_bars,
+            "note_event_count": len(normalized.notes),
+            "controller_event_count": len(normalized.controls),
+            "max_start_step_polyphony": (
+                max(polyphony_by_step.values()) if polyphony_by_step else 0
+            ),
+            "pitch_histogram": pitch_histogram,
+            "velocity_bin_histogram": velocity_histogram,
             "tempo_events": [
                 {
                     "beat": event.beat,
