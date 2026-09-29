@@ -76,6 +76,12 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_midi_smf.py'
 
+      - name: Test MIDI normalization pipeline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_midi_normalize.py'
+
       - name: Test Mozart C++ core
         shell: bash
         run: |
