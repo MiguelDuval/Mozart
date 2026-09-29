@@ -88,6 +88,25 @@ def validate_records(records: list[dict]) -> None:
         bars = music.get("length_bars")
         if not isinstance(bars, int) or not 1 <= bars <= 16:
             raise ValueError(f"{where}.music.length_bars must be 1..16")
+        note_count = music.get("note_event_count")
+        control_count = music.get("controller_event_count")
+        max_polyphony = music.get("max_start_step_polyphony")
+        if not isinstance(note_count, int) or note_count < 0 or note_count > 4096:
+            raise ValueError(f"{where}.music.note_event_count must be 0..4096")
+        if not isinstance(control_count, int) or control_count < 0 or control_count > 1024:
+            raise ValueError(f"{where}.music.controller_event_count must be 0..1024")
+        if not isinstance(max_polyphony, int) or max_polyphony < 0:
+            raise ValueError(f"{where}.music.max_start_step_polyphony must be non-negative")
+        pitch_histogram = music.get("pitch_histogram")
+        velocity_histogram = music.get("velocity_bin_histogram")
+        if not isinstance(pitch_histogram, list) or len(pitch_histogram) != 128:
+            raise ValueError(f"{where}.music.pitch_histogram must contain 128 bins")
+        if not isinstance(velocity_histogram, list) or len(velocity_histogram) != 32:
+            raise ValueError(f"{where}.music.velocity_bin_histogram must contain 32 bins")
+        if sum(pitch_histogram) != note_count:
+            raise ValueError(f"{where}.music.pitch_histogram total must equal note_event_count")
+        if sum(velocity_histogram) != note_count:
+            raise ValueError(f"{where}.music.velocity_bin_histogram total must equal note_event_count")
 
         conditioning = record.get("conditioning")
         if not isinstance(conditioning, dict):
@@ -119,11 +138,30 @@ def _stats(records: list[dict], manifest_sha256: str | None) -> dict:
     )
     token_lengths = [len(record["tokens"]) for record in records]
     bar_lengths = [record["music"]["length_bars"] for record in records]
+    source_groups = {
+        source_key(record) for record in records
+    }
+    note_event_count = sum(record["music"]["note_event_count"] for record in records)
+    controller_event_count = sum(
+        record["music"]["controller_event_count"] for record in records
+    )
+    max_polyphony = max(
+        (record["music"]["max_start_step_polyphony"] for record in records),
+        default=0,
+    )
+    pitch_histogram = [0] * 128
+    velocity_histogram = [0] * 32
+    for record in records:
+        for index, value in enumerate(record["music"]["pitch_histogram"]):
+            pitch_histogram[index] += value
+        for index, value in enumerate(record["music"]["velocity_bin_histogram"]):
+            velocity_histogram[index] += value
 
     return {
         "schema_version": 1,
         "vocabulary_id": VOCABULARY_ID,
         "record_count": len(records),
+        "source_group_count": len(source_groups),
         "split_counts": {split: split_counts.get(split, 0) for split in SPLITS},
         "token_statistics": {
             "total": sum(token_lengths),
@@ -139,6 +177,13 @@ def _stats(records: list[dict], manifest_sha256: str | None) -> dict:
             "mean": (sum(bar_lengths) / len(bar_lengths))
             if bar_lengths
             else 0.0,
+        },
+        "musical_event_statistics": {
+            "note_event_count": note_event_count,
+            "controller_event_count": controller_event_count,
+            "max_start_step_polyphony": max_polyphony,
+            "pitch_histogram": pitch_histogram,
+            "velocity_bin_histogram": velocity_histogram,
         },
         "conditioning": {
             "style": dict(sorted(style_counts.items())),
