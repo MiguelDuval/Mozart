@@ -122,6 +122,7 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Cross-check the frozen token ABI from native C++ tests.
 - [x] Build split-ready training examples with explicit source identity.
 - [x] Build deterministic bounded JSONL training shards and baseline corpus statistics.
+- [x] Add per-example musical quality statistics and deterministic corpus QA/rejection reporting.
 - [ ] Add concrete external-runtime inference adapters (ONNX and/or LiteRT).
 - [ ] Bind conditioning fields to the production model's tensor representation after the model ABI is frozen.
 - [ ] Build licensed-data provenance manifest.
