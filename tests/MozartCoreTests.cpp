@@ -50,6 +50,33 @@
 
 int main() {
     {
+        mozart::generation::PatternProposal proposal;
+        proposal.noteEvents.push_back(
+                mozart::musical::MusicalNoteEvent{
+                        0.0, 1.0 / 16.0, 60, 100, 0});
+        proposal.controlEvents.push_back(
+                mozart::generation::PatternControlEvent{
+                        1.5, 0, 1, 127});
+
+        const auto encoded =
+                mozart::generation::MidiEventTokenizer::encode(proposal);
+        assert(encoded.has_value());
+
+        const std::vector<mozart::generation::MidiEventToken> expected{
+                mozart::generation::midi_event_vocabulary::kBos,
+                16,
+                92,
+                216,
+                256,
+                215,
+                353,
+                511,
+                mozart::generation::midi_event_vocabulary::kEos
+        };
+        assert(*encoded == expected);
+    }
+
+    {
         mozart::generation::GenerationRequest request;
         request.role = mozart::generation::GenerationRole::Bass;
         request.bars = 2;
