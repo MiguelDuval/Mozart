@@ -56,6 +56,10 @@ model manifest + checksum
 
 Every external source must be represented in `docs/dataset-manifest.example.json` and pass the project's commercial-use policy before production data can be used.
 
+Before an audited/release manifest is accepted, the discovered MIDI inventory must
+match the manifest file set exactly: no missing entries, no untracked MIDI files,
+no duplicate manifest paths, and identical SHA-256/size metadata.
+
 A production/audited manifest requires:
 
 - immutable source revision;
