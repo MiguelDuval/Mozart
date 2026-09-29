@@ -222,6 +222,13 @@ Every training build should record:
 
 The statistics file is part of the training run evidence.
 
+## Manifest digest
+
+The canonical manifest digest is computed from normalized JSON with
+checksums.manifest_sha256 replaced by the sentinel SELF. This avoids a circular
+checksum while still producing a stable digest that can be recorded in release
+evidence and compared across copies of the manifest.
+
 ## Reproducibility
 
 A training run must be reproducible from:
