@@ -82,6 +82,12 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_discover_midi_files.py'
 
+      - name: Test deterministic long MIDI windowing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_build_training_windows.py'
+
       - name: Test Standard MIDI File validator
         shell: bash
         run: |
