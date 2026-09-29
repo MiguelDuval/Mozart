@@ -47,7 +47,7 @@ class MidiNormalizeTests(unittest.TestCase):
             + vlq(480)
             + bytes.fromhex("80 3c 00")
             + vlq(240)
-            + bytes.fromhex("00 b0 01 7f")
+            + bytes.fromhex("b0 01 7f")
             + bytes.fromhex("00 ff 2f 00")
         )
 
@@ -70,7 +70,7 @@ class MidiNormalizeTests(unittest.TestCase):
         track_data = (
             bytes.fromhex("00 ff 58 04 03 02 18 08")
             + vlq(5760)
-            + bytes.fromhex("00 b0 01 7f")
+            + bytes.fromhex("b0 01 7f")
             + bytes.fromhex("00 ff 2f 00")
         )
         normalized = normalize_smf(smf([track_data], format_type=0))
@@ -112,7 +112,7 @@ class MidiNormalizeTests(unittest.TestCase):
         track_data = (
             bytes.fromhex("00 90 3c 64")
             + vlq(480)
-            + bytes.fromhex("00 ff 2f 00")
+            + bytes.fromhex("ff 2f 00")
         )
         normalized = normalize_smf(smf([track_data], format_type=0))
         self.assertEqual(normalized.dropped_unclosed_notes, 1)
