@@ -66,6 +66,18 @@ class MidiNormalizeTests(unittest.TestCase):
         self.assertEqual(normalized.time_signatures[0].numerator, 4)
         self.assertEqual(normalized.time_signatures[0].denominator, 4)
 
+    def test_length_bars_uses_time_signature(self) -> None:
+        track_data = (
+            bytes.fromhex("00 ff 58 04 03 02 18 08")
+            + vlq(5760)
+            + bytes.fromhex("00 b0 01 7f")
+            + bytes.fromhex("00 ff 2f 00")
+        )
+        normalized = normalize_smf(smf([track_data], format_type=0))
+        self.assertEqual(normalized.length_beats, 12.0)
+        self.assertEqual(normalized.length_bars, 4)
+
+
     def test_note_on_velocity_zero_is_note_off(self) -> None:
         track_data = (
             bytes.fromhex("00 90 3c 64")
