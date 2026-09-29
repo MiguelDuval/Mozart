@@ -16,6 +16,7 @@ from mozart_tokenizer import (
     CONTROLLER_BASE,
     DURATION_BASE,
     EOS,
+    TIME_SHIFT_BASE,
     encode,
 )
 
