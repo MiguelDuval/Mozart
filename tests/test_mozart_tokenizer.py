@@ -92,7 +92,11 @@ class MozartTokenizerTests(unittest.TestCase):
             ],
             controls=[],
         )
-        self.assertEqual(result.tokens[1:3], (TIME_SHIFT_BASE + 63, 16 + 1))
+        self.assertEqual(
+            result.tokens[1:3],
+            (TIME_SHIFT_BASE + 63, TIME_SHIFT_BASE + 15),
+        )
+        self.assertEqual(result.tokens[3], 16 + 9)
         self.assertEqual(result.tokens[-2], DURATION_BASE)
 
     def test_invalid_values_are_rejected(self) -> None:
