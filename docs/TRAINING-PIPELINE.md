@@ -250,7 +250,11 @@ The shipped application consumes only the resulting production model artifact an
 ## Next implementation gates
 
 1. Attach discovered MIDI inventory records to an audited source manifest.
-2. Implement source-aware example windowing for files longer than 16 bars.
+2. Implement source-aware example windowing for files longer than 16 bars. The current
+windower partitions long sources into deterministic musical-bar windows capped at 16
+bars, keeps every source group on the same split, rebases event timing to zero, clips
+notes at the right window boundary, and preserves the active time signature at window
+start.
 3. Emit conditioning records from audited metadata.
 4. Complete full dataset statistics, including source/license distributions and duplicate review.
 5. Run a small end-to-end fixture corpus before using any external data.
