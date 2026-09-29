@@ -47,7 +47,7 @@ class MozartTokenizerTests(unittest.TestCase):
                 BOS,
                 16,
                 92,
-                216,
+                185,
                 DURATION_BASE,
                 215,
                 CONTROLLER_BASE + 1,
@@ -76,8 +76,8 @@ class MozartTokenizerTests(unittest.TestCase):
                 }
             ],
         )
-        self.assertEqual(result.tokens[2], 92)
-        self.assertEqual(result.tokens[5], CONTROLLER_BASE + 7)
+        self.assertEqual(result.tokens[3], 92)
+        self.assertEqual(result.tokens[6], CONTROLLER_BASE + 7)
 
     def test_long_time_shift_is_chunked(self) -> None:
         result = encode(
