@@ -80,7 +80,7 @@ class TrainingWindowTests(unittest.TestCase):
             events += vlq(1920) + bytes.fromhex("80 3C 00")
         events += bytes.fromhex("00 FF 2F 00")
 
-        header = b"MThd" + bytes.fromhex("00 00 00 06 00 00 00 00 01 E0")
+        header = b"MThd" + bytes.fromhex("00 00 00 06 00 00 00 01 01 E0")
         track = b"MTrk" + len(events).to_bytes(4, "big") + bytes(events)
 
         import tempfile
