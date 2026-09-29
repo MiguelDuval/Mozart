@@ -66,7 +66,7 @@ int main() {
                 mozart::generation::midi_event_vocabulary::kBos,
                 16,
                 92,
-                216,
+                185,
                 256,
                 215,
                 353,
