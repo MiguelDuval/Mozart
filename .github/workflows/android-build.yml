@@ -64,6 +64,12 @@ jobs:
           test "$(cat third_party/litert/VERSION)" = "2.2.0"
           test "$(cat third_party/litert/SHA256)" = "0aa619d80aef27303ad9c6e3759a20110f77e7b11ade9b68061b8c6e5904b0c6"
 
+      - name: Validate dataset provenance manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/validate_dataset_manifest.py docs/dataset-manifest.example.json
+
       - name: Test Mozart C++ core
         shell: bash
         run: |
