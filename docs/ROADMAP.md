@@ -117,8 +117,11 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Define licensed-data provenance manifest schema and CI validation.
 - [x] Add strict Standard MIDI File structural validation for the training pipeline.
 - [x] Add deterministic SMF → Mozart musical-event normalization (PPQ/1-16 beat quantization, note pairing, CC and timing metadata).
+- [x] Make normalized musical bar counts meter-aware for 3/4, 4/4 and other supported signatures.
 - [x] Add Python training-side implementation of the frozen 512-token ABI with golden vectors.
 - [x] Cross-check the frozen token ABI from native C++ tests.
+- [x] Build split-ready training examples with explicit source identity.
+- [x] Build deterministic bounded JSONL training shards and baseline corpus statistics.
 - [ ] Add concrete external-runtime inference adapters (ONNX and/or LiteRT).
 - [ ] Bind conditioning fields to the production model's tensor representation after the model ABI is frozen.
 - [ ] Build licensed-data provenance manifest.
