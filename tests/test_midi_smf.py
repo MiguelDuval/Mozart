@@ -78,6 +78,11 @@ class MidiSmfTests(unittest.TestCase):
         with self.assertRaises(MidiValidationError):
             validate_smf(make_smf(b"\x00\x3C\x64\x00\xFF\x2F\x00"))
 
+    def test_bytes_after_end_of_track_are_rejected(self) -> None:
+        track = b"\x00\xFF\x2F\x00\x00\x90\x3C\x64"
+        with self.assertRaises(MidiValidationError):
+            validate_smf(make_smf(track))
+
     def test_vlq_overflow_is_rejected(self) -> None:
         bad_delta = b"\x80\x80\x80\x80\x00"
         with self.assertRaises(MidiValidationError):
