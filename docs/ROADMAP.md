@@ -119,6 +119,8 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [ ] Add concrete external-runtime inference adapters (ONNX and/or LiteRT).
 - [ ] Bind conditioning fields to the production model's tensor representation after the model ABI is frozen.
 - [ ] Build licensed-data provenance manifest.
+- [x] Add strict Standard MIDI File structural validation for the training pipeline.
+- [x] Add deterministic SMF → Mozart musical-event normalization (PPQ/1-16 beat quantization, note pairing, CC and timing metadata).
 - [ ] Build MIDI normalization and training dataset pipeline.
 - [ ] Train first compact model.
 - [ ] Add conditioning controls.
