@@ -61,7 +61,6 @@ class TrainingWindowTests(unittest.TestCase):
             ],
         )
 
-
     def test_build_windows_rebases_notes_and_clips_sustains(self) -> None:
         from build_training_windows import build_windows
 
@@ -74,9 +73,11 @@ class TrainingWindowTests(unittest.TestCase):
             parts.reverse()
             return bytes(parts)
 
+        # Each fixture bar is exactly one 4/4 bar at PPQ 480.
+        # The next note begins immediately after the previous note-off.
         events = bytearray()
         for bar in range(20):
-            events += vlq(0 if bar == 0 else 1440) + bytes.fromhex("90 3C 64")
+            events += vlq(0) + bytes.fromhex("90 3C 64")
             events += vlq(1920) + bytes.fromhex("80 3C 00")
         events += bytes.fromhex("00 FF 2F 00")
 
