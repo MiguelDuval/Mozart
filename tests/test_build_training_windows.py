@@ -77,7 +77,7 @@ class TrainingWindowTests(unittest.TestCase):
         events = bytearray()
         for bar in range(20):
             events += vlq(0 if bar == 0 else 1440) + bytes.fromhex("90 3C 64")
-            events += vlq(480) + bytes.fromhex("80 3C 00")
+            events += vlq(1920) + bytes.fromhex("80 3C 00")
         events += bytes.fromhex("00 FF 2F 00")
 
         header = b"MThd" + bytes.fromhex("00 00 00 06 00 00 00 00 01 E0")
