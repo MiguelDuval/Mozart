@@ -38,7 +38,7 @@ def smf_fixture() -> bytes:
 
     header = b"MThd" + bytes.fromhex("00 00 00 06 00 00 00 01 01 E0")
     track = b"MTrk" + len(events).to_bytes(4, "big") + bytes(events)
-    return header + b"MTrk" if False else header + track
+    return header + track
 
 
 class MidiToTrainingExampleTests(unittest.TestCase):
