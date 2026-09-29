@@ -15,13 +15,14 @@ DEFAULT_BUCKETS = 10_000
 
 def source_key(record: dict) -> str:
     source_id = str(record.get("source_id", ""))
-    source_path = str(record.get("source_path", record.get("path", "")))
     source_revision = str(record.get("source_revision", ""))
-    if not source_id or not source_path or not source_revision:
+    if not source_id or not source_revision:
         raise ValueError(
-            "record requires source_id, source_path (or path), and source_revision"
+            "record requires source_id and source_revision"
         )
-    return f"{source_id}\0{source_path}\0{source_revision}"
+    # source_id identifies the musical source/work. Multiple files or windows
+    # belonging to that source must stay in one split to prevent leakage.
+    return f"{source_id}\0{source_revision}"
 
 
 def split_for_key(
