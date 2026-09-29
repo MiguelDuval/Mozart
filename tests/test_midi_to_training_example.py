@@ -71,6 +71,11 @@ class MidiToTrainingExampleTests(unittest.TestCase):
         self.assertEqual(result["tokens"][0], 1)
         self.assertEqual(result["tokens"][-1], 2)
         self.assertGreater(len(result["tokens"]), 2)
+        self.assertEqual(result["music"]["note_event_count"], 16)
+        self.assertEqual(result["music"]["controller_event_count"], 0)
+        self.assertEqual(result["music"]["max_start_step_polyphony"], 1)
+        self.assertEqual(sum(result["music"]["pitch_histogram"]), 16)
+        self.assertEqual(sum(result["music"]["velocity_bin_histogram"]), 16)
 
     def test_source_identity_is_required(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
