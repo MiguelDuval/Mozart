@@ -140,9 +140,14 @@ conditioning counts. They also record the manifest checksum when supplied and th
 split/token vocabulary revisions.
 
 This is the first corpus-packaging layer, not the final dataset evidence package:
-full rejection-reason statistics, source/license distributions, pitch/velocity/
-polyphony histograms, and canonical duplicate detection remain required before a
-production dataset is approved.
+source/license distributions, rejection-reason statistics, and canonical duplicate
+detection remain required before a production dataset is approved.
+
+Each training example now carries bounded musical quality metadata: note/controller
+counts, maximum simultaneous note-on count per quantized start step, a 128-bin pitch
+histogram, and a 32-bin velocity histogram. The shard builder validates these fields
+and aggregates them into the corpus statistics file. These statistics are evidence
+for dataset QA only; they do not replace the provenance/license gate.
 
 ## Conditioning records
 
