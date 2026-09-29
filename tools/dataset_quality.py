@@ -211,7 +211,10 @@ def main() -> int:
         f"PASS: QA report records={report['record_count']} "
         f"accepted={report['accepted_count']} rejected={report['rejected_count']}"
     )
-    if args.strict and report["rejected_count"]:
+    if args.strict and (
+        report["rejected_count"]
+        or report["source_groups_crossing_splits"]
+    ):
         return 1
     return 0
 
