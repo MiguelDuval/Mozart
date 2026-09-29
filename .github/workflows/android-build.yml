@@ -82,6 +82,12 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_midi_normalize.py'
 
+      - name: Test Mozart Python token ABI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_mozart_tokenizer.py'
+
       - name: Test Mozart C++ core
         shell: bash
         run: |
