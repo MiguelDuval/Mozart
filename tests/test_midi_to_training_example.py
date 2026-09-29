@@ -28,7 +28,7 @@ def smf_fixture() -> bytes:
     for _ in range(4):
         events += bytes.fromhex("00 90 3C 64")
         events += vlq(240) + bytes.fromhex("80 3C 00")
-        events += vlq(240) + bytes.fromhex("00 90 3C 64")
+        events += vlq(240) + bytes.fromhex("90 3C 64")
         events += vlq(240) + bytes.fromhex("80 3C 00")
         events += vlq(240) + bytes.fromhex("00 90 3C 64")
         events += vlq(240) + bytes.fromhex("80 3C 00")
