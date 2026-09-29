@@ -61,6 +61,57 @@ class TrainingWindowTests(unittest.TestCase):
             ],
         )
 
+
+    def test_build_windows_rebases_notes_and_clips_sustains(self) -> None:
+        from build_training_windows import build_windows
+
+        def vlq(value: int) -> bytes:
+            parts = [value & 0x7F]
+            value >>= 7
+            while value:
+                parts.append((value & 0x7F) | 0x80)
+                value >>= 7
+            parts.reverse()
+            return bytes(parts)
+
+        events = bytearray()
+        for bar in range(20):
+            events += vlq(0 if bar == 0 else 1440) + bytes.fromhex("90 3C 64")
+            events += vlq(480) + bytes.fromhex("80 3C 00")
+        events += bytes.fromhex("00 FF 2F 00")
+
+        header = b"MThd" + bytes.fromhex("00 00 00 06 00 00 00 00 01 E0")
+        track = b"MTrk" + len(events).to_bytes(4, "big") + bytes(events)
+
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            midi_path = root / "long.mid"
+            midi_path.write_bytes(header + track)
+
+            examples = build_windows(
+                midi_path,
+                source_id="long-source",
+                source_revision="rev-1",
+                source_path="long.mid",
+                seed=10,
+            )
+
+        self.assertEqual(len(examples), 2)
+        self.assertEqual(
+            [(item["window"]["start_bar"], item["window"]["end_bar"]) for item in examples],
+            [(0, 16), (16, 20)],
+        )
+        self.assertEqual(examples[0]["music"]["length_bars"], 16)
+        self.assertEqual(examples[1]["music"]["length_bars"], 4)
+        self.assertEqual(examples[0]["music"]["length_beats"], 64.0)
+        self.assertEqual(examples[1]["music"]["length_beats"], 16.0)
+        self.assertEqual(examples[1]["source_id"], "long-source")
+        self.assertEqual(examples[1]["conditioning"]["seed"], 11)
+        self.assertEqual(examples[1]["tokens"][0], 1)
+        self.assertEqual(examples[1]["tokens"][-1], 2)
+
     def test_sixteen_bars_is_one_window(self) -> None:
         normalized = type(
             "Normalized",
