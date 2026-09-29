@@ -120,17 +120,17 @@ def _ticks_to_beat(ticks: int, ppq: int) -> float:
     return _quantize_steps(ticks, ppq) / 16.0
 
 
-def _calculate_length_bars(
+def bar_boundaries(
     length_beats: float,
     signatures: list[TimeSignatureEvent],
-) -> int:
-    """Count musical bars using time-signature segments.
-    
-    A signature change starts a new bar segment. When no signature is present,
-    Mozart uses the documented 4/4 fallback.
+) -> tuple[float, ...]:
+    """Return deterministic musical bar boundaries from beat 0 to the source end.
+
+    A time-signature change starts a new segment. When no signature exists, Mozart
+    uses a 4/4 fallback. The final boundary is exactly length_beats when possible.
     """
     if length_beats <= 0.0:
-        return 1
+        return (0.0,)
 
     ordered = sorted(signatures, key=lambda event: event.beat)
     if not ordered or ordered[0].beat > 0.0:
@@ -143,7 +143,7 @@ def _calculate_length_bars(
             ),
         )
 
-    bars = 0
+    boundaries = [0.0]
     for index, event in enumerate(ordered):
         start = max(0.0, event.beat)
         if start >= length_beats:
@@ -154,12 +154,33 @@ def _calculate_length_bars(
             else length_beats
         )
         end = min(length_beats, max(start, end))
-        segment_beats = end - start
-        beats_per_bar = event.numerator * (4.0 / event.denominator)
-        if segment_beats > 0.0:
-            bars += math.ceil(segment_beats / beats_per_bar)
+        if start > boundaries[-1]:
+            boundaries.append(start)
 
-    return max(1, bars)
+        beats_per_bar = event.numerator * (4.0 / event.denominator)
+        if beats_per_bar <= 0.0:
+            raise ValueError("time signature produces a non-positive bar length")
+
+        cursor = max(start, boundaries[-1])
+        while cursor + beats_per_bar < end - 1e-12:
+            cursor += beats_per_bar
+            boundaries.append(cursor)
+
+        if end > boundaries[-1] + 1e-12:
+            boundaries.append(end)
+
+    if boundaries[-1] < length_beats - 1e-12:
+        boundaries.append(length_beats)
+
+    return tuple(boundaries)
+
+
+def _calculate_length_bars(
+    length_beats: float,
+    signatures: list[TimeSignatureEvent],
+) -> int:
+    boundaries = bar_boundaries(length_beats, signatures)
+    return max(1, len(boundaries) - 1)
 
 
 def _parse_track_events(
