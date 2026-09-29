@@ -109,13 +109,13 @@ Splits must be deterministic and source-grouped.
 
 Do not randomly split individual windows from the same source across train/validation/test.
 
-The preferred assignment key is a stable hash of:
+The assignment key is a stable hash of:
 
-`source_id + canonical_source_path + source_revision`
+`source_id + source_revision`
 
-with fixed bucket ranges for train/validation/test.
+The file/window path is not part of the group key because multiple files or windows may belong to the same musical source. Fixed bucket ranges assign the group to train/validation/test.
 
-This makes repeated pipeline runs produce the same split assignments while avoiding accidental source leakage.
+The current default is 90% train, 5% validation and 5% test. Repeated pipeline runs with the same seed and manifest therefore produce the same source-group assignments while avoiding source leakage.
 
 ## Conditioning records
 
