@@ -88,6 +88,12 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_mozart_tokenizer.py'
 
+      - name: Test deterministic dataset split
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_dataset_split.py'
+
       - name: Test Mozart C++ core
         shell: bash
         run: |
