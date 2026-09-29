@@ -112,6 +112,12 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_dataset_quality.py'
 
+      - name: Test end-to-end corpus pipeline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_corpus_pipeline.py'
+
       - name: Test Mozart C++ core
         shell: bash
         run: |
