@@ -120,6 +120,48 @@ def _ticks_to_beat(ticks: int, ppq: int) -> float:
     return _quantize_steps(ticks, ppq) / 16.0
 
 
+def _calculate_length_bars(
+    length_beats: float,
+    signatures: list[TimeSignatureEvent],
+) -> int:
+    """Count musical bars using time-signature segments.
+    
+    A signature change starts a new bar segment. When no signature is present,
+    Mozart uses the documented 4/4 fallback.
+    """
+    if length_beats <= 0.0:
+        return 1
+
+    ordered = sorted(signatures, key=lambda event: event.beat)
+    if not ordered or ordered[0].beat > 0.0:
+        ordered.insert(
+            0,
+            TimeSignatureEvent(
+                beat=0.0,
+                numerator=4,
+                denominator=4,
+            ),
+        )
+
+    bars = 0
+    for index, event in enumerate(ordered):
+        start = max(0.0, event.beat)
+        if start >= length_beats:
+            break
+        end = (
+            ordered[index + 1].beat
+            if index + 1 < len(ordered)
+            else length_beats
+        )
+        end = min(length_beats, max(start, end))
+        segment_beats = end - start
+        beats_per_bar = event.numerator * (4.0 / event.denominator)
+        if segment_beats > 0.0:
+            bars += math.ceil(segment_beats / beats_per_bar)
+
+    return max(1, bars)
+
+
 def _parse_track_events(
     track: bytes,
     track_index: int,
@@ -407,7 +449,7 @@ def normalize_smf(
         + [item.start_beat + item.duration_beats for item in notes]
         + [item.start_beat for item in controls]
     )
-    length_bars = max(1, math.ceil(length_beats / 4.0))
+    length_bars = _calculate_length_bars(length_beats, signatures)
 
     return NormalizedMidi(
         source_format=source_format,
