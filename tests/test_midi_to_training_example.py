@@ -49,6 +49,9 @@ class MidiToTrainingExampleTests(unittest.TestCase):
 
             result = build_example(
                 path,
+                source_id="fixture-song",
+                source_revision="fixture-rev-1",
+                source_path="fixtures/four-bars.mid",
                 style="electronic",
                 substyle="techno",
                 mood="driving",
@@ -57,6 +60,9 @@ class MidiToTrainingExampleTests(unittest.TestCase):
                 seed=12345,
             )
 
+        self.assertEqual(result["source_id"], "fixture-song")
+        self.assertEqual(result["source_revision"], "fixture-rev-1")
+        self.assertEqual(result["source_path"], "fixtures/four-bars.mid")
         self.assertEqual(result["vocabulary_id"], "mozart-midi-events-v1")
         self.assertEqual(result["vocabulary_size"], 512)
         self.assertEqual(result["music"]["length_bars"], 4)
@@ -65,6 +71,17 @@ class MidiToTrainingExampleTests(unittest.TestCase):
         self.assertEqual(result["tokens"][0], 1)
         self.assertEqual(result["tokens"][-1], 2)
         self.assertGreater(len(result["tokens"]), 2)
+
+    def test_source_identity_is_required(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fixture.mid"
+            path.write_bytes(smf_fixture())
+
+            with self.assertRaises(ValueError):
+                build_example(path, source_id=" ", source_revision="fixture-rev-1")
+
+            with self.assertRaises(ValueError):
+                build_example(path, source_id="fixture-song", source_revision=" ")
 
 
 if __name__ == "__main__":
