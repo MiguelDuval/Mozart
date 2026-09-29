@@ -99,10 +99,18 @@ def validate_records(records: list[dict]) -> None:
             raise ValueError(f"{where}.music.max_start_step_polyphony must be non-negative")
         pitch_histogram = music.get("pitch_histogram")
         velocity_histogram = music.get("velocity_bin_histogram")
-        if not isinstance(pitch_histogram, list) or len(pitch_histogram) != 128:
-            raise ValueError(f"{where}.music.pitch_histogram must contain 128 bins")
-        if not isinstance(velocity_histogram, list) or len(velocity_histogram) != 32:
-            raise ValueError(f"{where}.music.velocity_bin_histogram must contain 32 bins")
+        if (
+            not isinstance(pitch_histogram, list)
+            or len(pitch_histogram) != 128
+            or not all(isinstance(value, int) and value >= 0 for value in pitch_histogram)
+        ):
+            raise ValueError(f"{where}.music.pitch_histogram must contain 128 non-negative integer bins")
+        if (
+            not isinstance(velocity_histogram, list)
+            or len(velocity_histogram) != 32
+            or not all(isinstance(value, int) and value >= 0 for value in velocity_histogram)
+        ):
+            raise ValueError(f"{where}.music.velocity_bin_histogram must contain 32 non-negative integer bins")
         if sum(pitch_histogram) != note_count:
             raise ValueError(f"{where}.music.pitch_histogram total must equal note_event_count")
         if sum(velocity_histogram) != note_count:
