@@ -15,6 +15,8 @@ from midi_normalize import MidiValidationError, normalize_smf
 
 
 def vlq(value: int) -> bytes:
+    if value < 0:
+        raise ValueError("VLQ value must be non-negative")
     parts = [value & 0x7F]
     value >>= 7
     while value:
@@ -36,15 +38,17 @@ def smf(tracks: list[bytes], format_type: int = 1, division: int = 480) -> bytes
 class MidiNormalizeTests(unittest.TestCase):
     def test_multitrack_notes_controls_tempo_and_meter(self) -> None:
         conductor = (
-            b"\x00\xffQ\x03\x07\xa1 "
-            + b"\x00\xffX\x04\x04\x02\x18\x08"
-            + b"\x00\xff/\x00"
+            bytes.fromhex("00 ff 51 03 07 a1 20")
+            + bytes.fromhex("00 ff 58 04 04 02 18 08")
+            + bytes.fromhex("00 ff 2f 00")
         )
         notes = (
-            b"\x00\x90<d"
-            + vlq(480) + b"\x80<\x00"
-            + vlq(240) + b"\x00\xb0\x01\x7f"
-            + b"\x00\xff/\x00"
+            bytes.fromhex("00 90 3c 64")
+            + vlq(480)
+            + bytes.fromhex("80 3c 00")
+            + vlq(240)
+            + bytes.fromhex("00 b0 01 7f")
+            + bytes.fromhex("00 ff 2f 00")
         )
 
         normalized = normalize_smf(smf([conductor, notes]))
@@ -64,53 +68,54 @@ class MidiNormalizeTests(unittest.TestCase):
 
     def test_note_on_velocity_zero_is_note_off(self) -> None:
         track_data = (
-            b"\x00\x90<d"
-            + vlq(240) + b"\x90<\x00"
-            + b"\x00\xff/\x00"
+            bytes.fromhex("00 90 3c 64")
+            + vlq(240)
+            + bytes.fromhex("90 3c 00")
+            + bytes.fromhex("00 ff 2f 00")
         )
         normalized = normalize_smf(smf([track_data], format_type=0))
         self.assertEqual(len(normalized.notes), 1)
         self.assertEqual(normalized.notes[0].duration_beats, 0.5)
 
     def test_sub_grid_duration_is_quantized_to_one_step(self) -> None:
-        # 20 ticks at PPQ 480 is < 1/16 beat. It is kept as a legal one-step note.
         track_data = (
-            b"\x00\x90<d"
-            + vlq(20) + b"\x80<\x00"
-            + b"\x00\xff/\x00"
+            bytes.fromhex("00 90 3c 64")
+            + vlq(20)
+            + bytes.fromhex("80 3c 00")
+            + bytes.fromhex("00 ff 2f 00")
         )
         normalized = normalize_smf(smf([track_data], format_type=0))
-        self.assertEqual(normalized.notes[0].duration_beats, 1.0 / 16.0)
+        self.assertEqual(
+            normalized.notes[0].duration_beats,
+            1.0 / 16.0,
+        )
 
     def test_unmatched_note_off_is_diagnostic_only(self) -> None:
-        track_data = (
-            b"\x00\x80<\x00"
-            + b"\x00\xff/\x00"
-        )
+        track_data = bytes.fromhex("00 80 3c 00 00 ff 2f 00")
         normalized = normalize_smf(smf([track_data], format_type=0))
         self.assertEqual(len(normalized.notes), 0)
         self.assertEqual(normalized.dropped_unmatched_note_offs, 1)
 
     def test_unclosed_note_is_reported(self) -> None:
         track_data = (
-            b"\x00\x90<d"
+            bytes.fromhex("00 90 3c 64")
             + vlq(480)
-            + b"\x00\xff/\x00"
+            + bytes.fromhex("00 ff 2f 00")
         )
         normalized = normalize_smf(smf([track_data], format_type=0))
         self.assertEqual(normalized.dropped_unclosed_notes, 1)
         self.assertEqual(len(normalized.notes), 0)
 
     def test_format_two_is_rejected(self) -> None:
-        track_data = b"\x00\xff/\x00"
+        track_data = bytes.fromhex("00 ff 2f 00")
         with self.assertRaises(MidiValidationError):
             normalize_smf(smf([track_data], format_type=2))
 
     def test_normalization_is_deterministic(self) -> None:
         track_data = (
-            b"\x00\x90@d"
-            + vlq(480) + b"\x80@\x00"
-            + b"\x00\xff/\x00"
+            bytes.fromhex("00 90 40 64")
+            + vlq(480)
+            + bytes.fromhex("80 40 00 00 ff 2f 00")
         )
         first = normalize_smf(smf([track_data], format_type=0)).to_json()
         second = normalize_smf(smf([track_data], format_type=0)).to_json()
