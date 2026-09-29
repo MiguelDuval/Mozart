@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build one deterministic Mozart training example from an SMF file."""
+"""Build deterministic Mozart training examples from normalized MIDI data."""
 
 from __future__ import annotations
 
@@ -10,68 +10,160 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from midi_normalize import normalize_file, MidiValidationError
+from midi_normalize import MidiValidationError, NormalizedMidi, normalize_file
 from mozart_tokenizer import VOCABULARY_ID, VOCABULARY_SIZE, encode
 
 
-def build_example(
-    midi_path: Path,
+def _build_record(
+    normalized: NormalizedMidi,
     *,
     source_id: str,
     source_revision: str,
-    source_path: str | None = None,
-    style: str = "electronic",
-    substyle: str = "generic",
-    mood: str = "neutral",
-    rhythm: str = "straight",
-    role: str = "bass",
-    seed: int = 0,
+    source_path: str,
+    style: str,
+    substyle: str,
+    mood: str,
+    rhythm: str,
+    role: str,
+    seed: int,
+    start_beat: float = 0.0,
+    end_beat: float | None = None,
+    window_start_bar: int | None = None,
+    window_end_bar: int | None = None,
+    source_length_bars: int | None = None,
 ) -> dict:
-    normalized = normalize_file(midi_path)
-
     source_id = source_id.strip()
     source_revision = source_revision.strip()
     if not source_id:
         raise ValueError("source_id must not be empty")
     if not source_revision:
         raise ValueError("source_revision must not be empty")
+    if start_beat < 0.0:
+        raise ValueError("start_beat must be non-negative")
 
-    if not 4 <= normalized.length_bars <= 16:
-        raise ValueError(
-            f"training example length must be 4..16 bars; got {normalized.length_bars}"
+    if end_beat is None:
+        end_beat = normalized.length_beats
+    if end_beat <= start_beat:
+        raise ValueError("end_beat must be greater than start_beat")
+
+    notes = []
+    for note in normalized.notes:
+        if not start_beat <= note.start_beat < end_beat:
+            continue
+        relative_start = note.start_beat - start_beat
+        clipped_end = min(note.start_beat + note.duration_beats, end_beat)
+        duration = clipped_end - note.start_beat
+        if duration <= 0.0:
+            continue
+        notes.append(
+            {
+                "start_beat": relative_start,
+                "duration_beats": duration,
+                "note": note.note,
+                "velocity": note.velocity,
+                "channel": note.channel,
+            }
         )
 
-    if not normalized.notes and not normalized.controls:
+    controls = [
+        {
+            "start_beat": event.start_beat - start_beat,
+            "controller": event.controller,
+            "value": event.value,
+            "channel": event.channel,
+        }
+        for event in normalized.controls
+        if start_beat <= event.start_beat < end_beat
+    ]
+
+    if not notes and not controls:
         raise ValueError("training example contains no usable musical events")
-    if len(normalized.notes) > 4096:
+    if len(notes) > 4096:
         raise ValueError(
-            f"training example exceeds 4096 note events; got {len(normalized.notes)}"
+            f"training example exceeds 4096 note events; got {len(notes)}"
         )
-    if len(normalized.controls) > 1024:
+    if len(controls) > 1024:
         raise ValueError(
-            f"training example exceeds 1024 controller events; got {len(normalized.controls)}"
+            f"training example exceeds 1024 controller events; got {len(controls)}"
         )
 
-    tokenized = encode(
-        [item.__dict__ for item in normalized.notes],
-        [item.__dict__ for item in normalized.controls],
-    )
+    tokenized = encode(notes, controls)
 
     polyphony_by_step: dict[int, int] = {}
     pitch_histogram = [0] * 128
     velocity_histogram = [0] * 32
-    for note in normalized.notes:
-        step = round(note.start_beat / (1.0 / 16.0))
+    for note in notes:
+        step = round(note["start_beat"] / (1.0 / 16.0))
         polyphony_by_step[step] = polyphony_by_step.get(step, 0) + 1
-        pitch_histogram[note.note] += 1
-        velocity_bin = min(32, max(1, (note.velocity * 32 + 126) // 127))
+        pitch_histogram[note["note"]] += 1
+        velocity_bin = min(
+            32,
+            max(1, (note["velocity"] * 32 + 126) // 127),
+        )
         velocity_histogram[velocity_bin - 1] += 1
 
-    return {
+    def rebase_timing_event(event: object) -> dict | None:
+        beat = getattr(event, "beat")
+        if beat < start_beat:
+            return None
+        if beat >= end_beat:
+            return None
+        result = {
+            "beat": beat - start_beat,
+        }
+        for key in ("bpm", "numerator", "denominator"):
+            if hasattr(event, key):
+                result[key] = getattr(event, key)
+        return result
+
+    tempo_events = [
+        item
+        for item in (
+            rebase_timing_event(event) for event in normalized.tempo_events
+        )
+        if item is not None
+    ]
+    time_signatures = [
+        item
+        for item in (
+            rebase_timing_event(event)
+            for event in normalized.time_signatures
+        )
+        if item is not None
+    ]
+
+    if normalized.time_signatures:
+        active_signature = max(
+            (
+                event
+                for event in normalized.time_signatures
+                if event.beat <= start_beat
+            ),
+            key=lambda event: event.beat,
+            default=None,
+        )
+        if active_signature is not None and not any(
+            item["beat"] == 0.0 for item in time_signatures
+        ):
+            time_signatures.insert(
+                0,
+                {
+                    "beat": 0.0,
+                    "numerator": active_signature.numerator,
+                    "denominator": active_signature.denominator,
+                },
+            )
+
+    source_length = (
+        source_length_bars
+        if source_length_bars is not None
+        else normalized.length_bars
+    )
+    record = {
         "schema_version": 1,
         "source_id": source_id,
         "source_revision": source_revision,
-        "source_path": source_path if source_path is not None else midi_path.as_posix(),
+        "source_path": source_path,
         "vocabulary_id": VOCABULARY_ID,
         "vocabulary_size": VOCABULARY_SIZE,
         "conditioning": {
@@ -89,30 +181,22 @@ def build_example(
             "ppq": normalized.ppq,
         },
         "music": {
-            "length_beats": normalized.length_beats,
-            "length_bars": normalized.length_bars,
-            "note_event_count": len(normalized.notes),
-            "controller_event_count": len(normalized.controls),
+            "length_beats": end_beat - start_beat,
+            "length_bars": (
+                window_end_bar - window_start_bar
+                if window_start_bar is not None and window_end_bar is not None
+                else normalized.length_bars
+            ),
+            "source_length_bars": source_length,
+            "note_event_count": len(notes),
+            "controller_event_count": len(controls),
             "max_start_step_polyphony": (
                 max(polyphony_by_step.values()) if polyphony_by_step else 0
             ),
             "pitch_histogram": pitch_histogram,
             "velocity_bin_histogram": velocity_histogram,
-            "tempo_events": [
-                {
-                    "beat": event.beat,
-                    "bpm": event.bpm,
-                }
-                for event in normalized.tempo_events
-            ],
-            "time_signatures": [
-                {
-                    "beat": event.beat,
-                    "numerator": event.numerator,
-                    "denominator": event.denominator,
-                }
-                for event in normalized.time_signatures
-            ],
+            "tempo_events": tempo_events,
+            "time_signatures": time_signatures,
         },
         "tokens": list(tokenized.tokens),
         "diagnostics": {
@@ -122,6 +206,83 @@ def build_example(
                 normalized.dropped_unclosed_notes,
         },
     }
+    if window_start_bar is not None and window_end_bar is not None:
+        record["window"] = {
+            "start_bar": window_start_bar,
+            "end_bar": window_end_bar,
+        }
+    return record
+
+
+def build_example_from_normalized(
+    normalized: NormalizedMidi,
+    *,
+    source_id: str,
+    source_revision: str,
+    source_path: str,
+    style: str = "electronic",
+    substyle: str = "generic",
+    mood: str = "neutral",
+    rhythm: str = "straight",
+    role: str = "bass",
+    seed: int = 0,
+    start_beat: float = 0.0,
+    end_beat: float | None = None,
+    window_start_bar: int | None = None,
+    window_end_bar: int | None = None,
+    source_length_bars: int | None = None,
+) -> dict:
+    if end_beat is None:
+        end_beat = normalized.length_beats
+    return _build_record(
+        normalized,
+        source_id=source_id,
+        source_revision=source_revision,
+        source_path=source_path,
+        style=style,
+        substyle=substyle,
+        mood=mood,
+        rhythm=rhythm,
+        role=role,
+        seed=seed,
+        start_beat=start_beat,
+        end_beat=end_beat,
+        window_start_bar=window_start_bar,
+        window_end_bar=window_end_bar,
+        source_length_bars=source_length_bars,
+    )
+
+
+def build_example(
+    midi_path: Path,
+    *,
+    source_id: str,
+    source_revision: str,
+    source_path: str | None = None,
+    style: str = "electronic",
+    substyle: str = "generic",
+    mood: str = "neutral",
+    rhythm: str = "straight",
+    role: str = "bass",
+    seed: int = 0,
+) -> dict:
+    normalized = normalize_file(midi_path)
+    if not 4 <= normalized.length_bars <= 16:
+        raise ValueError(
+            f"training example length must be 4..16 bars; got {normalized.length_bars}"
+        )
+    return build_example_from_normalized(
+        normalized,
+        source_id=source_id,
+        source_revision=source_revision,
+        source_path=source_path or midi_path.as_posix(),
+        style=style,
+        substyle=substyle,
+        mood=mood,
+        rhythm=rhythm,
+        role=role,
+        seed=seed,
+    )
 
 
 def main() -> int:
