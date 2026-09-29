@@ -6,6 +6,10 @@ This document defines the reproducible path from an audited MIDI source to a Moz
 
 The production generator is a compact 30–60M parameter causal symbolic-MIDI Transformer. The dataset pipeline must produce the frozen Mozart 512-token event vocabulary and explicit conditioning data without weakening the runtime validator.
 
+The discovery tool emits a deterministic inventory of `.mid` and `.midi` files,
+including relative path, byte size, and SHA-256. This inventory is an acquisition
+recording aid; it does not establish ownership or license rights.
+
 ## Pipeline
 
 ```text
@@ -245,11 +249,9 @@ The shipped application consumes only the resulting production model artifact an
 
 ## Next implementation gates
 
-1. Implement MIDI file discovery and structural validation.
-2. Implement deterministic normalization to the Mozart event grid.
-3. Implement source-grouped deterministic train/validation/test splitting.
-4. Emit tokenized training shards using `MidiEventTokenizer`.
-5. Emit conditioning records from audited metadata.
-6. Add dataset statistics and rejection reports.
-7. Run a small end-to-end fixture corpus before using any external data.
-8. Freeze the first production dataset manifest only after rights evidence is complete.
+1. Attach discovered MIDI inventory records to an audited source manifest.
+2. Implement source-aware example windowing for files longer than 16 bars.
+3. Emit conditioning records from audited metadata.
+4. Complete full dataset statistics, including source/license distributions and duplicate review.
+5. Run a small end-to-end fixture corpus before using any external data.
+6. Freeze the first production dataset manifest only after rights evidence is complete.
