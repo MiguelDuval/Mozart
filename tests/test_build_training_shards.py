@@ -37,8 +37,15 @@ def record(
             "rhythm": "straight",
             "role": role,
         },
-        "music": {"length_bars": 4},
-        "tokens": [1, 16, 92, 216, 256, 215, 2],
+        "music": {
+            "length_bars": 4,
+            "note_event_count": 1,
+            "controller_event_count": 0,
+            "max_start_step_polyphony": 1,
+            "pitch_histogram": [1 if index == 60 else 0 for index in range(128)],
+            "velocity_bin_histogram": [1] + [0] * 31,
+        },
+        "tokens": [1, 16, 92, 185, 256, 215, 2],
         "split": split,
     }
 
@@ -85,6 +92,18 @@ class BuildTrainingShardsTests(unittest.TestCase):
         ]
         stats = _stats(records, "abc123")
         self.assertEqual(stats["record_count"], 2)
+        self.assertEqual(stats["source_group_count"], 2)
+        self.assertEqual(stats["musical_event_statistics"]["note_event_count"], 2)
+        self.assertEqual(stats["musical_event_statistics"]["controller_event_count"], 0)
+        self.assertEqual(stats["musical_event_statistics"]["max_start_step_polyphony"], 1)
+        self.assertEqual(
+            sum(stats["musical_event_statistics"]["pitch_histogram"]),
+            2,
+        )
+        self.assertEqual(
+            sum(stats["musical_event_statistics"]["velocity_bin_histogram"]),
+            2,
+        )
         self.assertEqual(
             stats["split_counts"],
             {"train": 1, "validation": 0, "test": 1},
