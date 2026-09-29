@@ -146,8 +146,13 @@ detection remain required before a production dataset is approved.
 Each training example now carries bounded musical quality metadata: note/controller
 counts, maximum simultaneous note-on count per quantized start step, a 128-bin pitch
 histogram, and a 32-bin velocity histogram. The shard builder validates these fields
-and aggregates them into the corpus statistics file. These statistics are evidence
-for dataset QA only; they do not replace the provenance/license gate.
+and aggregates them into the corpus statistics file. A separate `dataset_quality.py`
+reporter can inspect an entire JSONL corpus without stopping at the first bad record:
+it emits stable rejection reason counts, source groups crossing split boundaries, and
+duplicate-content candidates. Duplicate candidates are deliberately reported rather
+than automatically rejected because identical musical material may be intentional.
+
+These statistics are evidence for dataset QA only; they do not replace the provenance/license gate.
 
 ## Conditioning records
 
