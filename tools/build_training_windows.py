@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 
@@ -20,7 +21,9 @@ def window_ranges(
     min_bars: int = 4,
 ) -> list[tuple[float, float, int, int]]:
     if not 1 <= min_bars <= max_bars <= 16:
-        raise ValueError("window bars must satisfy 1 <= min_bars <= max_bars <= 16")
+        raise ValueError(
+            "window bars must satisfy 1 <= min_bars <= max_bars <= 16"
+        )
 
     boundaries = bar_boundaries(
         normalized.length_beats,
@@ -34,29 +37,36 @@ def window_ranges(
     start_bar = 0
     while start_bar < total_bars:
         remaining = total_bars - start_bar
-        window_bars = min(max_bars, remaining)
-
-        if remaining < min_bars and ranges:
-            previous = ranges.pop()
-            previous_start, _, previous_bar_start, _ = previous
-            new_end_bar = total_bars
-            ranges.append(
-                (
-                    previous_start,
-                    boundaries[new_end_bar],
-                    previous_bar_start,
-                    new_end_bar,
+        if remaining <= max_bars:
+            if remaining >= min_bars:
+                ranges.append(
+                    (
+                        boundaries[start_bar],
+                        boundaries[total_bars],
+                        start_bar,
+                        total_bars,
+                    )
                 )
+            break
+
+        end_bar = start_bar + max_bars
+        tail_bars = total_bars - end_bar
+        if 0 < tail_bars < min_bars:
+            end_bar = total_bars - min_bars
+
+        if end_bar - start_bar < min_bars:
+            raise ValueError(
+                "cannot partition source into windows satisfying the bar bounds"
             )
-            break
 
-        if window_bars < min_bars:
-            break
-
-        start_beat = boundaries[start_bar]
-        end_bar = start_bar + window_bars
-        end_beat = boundaries[end_bar]
-        ranges.append((start_beat, end_beat, start_bar, end_bar))
+        ranges.append(
+            (
+                boundaries[start_bar],
+                boundaries[end_bar],
+                start_bar,
+                end_bar,
+            )
+        )
         start_bar = end_bar
 
     return ranges
@@ -139,7 +149,7 @@ def main() -> int:
             max_bars=args.max_bars,
         )
         payload = "".join(
-            __import__("json").dumps(item, ensure_ascii=False, sort_keys=True) + "\n"
+            json.dumps(item, ensure_ascii=False, sort_keys=True) + "\n"
             for item in examples
         )
         args.output.write_text(payload, encoding="utf-8")
