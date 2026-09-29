@@ -107,6 +107,49 @@ Status: HOLD FOR LICENSE/ARCHITECTURE CLARIFICATION.
 Source:
 https://huggingface.co/SimoneZanetti00/MIDIT-checkpoints
 
+### New checks on 2026-09-29
+
+#### SkyTNT midi-model / tv2o-medium
+
+Sources:
+- https://huggingface.co/skytnt/midi-model
+- https://huggingface.co/skytnt/midi-model-tv2o-medium
+
+Observed facts:
+
+- The published model cards mark the repositories Apache-2.0.
+- The models are transformer-based MIDI event generators and publish ONNX artifacts.
+- The current tv2o-medium card reports roughly 0.2B parameters and BF16 weights.
+- The model cards reference Los-Angeles-MIDI-Dataset, Monster-MIDI-Dataset and SymphonyNet as training data.
+
+Compatibility consequence:
+
+- Useful as an external ABI/inference reference.
+- It is materially above Mozart's 30–60M production target.
+- The published training-data chain still requires independent provenance review.
+- No SkyTNT weights are promoted into the production model manifest.
+
+Status: REFERENCE / EXPERIMENTAL MODEL LAB ONLY.
+
+#### MitraKin music-transformer
+
+Source:
+https://github.com/MitraKin/music-transformer
+
+Observed facts:
+
+- The repository publishes 5M, 15M and 30M model configurations.
+- The repository itself is MIT licensed.
+- Its README references the MAESTRO dataset.
+
+Compatibility consequence:
+
+- Model size is attractive for Android experiments.
+- The referenced MAESTRO dataset is distributed by Google under CC BY-NC-SA 4.0, so the published training chain is not suitable as-is for Mozart's commercially redistributable production weights.
+- The repository remains useful as architecture/training-code reference only; do not treat its weights as commercially cleared.
+
+Status: REFERENCE / EXPERIMENTAL MODEL LAB ONLY.
+
 ## Experimental-model policy
 
 Candidates that are technically useful but fail the current commercial provenance/license gate should be evaluated through the Experimental Model Lab rather than promoted to production. Their weights stay outside Git and outside distributed APK/AAB artifacts.
