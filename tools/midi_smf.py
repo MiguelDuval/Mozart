@@ -157,6 +157,10 @@ def _validate_track(track: bytes, track_index: int) -> None:
                 length, scan = _read_vlq(track, scan)
                 if meta_type == 0x2F and length == 0:
                     saw_end_of_track = True
+                    if offset != len(track):
+                        raise MidiValidationError(
+                                f"track {track_index}: bytes found after End-of-Track"
+                        )
 
     if not saw_end_of_track:
         raise MidiValidationError(f"track {track_index}: missing End-of-Track meta event")
