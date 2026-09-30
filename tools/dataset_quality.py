@@ -200,6 +200,30 @@ def build_report(
     if duplicate_candidates:
         reason_counts["duplicate_content_candidate"] += len(duplicate_candidates)
 
+    reviews = duplicate_reviews or {}
+    candidate_digests = {item["sha256"] for item in duplicate_candidates}
+    unknown_reviews = sorted(set(reviews) - candidate_digests)
+    if unknown_reviews:
+        raise ValueError(
+            "duplicate review contains digests that are not current candidates: "
+            + ", ".join(unknown_reviews)
+        )
+    unresolved_duplicates = sorted(candidate_digests - set(reviews))
+    excluded_duplicates = sorted(
+        digest
+        for digest in candidate_digests
+        if reviews[digest].get("decision") == "exclude"
+    )
+    intentional_duplicates = sorted(
+        digest
+        for digest in candidate_digests
+        if reviews[digest].get("decision") == "intentional"
+    )
+    if unresolved_duplicates:
+        reason_counts["duplicate_content_unreviewed"] += len(unresolved_duplicates)
+    if excluded_duplicates:
+        reason_counts["duplicate_content_exclude_decision"] += len(excluded_duplicates)
+
     return {
         "schema_version": 1,
         "vocabulary_id": VOCABULARY_ID,
@@ -210,6 +234,15 @@ def build_report(
         "rejection_reasons": dict(sorted(reason_counts.items())),
         "source_groups_crossing_splits": cross_split_groups,
         "duplicate_content_candidates": duplicate_candidates,
+        "duplicate_content_review": {
+            "candidate_count": len(candidate_digests),
+            "intentional_count": len(intentional_duplicates),
+            "excluded_count": len(excluded_duplicates),
+            "unreviewed_count": len(unresolved_duplicates),
+            "intentional_digests": intentional_duplicates,
+            "excluded_digests": excluded_duplicates,
+            "unreviewed_digests": unresolved_duplicates,
+        },
         "reproducibility": {
             "manifest_sha256": manifest_sha256 or "NOT_SUPPLIED",
             "report_algorithm": "mozart-dataset-quality-v1",
