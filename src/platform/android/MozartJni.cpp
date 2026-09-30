@@ -306,7 +306,7 @@ Java_com_miguelduval_mozart_MainActivity_nativeQueueExperimentalGeneration(
     const auto context = runtime()->captureKeyContextSnapshot();
 
     mozart::generation::GenerationRequest request;
-    request.keyScale = context.resolvedKeyScale();
+    request.keyScale = context.resolvedKeyScale;
     request.style = mozart::generation::GenerationStyle::Techno;
     request.substyle = mozart::generation::GenerationSubstyle::Techno;
     request.mood = mozart::generation::GenerationMood::Driving;
