@@ -75,10 +75,17 @@ public:
     [[nodiscard]] bool selectModel(
             const std::string_view modelId) {
         for (const auto& model : models_) {
-            if (model.modelId == modelId && model.enabled) {
-                selectedModelId_ = model.modelId;
-                return true;
+            if (model.modelId != modelId || !model.enabled) {
+                continue;
             }
+
+            auto* backend = resolveBackend(model.modelId);
+            if (backend == nullptr || !backend->isAvailable()) {
+                return false;
+            }
+
+            selectedModelId_ = model.modelId;
+            return true;
         }
         return false;
     }
