@@ -55,14 +55,14 @@ def canonical_shape(
     if name == "input_ids":
         if len(shape) != 2:
             raise ValueError("input_ids must have rank 2")
-        return ["batch", "sequence"]
+        return [shape[0], "sequence"]
 
-    if len(shape) == 1 and shape[0] == batch_symbol:
-        return ["batch"]
+    if len(shape) == 1 and shape[0] == 1:
+        return [1]
 
     if (
         len(shape) == 3
-        and shape[0] == batch_symbol
+        and shape[0] == 1
         and shape[1] == sequence_symbol
     ):
         return ["batch", "sequence", shape[2]]
@@ -93,12 +93,13 @@ def inspect_model(path: Path, model_id: str) -> dict:
     if len(first_shape) != 2:
         raise ValueError(f"input_ids must have rank 2, got {first_shape!r}")
 
-    batch_symbol = first_shape[0] if isinstance(first_shape[0], str) else None
-    sequence_symbol = first_shape[1] if isinstance(first_shape[1], str) else None
-    if batch_symbol is None or sequence_symbol is None:
+    if first_shape[0] != 1:
         raise ValueError(
-            "input_ids batch and sequence dimensions must be symbolic"
+            f"input_ids batch dimension must be fixed to 1, got {first_shape[0]!r}"
         )
+    sequence_symbol = first_shape[1] if isinstance(first_shape[1], str) else None
+    if sequence_symbol is None:
+        raise ValueError("input_ids sequence dimension must be symbolic")
 
     inputs = []
     for value_info, (name, expected_dtype, expected_rank) in zip(
@@ -119,7 +120,7 @@ def inspect_model(path: Path, model_id: str) -> dict:
         canonical = canonical_shape(
             name,
             shape,
-            batch_symbol=batch_symbol,
+            batch_symbol=1,
             sequence_symbol=sequence_symbol,
         )
         if name != "input_ids" and canonical != ["batch"]:
