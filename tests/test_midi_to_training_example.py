@@ -69,7 +69,12 @@ class MidiToTrainingExampleTests(unittest.TestCase):
         self.assertEqual(result["music"]["length_bars"], 4)
         self.assertEqual(result["conditioning"]["substyle"], "techno")
         self.assertEqual(result["conditioning"]["seed"], 12345)
-        self.assertAlmostEqual(result["performance_controls"]["density"], 0.25)
+        self.assertAlmostEqual(
+            result["performance_controls"]["density"],
+            result["music"]["note_event_count"] / (
+                result["music"]["length_beats"] * 4.0
+            ),
+        )
         self.assertAlmostEqual(result["performance_controls"]["energy"], 100 / 127)
         self.assertAlmostEqual(result["performance_controls"]["syncopation"], 0.0)
         self.assertAlmostEqual(result["performance_controls"]["swing"], 0.0)
