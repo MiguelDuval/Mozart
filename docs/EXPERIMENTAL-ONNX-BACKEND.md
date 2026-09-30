@@ -117,6 +117,13 @@ ModelCatalog. The debug UI exposes a non-realtime "RUN AI GENERATION TEST"
 control. The request is queued asynchronously and the UI polls for a completed
 GenerationResult without blocking the main thread.
 
+The current first adapter forwards the full GenerationRequest as a bridge
+payload, but intentionally starts the experimental ONNX model from BOS only.
+It does **not** claim that style, key/scale, role or other conditioning fields
+are already encoded into model tensors. That mapping belongs to the
+model-specific ABI gate and must be implemented only from the actual exported
+checkpoint contract.
+
 ## Fail-closed behavior
 
 The adapter rejects:
