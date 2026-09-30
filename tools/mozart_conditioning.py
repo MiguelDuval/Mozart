@@ -90,6 +90,11 @@ def derive_performance_controls(
     notes: list[dict],
     length_beats: float,
 ) -> dict[str, float]:
+    """Derive retrospective metrics for QA, never training conditioning labels.
+
+    Training examples must receive performance controls from an independent
+    intent/context source so target events cannot leak into conditioning.
+    """
     if length_beats <= 0.0:
         raise ValueError("length_beats must be positive")
     if not notes:
