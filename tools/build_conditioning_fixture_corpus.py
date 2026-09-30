@@ -16,6 +16,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from build_fixture_corpus import make_smf, sha256_file
+from dataset_split import assign_records
 from midi_to_training_example import build_example
 from mozart_conditioning import PERFORMANCE_CONTROL_NAMES
 
@@ -161,11 +162,12 @@ def build_conditioning_fixture_corpus(output_dir: Path) -> dict:
             }
         )
 
+    assigned = assign_records(records)
     records_path = output_dir / "records.jsonl"
     records_path.write_text(
         "".join(
             json.dumps(record, sort_keys=True) + "\n"
-            for record in records
+            for record in assigned
         ),
         encoding="utf-8",
     )
@@ -186,7 +188,7 @@ def build_conditioning_fixture_corpus(output_dir: Path) -> dict:
     )
 
     return {
-        "record_count": len(records),
+        "record_count": len(assigned),
         "output_dir": str(output_dir),
         "profiles": profiles,
     }
