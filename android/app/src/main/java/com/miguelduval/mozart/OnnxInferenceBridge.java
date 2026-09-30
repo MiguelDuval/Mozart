@@ -440,6 +440,9 @@ public final class OnnxInferenceBridge {
                 normalized.endsWith(")")) {
             normalized = normalized.substring(7, normalized.length() - 1);
         }
+        if ("float".equals(normalized)) {
+            return "float32";
+        }
         return normalized;
     }
 
