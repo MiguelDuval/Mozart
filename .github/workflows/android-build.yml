@@ -154,6 +154,13 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_dataset_quality.py'
 
+
+      - name: Test deterministic synthetic fixture corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_build_fixture_corpus.py'
+
       - name: Test end-to-end corpus pipeline
         shell: bash
         run: |
