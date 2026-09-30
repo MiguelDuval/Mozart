@@ -49,6 +49,41 @@ class FakeGreedyModel:
 
 
 class MozartConditioningSequenceTests(unittest.TestCase):
+    def test_mozart_token_grammar_accepts_valid_note_stream(self) -> None:
+        from evaluate_mozart_conditioning_sequence import (
+            validate_mozart_token_sequence,
+        )
+
+        report = validate_mozart_token_sequence(
+            [1, 16, 68, 160, 258, 2]
+        )
+        self.assertTrue(report["valid"])
+        self.assertIsNone(report["error"])
+
+    def test_mozart_token_grammar_rejects_controller_token_as_note_velocity(self) -> None:
+        from evaluate_mozart_conditioning_sequence import (
+            validate_mozart_token_sequence,
+        )
+
+        report = validate_mozart_token_sequence(
+            [1, 16, 68, 452, 452, 2]
+        )
+        self.assertFalse(report["valid"])
+        self.assertEqual(report["index"], 3)
+        self.assertEqual(report["token"], 452)
+        self.assertIn("velocity token", report["error"])
+
+    def test_mozart_token_grammar_rejects_missing_eos(self) -> None:
+        from evaluate_mozart_conditioning_sequence import (
+            validate_mozart_token_sequence,
+        )
+
+        report = validate_mozart_token_sequence(
+            [1, 16, 68, 160, 258]
+        )
+        self.assertFalse(report["valid"])
+        self.assertIn("end with EOS", report["error"])
+
     def test_loads_fixture_derived_control_probe_prefixes(self) -> None:
         from evaluate_mozart_conditioning_sequence import (
             load_sequence_probe_file,
