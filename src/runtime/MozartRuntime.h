@@ -4,6 +4,7 @@
 #include "generation/PatternAccent.h"
 #include "generation/PatternDensity.h"
 #include "generation/PatternSwing.h"
+#include "generation/GenerationService.h"
 #include "generation/ModelCatalog.h"
 #include "generation/NoteRepeat.h"
 #include "midi/MidiTransport.h"
@@ -11,6 +12,7 @@
 #include "musical/KeyContext.h"
 #include "scheduler/AccompanimentScheduler.h"
 #include <cstdint>
+#include <future>
 #include <string_view>
 #include "scheduler/MidiSendQueue.h"
 
@@ -65,6 +67,10 @@ public:
 
     [[nodiscard]] bool registerModel(
             generation::ModelCatalogEntry entry);
+    [[nodiscard]] bool registerModelBackend(
+            generation::TokenInferenceBackend& backend);
+    [[nodiscard]] std::future<generation::GenerationResult> requestGeneration(
+            generation::GenerationRequest request);
     [[nodiscard]] bool selectModel(std::string_view modelId);
     void clearSelectedModel() noexcept;
     [[nodiscard]] std::string selectedModelId() const;
@@ -78,6 +84,7 @@ private:
     scheduler::AccompanimentScheduler scheduler_;
     midi::ControllerMapping controllerMapping_{};
     generation::ModelCatalog modelCatalog_{};
+    generation::GenerationService generationService_;
     bool started_ = false;
 };
 

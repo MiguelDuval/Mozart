@@ -3,12 +3,14 @@
 #include "core/MidiTypes.h"
 
 #include <chrono>
+#include <utility>
 
 namespace mozart::runtime {
 
 MozartRuntime::MozartRuntime(midi::MidiOutputTransport& midiOutput)
     : sendQueue_(midiOutput),
-      scheduler_(linkClock_, sendQueue_) {}
+      scheduler_(linkClock_, sendQueue_),
+      generationService_(modelCatalog_) {}
 
 MozartRuntime::~MozartRuntime() {
     stop();
@@ -21,6 +23,7 @@ void MozartRuntime::start() {
 
     sendQueue_.start();
     scheduler_.start();
+    generationService_.start();
     started_ = true;
 }
 
@@ -35,6 +38,7 @@ void MozartRuntime::stop() {
     setLinkEnabled(false);
 
     sendQueue_.stop();
+    generationService_.stop();
     started_ = false;
 }
 
@@ -296,6 +300,16 @@ clock::LinkClockSnapshot MozartRuntime::captureLinkSnapshot() const {
 
 bool MozartRuntime::registerModel(generation::ModelCatalogEntry entry) {
     return modelCatalog_.registerModel(std::move(entry));
+}
+
+bool MozartRuntime::registerModelBackend(
+        generation::TokenInferenceBackend& backend) {
+    return modelCatalog_.registerBackend(backend);
+}
+
+std::future<generation::GenerationResult> MozartRuntime::requestGeneration(
+        generation::GenerationRequest request) {
+    return generationService_.submit(std::move(request));
 }
 
 bool MozartRuntime::selectModel(const std::string_view modelId) {
