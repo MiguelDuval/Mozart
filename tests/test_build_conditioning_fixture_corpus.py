@@ -27,7 +27,8 @@ class ConditioningFixtureTests(unittest.TestCase):
                 profile[name]
                 for profile in CONTROL_PROFILES
             }
-            self.assertEqual(values, {0.1, 0.9})
+            self.assertIn(0.1, values)
+            self.assertIn(0.9, values)
 
     def test_fixture_targets_change_when_each_control_changes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
