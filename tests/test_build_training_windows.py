@@ -97,6 +97,13 @@ class TrainingWindowTests(unittest.TestCase):
                 source_revision="rev-1",
                 source_path="long.mid",
                 seed=10,
+                performance_controls={
+                    "density": 0.25,
+                    "energy": 0.5,
+                    "syncopation": 0.0,
+                    "swing": 0.0,
+                    "variation": 0.0,
+                },
             )
 
         self.assertEqual(len(examples), 2)
