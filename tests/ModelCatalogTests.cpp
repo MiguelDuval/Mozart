@@ -11,6 +11,9 @@ namespace {
 
 class TestBackend final : public TokenInferenceBackend {
 public:
+    explicit TestBackend(bool available = true) noexcept
+        : available_(available) {}
+
     [[nodiscard]] TokenInferenceResult generateTokens(
             const GenerationRequest&,
             std::size_t) override {
@@ -18,13 +21,41 @@ public:
     }
 
     [[nodiscard]] bool isAvailable() const noexcept override {
-        return true;
+        return available_;
     }
 
     [[nodiscard]] std::string id() const override {
         return "test-backend";
     }
+
+private:
+    bool available_ = true;
 };
+
+void testSelectionRequiresReadyBackend() {
+    ModelCatalog catalog;
+    TestBackend unavailableBackend(false);
+
+    ModelCatalogEntry entry;
+    entry.modelId = "experimental-unavailable";
+    entry.displayName = "Experimental Unavailable";
+    entry.backendId = unavailableBackend.id();
+    entry.artifactPath = "/private/experimental/model.onnx";
+    entry.manifestPath = "/private/experimental/model.manifest";
+
+    assert(catalog.registerBackend(unavailableBackend));
+    assert(catalog.registerModel(entry));
+    assert(!catalog.selectModel(entry.modelId));
+    assert(catalog.selectedModelId().empty());
+
+    ModelCatalogEntry missingBackendEntry = entry;
+    missingBackendEntry.modelId = "experimental-missing-backend";
+    missingBackendEntry.displayName = "Experimental Missing Backend";
+    missingBackendEntry.backendId = "missing-backend";
+    assert(catalog.registerModel(missingBackendEntry));
+    assert(!catalog.selectModel(missingBackendEntry.modelId));
+    assert(catalog.selectedModelId().empty());
+}
 
 void testDisablingSelectedModelClearsSelection() {
     ModelCatalog catalog;
@@ -57,6 +88,7 @@ void testDisablingSelectedModelClearsSelection() {
 } // namespace
 
 int main() {
+    testSelectionRequiresReadyBackend();
     testDisablingSelectedModelClearsSelection();
     return 0;
 }
