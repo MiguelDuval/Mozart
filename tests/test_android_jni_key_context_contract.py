@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class AndroidJniKeyContextContractTests(unittest.TestCase):
-    def test_generation_request_reads_resolved_key_scale_field(self) -> None:
+    def test_generation_factory_receives_resolved_key_scale_field(self) -> None:
         source = (
             ROOT
             / "src"
@@ -21,13 +21,19 @@ class AndroidJniKeyContextContractTests(unittest.TestCase):
             / "MozartJni.cpp"
         ).read_text(encoding="utf-8")
 
+        self.assertIn(
+            '#include "generation/GenerationRequestFactory.h"',
+            source,
+        )
         self.assertRegex(
             source,
-            r"request\.keyScale\s*=\s*context\.resolvedKeyScale\s*;",
+            r"GenerationRequestFactory::fromPerformanceContext\(\s*"
+            r"context\.resolvedKeyScale\s*,",
+            re.MULTILINE,
         )
         self.assertNotRegex(
             source,
-            r"request\.keyScale\s*=\s*context\.resolvedKeyScale\s*\(\s*\)",
+            r"context\.resolvedKeyScale\s*\(\s*\)",
         )
 
 
