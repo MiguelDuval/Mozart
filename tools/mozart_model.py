@@ -191,17 +191,10 @@ class MozartTransformer(nn.Module):
                 raise ValueError(f"{name}_id must have shape [batch]")
             hidden = hidden + self.condition_embeddings[name](ids).unsqueeze(1)
 
-        causal_mask = torch.triu(
-            torch.ones(
-                (sequence_length, sequence_length),
-                dtype=torch.bool,
-                device=input_ids.device,
-            ),
-            diagonal=1,
-        )
         hidden = self.encoder(
             hidden,
-            mask=causal_mask,
+            mask=None,
             src_key_padding_mask=padding_mask,
+            is_causal=True,
         )
         return self.output_projection(self.final_norm(hidden))
