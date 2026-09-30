@@ -195,6 +195,7 @@ jobs:
           build/native-tests/mozart_generation_provider_tests
           build/native-tests/mozart_model_catalog_tests
           build/native-tests/mozart_generation_service_tests
+          build/native-tests/mozart_onnx_token_inference_backend_tests
 
       - name: Assemble debug APK
         working-directory: android
