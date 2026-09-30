@@ -35,6 +35,137 @@ DEFAULT_HIGH_VALUE = 0.9
 DEFAULT_BASE_VALUE = 0.5
 
 
+PAD = 0
+BOS = 1
+EOS = 2
+CHANNEL_BASE = 16
+NOTE_BASE = 32
+VELOCITY_BASE = 160
+TIME_SHIFT_BASE = 192
+DURATION_BASE = 256
+CONTROLLER_BASE = 352
+CONTROL_VALUE_BASE = 480
+VOCABULARY_SIZE = 512
+
+
+def validate_mozart_token_sequence(tokens: list[int]) -> dict[str, Any]:
+    if len(tokens) < 2:
+        return {"valid": False, "error": "token sequence is shorter than BOS/EOS"}
+    if tokens[0] != BOS:
+        return {
+            "valid": False,
+            "index": 0,
+            "token": tokens[0],
+            "error": "token sequence must start with BOS",
+        }
+    if tokens[-1] != EOS:
+        return {
+            "valid": False,
+            "index": len(tokens) - 1,
+            "token": tokens[-1],
+            "error": "token sequence must end with EOS",
+        }
+
+    channel_initialized = False
+    index = 1
+    while index < len(tokens) - 1:
+        token = tokens[index]
+        if not 0 <= token < VOCABULARY_SIZE:
+            return {
+                "valid": False,
+                "index": index,
+                "token": token,
+                "error": "token id is outside the Mozart vocabulary",
+            }
+        if token in (PAD, BOS, EOS):
+            return {
+                "valid": False,
+                "index": index,
+                "token": token,
+                "error": "special token is not allowed inside the stream",
+            }
+
+        if CHANNEL_BASE <= token < NOTE_BASE:
+            channel_initialized = True
+            index += 1
+            continue
+
+        if TIME_SHIFT_BASE <= token < DURATION_BASE:
+            index += 1
+            continue
+
+        if not channel_initialized:
+            return {
+                "valid": False,
+                "index": index,
+                "token": token,
+                "error": "event token appears before a channel token",
+            }
+
+        if NOTE_BASE <= token < VELOCITY_BASE:
+            if index + 2 >= len(tokens) - 0:
+                return {
+                    "valid": False,
+                    "index": index,
+                    "token": token,
+                    "error": "note token is missing velocity/duration tokens",
+                }
+            velocity = tokens[index + 1]
+            duration = tokens[index + 2]
+            if not VELOCITY_BASE <= velocity < TIME_SHIFT_BASE:
+                return {
+                    "valid": False,
+                    "index": index + 1,
+                    "token": velocity,
+                    "error": "note token is not followed by a velocity token",
+                }
+            if not DURATION_BASE <= duration < CONTROLLER_BASE:
+                return {
+                    "valid": False,
+                    "index": index + 2,
+                    "token": duration,
+                    "error": "note velocity is not followed by a duration token",
+                }
+            index += 3
+            continue
+
+        if CONTROLLER_BASE <= token < CONTROL_VALUE_BASE:
+            if index + 1 >= len(tokens):
+                return {
+                    "valid": False,
+                    "index": index,
+                    "token": token,
+                    "error": "controller token is missing a value token",
+                }
+            value = tokens[index + 1]
+            if not CONTROL_VALUE_BASE <= value < VOCABULARY_SIZE:
+                return {
+                    "valid": False,
+                    "index": index + 1,
+                    "token": value,
+                    "error": "controller token is not followed by a control-value token",
+                }
+            index += 2
+            continue
+
+        if CONTROL_VALUE_BASE <= token < VOCABULARY_SIZE:
+            return {
+                "valid": False,
+                "index": index,
+                "token": token,
+                "error": "control-value token appears without a controller token",
+            }
+
+        return {
+            "valid": False,
+            "index": index,
+            "token": token,
+            "error": "unknown Mozart token range",
+        }
+
+    return {"valid": True, "error": None}
+
+
 def load_sequence_probe_file(path: Path) -> dict[str, tuple[int, ...]]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -292,6 +423,7 @@ def evaluate_sequence_responsiveness(
     prefix_tokens: tuple[int, ...] = (1, 16, 68, 185),
     prefix_tokens_by_control: dict[str, tuple[int, ...]] | None = None,
     require_divergence: bool = True,
+    require_valid_grammar: bool = False,
     max_reported_diffs: int = DEFAULT_MAX_REPORTED_DIFFS,
     low_value: float = DEFAULT_LOW_VALUE,
     high_value: float = DEFAULT_HIGH_VALUE,
@@ -347,6 +479,18 @@ def evaluate_sequence_responsiveness(
             torch_high,
             max_reported_diffs=max_reported_diffs,
         )
+        torch_low_grammar = validate_mozart_token_sequence(torch_low)
+        torch_high_grammar = validate_mozart_token_sequence(torch_high)
+        if require_valid_grammar:
+            for label, grammar in (
+                ("low", torch_low_grammar),
+                ("high", torch_high_grammar),
+            ):
+                if not grammar["valid"]:
+                    failures.append(
+                        f"conditioning control {name} produced invalid greedy "
+                        f"PyTorch {label} token sequence: {grammar['error']}"
+                    )
 
         entry: dict[str, Any] = {
             "prefix_tokens": list(control_prefix),
@@ -357,6 +501,8 @@ def evaluate_sequence_responsiveness(
                 **torch_compare,
                 "low_tokens": torch_low,
                 "high_tokens": torch_high,
+                "low_grammar": torch_low_grammar,
+                "high_grammar": torch_high_grammar,
             },
         }
 
@@ -384,10 +530,24 @@ def evaluate_sequence_responsiveness(
                 onnx_high,
                 max_reported_diffs=max_reported_diffs,
             )
+            onnx_low_grammar = validate_mozart_token_sequence(onnx_low)
+            onnx_high_grammar = validate_mozart_token_sequence(onnx_high)
+            if require_valid_grammar:
+                for label, grammar in (
+                    ("low", onnx_low_grammar),
+                    ("high", onnx_high_grammar),
+                ):
+                    if not grammar["valid"]:
+                        failures.append(
+                            f"conditioning control {name} produced invalid greedy "
+                            f"ONNX {label} token sequence: {grammar['error']}"
+                        )
             entry["onnx"] = {
                 **onnx_compare,
                 "low_tokens": onnx_low,
                 "high_tokens": onnx_high,
+                "low_grammar": onnx_low_grammar,
+                "high_grammar": onnx_high_grammar,
             }
 
             low_match = onnx_low == torch_low
@@ -406,6 +566,7 @@ def evaluate_sequence_responsiveness(
     return {
         "status": "FAIL" if failures else "PASS",
         "require_divergence": require_divergence,
+        "require_valid_grammar": require_valid_grammar,
         "max_generated_tokens": max_generated_tokens,
         "control_probe_values": {
             "low": low_value,
@@ -450,6 +611,12 @@ def main() -> int:
         "--require-divergence",
         action=argparse.BooleanOptionalAction,
         default=True,
+    )
+    parser.add_argument(
+        "--require-valid-grammar",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Require every generated PyTorch/ONNX sequence to be decoder-valid.",
     )
     parser.add_argument(
         "--max-reported-diffs",
@@ -505,6 +672,7 @@ def main() -> int:
         prefix_tokens=prefix_tokens,
         prefix_tokens_by_control=prefix_tokens_by_control,
         require_divergence=args.require_divergence,
+        require_valid_grammar=args.require_valid_grammar,
         max_reported_diffs=args.max_reported_diffs,
         low_value=args.low_value,
         high_value=args.high_value,
