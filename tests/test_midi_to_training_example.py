@@ -42,6 +42,60 @@ def smf_fixture() -> bytes:
 
 
 class MidiToTrainingExampleTests(unittest.TestCase):
+    def test_explicit_performance_controls_are_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fixture.mid"
+            path.write_bytes(smf_fixture())
+
+            result = build_example(
+                path,
+                source_id="fixture-song",
+                source_revision="fixture-rev-1",
+                source_path="fixtures/four-bars.mid",
+                style="electronic",
+                substyle="techno",
+                mood="driving",
+                rhythm="straight",
+                role="bass",
+                seed=12345,
+                performance_controls={
+                    "density": 0.2,
+                    "energy": 0.8,
+                    "syncopation": 0.35,
+                    "swing": 0.4,
+                    "variation": 0.7,
+                },
+            )
+
+        self.assertEqual(
+            result["performance_controls"],
+            {
+                "density": 0.2,
+                "energy": 0.8,
+                "syncopation": 0.35,
+                "swing": 0.4,
+                "variation": 0.7,
+            },
+        )
+
+    def test_missing_performance_controls_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fixture.mid"
+            path.write_bytes(smf_fixture())
+
+            with self.assertRaises(ValueError):
+                build_example(
+                    path,
+                    source_id="fixture-song",
+                    source_revision="fixture-rev-1",
+                    style="electronic",
+                    substyle="techno",
+                    mood="driving",
+                    rhythm="straight",
+                    role="bass",
+                    seed=12345,
+                )
+
     def test_end_to_end_example(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "fixture.mid"
