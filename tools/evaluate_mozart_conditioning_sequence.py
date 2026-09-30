@@ -30,6 +30,9 @@ from evaluate_mozart_conditioning import (
 EOS = 2
 DEFAULT_MAX_GENERATED_TOKENS = 32
 DEFAULT_MAX_REPORTED_DIFFS = 16
+DEFAULT_LOW_VALUE = 0.1
+DEFAULT_HIGH_VALUE = 0.9
+DEFAULT_BASE_VALUE = 0.5
 
 
 def _torch_next_logits(
@@ -121,7 +124,7 @@ def generate_greedy_torch(
     controls: dict[str, float],
     *,
     max_generated_tokens: int,
-    prefix_tokens: tuple[int, ...] = PROBE_INPUT_IDS,
+    prefix_tokens: tuple[int, ...] = (1, 16, 68, 185),
 ) -> list[int]:
     if max_generated_tokens < 2:
         raise ValueError("max_generated_tokens must be at least 2")
@@ -146,7 +149,7 @@ def generate_greedy_onnx(
     controls: dict[str, float],
     *,
     max_generated_tokens: int,
-    prefix_tokens: tuple[int, ...] = PROBE_INPUT_IDS,
+    prefix_tokens: tuple[int, ...] = (1, 16, 68, 185),
 ) -> list[int]:
     if max_generated_tokens < 2:
         raise ValueError("max_generated_tokens must be at least 2")
@@ -171,6 +174,9 @@ def compare_token_sequences(
     high_tokens: list[int],
     *,
     max_reported_diffs: int = DEFAULT_MAX_REPORTED_DIFFS,
+    low_value: float = DEFAULT_LOW_VALUE,
+    high_value: float = DEFAULT_HIGH_VALUE,
+    base_value: float = DEFAULT_BASE_VALUE,
 ) -> dict[str, Any]:
     if not low_tokens or not high_tokens:
         raise ValueError("token sequences must not be empty")
@@ -240,18 +246,24 @@ def evaluate_sequence_responsiveness(
         raise ValueError("prefix must leave room for generated tokens")
     if max_reported_diffs <= 0:
         raise ValueError("max_reported_diffs must be positive")
+    if not 0.0 <= low_value < high_value <= 1.0:
+        raise ValueError("low-value and high-value must satisfy 0 <= low < high <= 1")
+    if not 0.0 <= base_value <= 1.0:
+        raise ValueError("base-value must be in [0, 1]")
 
-    baseline = {name: 0.0 for name in PERFORMANCE_CONTROL_NAMES}
+    baseline = {name: base_value for name in PERFORMANCE_CONTROL_NAMES}
     controls_report: dict[str, Any] = {}
     failures: list[str] = []
 
     for name in PERFORMANCE_CONTROL_NAMES:
+        low = dict(baseline)
+        low[name] = low_value
         high = dict(baseline)
-        high[name] = 1.0
+        high[name] = high_value
 
         torch_low = generate_greedy_torch(
             model,
-            baseline,
+            low,
             max_generated_tokens=max_generated_tokens,
             prefix_tokens=prefix_tokens,
         )
@@ -268,7 +280,7 @@ def evaluate_sequence_responsiveness(
         )
 
         entry: dict[str, Any] = {
-            "low_controls": dict(baseline),
+"low_controls": dict(low),
             "high_controls": dict(high),
             "torch": {
                 **torch_compare,
@@ -286,7 +298,7 @@ def evaluate_sequence_responsiveness(
         if onnx_session is not None:
             onnx_low = generate_greedy_onnx(
                 onnx_session,
-                baseline,
+                low,
                 max_generated_tokens=max_generated_tokens,
                 prefix_tokens=prefix_tokens,
             )
@@ -324,6 +336,11 @@ def evaluate_sequence_responsiveness(
         "status": "FAIL" if failures else "PASS",
         "require_divergence": require_divergence,
         "max_generated_tokens": max_generated_tokens,
+        "control_probe_values": {
+            "low": low_value,
+            "high": high_value,
+            "base_other_controls": base_value,
+        },
         "prefix_tokens": list(prefix_tokens),
         "controls": controls_report,
         "failures": failures,
@@ -355,6 +372,9 @@ def main() -> int:
         type=int,
         default=DEFAULT_MAX_REPORTED_DIFFS,
     )
+    parser.add_argument("--low-value", type=float, default=DEFAULT_LOW_VALUE)
+    parser.add_argument("--high-value", type=float, default=DEFAULT_HIGH_VALUE)
+    parser.add_argument("--base-value", type=float, default=DEFAULT_BASE_VALUE)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output", type=Path)
 
@@ -395,6 +415,9 @@ def main() -> int:
         prefix_tokens=prefix_tokens,
         require_divergence=args.require_divergence,
         max_reported_diffs=args.max_reported_diffs,
+        low_value=args.low_value,
+        high_value=args.high_value,
+        base_value=args.base_value,
     )
     report = {
         "model_id": config.model_id,
