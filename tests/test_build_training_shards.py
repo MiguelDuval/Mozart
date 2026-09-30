@@ -118,6 +118,86 @@ class BuildTrainingShardsTests(unittest.TestCase):
             "abc123",
         )
 
+    def test_statistics_include_manifest_provenance(self) -> None:
+        records = [
+            record("song-a", "rev-1", "train", "a.mid"),
+            record("song-b", "rev-2", "test", "b.mid", role="chords"),
+        ]
+        manifest = {
+            "manifest_id": "dataset-v1",
+            "status": "audited",
+            "sources": [
+                {
+                    "source_id": "song-a",
+                    "license": {
+                        "spdx_id": "CC-BY-4.0",
+                        "commercial_use": "allowed",
+                        "redistribution": "allowed",
+                        "attribution": "required",
+                    },
+                    "provenance": {"provider": "provider-a"},
+                },
+                {
+                    "source_id": "song-b",
+                    "license": {
+                        "spdx_id": "CC0-1.0",
+                        "commercial_use": "allowed",
+                        "redistribution": "allowed",
+                        "attribution": "not-required",
+                    },
+                    "provenance": {"provider": "provider-b"},
+                },
+            ],
+        }
+        stats = _stats(records, "abc123", manifest)
+        self.assertEqual(stats["sources"]["record_counts"], {
+            "song-a\\0rev-1": 1,
+            "song-b\\0rev-2": 1,
+        })
+        self.assertEqual(stats["provenance"]["manifest_id"], "dataset-v1")
+        self.assertEqual(stats["provenance"]["source_count"], 2)
+        self.assertEqual(
+            stats["provenance"]["license_spdx_counts"],
+            {"CC-BY-4.0": 1, "CC0-1.0": 1},
+        )
+        self.assertEqual(
+            stats["provenance"]["commercial_use_counts"],
+            {"allowed": 2},
+        )
+        self.assertEqual(
+            stats["provenance"]["redistribution_counts"],
+            {"allowed": 2},
+        )
+        self.assertEqual(
+            stats["provenance"]["attribution_counts"],
+            {"not-required": 1, "required": 1},
+        )
+        self.assertEqual(
+            stats["provenance"]["unrepresented_manifest_sources"],
+            [],
+        )
+
+    def test_statistics_reject_manifest_source_coverage_gap(self) -> None:
+        records = [record("song-a", "rev-1", "train", "a.mid")]
+        manifest = {
+            "manifest_id": "dataset-v1",
+            "status": "audited",
+            "sources": [
+                {
+                    "source_id": "other-source",
+                    "license": {
+                        "spdx_id": "CC0-1.0",
+                        "commercial_use": "allowed",
+                        "redistribution": "allowed",
+                        "attribution": "not-required",
+                    },
+                    "provenance": {"provider": "provider"},
+                }
+            ],
+        }
+        with self.assertRaises(ValueError):
+            _stats(records, "abc123", manifest)
+
     def test_invalid_conditioning_slug_is_rejected(self) -> None:
         item = record("song-a", "rev-1", "train", "a.mid")
         item["conditioning"]["mood"] = "not_a_real_mood"
