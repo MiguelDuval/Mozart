@@ -2,6 +2,7 @@ package com.miguelduval.mozart;
 
 import android.util.Log;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -103,6 +104,8 @@ public final class OnnxInferenceBridge {
             final Object session =
                     envClass.getMethod("createSession", String.class)
                             .invoke(environment, artifact.getAbsolutePath());
+
+            validateSessionAbi(session, root);
 
             final List<Integer> tokens = new ArrayList<>();
             tokens.add(runtime.getInt("bos_token_id"));
@@ -312,6 +315,132 @@ public final class OnnxInferenceBridge {
                         "model_sha256 does not match artifact");
             }
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void validateSessionAbi(
+            Object session,
+            JSONObject root) throws Exception {
+        final JSONObject runtime = root.getJSONObject("runtime");
+        final String inputName = runtime.getString("input_name");
+        final String outputName = runtime.getString("output_name");
+
+        final Map<String, ?> inputInfo =
+                (Map<String, ?>) session.getClass()
+                        .getMethod("getInputInfo")
+                        .invoke(session);
+        final Map<String, ?> outputInfo =
+                (Map<String, ?>) session.getClass()
+                        .getMethod("getOutputInfo")
+                        .invoke(session);
+
+        final Object inputNode = inputInfo.get(inputName);
+        final Object outputNode = outputInfo.get(outputName);
+        if (inputNode == null) {
+            throw new IllegalArgumentException(
+                    "ONNX input tensor not found: " + inputName);
+        }
+        if (outputNode == null) {
+            throw new IllegalArgumentException(
+                    "ONNX output tensor not found: " + outputName);
+        }
+
+        validateSessionTensor(
+                inputNode,
+                findManifestTensor(root.getJSONArray("inputs"), inputName),
+                "input");
+        validateSessionTensor(
+                outputNode,
+                findManifestTensor(root.getJSONArray("outputs"), outputName),
+                "output");
+
+        if (!"int64".equalsIgnoreCase(runtime.getString("input_dtype"))) {
+            throw new IllegalArgumentException(
+                    "ONNX runtime input_dtype is not int64");
+        }
+    }
+
+    private static JSONObject findManifestTensor(
+            JSONArray tensors,
+            String name) throws Exception {
+        for (int i = 0; i < tensors.length(); ++i) {
+            final JSONObject tensor = tensors.getJSONObject(i);
+            if (name.equals(tensor.optString("name", ""))) {
+                return tensor;
+            }
+        }
+        throw new IllegalArgumentException(
+                "manifest tensor is missing: " + name);
+    }
+
+    private static void validateSessionTensor(
+            Object nodeInfo,
+            JSONObject manifestTensor,
+            String role) throws Exception {
+        final Object valueInfo =
+                nodeInfo.getClass()
+                        .getMethod("getInfo")
+                        .invoke(nodeInfo);
+
+        final String actualType =
+                normalizeOrtType(
+                        String.valueOf(
+                                valueInfo.getClass()
+                                        .getMethod("getType")
+                                        .invoke(valueInfo)));
+        final String expectedType =
+                normalizeOrtType(manifestTensor.getString("dtype"));
+
+        if (!expectedType.equalsIgnoreCase(actualType)) {
+            throw new IllegalArgumentException(
+                    "ONNX " + role + " dtype mismatch: expected "
+                            + expectedType + " actual " + actualType);
+        }
+
+        final Object actualShape =
+                valueInfo.getClass()
+                        .getMethod("getShape")
+                        .invoke(valueInfo);
+        final JSONArray expectedShape =
+                manifestTensor.getJSONArray("shape");
+
+        if (actualShape == null || !actualShape.getClass().isArray()) {
+            throw new IllegalArgumentException(
+                    "ONNX " + role + " shape is unavailable");
+        }
+
+        final int actualRank = java.lang.reflect.Array.getLength(actualShape);
+        if (actualRank != expectedShape.length()) {
+            throw new IllegalArgumentException(
+                    "ONNX " + role + " rank mismatch");
+        }
+
+        for (int i = 0; i < actualRank; ++i) {
+            final long actualDimension =
+                    java.lang.reflect.Array.getLong(actualShape, i);
+            final long expectedDimension =
+                    expectedShape.getLong(i);
+
+            // Negative dimensions represent dynamic/unknown extents in the
+            // Mozart manifest and therefore match any runtime dimension.
+            if (expectedDimension >= 0 &&
+                    actualDimension != expectedDimension) {
+                throw new IllegalArgumentException(
+                        "ONNX " + role + " shape mismatch at dimension "
+                                + i + ": expected "
+                                + expectedDimension + " actual "
+                                + actualDimension);
+            }
+        }
+    }
+
+    private static String normalizeOrtType(String type) {
+        String normalized = type == null ? "" : type.trim().toLowerCase();
+        if (normalized.startsWith("tensor(") &&
+                normalized.endsWith(")")) {
+            normalized = normalized.substring(7, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     private static Object createLongTensor(
