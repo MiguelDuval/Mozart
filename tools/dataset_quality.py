@@ -123,10 +123,39 @@ def duplicate_key(record: dict) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _load_duplicate_reviews(path: Path) -> dict[str, dict[str, str]]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot read duplicate review {path}: {exc}") from exc
+    if not isinstance(value, dict) or value.get("schema_version") != 1:
+        raise ValueError("duplicate review must be an object with schema_version=1")
+    reviews = value.get("reviews")
+    if not isinstance(reviews, dict):
+        raise ValueError("duplicate review.reviews must be an object")
+    normalized: dict[str, dict[str, str]] = {}
+    for digest, review in reviews.items():
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(ch not in "0123456789abcdefABCDEF" for ch in digest)
+        ):
+            raise ValueError("duplicate review keys must be SHA-256 digests")
+        if not isinstance(review, dict):
+            raise ValueError(f"duplicate review for {digest} must be an object")
+        decision = review.get("decision")
+        if decision not in {"intentional", "exclude"}:
+            raise ValueError(
+                f"duplicate review decision for {digest} must be intentional or exclude"
+            )
+        normalized[digest.lower()] = {"decision": decision}
+    return normalized
+
 def build_report(
     records: list[object],
     *,
     manifest_sha256: str | None = None,
+    duplicate_reviews: dict[str, dict[str, str]] | None = None,
 ) -> dict:
     reason_counts = Counter()
     split_counts = Counter()
