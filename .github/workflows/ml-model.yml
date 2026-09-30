@@ -187,7 +187,7 @@ jobs:
           cat build/ml-checkpoint/abi.json
 
       - name: Upload development ML artifacts
-        if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json') != '' } }
+        if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: mozart-development-ml-${{ github.sha }}
