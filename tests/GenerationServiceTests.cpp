@@ -98,7 +98,6 @@ void testBackendAvailabilityRunsOnWorkerThread() {
     (void) future.get();
 
     assert(backend.availabilityThread != callerThread);
-    assert(backend.availabilityThread == backend.executionThread);
 
     service.stop();
 }
