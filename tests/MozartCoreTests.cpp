@@ -50,6 +50,25 @@
 #include <string>
 #include <vector>
 
+#ifdef LINK_PLATFORM_LINUX
+namespace {
+
+class TestMidiOutput final : public mozart::midi::MidiOutputTransport {
+public:
+    [[nodiscard]] mozart::midi::MidiSendResult send(
+            const mozart::midi::MidiShortMessage&) noexcept override {
+        return {
+                mozart::midi::MidiTransportStatus::Ok,
+                3
+        };
+    }
+
+    void close() noexcept override {}
+};
+
+} // namespace
+#endif
+
 int main() {
     {
         using namespace mozart::generation;
@@ -2299,6 +2318,23 @@ int main() {
         assert(
                 ratcheted.proposal.noteEvents.size() ==
                 first.proposal.noteEvents.size() * 2U);
+    }
+
+#ifdef LINK_PLATFORM_LINUX
+    {
+        TestMidiOutput midiOutput;
+        mozart::runtime::MozartRuntime runtime(midiOutput);
+
+        mozart::generation::PatternProposal proposal;
+        proposal.metadata.lengthBeats = 16.0;
+        proposal.metadata.confidence = 1.0;
+        proposal.noteEvents = {
+                {0.0, 0.5, 54, 100, 0},
+                {8.0, 0.5, 49, 100, 0}
+        };
+
+        assert(runtime.queueGeneratedPattern(proposal));
+        assert(!runtime.queueGeneratedPattern(proposal));
     }
 
 #ifdef LINK_PLATFORM_LINUX
