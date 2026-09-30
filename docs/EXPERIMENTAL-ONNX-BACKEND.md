@@ -69,11 +69,11 @@ reports a 48.60M-parameter causal decoder-only Transformer and a published ONNX
 artifact, but its vocabulary is 10,000 MidiTok REMI IDs. That means it must fail
 the first Mozart adapter's 512-token ABI gate. A future Aura-specific adapter
 would need an explicit, tested event-semantic translation layer rather than an
-ID-range remap. citeturn931993search0
+ID-range remap.
 
 The published card also describes training from Lakh Clean MIDI, MAESTRO and
 additional multi-genre stems. That provenance remains an experimental review
-item and is not, by itself, production redistribution approval. citeturn931993search0
+item and is not, by itself, production redistribution approval.
 
 ## Manifest extension
 
