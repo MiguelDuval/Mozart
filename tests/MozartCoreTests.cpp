@@ -29,7 +29,7 @@
 #include "midi/ControllerMapping.h"
 #include "musical/KeyScale.h"
 #include "musical/KeyContext.h"
-#ifdef MOZART_ENABLE_LINK
+#ifdef LINK_PLATFORM_LINUX
 #include "runtime/MozartRuntime.h"
 #endif
 #ifdef MOZART_ENABLE_LINK
@@ -43,6 +43,7 @@
 #include <cmath>
 #include <cstdint>
 #include <condition_variable>
+#include <future>
 #include <mutex>
 #include <thread>
 #include <string>
