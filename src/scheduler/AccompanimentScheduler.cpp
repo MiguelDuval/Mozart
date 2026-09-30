@@ -203,6 +203,7 @@ std::uint8_t AccompanimentScheduler::macroMotion() const noexcept {
 [[nodiscard]] bool AccompanimentScheduler::queueGeneratedPattern(
         generation::PatternProposal proposal) {
     if (!proposal.isWellFormed() ||
+        proposal.noteEvents.empty() ||
         proposal.metadata.lengthBeats <= 0.0 ||
         !std::isfinite(proposal.metadata.lengthBeats)) {
         return false;
