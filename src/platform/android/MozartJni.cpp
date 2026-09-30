@@ -15,12 +15,16 @@
 #include "musical/KeyScale.h"
 #include "midi/MidiReceiveQueue.h"
 #include "platform/android/AndroidMidiOutput.h"
+#include "platform/android/OnnxRuntimeBridge.h"
+#include "generation/OnnxTokenInferenceBackend.h"
 #include "runtime/MozartRuntime.h"
 #include "scheduler/PerformanceScene.h"
 
 namespace {
 
 mozart::platform::android::AndroidMidiOutput g_midiOutput;
+std::unique_ptr<mozart::platform::android::OnnxRuntimeBridge> g_onnxBridge;
+std::vector<std::unique_ptr<mozart::generation::OnnxTokenInferenceBackend>> g_onnxBackends;
 std::unique_ptr<mozart::runtime::MozartRuntime> g_runtime;
 std::mutex g_runtimeMutex;
 mozart::midi::MidiReceiveQueue g_midiReceiveQueue;
@@ -206,6 +210,39 @@ Java_com_miguelduval_mozart_MainActivity_nativeRegisterExperimentalModel(
     entry.distributionClass =
             mozart::generation::ModelDistributionClass::PrivateExperimental;
     entry.enabled = true;
+
+    if (entry.modelId.empty() ||
+        entry.backendId.empty() ||
+        entry.artifactPath.empty() ||
+        entry.manifestPath.empty()) {
+        return JNI_FALSE;
+    }
+
+    if (entry.backendId == "onnxruntime-android") {
+        if (!g_onnxBridge) {
+            g_onnxBridge =
+                    std::make_unique<mozart::platform::android::OnnxRuntimeBridge>(
+                            env);
+        }
+
+        const std::string concreteBackendId =
+                "onnxruntime-android:" + entry.modelId;
+
+        auto backend =
+                std::make_unique<mozart::generation::OnnxTokenInferenceBackend>(
+                        concreteBackendId,
+                        entry.artifactPath,
+                        entry.manifestPath,
+                        *g_onnxBridge);
+
+        if (runtime()->registerModelBackend(*backend)) {
+            entry.backendId = concreteBackendId;
+            g_onnxBackends.push_back(std::move(backend));
+        } else {
+            // Re-opening the lab for an already registered model is harmless;
+            // the original backend remains owned by g_onnxBackends.
+        }
+    }
 
     return runtime()->registerModel(std::move(entry))
             ? JNI_TRUE
