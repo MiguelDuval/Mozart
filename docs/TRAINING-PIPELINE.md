@@ -121,6 +121,23 @@ record:
 The source identity fields are required inputs, not guessed from the filename, so an
 immutable musical-source revision must be supplied explicitly by the offline pipeline.
 
+## Conditioning vocabulary
+
+The model-independent conditioning vocabulary is frozen as `mozart-conditioning-v1`.
+The Python training pipeline mirrors the runtime slugs exactly and validates every
+conditioning record before tokenization.
+
+The current allowed slugs are:
+
+- styles: `electronic`, `techno`, `dark_techno`, `hard_techno`, `trap`, `custom`;
+- substyles: `generic`, `techno`, `dark_techno`, `hard_techno`, `trap`, `dark_trap`, `custom`;
+- moods: `neutral`, `driving`, `dark`, `aggressive`, `hypnotic`, `tense`, `atmospheric`, `custom`;
+- rhythms: `straight`, `syncopated`, `swing`, `half_time`, `double_time`, `broken`, `custom`;
+- roles: `bass`, `arpeggio`, `chords`, `lead`, `drums`, `percussion`, `texture`, `custom`.
+
+The generation seed is validated as an unsigned 32-bit integer. The eventual model
+tensor mapping remains model-dependent and is not encoded by this vocabulary layer.
+
 ## Deterministic splitting
 
 Splits must be deterministic and source-grouped.
@@ -162,66 +179,6 @@ than automatically rejected because identical musical material may be intentiona
 
 These statistics are evidence for dataset QA only; they do not replace the provenance/license gate.
 
-## Conditioning records
-
-Each training example should carry model-independent conditioning fields from the Mozart vocabulary:
-
-- style;
-- substyle;
-- mood;
-- rhythm;
-- role;
-- key/scale;
-- chord progression when available;
-- density;
-- energy;
-- syncopation;
-- swing;
-- variation;
-- seed.
-
-Conditioning values must use the slugs and enums already defined in `StyleVocabulary.h` / `GenerationRequest.h`.
-
-The mapping from these fields into model tensors remains model-dependent and is frozen only with the actual checkpoint/export.
-
-## Quality filters
-
-At minimum, training examples should be filtered for:
-
-- invalid/corrupt MIDI structure;
-- unsupported or contradictory metadata;
-- zero usable musical events;
-- extreme event density beyond the runtime budget;
-- pathological pitch ranges;
-- impossible or negative durations;
-- excessive duplicate events;
-- unusable timing resolution;
-- source duplicates detected by canonical content hash.
-
-Filtering must produce counts per reason so dataset size changes are explainable.
-
-## Dataset statistics
-
-Every training build should record:
-
-- number of source files discovered;
-- number accepted/rejected;
-- rejection reasons;
-- bars generated;
-- examples per split;
-- token count distribution;
-- note-event count distribution;
-- polyphony distribution;
-- pitch histogram;
-- velocity-bin histogram;
-- role/style distribution;
-- source/license distribution;
-- normalization revision;
-- pipeline version;
-- manifest checksum.
-
-The statistics file is part of the training run evidence.
-
 ## Manifest digest
 
 The canonical manifest digest is computed from normalized JSON with
@@ -261,12 +218,7 @@ The shipped application consumes only the resulting production model artifact an
 ## Next implementation gates
 
 1. Attach discovered MIDI inventory records to an audited source manifest.
-2. Implement source-aware example windowing for files longer than 16 bars. The current
-windower partitions long sources into deterministic musical-bar windows capped at 16
-bars, keeps every source group on the same split, rebases event timing to zero, clips
-notes at the right window boundary, and preserves the active time signature at window
-start.
-3. Emit conditioning records from audited metadata.
-4. Complete full dataset statistics, including source/license distributions and duplicate review.
-5. Run a small end-to-end fixture corpus before using any external data.
-6. Freeze the first production dataset manifest only after rights evidence is complete.
+2. Emit conditioning records from audited metadata using `mozart-conditioning-v1`.
+3. Complete full dataset statistics, including source/license distributions and duplicate review.
+4. Run a small end-to-end fixture corpus before using any external data.
+5. Freeze the first production dataset manifest only after rights evidence is complete.

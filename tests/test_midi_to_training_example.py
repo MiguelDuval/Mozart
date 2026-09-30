@@ -65,6 +65,7 @@ class MidiToTrainingExampleTests(unittest.TestCase):
         self.assertEqual(result["source_path"], "fixtures/four-bars.mid")
         self.assertEqual(result["vocabulary_id"], "mozart-midi-events-v1")
         self.assertEqual(result["vocabulary_size"], 512)
+        self.assertEqual(result["conditioning_vocabulary_id"], "mozart-conditioning-v1")
         self.assertEqual(result["music"]["length_bars"], 4)
         self.assertEqual(result["conditioning"]["substyle"], "techno")
         self.assertEqual(result["conditioning"]["seed"], 12345)
@@ -76,6 +77,19 @@ class MidiToTrainingExampleTests(unittest.TestCase):
         self.assertEqual(result["music"]["max_start_step_polyphony"], 1)
         self.assertEqual(sum(result["music"]["pitch_histogram"]), 16)
         self.assertEqual(sum(result["music"]["velocity_bin_histogram"]), 16)
+
+    def test_conditioning_values_are_validated(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fixture.mid"
+            path.write_bytes(smf_fixture())
+
+            with self.assertRaises(ValueError):
+                build_example(
+                    path,
+                    source_id="fixture-song",
+                    source_revision="fixture-rev-1",
+                    style="unknown_style",
+                )
 
     def test_source_identity_is_required(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

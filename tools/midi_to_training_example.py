@@ -11,6 +11,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from midi_normalize import MidiValidationError, NormalizedMidi, normalize_file
+from mozart_conditioning import CONDITIONING_VOCABULARY_ID, validate_conditioning
 from mozart_tokenizer import VOCABULARY_ID, VOCABULARY_SIZE, encode
 
 
@@ -38,6 +39,16 @@ def _build_record(
         raise ValueError("source_id must not be empty")
     if not source_revision:
         raise ValueError("source_revision must not be empty")
+
+    conditioning = validate_conditioning(
+        style=style,
+        substyle=substyle,
+        mood=mood,
+        rhythm=rhythm,
+        role=role,
+        seed=seed,
+    )
+
     if start_beat < 0.0:
         raise ValueError("start_beat must be non-negative")
 
@@ -166,14 +177,8 @@ def _build_record(
         "source_path": source_path,
         "vocabulary_id": VOCABULARY_ID,
         "vocabulary_size": VOCABULARY_SIZE,
-        "conditioning": {
-            "style": style,
-            "substyle": substyle,
-            "mood": mood,
-            "rhythm": rhythm,
-            "role": role,
-            "seed": seed,
-        },
+        "conditioning_vocabulary_id": CONDITIONING_VOCABULARY_ID,
+        "conditioning": conditioning,
         "source": {
             "format": normalized.source_format,
             "tracks": normalized.source_tracks,
