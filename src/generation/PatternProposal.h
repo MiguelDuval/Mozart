@@ -31,6 +31,10 @@ struct PatternProposalMetadata final {
     std::uint32_t seed = 0;
     double confidence = 0.0;
     std::uint32_t generationTimeMs = 0;
+    // Zero means "not assigned yet"; the validator fills this from the
+    // GenerationRequest. This keeps proposal transport independent of
+    // the original request object.
+    double lengthBeats = 0.0;
     std::string generatorId = "unknown";
 
     friend bool operator==(const PatternProposalMetadata&, const PatternProposalMetadata&) = default;
@@ -50,6 +54,8 @@ struct PatternProposal final {
         if (metadata.schemaVersion != PatternProposalMetadata::kSchemaVersion ||
             !std::isfinite(metadata.confidence) ||
             metadata.confidence < 0.0 ||
+            !std::isfinite(metadata.lengthBeats) ||
+            metadata.lengthBeats < 0.0 ||
             metadata.confidence > 1.0 ||
             noteEvents.size() > kMaxNoteEvents ||
             controlEvents.size() > kMaxControlEvents) {
@@ -200,6 +206,8 @@ public:
                     "proposal contains no usable events after validation"
             };
         }
+
+        output.metadata.lengthBeats = patternLengthBeats;
 
         if (!output.isWellFormed()) {
             return {
