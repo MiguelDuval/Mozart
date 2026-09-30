@@ -17,6 +17,7 @@ on:
       - "tests/test_build_fixture_corpus.py"
       - "tests/test_corpus_pipeline.py"
       - "tests/test_mozart_model_config.py"
+      - "tests/test_mozart_conditioning_response.py"
   pull_request:
     paths:
       - "tools/build_fixture_corpus.py"
@@ -94,7 +95,8 @@ jobs:
             tools/mozart_model.py \
             tools/train_mozart_model.py \
             tools/export_mozart_onnx.py \
-            tools/inspect_mozart_onnx.py
+            tools/inspect_mozart_onnx.py \\
+            tools/evaluate_mozart_conditioning.py
 
       - name: Test conditioning response evaluator contract
         shell: bash
@@ -192,6 +194,16 @@ jobs:
             > build/ml-checkpoint/abi.json
           cat build/ml-checkpoint/abi.json
 
+      - name: Evaluate development conditioning responsiveness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/evaluate_mozart_conditioning.py \
+            build/ml-checkpoint/development-inference.pt \
+            --config docs/model-training-config.json \
+            --onnx build/ml-checkpoint/model.onnx \
+            --output build/ml-checkpoint/conditioning-response.json
+
       - name: Upload development ML artifacts
         if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json') != '' }}
         uses: actions/upload-artifact@v7
@@ -201,6 +213,7 @@ jobs:
             build/ml-checkpoint/development-inference.pt
             build/ml-checkpoint/model.onnx
             build/ml-checkpoint/abi.json
+            build/ml-checkpoint/conditioning-response.json
           archive: true
           if-no-files-found: error
           retention-days: 14
