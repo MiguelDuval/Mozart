@@ -193,6 +193,8 @@ jobs:
 
       - name: Test compact model configuration
         run: python3 -m unittest discover -s tests -p 'test_mozart_model_config.py'
+      - name: Test conditioning response evaluator contract
+        run: python3 -m unittest discover -s tests -p 'test_mozart_conditioning_response.py'
       - name: Compile model training scripts
         run: python3 -m py_compile tools/mozart_model.py tools/train_mozart_model.py
       - name: Test Mozart C++ core
