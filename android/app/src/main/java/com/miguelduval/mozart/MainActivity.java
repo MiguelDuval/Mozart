@@ -723,6 +723,7 @@ public final class MainActivity extends Activity {
         mainHandler.removeCallbacks(linkStatusPoll);
         mainHandler.removeCallbacks(midiInputStatusPoll);
         mainHandler.removeCallbacks(keyContextStatusPoll);
+        mainHandler.removeCallbacks(generationPoll);
         mainHandler.post(linkStatusPoll);
         mainHandler.post(keyContextStatusPoll);
         mainHandler.post(midiInputStatusPoll);
@@ -739,6 +740,7 @@ public final class MainActivity extends Activity {
         mainHandler.removeCallbacks(linkStatusPoll);
         mainHandler.removeCallbacks(midiInputStatusPoll);
         mainHandler.removeCallbacks(keyContextStatusPoll);
+        mainHandler.removeCallbacks(generationPoll);
         nativeStopAccompaniment();
         if (audioKeyInput != null) {
             audioKeyInput.stop();
@@ -760,6 +762,7 @@ public final class MainActivity extends Activity {
         mainHandler.removeCallbacks(linkStatusPoll);
         mainHandler.removeCallbacks(midiInputStatusPoll);
         mainHandler.removeCallbacks(keyContextStatusPoll);
+        mainHandler.removeCallbacks(generationPoll);
         if (audioKeyInput != null) {
             audioKeyInput.stop();
         }
