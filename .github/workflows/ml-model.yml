@@ -33,7 +33,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: mozart-ml-${github.head_ref || github.ref_name}
+  group: mozart-ml-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -190,7 +190,7 @@ jobs:
         if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json') != '' } }
         uses: actions/upload-artifact@v7
         with:
-          name: mozart-development-ml-${ github.sha }
+          name: mozart-development-ml-${{ github.sha }}
           path: |
             build/ml-checkpoint/development-inference.pt
             build/ml-checkpoint/model.onnx
