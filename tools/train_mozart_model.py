@@ -15,7 +15,12 @@ from torch.utils.data import DataLoader, Dataset
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from mozart_model import ModelConfig, MozartTransformer, conditioning_ids
+from mozart_model import (
+    ModelConfig,
+    MozartTransformer,
+    conditioning_ids,
+    performance_controls,
+)
 
 
 PAD = 0
@@ -41,6 +46,7 @@ class TokenRecordDataset(Dataset[dict]):
                 self.records.append({
                     "tokens": tokens,
                     "conditioning": conditioning,
+                    "performance_controls": performance_controls(record),
                 })
 
         if not self.records:
@@ -82,6 +88,7 @@ def collate_records(
         name: torch.zeros(batch_size, dtype=torch.long)
         for name in ("style", "substyle", "mood", "rhythm", "role")
     }
+    performance = torch.zeros((batch_size, 5), dtype=torch.float32)
 
     for row, record in enumerate(records):
         tokens = record["tokens"]
@@ -91,12 +98,17 @@ def collate_records(
         padding_mask[row, :length] = False
         for name, value in record["conditioning"].items():
             condition[name][row] = value
+        performance[row] = torch.tensor(
+            record["performance_controls"],
+            dtype=torch.float32,
+        )
 
     return {
         "input_ids": input_ids,
         "targets": targets,
         "padding_mask": padding_mask,
         **{f"{name}_id": value for name, value in condition.items()},
+        "performance_controls": performance,
     }
 
 
@@ -134,6 +146,7 @@ def run_epoch(
             batch["mood_id"].to(device),
             batch["rhythm_id"].to(device),
             batch["role_id"].to(device),
+            batch["performance_controls"].to(device),
             padding_mask=padding_mask,
         )
         loss = criterion(

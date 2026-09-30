@@ -12,6 +12,8 @@ from pathlib import Path
 import torch
 from torch import Tensor, nn
 
+from mozart_conditioning import PERFORMANCE_CONTROL_NAMES
+
 
 STYLE_IDS = {
     "electronic": 0,
@@ -74,6 +76,7 @@ class ModelConfig:
     dropout: float
     tie_token_embeddings: bool
     conditioning_sizes: dict[str, int]
+    performance_control_names: tuple[str, ...]
 
     @classmethod
     def from_json(cls, path: Path) -> "ModelConfig":
@@ -90,6 +93,7 @@ class ModelConfig:
             dropout=payload["dropout"],
             tie_token_embeddings=payload["tie_token_embeddings"],
             conditioning_sizes=dict(payload["conditioning"]),
+            performance_control_names=tuple(payload["performance_control_names"]),
         )
 
 
@@ -109,6 +113,16 @@ def conditioning_ids(record: dict) -> dict[str, int]:
             raise ValueError(f"unsupported conditioning.{name}: {value!r}")
         result[name] = mapping[value]
     return result
+
+
+def performance_controls(record: dict) -> list[float]:
+    controls = record.get("performance_controls")
+    if not isinstance(controls, dict):
+        raise ValueError("record.performance_controls must be an object")
+    values = {name: float(controls[name]) for name in PERFORMANCE_CONTROL_NAMES}
+    if any(value < 0.0 or value > 1.0 for value in values.values()):
+        raise ValueError("performance controls must be in [0, 1]")
+    return [values[name] for name in PERFORMANCE_CONTROL_NAMES]
 
 
 class MozartTransformer(nn.Module):
@@ -131,6 +145,15 @@ class MozartTransformer(nn.Module):
             name: nn.Embedding(size, config.d_model)
             for name, size in config.conditioning_sizes.items()
         })
+        if tuple(config.performance_control_names) != tuple(PERFORMANCE_CONTROL_NAMES):
+            raise ValueError(
+                "unsupported performance control schema: "
+                f"{config.performance_control_names!r}"
+            )
+        self.performance_control_projection = nn.Linear(
+            len(config.performance_control_names),
+            config.d_model,
+        )
 
         layer = nn.TransformerEncoderLayer(
             d_model=config.d_model,
@@ -164,6 +187,7 @@ class MozartTransformer(nn.Module):
         mood_id: Tensor,
         rhythm_id: Tensor,
         role_id: Tensor,
+        performance_controls: Tensor,
         padding_mask: Tensor | None = None,
     ) -> Tensor:
         if input_ids.ndim != 2:
@@ -192,6 +216,24 @@ class MozartTransformer(nn.Module):
             if ids.shape != (batch_size,):
                 raise ValueError(f"{name}_id must have shape [batch]")
             hidden = hidden + self.condition_embeddings[name](ids).unsqueeze(1)
+
+        if performance_controls.shape != (
+                batch_size,
+                len(self.config.performance_control_names),
+        ):
+            raise ValueError(
+                "performance_controls must have shape "
+                "[batch, performance_control_count]"
+            )
+        if not torch.is_floating_point(performance_controls):
+            raise ValueError("performance_controls must be a floating tensor")
+        if torch.any(performance_controls < 0.0) or torch.any(
+                performance_controls > 1.0
+        ):
+            raise ValueError("performance_controls must be in [0, 1]")
+        hidden = hidden + self.performance_control_projection(
+            performance_controls
+        ).unsqueeze(1)
 
         causal_mask = torch.triu(
             torch.ones(

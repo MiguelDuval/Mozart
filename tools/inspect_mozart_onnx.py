@@ -19,6 +19,7 @@ EXPECTED_INPUTS = (
     ("mood_id", "int64", 1),
     ("rhythm_id", "int64", 1),
     ("role_id", "int64", 1),
+    ("performance_controls", "float32", 2),
 )
 
 
@@ -63,6 +64,11 @@ def canonical_shape(
 
     if len(shape) == 1 and shape[0] == 1:
         return [1]
+
+    if name == "performance_controls":
+        if len(shape) != 2:
+            raise ValueError("performance_controls must have rank 2")
+        return [shape[0], shape[1]]
 
     if (
         len(shape) == 3
@@ -127,9 +133,14 @@ def inspect_model(path: Path, model_id: str) -> dict:
             batch_symbol=1,
             sequence_symbol=sequence_symbol,
         )
-        if name != "input_ids" and canonical != [1]:
+        if name != "input_ids" and name != "performance_controls" and canonical != [1]:
             raise ValueError(
                 f"{name} first dimension must be fixed to 1: {shape!r}"
+            )
+        if name == "performance_controls" and canonical != [1, 5]:
+            raise ValueError(
+                "performance_controls shape mismatch: "
+                f"{canonical!r} != [1, 5]"
             )
         inputs.append({
             "name": name,

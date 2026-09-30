@@ -13,7 +13,11 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from dataset_split import source_key
-from mozart_conditioning import CONDITIONING_VOCABULARY_ID, validate_conditioning
+from mozart_conditioning import (
+    CONDITIONING_VOCABULARY_ID,
+    validate_conditioning,
+    validate_performance_controls,
+)
 
 
 SPLITS = ("train", "validation", "test")
@@ -118,8 +122,11 @@ def validate_records(records: list[dict]) -> None:
             raise ValueError(f"{where}.music.velocity_bin_histogram total must equal note_event_count")
 
         conditioning = record.get("conditioning")
+        performance_controls = record.get("performance_controls")
         if not isinstance(conditioning, dict):
             raise ValueError(f"{where}.conditioning must be an object")
+        if not isinstance(performance_controls, dict):
+            raise ValueError(f"{where}.performance_controls must be an object")
         if record.get("conditioning_vocabulary_id") != CONDITIONING_VOCABULARY_ID:
             raise ValueError(
                 f"{where}.conditioning_vocabulary_id must be {CONDITIONING_VOCABULARY_ID}"
@@ -135,6 +142,7 @@ def validate_records(records: list[dict]) -> None:
                 role=conditioning["role"],
                 seed=conditioning.get("seed", 0),
             )
+            validate_performance_controls(performance_controls)
         except ValueError as exc:
             raise ValueError(f"{where}.conditioning is invalid: {exc}") from exc
 

@@ -38,6 +38,13 @@ def record(
             "rhythm": "straight",
             "role": role,
         },
+        "performance_controls": {
+            "density": 0.25,
+            "energy": 0.5,
+            "syncopation": 0.0,
+            "swing": 0.0,
+            "variation": 0.0,
+        },
         "music": {
             "length_bars": 4,
             "note_event_count": 1,

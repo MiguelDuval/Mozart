@@ -56,6 +56,62 @@ ROLE_SLUGS = frozenset({
     "custom",
 })
 
+PERFORMANCE_CONTROL_NAMES = (
+    "density",
+    "energy",
+    "syncopation",
+    "swing",
+    "variation",
+)
+
+
+def validate_performance_controls(
+    controls: dict[str, float],
+) -> dict[str, float]:
+    if not isinstance(controls, dict):
+        raise ValueError("performance_controls must be an object")
+    normalized: dict[str, float] = {}
+    for name in PERFORMANCE_CONTROL_NAMES:
+        value = controls.get(name)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(
+                f"performance_controls.{name} must be a number"
+            )
+        value = float(value)
+        if not 0.0 <= value <= 1.0:
+            raise ValueError(
+                f"performance_controls.{name} must be in [0, 1]"
+            )
+        normalized[name] = value
+    return normalized
+
+
+def derive_performance_controls(
+    notes: list[dict],
+    length_beats: float,
+) -> dict[str, float]:
+    if length_beats <= 0.0:
+        raise ValueError("length_beats must be positive")
+    if not notes:
+        return {name: 0.0 for name in PERFORMANCE_CONTROL_NAMES}
+    density = min(1.0, len(notes) / (length_beats * 4.0))
+    energy = sum(int(note["velocity"]) for note in notes) / (
+        len(notes) * 127.0
+    )
+    syncopation = sum(
+        round(float(note["start_beat"]) * 16.0) % 4 != 0
+        for note in notes
+    ) / len(notes)
+    unique_pitches = len({int(note["note"]) for note in notes})
+    variation = min(1.0, max(0.0, (unique_pitches - 1) / 7.0))
+    return {
+        "density": density,
+        "energy": energy,
+        "syncopation": syncopation,
+        "swing": 0.0,
+        "variation": variation,
+    }
+
 
 def validate_conditioning(
     *,

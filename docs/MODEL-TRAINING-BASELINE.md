@@ -16,10 +16,15 @@ The first trainable target is mozart-symbolic-transformer-v0:
 - GELU activation;
 - pre-normalization;
 - tied token embedding/output projection;
-- exactly 32,817,024 parameters for the configured architecture.
+- exactly 32,820,480 parameters for the configured architecture.
 
-The architecture uses the five conditioning axes already emitted by the current
-training corpus: style, substyle, mood, rhythm and role.
+The architecture uses the five categorical conditioning axes already emitted by
+the current training corpus: style, substyle, mood, rhythm and role. It also
+includes a small continuous performance-control projection for density, energy,
+syncopation, swing and variation. These controls are derived deterministically
+from training examples and can be supplied from live performance state at
+runtime. This remains a development baseline; the production tensor ABI is not
+frozen.
 
 The baseline deliberately does not claim that key/scale, continuous macro controls,
 LiteRT tensor names or production sampling policy are frozen. Those remain future

@@ -11,7 +11,11 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from midi_normalize import MidiValidationError, NormalizedMidi, normalize_file
-from mozart_conditioning import CONDITIONING_VOCABULARY_ID, validate_conditioning
+from mozart_conditioning import (
+    CONDITIONING_VOCABULARY_ID,
+    derive_performance_controls,
+    validate_conditioning,
+)
 from mozart_tokenizer import VOCABULARY_ID, VOCABULARY_SIZE, encode
 
 
@@ -170,6 +174,10 @@ def _build_record(
         if source_length_bars is not None
         else normalized.length_bars
     )
+    performance_controls = derive_performance_controls(
+        notes,
+        end_beat - start_beat,
+    )
     record = {
         "schema_version": 1,
         "source_id": source_id,
@@ -179,6 +187,7 @@ def _build_record(
         "vocabulary_size": VOCABULARY_SIZE,
         "conditioning_vocabulary_id": CONDITIONING_VOCABULARY_ID,
         "conditioning": conditioning,
+        "performance_controls": performance_controls,
         "source": {
             "format": normalized.source_format,
             "tracks": normalized.source_tracks,

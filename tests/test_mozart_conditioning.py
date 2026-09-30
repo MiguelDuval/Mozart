@@ -11,7 +11,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
 from mozart_conditioning import (
     CONDITIONING_VOCABULARY_ID,
+    PERFORMANCE_CONTROL_NAMES,
+    derive_performance_controls,
     validate_conditioning,
+    validate_performance_controls,
 )
 
 
@@ -29,6 +32,36 @@ class MozartConditioningTests(unittest.TestCase):
         self.assertEqual(result["substyle"], "dark_techno")
         self.assertEqual(result["seed"], 123)
         self.assertEqual(CONDITIONING_VOCABULARY_ID, "mozart-conditioning-v1")
+
+    def test_performance_controls_are_bounded_and_ordered(self) -> None:
+        controls = validate_performance_controls({
+            "density": 0.1,
+            "energy": 0.2,
+            "syncopation": 0.3,
+            "swing": 0.4,
+            "variation": 0.5,
+        })
+        self.assertEqual(tuple(controls), tuple(PERFORMANCE_CONTROL_NAMES))
+        with self.assertRaises(ValueError):
+            validate_performance_controls({
+                "density": 1.1,
+                "energy": 0.2,
+                "syncopation": 0.3,
+                "swing": 0.4,
+                "variation": 0.5,
+            })
+
+    def test_derived_controls_are_deterministic(self) -> None:
+        notes = [
+            {"start_beat": 0.0, "duration_beats": 0.25, "note": 36, "velocity": 127, "channel": 0},
+            {"start_beat": 0.25, "duration_beats": 0.25, "note": 38, "velocity": 64, "channel": 0},
+        ]
+        result = derive_performance_controls(notes, 1.0)
+        self.assertAlmostEqual(result["density"], 0.5)
+        self.assertAlmostEqual(result["energy"], 0.7519685039)
+        self.assertAlmostEqual(result["syncopation"], 0.5)
+        self.assertAlmostEqual(result["swing"], 0.0)
+        self.assertAlmostEqual(result["variation"], 0.1428571429)
 
     def test_unknown_slug_is_rejected(self) -> None:
         with self.assertRaises(ValueError):

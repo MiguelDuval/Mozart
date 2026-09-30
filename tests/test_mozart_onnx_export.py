@@ -95,6 +95,11 @@ class MozartOnnxExportTests(unittest.TestCase):
                     {"name": "mood_id", "dtype": "int64", "shape": [1]},
                     {"name": "rhythm_id", "dtype": "int64", "shape": [1]},
                     {"name": "role_id", "dtype": "int64", "shape": [1]},
+                    {
+                        "name": "performance_controls",
+                        "dtype": "float32",
+                        "shape": [1, 5],
+                    },
                 ],
             )
             self.assertEqual(
@@ -128,6 +133,7 @@ class MozartOnnxExportTests(unittest.TestCase):
                 torch.zeros(1, dtype=torch.long),
                 torch.zeros(1, dtype=torch.long),
                 torch.zeros(1, dtype=torch.long),
+                torch.zeros((1, 5), dtype=torch.float32),
             )
 
         self.assertEqual(tuple(logits.shape), (1, 4, 512))

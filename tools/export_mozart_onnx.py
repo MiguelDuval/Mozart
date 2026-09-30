@@ -21,6 +21,7 @@ CONDITIONING_NAMES = (
     "mood_id",
     "rhythm_id",
     "role_id",
+    "performance_controls",
 )
 
 
@@ -67,8 +68,9 @@ def main() -> int:
     )
     condition_ids = tuple(
         torch.zeros(1, dtype=torch.long)
-        for _ in CONDITIONING_NAMES
+        for _ in CONDITIONING_NAMES[:-1]
     )
+    performance_controls = torch.zeros((1, 5), dtype=torch.float32)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     sequence_dim = torch.export.Dim(
@@ -83,10 +85,11 @@ def main() -> int:
         "mood_id": {},
         "rhythm_id": {},
         "role_id": {},
+        "performance_controls": {},
     }
     onnx_program = torch.onnx.export(
         model,
-        (input_ids, *condition_ids),
+        (input_ids, *condition_ids, performance_controls),
         input_names=("input_ids", *CONDITIONING_NAMES),
         output_names=("logits",),
         dynamic_shapes=dynamic_shapes,
@@ -100,7 +103,7 @@ def main() -> int:
     parameter_count = sum(
         parameter.numel() for parameter in model.parameters()
     )
-    if parameter_count != 32817024:
+    if parameter_count != 32820480:
         raise ValueError(
             "model parameter count does not match the configured baseline: "
             f"{parameter_count}"
