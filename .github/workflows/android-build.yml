@@ -212,6 +212,15 @@ jobs:
         working-directory: android
         run: gradle --no-daemon :app:assembleDebug
 
+      - name: Upload debug APK
+        if: ${{ always() && hashFiles('android/app/build/outputs/apk/debug/app-debug.apk') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: mozart-android-debug-${{ github.sha }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
       - name: Run Android emulator smoke test
         uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
         with:
@@ -225,15 +234,6 @@ jobs:
           disable-animations: true
           script: bash .github/scripts/android-smoke.sh
 
-      - name: Upload debug APK
-        if: ${{ always() && hashFiles('android/app/build/outputs/apk/debug/app-debug.apk') != '' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: mozart-android-debug-${{ github.sha }}
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          archive: false
-          if-no-files-found: error
-          retention-days: 30
 
       - name: Upload emulator diagnostics on failure
         if: failure()
