@@ -4,6 +4,8 @@
 # <app-private>/experimental-models/<model-id>/model.properties
 #
 # The model artifact itself is NOT stored in Git.
+# backendId=onnxruntime-android selects the debug ONNX Runtime adapter.
+# The matching model.manifest.json must contain the experimental runtime block.
 
 modelId=mozart-compatible-experimental
 displayName=Mozart-compatible Experimental ONNX
