@@ -5,8 +5,8 @@
 #
 # The model artifact itself is NOT stored in Git.
 
-modelId=example-model
-displayName=Example Experimental Model
-backendId=example-backend
-artifact=model.tflite
-manifest=model.manifest
+modelId=mozart-compatible-experimental
+displayName=Mozart-compatible Experimental ONNX
+backendId=onnxruntime-android
+artifact=model.onnx
+manifest=model.manifest.json
