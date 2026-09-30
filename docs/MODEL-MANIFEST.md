@@ -53,6 +53,8 @@ role
 
 The final manifest must additionally record the quantization scale/zero-point representation for every quantized tensor that requires it.
 
+The machine-checkable JSON template is `docs/model-manifest.example.json`. Validate it with `tools/validate_model_manifest.py`. Template manifests may contain `<FROZEN>` placeholders; frozen manifests may not.
+
 ## Reference shape
 
 The following is intentionally schematic:
@@ -148,7 +150,7 @@ Freeze the manifest only after the production checkpoint has been selected.
 5. Freeze the tokenizer vocabulary ID and ensure the model emits only the 512-token Mozart vocabulary.
 6. Record the conditioning representation and decoding/sampling policy.
 7. Record training-data provenance and all implementation/weights/data redistribution licenses.
-8. Add a model manifest validation test before enabling the LiteRT backend.
+8. Run `tools/validate_model_manifest.py` and its regression test before enabling the LiteRT backend.
 9. Run native/provider tests plus an Android inference smoke test with the exact model artifact.
 
 ## Distribution compatibility gate
