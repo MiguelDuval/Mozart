@@ -20,6 +20,10 @@
 #include "platform/android/AndroidMidiOutput.h"
 #include "platform/android/OnnxRuntimeBridge.h"
 #include "generation/OnnxTokenInferenceBackend.h"
+#include "generation/StyleVocabulary.h"
+#include "generation/PatternDensity.h"
+#include "generation/PatternSwing.h"
+#include "scheduler/AccompanimentRole.h"
 #include "runtime/MozartRuntime.h"
 #include "scheduler/PerformanceScene.h"
 
@@ -304,17 +308,51 @@ Java_com_miguelduval_mozart_MainActivity_nativeQueueExperimentalGeneration(
     }
 
     const auto context = runtime()->captureKeyContextSnapshot();
+    const auto link = runtime()->captureLinkSnapshot();
 
     mozart::generation::GenerationRequest request;
     request.keyScale = context.resolvedKeyScale;
     request.style = mozart::generation::GenerationStyle::Techno;
-    request.substyle = mozart::generation::GenerationSubstyle::Techno;
-    request.mood = mozart::generation::GenerationMood::Driving;
-    request.rhythm = mozart::generation::GenerationRhythm::Straight;
-    request.role = mozart::generation::GenerationRole::Bass;
+    mozart::generation::StyleVocabulary::applyDefaults(request);
+
+    // Snapshot the performer's current musical state on the caller thread.
+    // The generation worker receives an immutable request and never touches
+    // Link timing, MIDI transport or UI state.
+    request.tempoBpm = link.tempoBpm;
     request.bars = 4;
     request.polyphony = 1;
     request.seed = 0x4D4F5A41u;
+
+    switch (runtime()->accompanimentRole()) {
+        case mozart::scheduler::AccompanimentRole::Arpeggio:
+            request.role = mozart::generation::GenerationRole::Arpeggio;
+            break;
+        case mozart::scheduler::AccompanimentRole::Drums:
+            request.role = mozart::generation::GenerationRole::Drums;
+            break;
+        case mozart::scheduler::AccompanimentRole::Bass:
+        default:
+            request.role = mozart::generation::GenerationRole::Bass;
+            break;
+    }
+
+    request.density =
+            static_cast<double>(
+                    mozart::generation::densityPercent(
+                            runtime()->patternDensity())) / 100.0;
+    request.swing =
+            mozart::generation::swingOffsetBeats(
+                    runtime()->patternSwing());
+
+    // Macro energy is a performer-facing 0..127 control; keep the request
+    // inside the GenerationRequest 0..1 contract.
+    request.energy =
+            0.5 + 0.5 * (
+                    static_cast<double>(runtime()->macroEnergy()) / 127.0);
+
+    if (!request.isValid()) {
+        return JNI_FALSE;
+    }
 
     runtime()->start();
     g_generationFuture.emplace(runtime()->requestGeneration(
@@ -365,12 +403,28 @@ Java_com_miguelduval_mozart_MainActivity_nativeExperimentalGenerationSnapshot(
     const std::string message =
             result.message.empty() ? "none" : result.message;
 
+    const auto context = runtime()->captureKeyContextSnapshot();
+    const auto link = runtime()->captureLinkSnapshot();
+
     const std::string text =
             std::string("state=ready status=") + status +
             " notes=" +
                     std::to_string(result.proposal.noteEvents.size()) +
             " controls=" +
                     std::to_string(result.proposal.controlEvents.size()) +
+            " key=" +
+                    std::to_string(context.resolvedKeyScale.rootPitchClass()) +
+                    ":" +
+                    std::to_string(
+                            static_cast<int>(context.resolvedKeyScale.scale())) +
+            " tempo=" +
+                    std::to_string(link.tempoBpm) +
+            " role=" +
+                    std::string(
+                            mozart::generation::StyleVocabulary::roleSlug(
+                                    result.proposal.metadata.generatorId == "deterministic-local-v1"
+                                            ? mozart::generation::GenerationRole::Bass
+                                            : mozart::generation::GenerationRole::Bass)) +
             " message=" + message;
 
     return env->NewStringUTF(text.c_str());
