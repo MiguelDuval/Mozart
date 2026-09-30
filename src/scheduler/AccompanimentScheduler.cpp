@@ -195,6 +195,34 @@ std::uint8_t AccompanimentScheduler::macroMotion() const noexcept {
     return macroMotion_.load();
 }
 
+[[nodiscard]] bool AccompanimentScheduler::queueGeneratedPattern(
+        generation::PatternProposal proposal) {
+    if (!proposal.isWellFormed() ||
+        proposal.metadata.lengthBeats <= 0.0 ||
+        !std::isfinite(proposal.metadata.lengthBeats)) {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(generatedPatternMutex_);
+    if (pendingGeneratedPattern_.has_value()) {
+        return false;
+    }
+
+    pendingGeneratedPattern_ = std::move(proposal);
+    wakeCondition_.notify_all();
+    return true;
+}
+
+void AccompanimentScheduler::activatePendingGeneratedPattern(
+        const double startBeat) {
+    std::lock_guard<std::mutex> lock(generatedPatternMutex_);
+    if (!pendingGeneratedPattern_.has_value()) {
+        return;
+    }
+
+    activeGeneratedPattern_ = std::move(pendingGeneratedPattern_);
+    activeGeneratedPatternStartBeat_ = startBeat;
+}
 void AccompanimentScheduler::applyRequestedScene() noexcept {
     const auto requestedScene = requestedScene_.load();
     if (requestedScene == PerformanceScene::kCustomScene) {
@@ -258,6 +286,7 @@ void AccompanimentScheduler::run() {
                     nextBarIndex_ = 0;
                     nextEventIndex_ = 0;
                     applyRequestedScene();
+                    activatePendingGeneratedPattern(launchBarStart_);
                     {
                         std::lock_guard<std::mutex> lock(stateMutex_);
                         activeKeyScale_ = requestedKeyScale_;
@@ -270,50 +299,21 @@ void AccompanimentScheduler::run() {
                     activeKeyScale = activeKeyScale_;
                 }
 
-                const auto generatedEvents =
-                        activeRole_ == AccompanimentRole::Arpeggio
-                                ? generation::ArpeggioGenerator::generateBar(
-                                        activeKeyScale,
-                                        4,
-                                        seed_,
-                                        0,
-                                        activeDensity_,
-                                        activeAccent_,
-                                        activeSwing_)
-                                : (activeRole_ == AccompanimentRole::Drums
-                                           ? generation::DrumPatternGenerator::generateBar(
-                                                   seed_, activeDensity_)
-                                           : generation::BassGenerator::generateBar(
-                                                   activeKeyScale,
-                                                   2,
-                                                   seed_,
-                                                   0,
-                                                   activeDensity_,
-                                                   activeAccent_,
-                                                   activeSwing_));
-                const auto events =
-                        generation::NoteRepeat::apply(
-                                generatedEvents,
-                                activeNoteRepeat_);
+                const double lookAheadBeats =
+                        std::max(
+                                0.03125,
+                                snapshot.tempoBpm * kLookAheadSeconds / 60.0);
 
-                if (events.empty()) {
-                    nextBarIndex_ = 0;
-                    nextEventIndex_ = 0;
-                } else if (snapshot.beat + kEpsilon >= launchBarStart_) {
-                    const double lookAheadBeats =
-                            std::max(
-                                    0.03125,
-                                    snapshot.tempoBpm * kLookAheadSeconds / 60.0);
+                if (activeGeneratedPattern_.has_value()) {
+                    const auto& proposal = *activeGeneratedPattern_;
+                    const double patternEndBeat =
+                            activeGeneratedPatternStartBeat_ +
+                            proposal.metadata.lengthBeats;
 
-                    // Advance the persistent cursor through every event whose
-                    // beat coordinate fits inside the short look-ahead window.
-                    // Only the timestamp mapping is tempo-dependent.
-                    while (nextEventIndex_ < events.size()) {
+                    while (nextEventIndex_ < proposal.noteEvents.size()) {
                         const double eventBeat =
-                                launchBarStart_ +
-                                static_cast<double>(nextBarIndex_) *
-                                        snapshot.quantum +
-                                events[nextEventIndex_].startBeat;
+                                activeGeneratedPatternStartBeat_ +
+                                proposal.noteEvents[nextEventIndex_].startBeat;
 
                         if (eventBeat > snapshot.beat + lookAheadBeats + kEpsilon) {
                             break;
@@ -321,43 +321,102 @@ void AccompanimentScheduler::run() {
 
                         scheduleEvent(
                                 snapshot,
-                                events[nextEventIndex_],
+                                proposal.noteEvents[nextEventIndex_],
                                 eventBeat);
-
                         ++nextEventIndex_;
                     }
 
-                    if (nextEventIndex_ >= events.size()) {
+                    if (nextEventIndex_ >= proposal.noteEvents.size() &&
+                        snapshot.beat + kEpsilon >= patternEndBeat) {
+                        activeGeneratedPattern_.reset();
+                        activeGeneratedPatternStartBeat_ = -1.0;
                         nextEventIndex_ = 0;
-                        ++nextBarIndex_;
-
-                        // Role changes are quantized to the next bar so a
-                        // performer can switch voices without truncating the
-                        // currently running musical phrase.
+                        nextBarIndex_ = 0;
+                        launchBarStart_ = patternEndBeat;
                         applyRequestedScene();
-
-                        if (mutationRequested_.exchange(false)) {
-                            // Re-seeding changes the deterministic generator
-                            // output for the next bar without touching Link
-                            // timing or the current bar's active pattern.
-                            seed_ = seed_ == 0 ? 0x9E3779B9u : seed_;
-                            seed_ ^= seed_ << 13;
-                            seed_ ^= seed_ >> 17;
-                            seed_ ^= seed_ << 5;
-                            if (seed_ == 0) {
-                                seed_ = 0xA341316Cu;
-                            }
-                        }
 
                         {
                             std::lock_guard<std::mutex> lock(stateMutex_);
                             activeKeyScale_ = requestedKeyScale_;
                         }
                     }
-                }
+                } else {
+                    const auto generatedEvents =
+                            activeRole_ == AccompanimentRole::Arpeggio
+                                    ? generation::ArpeggioGenerator::generateBar(
+                                            activeKeyScale,
+                                            4,
+                                            seed_,
+                                            0,
+                                            activeDensity_,
+                                            activeAccent_,
+                                            activeSwing_)
+                                    : (activeRole_ == AccompanimentRole::Drums
+                                               ? generation::DrumPatternGenerator::generateBar(
+                                                       seed_, activeDensity_)
+                                               : generation::BassGenerator::generateBar(
+                                                       activeKeyScale,
+                                                       2,
+                                                       seed_,
+                                                       0,
+                                                       activeDensity_,
+                                                       activeAccent_,
+                                                       activeSwing_));
+                    const auto events =
+                            generation::NoteRepeat::apply(
+                                    generatedEvents,
+                                    activeNoteRepeat_);
 
-            }
-        }
+                    if (!events.empty() &&
+                        snapshot.beat + kEpsilon >= launchBarStart_) {
+                        while (nextEventIndex_ < events.size()) {
+                            const double eventBeat =
+                                    launchBarStart_ +
+                                    static_cast<double>(nextBarIndex_) *
+                                            snapshot.quantum +
+                                    events[nextEventIndex_].startBeat;
+
+                            if (eventBeat > snapshot.beat + lookAheadBeats + kEpsilon) {
+                                break;
+                            }
+
+                            scheduleEvent(
+                                    snapshot,
+                                    events[nextEventIndex_],
+                                    eventBeat);
+
+                            ++nextEventIndex_;
+                        }
+
+                        if (nextEventIndex_ >= events.size()) {
+                            nextEventIndex_ = 0;
+                            ++nextBarIndex_;
+
+                            applyRequestedScene();
+
+                            if (mutationRequested_.exchange(false)) {
+                                seed_ = seed_ == 0 ? 0x9E3779B9u : seed_;
+                                seed_ ^= seed_ << 13;
+                                seed_ ^= seed_ >> 17;
+                                seed_ ^= seed_ << 5;
+                                if (seed_ == 0) {
+                                    seed_ = 0xA341316Cu;
+                                }
+                            }
+
+                            const double nextCycleStartBeat =
+                                    launchBarStart_ +
+                                    static_cast<double>(nextBarIndex_) *
+                                            snapshot.quantum;
+                            activatePendingGeneratedPattern(nextCycleStartBeat);
+
+                            {
+                                std::lock_guard<std::mutex> lock(stateMutex_);
+                                activeKeyScale_ = requestedKeyScale_;
+                            }
+                        }
+                    }
+                }
 
         std::unique_lock<std::mutex> lock(wakeMutex_);
         wakeCondition_.wait_for(
