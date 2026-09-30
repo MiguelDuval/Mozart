@@ -180,6 +180,7 @@ jobs:
           cmake --build build/native-tests --parallel 2
           build/native-tests/mozart_core_tests
           build/native-tests/mozart_pattern_variation_tests
+          build/native-tests/mozart_generation_provider_tests
 
       - name: Assemble debug APK
         working-directory: android
