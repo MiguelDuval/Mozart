@@ -261,7 +261,16 @@ def main() -> int:
 
     try:
         records = read_jsonl(args.input_jsonl)
-        report = build_report(records, manifest_sha256=args.manifest_sha256)
+        duplicate_reviews = (
+            _load_duplicate_reviews(args.duplicate_review)
+            if args.duplicate_review
+            else None
+        )
+        report = build_report(
+            records,
+            manifest_sha256=args.manifest_sha256,
+            duplicate_reviews=duplicate_reviews,
+        )
         args.output_json.write_text(
             json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
