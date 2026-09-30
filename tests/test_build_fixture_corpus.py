@@ -53,7 +53,19 @@ class FixtureCorpusTests(unittest.TestCase):
             self.assertEqual(len(records), 5)
             self.assertTrue(all(record["source_revision"] == FIXTURE_REVISION for record in records))
             self.assertEqual(
-                {tuple(record["performance_controls"].values()) for record in records},
+                {
+                    tuple(
+                        record["performance_controls"][name]
+                        for name in (
+                            "density",
+                            "energy",
+                            "syncopation",
+                            "swing",
+                            "variation",
+                        )
+                    )
+                    for record in records
+                },
                 {
                     (0.25, 0.7, 0.1, 0.0, 0.2),
                     (0.2, 0.6, 0.25, 0.15, 0.5),
