@@ -112,6 +112,13 @@ class MidiToTrainingExampleTests(unittest.TestCase):
                 rhythm="straight",
                 role="bass",
                 seed=12345,
+                performance_controls={
+                    "density": 0.2,
+                    "energy": 0.8,
+                    "syncopation": 0.35,
+                    "swing": 0.4,
+                    "variation": 0.7,
+                },
             )
 
         self.assertEqual(result["source_id"], "fixture-song")
@@ -123,16 +130,16 @@ class MidiToTrainingExampleTests(unittest.TestCase):
         self.assertEqual(result["music"]["length_bars"], 4)
         self.assertEqual(result["conditioning"]["substyle"], "techno")
         self.assertEqual(result["conditioning"]["seed"], 12345)
-        self.assertAlmostEqual(
-            result["performance_controls"]["density"],
-            result["music"]["note_event_count"] / (
-                result["music"]["length_beats"] * 4.0
-            ),
+        self.assertEqual(
+            result["performance_controls"],
+            {
+                "density": 0.2,
+                "energy": 0.8,
+                "syncopation": 0.35,
+                "swing": 0.4,
+                "variation": 0.7,
+            },
         )
-        self.assertAlmostEqual(result["performance_controls"]["energy"], 100 / 127)
-        self.assertAlmostEqual(result["performance_controls"]["syncopation"], 0.5)
-        self.assertAlmostEqual(result["performance_controls"]["swing"], 0.0)
-        self.assertAlmostEqual(result["performance_controls"]["variation"], 0.0)
         self.assertEqual(result["tokens"][0], 1)
         self.assertEqual(result["tokens"][-1], 2)
         self.assertGreater(len(result["tokens"]), 2)
