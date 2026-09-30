@@ -117,9 +117,47 @@ collect_diagnostics() {
 }
 
 adb start-server
-adb wait-for-device
+
+wait_for_adb_device() {
+  local state=""
+  for _ in $(seq 1 60); do
+    state="$(adb get-state 2>/dev/null || true)"
+    if [[ "$state" == "device" ]]; then
+      return 0
+    fi
+    if [[ "$state" == "offline" ]]; then
+      adb reconnect offline >/dev/null 2>&1 || true
+    fi
+    sleep 1
+  done
+  echo "ADB device did not become ready; state=$state"
+  return 1
+}
+
+install_apk_with_retry() {
+  local attempt
+  for attempt in $(seq 1 4); do
+    if adb install -r android/app/build/outputs/apk/debug/app-debug.apk; then
+      return 0
+    fi
+
+    # A freshly booted emulator can expose adbd as offline for a short window.
+    # Re-establish the transport and retry only the install operation.
+    adb reconnect offline >/dev/null 2>&1 || true
+    if [[ "$attempt" -ge 2 ]]; then
+      adb kill-server >/dev/null 2>&1 || true
+      adb start-server >/dev/null 2>&1 || true
+    fi
+    wait_for_adb_device || true
+  done
+  echo "APK install failed after transient ADB retries."
+  return 1
+}
+
+wait_for_adb_device
 timeout 30s adb shell getprop sys.boot_completed | grep -q "1"
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+wait_for_adb_device
+install_apk_with_retry
 adb shell am force-stop "$PACKAGE"
 adb logcat -c
 
