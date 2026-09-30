@@ -1,6 +1,6 @@
 #pragma once
 
-#include "generation/GenerationResult.h"
+#include "generation/LocalPatternProvider.h"
 #include "generation/ModelCatalog.h"
 
 #include <condition_variable>
