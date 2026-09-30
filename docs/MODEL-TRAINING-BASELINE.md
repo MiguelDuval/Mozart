@@ -50,6 +50,14 @@ uses a seeded generator.
 Checkpoints are written only to the requested output directory. Model artifacts
 are ignored by Git and must not be committed.
 
+The CI conditioning fixture is a fit-capacity diagnostic rather than a model-selection
+benchmark. Its validation split contains only one mixed control holdout, so using
+that single validation loss for early stopping can select an early, under-trained
+checkpoint even while the training objective is still learning the synthetic
+control mapping. The CI greedy sequence gate therefore evaluates the final
+requested training checkpoint (latest.pt), while the validation loss remains
+reported for diagnostics.
+
 ## Training
 
 Use a dedicated PyTorch environment outside the Android build:
