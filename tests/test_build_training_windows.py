@@ -113,6 +113,33 @@ class TrainingWindowTests(unittest.TestCase):
         self.assertEqual(examples[1]["tokens"][0], 1)
         self.assertEqual(examples[1]["tokens"][-1], 2)
 
+    def test_three_four_meter_uses_three_beats_per_bar(self) -> None:
+        signature = type(
+            "TimeSignature",
+            (),
+            {
+                "beat": 0.0,
+                "numerator": 3,
+                "denominator": 4,
+            },
+        )()
+        normalized = type(
+            "Normalized",
+            (),
+            {
+                "length_beats": 60.0,
+                "length_bars": 20,
+                "time_signatures": (signature,),
+            },
+        )()
+        self.assertEqual(
+            window_ranges(normalized),
+            [
+                (0.0, 48.0, 0, 16),
+                (48.0, 60.0, 16, 20),
+            ],
+        )
+
     def test_sixteen_bars_is_one_window(self) -> None:
         normalized = type(
             "Normalized",
