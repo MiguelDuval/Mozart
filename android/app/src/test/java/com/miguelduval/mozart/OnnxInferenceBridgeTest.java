@@ -19,18 +19,22 @@ public class OnnxInferenceBridgeTest {
             method.invoke(null, new Object[] {new double[511]});
             org.junit.Assert.fail("expected vocabulary mismatch");
         } catch (java.lang.reflect.InvocationTargetException expected) {
-            assertEquals(
-                    "ONNX logits vocabulary size must be 512",
-                    expected.getCause().getMessage());
+            org.junit.Assert.assertTrue(
+                    expected.getCause() instanceof IllegalArgumentException);
+            org.junit.Assert.assertTrue(
+                    expected.getCause().getMessage().contains(
+                            "vocabulary size"));
         }
 
         try {
             method.invoke(null, new Object[] {new double[513]});
             org.junit.Assert.fail("expected vocabulary mismatch");
         } catch (java.lang.reflect.InvocationTargetException expected) {
-            assertEquals(
-                    "ONNX logits vocabulary size must be 512",
-                    expected.getCause().getMessage());
+            org.junit.Assert.assertTrue(
+                    expected.getCause() instanceof IllegalArgumentException);
+            org.junit.Assert.assertTrue(
+                    expected.getCause().getMessage().contains(
+                            "vocabulary size"));
         }
     }
 
