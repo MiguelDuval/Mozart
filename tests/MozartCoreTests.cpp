@@ -2333,15 +2333,15 @@ int main() {
                 {8.0, 0.5, 49, 100, 0}
         };
 
-        assert(runtime.queueGeneratedPattern(proposal));
-        assert(!runtime.queueGeneratedPattern(proposal));
-
         mozart::generation::PatternProposal proposalWithControl = proposal;
         proposalWithControl.noteEvents.clear();
         proposalWithControl.controlEvents = {
                 {0.0, 0, 74, 100}
         };
         assert(!runtime.queueGeneratedPattern(proposalWithControl));
+
+        assert(runtime.queueGeneratedPattern(proposal));
+        assert(!runtime.queueGeneratedPattern(proposal));
     }
 #endif
 
