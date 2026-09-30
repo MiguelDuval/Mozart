@@ -85,7 +85,10 @@ class MozartConditioningSequenceTests(unittest.TestCase):
             "swing",
             "variation",
         ):
-            self.assertTrue(report["controls"][name]["torch"]["sequence_changed"])
+            torch_report = report["controls"][name]["torch"]
+            self.assertTrue(torch_report["sequence_changed"])
+            self.assertIsNotNone(torch_report["first_divergence_index"])
+            self.assertGreater(torch_report["differing_token_count"], 0)
 
     def test_unresponsive_model_fails_strict_gate(self) -> None:
         from evaluate_mozart_conditioning_sequence import (
