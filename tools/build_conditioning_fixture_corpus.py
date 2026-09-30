@@ -174,7 +174,7 @@ def build_conditioning_fixture_corpus(output_dir: Path) -> dict:
             make_smf(
                 bars=4,
                 beats_per_bar=4,
-                notes_by_bar=render_notes(controls, seed=17 + index),
+                notes_by_bar=render_notes(controls, seed=17),
             )
         )
 
