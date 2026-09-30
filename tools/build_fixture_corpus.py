@@ -148,6 +148,38 @@ def fixture_notes(
     raise ValueError(f"unknown fixture kind: {kind}")
 
 
+FIXTURE_PERFORMANCE_CONTROLS = {
+    "bass-4bar": {
+        "density": 0.25,
+        "energy": 0.7,
+        "syncopation": 0.1,
+        "swing": 0.0,
+        "variation": 0.2,
+    },
+    "chords-8bar": {
+        "density": 0.2,
+        "energy": 0.6,
+        "syncopation": 0.25,
+        "swing": 0.15,
+        "variation": 0.5,
+    },
+    "lead-16bar-3-4": {
+        "density": 0.3,
+        "energy": 0.55,
+        "syncopation": 0.6,
+        "swing": 0.25,
+        "variation": 0.8,
+    },
+    "window-20bar": {
+        "density": 0.25,
+        "energy": 0.7,
+        "syncopation": 0.1,
+        "swing": 0.0,
+        "variation": 0.2,
+    },
+}
+
+
 FIXTURES = (
     (
         "bass-4bar",
@@ -283,6 +315,7 @@ def build_fixture_corpus(output_dir: Path) -> dict:
                     rhythm=rhythm,
                     role=role,
                     seed=1000 + index,
+                    performance_controls=FIXTURE_PERFORMANCE_CONTROLS[kind],
                 )
             )
         else:
@@ -298,6 +331,7 @@ def build_fixture_corpus(output_dir: Path) -> dict:
                     rhythm=rhythm,
                     role=role,
                     seed=1000 + index,
+                    performance_controls=FIXTURE_PERFORMANCE_CONTROLS[kind],
                 )
             )
 
