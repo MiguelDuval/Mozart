@@ -108,6 +108,30 @@ class MozartOnnxExportTests(unittest.TestCase):
                 ],
             )
 
+    def test_transformer_forward_supports_eager_training_path(self) -> None:
+        import torch
+
+        sys.path.insert(0, str(TOOLS))
+        from mozart_model import ModelConfig, MozartTransformer
+
+        config = ModelConfig.from_json(
+            ROOT / "docs" / "model-training-config.json"
+        )
+        model = MozartTransformer(config)
+        model.eval()
+
+        with torch.no_grad():
+            logits = model(
+                torch.ones((1, 4), dtype=torch.long),
+                torch.zeros(1, dtype=torch.long),
+                torch.zeros(1, dtype=torch.long),
+                torch.zeros(1, dtype=torch.long),
+                torch.zeros(1, dtype=torch.long),
+                torch.zeros(1, dtype=torch.long),
+            )
+
+        self.assertEqual(tuple(logits.shape), (1, 4, 512))
+
 
 if __name__ == "__main__":
     unittest.main()
