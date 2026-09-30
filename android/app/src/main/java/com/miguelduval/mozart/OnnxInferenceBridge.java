@@ -556,9 +556,14 @@ public final class OnnxInferenceBridge {
             throw new IllegalArgumentException("empty ONNX logits");
         }
 
+        if (values.length != MOZART_VOCABULARY_SIZE) {
+            throw new IllegalArgumentException(
+                    "ONNX logits vocabulary size must 512");
+        }
+
         int bestIndex = -1;
         double bestValue = Double.NEGATIVE_INFINITY;
-        final int limit = Math.min(values.length, MOZART_VOCABULARY_SIZE);
+        final int limit = MOZART_VOCABULARY_SIZE;
 
         for (int i = 0; i < limit; ++i) {
             final double value = values[i];
