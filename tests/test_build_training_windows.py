@@ -140,6 +140,56 @@ class TrainingWindowTests(unittest.TestCase):
             ],
         )
 
+    def test_build_windows_forwards_independent_performance_controls(self) -> None:
+        from build_training_windows import build_windows
+        import tempfile
+
+        def vlq(value: int) -> bytes:
+            parts = [value & 0x7F]
+            value >>= 7
+            while value:
+                parts.append((value & 0x7F) | 0x80)
+                value >>= 7
+            parts.reverse()
+            return bytes(parts)
+
+        events = bytearray()
+        for _ in range(20):
+            events += vlq(0) + bytes.fromhex("90 3C 64")
+            events += vlq(1920) + bytes.fromhex("80 3C 00")
+        events += bytes.fromhex("00 FF 2F 00")
+        header = b"MThd" + bytes.fromhex("00 00 00 06 00 00 00 01 01 E0")
+        track = b"MTrk" + len(events).to_bytes(4, "big") + bytes(events)
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "long.mid"
+            path.write_bytes(header + track)
+            examples = build_windows(
+                path,
+                source_id="long-source",
+                source_revision="rev-1",
+                performance_controls={
+                    "density": 0.2,
+                    "energy": 0.4,
+                    "syncopation": 0.6,
+                    "swing": 0.3,
+                    "variation": 0.8,
+                },
+            )
+
+        self.assertEqual(len(examples), 2)
+        for item in examples:
+            self.assertEqual(
+                item["performance_controls"],
+                {
+                    "density": 0.2,
+                    "energy": 0.4,
+                    "syncopation": 0.6,
+                    "swing": 0.3,
+                    "variation": 0.8,
+                },
+            )
+
     def test_sixteen_bars_is_one_window(self) -> None:
         normalized = type(
             "Normalized",
