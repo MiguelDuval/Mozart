@@ -70,6 +70,8 @@ public final class MainActivity extends Activity {
     private static native boolean nativeSelectExperimentalModel(String modelId);
     private static native void nativeClearSelectedModel();
     private static native String nativeSelectedModelSnapshot();
+    private static native boolean nativeQueueExperimentalGeneration();
+    private static native String nativeExperimentalGenerationSnapshot();
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView status;
@@ -111,6 +113,23 @@ public final class MainActivity extends Activity {
             }
             midiInputStatus.setText("MIDI IN: " + nativeMidiInputSnapshot());
             mainHandler.postDelayed(this, MIDI_INPUT_STATUS_POLL_MS);
+        }
+    };
+
+    private final Runnable generationPoll = new Runnable() {
+        @Override
+        public void run() {
+            if (!activityStarted) {
+                return;
+            }
+            final String snapshot = nativeExperimentalGenerationSnapshot();
+            if (snapshot.startsWith("state=ready")) {
+                appendStatus("AI TEST  " + snapshot);
+                return;
+            }
+            if (snapshot.equals("state=queued")) {
+                mainHandler.postDelayed(this, 250L);
+            }
         }
     };
 
@@ -496,6 +515,19 @@ public final class MainActivity extends Activity {
                 appendStatus("EXPERIMENTAL MODEL  CLEARED");
             });
             labCard.addView(clearModel);
+
+            Button aiTest = controlButton("RUN AI GENERATION TEST", true, textPrimary, panelAlt);
+            aiTest.setOnClickListener(view -> {
+                final boolean queued = nativeQueueExperimentalGeneration();
+                if (queued) {
+                    appendStatus("AI TEST  QUEUED • worker thread");
+                    mainHandler.post(generationPoll);
+                } else {
+                    appendStatus(
+                            "AI TEST  NOT QUEUED • select a ready experimental model");
+                }
+            });
+            labCard.addView(aiTest);
             right.addView(labCard, sectionParams());
         }
 
