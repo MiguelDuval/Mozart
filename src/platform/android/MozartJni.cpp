@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <memory>
+#include <future>
+#include <optional>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -27,6 +29,8 @@ std::unique_ptr<mozart::platform::android::OnnxRuntimeBridge> g_onnxBridge;
 std::vector<std::unique_ptr<mozart::generation::OnnxTokenInferenceBackend>> g_onnxBackends;
 std::unique_ptr<mozart::runtime::MozartRuntime> g_runtime;
 std::mutex g_runtimeMutex;
+std::mutex g_generationMutex;
+std::optional<std::future<mozart::generation::GenerationResult>> g_generationFuture;
 mozart::midi::MidiReceiveQueue g_midiReceiveQueue;
 mozart::midi::MidiInputParser g_midiInputParser;
 mozart::midi::MidiReceiveQueue g_controllerQueue(64);
@@ -264,7 +268,111 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_miguelduval_mozart_MainActivity_nativeClearSelectedModel(
         JNIEnv*,
         jobject) {
+    std::lock_guard<std::mutex> lock(g_generationMutex);
+    if (g_generationFuture.has_value() &&
+        g_generationFuture->valid() &&
+        g_generationFuture->wait_for(std::chrono::milliseconds(0)) ==
+                std::future_status::ready) {
+        (void) g_generationFuture->get();
+        g_generationFuture.reset();
+    }
     runtime()->clearSelectedModel();
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeQueueExperimentalGeneration(
+        JNIEnv*,
+        jobject) {
+    std::lock_guard<std::mutex> lock(g_generationMutex);
+
+    if (g_generationFuture.has_value()) {
+        if (!g_generationFuture->valid()) {
+            g_generationFuture.reset();
+        } else if (g_generationFuture->wait_for(
+                           std::chrono::milliseconds(0)) !=
+                std::future_status::ready) {
+            return JNI_FALSE;
+        } else {
+            (void) g_generationFuture->get();
+            g_generationFuture.reset();
+        }
+    }
+
+    if (runtime()->selectedModelId().empty()) {
+        return JNI_FALSE;
+    }
+
+    const auto context = runtime()->captureKeyContextSnapshot();
+
+    mozart::generation::GenerationRequest request;
+    request.keyScale = context.resolvedKeyScale();
+    request.style = mozart::generation::GenerationStyle::Techno;
+    request.substyle = mozart::generation::GenerationSubstyle::Techno;
+    request.mood = mozart::generation::GenerationMood::Driving;
+    request.rhythm = mozart::generation::GenerationRhythm::Straight;
+    request.role = mozart::generation::GenerationRole::Bass;
+    request.bars = 4;
+    request.polyphony = 1;
+    request.seed = 0x4D4F5A41u;
+
+    runtime()->start();
+    g_generationFuture.emplace(runtime()->requestGeneration(
+            std::move(request)));
+    return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeExperimentalGenerationSnapshot(
+        JNIEnv* env,
+        jobject) {
+    std::lock_guard<std::mutex> lock(g_generationMutex);
+
+    if (!g_generationFuture.has_value()) {
+        return env->NewStringUTF("state=idle");
+    }
+
+    if (!g_generationFuture->valid()) {
+        g_generationFuture.reset();
+        return env->NewStringUTF("state=idle");
+    }
+
+    if (g_generationFuture->wait_for(std::chrono::milliseconds(0)) !=
+            std::future_status::ready) {
+        return env->NewStringUTF("state=queued");
+    }
+
+    const auto result = g_generationFuture->get();
+    g_generationFuture.reset();
+
+    const char* status = "failed";
+    switch (result.status) {
+        case mozart::generation::GenerationStatus::Ok:
+            status = "ok";
+            break;
+        case mozart::generation::GenerationStatus::InvalidRequest:
+            status = "invalid_request";
+            break;
+        case mozart::generation::GenerationStatus::Unavailable:
+            status = "unavailable";
+            break;
+        case mozart::generation::GenerationStatus::Failed:
+        default:
+            status = "failed";
+            break;
+    }
+
+    const std::string message =
+            result.message.empty() ? "none" : result.message;
+
+    const std::string text =
+            std::string("state=ready status=") + status +
+            " notes=" +
+                    std::to_string(result.proposal.noteEvents.size()) +
+            " controls=" +
+                    std::to_string(result.proposal.controlEvents.size()) +
+            " message=" + message;
+
+    return env->NewStringUTF(text.c_str());
 }
 
 extern "C" JNIEXPORT jstring JNICALL
