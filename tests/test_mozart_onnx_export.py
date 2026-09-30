@@ -88,7 +88,7 @@ class MozartOnnxExportTests(unittest.TestCase):
                     {
                         "name": "input_ids",
                         "dtype": "int64",
-                        "shape": ["batch", "sequence"],
+                        "shape": [1, "sequence"],
                     },
                     {"name": "style_id", "dtype": "int64", "shape": ["batch"]},
                     {"name": "substyle_id", "dtype": "int64", "shape": ["batch"]},
@@ -103,7 +103,7 @@ class MozartOnnxExportTests(unittest.TestCase):
                     {
                         "name": "logits",
                         "dtype": "float32",
-                        "shape": ["batch", "sequence", 512],
+                        "shape": [1, "sequence", 512],
                     }
                 ],
             )
