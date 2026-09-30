@@ -95,6 +95,16 @@ add_executable(mozart_model_catalog_tests
     ModelCatalogTests.cpp
 )
 
+add_executable(mozart_onnx_token_inference_backend_tests
+    OnnxTokenInferenceBackendTests.cpp
+    ../src/generation/OnnxTokenInferenceBackend.cpp
+)
+
+target_include_directories(mozart_onnx_token_inference_backend_tests PRIVATE
+    ../src
+)
+target_compile_features(mozart_onnx_token_inference_backend_tests PRIVATE cxx_std_20)
+
 add_executable(mozart_generation_service_tests
     GenerationServiceTests.cpp
     ../src/generation/GenerationService.cpp
