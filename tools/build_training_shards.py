@@ -236,6 +236,19 @@ def _stats(
     pitch_histogram = [0] * 128
     velocity_histogram = [0] * 32
     source_record_counts = Counter(source_key(record) for record in records)
+    performance_control_statistics = {}
+    for name in PERFORMANCE_CONTROL_NAMES:
+        values = [float(record["performance_controls"][name]) for record in records]
+        performance_control_statistics[name] = {
+            "min": min(values) if values else 0.0,
+            "max": max(values) if values else 0.0,
+            "mean": (sum(values) / len(values)) if values else 0.0,
+            "non_zero_fraction": (
+                sum(value > 0.0 for value in values) / len(values)
+                if values
+                else 0.0
+            ),
+        }
     for record in records:
         for index, value in enumerate(record["music"]["pitch_histogram"]):
             pitch_histogram[index] += value
@@ -275,6 +288,7 @@ def _stats(
             "style": dict(sorted(style_counts.items())),
             "role": dict(sorted(role_counts.items())),
         },
+        "performance_controls": performance_control_statistics,
         "sources": {
             "record_counts": dict(sorted(source_record_counts.items())),
         },
