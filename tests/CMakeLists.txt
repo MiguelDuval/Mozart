@@ -89,3 +89,12 @@ target_include_directories(mozart_pattern_variation_tests PRIVATE
     ../src
 )
 target_compile_features(mozart_pattern_variation_tests PRIVATE cxx_std_20)
+
+add_executable(mozart_model_catalog_tests
+    ModelCatalogTests.cpp
+)
+
+target_include_directories(mozart_model_catalog_tests PRIVATE
+    ../src
+)
+target_compile_features(mozart_model_catalog_tests PRIVATE cxx_std_20)
