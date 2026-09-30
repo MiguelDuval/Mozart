@@ -96,12 +96,17 @@ add_executable(mozart_model_catalog_tests
 
 add_executable(mozart_generation_service_tests
     GenerationServiceTests.cpp
+    ../src/generation/GenerationService.cpp
+    ../src/generation/LocalNeuralPatternProvider.cpp
+    ../src/musical/KeyScale.cpp
+    ../src/musical/Chord.cpp
 )
 
 target_include_directories(mozart_generation_service_tests PRIVATE
     ../src
 )
 target_compile_features(mozart_generation_service_tests PRIVATE cxx_std_20)
+target_link_libraries(mozart_generation_service_tests PRIVATE Threads::Threads)
 
 
 target_include_directories(mozart_model_catalog_tests PRIVATE
