@@ -227,10 +227,11 @@ class MozartTransformer(nn.Module):
             )
         if not torch.is_floating_point(performance_controls):
             raise ValueError("performance_controls must be a floating tensor")
-        if torch.any(performance_controls < 0.0) or torch.any(
-                performance_controls > 1.0
-        ):
-            raise ValueError("performance_controls must be in [0, 1]")
+        performance_controls = torch.clamp(
+            performance_controls,
+            min=0.0,
+            max=1.0,
+        )
         hidden = hidden + self.performance_control_projection(
             performance_controls
         ).unsqueeze(1)
