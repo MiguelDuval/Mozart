@@ -72,8 +72,6 @@ class BuildTrainingShardsTests(unittest.TestCase):
             record("song-b", "rev-1", "train", "b.mid"),
             record("song-a", "rev-1", "train", "a.mid", role="chords"),
         ]
-        records[1]["performance_controls"]["energy"] = 1.0
-        records[1]["performance_controls"]["variation"] = 0.5
         with tempfile.TemporaryDirectory() as left, tempfile.TemporaryDirectory() as right:
             left_dir = Path(left)
             right_dir = Path(right)
@@ -100,6 +98,8 @@ class BuildTrainingShardsTests(unittest.TestCase):
             record("song-a", "rev-1", "train", "a.mid"),
             record("song-b", "rev-1", "test", "b.mid", role="chords"),
         ]
+        records[1]["performance_controls"]["energy"] = 1.0
+        records[1]["performance_controls"]["variation"] = 0.5
         stats = _stats(records, "abc123")
         self.assertEqual(stats["record_count"], 2)
         self.assertEqual(stats["source_group_count"], 2)
