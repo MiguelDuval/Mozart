@@ -99,6 +99,7 @@ add_executable(mozart_model_catalog_tests
 add_executable(mozart_onnx_token_inference_backend_tests
     OnnxTokenInferenceBackendTests.cpp
     ../src/generation/OnnxTokenInferenceBackend.cpp
+    ../src/musical/KeyScale.cpp
 )
 
 target_include_directories(mozart_onnx_token_inference_backend_tests PRIVATE
