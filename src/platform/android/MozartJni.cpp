@@ -379,6 +379,12 @@ Java_com_miguelduval_mozart_MainActivity_nativeExperimentalGenerationSnapshot(
     const auto result = g_generationFuture->get();
     g_generationFuture.reset();
 
+    bool queuedForPlayback = false;
+    if (result.ok()) {
+        queuedForPlayback =
+                runtime()->queueGeneratedPattern(result.proposal);
+    }
+
     const char* status = "failed";
     switch (result.status) {
         case mozart::generation::GenerationStatus::Ok:
@@ -417,6 +423,8 @@ Java_com_miguelduval_mozart_MainActivity_nativeExperimentalGenerationSnapshot(
                     std::to_string(link.tempoBpm) +
             " role=" +
                     accompanimentRoleName(runtime()->accompanimentRole()) +
+            " queued_for_next_cycle=" +
+                    (queuedForPlayback ? "true" : "false") +
             " message=" + message;
 
     return env->NewStringUTF(text.c_str());
