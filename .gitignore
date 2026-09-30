@@ -18,6 +18,15 @@ CTestTestfile.cmake
 # External dependency worktrees / extracted SDKs
 third_party/litert/
 
+# Training outputs / model artifacts
+artifacts/
+checkpoints/
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.safetensors
+
 # OS
 .DS_Store
 Thumbs.db
