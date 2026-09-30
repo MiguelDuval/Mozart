@@ -152,7 +152,59 @@ def _stable_record_key(record: dict) -> tuple[str, str, str, str]:
     )
 
 
-def _stats(records: list[dict], manifest_sha256: str | None) -> dict:
+def _read_manifest(path: Path) -> dict:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot read manifest {path}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ValueError("dataset manifest root must be an object")
+    if value.get("status") not in {"audited", "release"}:
+        raise ValueError("dataset statistics require an audited or release manifest")
+    sources = value.get("sources")
+    if not isinstance(sources, list) or not sources:
+        raise ValueError("dataset manifest must contain at least one source")
+    return value
+
+
+def _manifest_source_metadata(manifest: dict) -> dict[str, dict[str, str]]:
+    metadata: dict[str, dict[str, str]] = {}
+    for index, source in enumerate(manifest["sources"]):
+        if not isinstance(source, dict):
+            raise ValueError(f"manifest.sources[{index}] must be an object")
+        source_id = source.get("source_id")
+        license_info = source.get("license")
+        provenance = source.get("provenance")
+        if not isinstance(source_id, str) or not source_id.strip():
+            raise ValueError(f"manifest.sources[{index}].source_id must be a non-empty string")
+        if source_id in metadata:
+            raise ValueError(f"duplicate manifest source_id: {source_id}")
+        if not isinstance(license_info, dict) or not isinstance(provenance, dict):
+            raise ValueError(f"manifest.sources[{index}] license/provenance must be objects")
+        values = (
+            license_info.get("spdx_id"),
+            license_info.get("commercial_use"),
+            license_info.get("redistribution"),
+            license_info.get("attribution"),
+            provenance.get("provider"),
+        )
+        if not all(isinstance(value, str) and value.strip() for value in values):
+            raise ValueError(f"manifest.sources[{index}] has incomplete license/provenance metadata")
+        metadata[source_id] = {
+            "spdx_id": values[0],
+            "commercial_use": values[1],
+            "redistribution": values[2],
+            "attribution": values[3],
+            "provider": values[4],
+        }
+    return metadata
+
+
+def _stats(
+    records: list[dict],
+    manifest_sha256: str | None,
+    manifest: dict | None = None,
+) -> dict:
     split_counts = Counter(str(record["split"]) for record in records)
     style_counts = Counter(
         str(record["conditioning"]["style"]) for record in records
@@ -175,13 +227,14 @@ def _stats(records: list[dict], manifest_sha256: str | None) -> dict:
     )
     pitch_histogram = [0] * 128
     velocity_histogram = [0] * 32
+    source_record_counts = Counter(source_key(record) for record in records)
     for record in records:
         for index, value in enumerate(record["music"]["pitch_histogram"]):
             pitch_histogram[index] += value
         for index, value in enumerate(record["music"]["velocity_bin_histogram"]):
             velocity_histogram[index] += value
 
-    return {
+    result = {
         "schema_version": 1,
         "vocabulary_id": VOCABULARY_ID,
         "conditioning_vocabulary_id": CONDITIONING_VOCABULARY_ID,
@@ -214,12 +267,51 @@ def _stats(records: list[dict], manifest_sha256: str | None) -> dict:
             "style": dict(sorted(style_counts.items())),
             "role": dict(sorted(role_counts.items())),
         },
+        "sources": {
+            "record_counts": dict(sorted(source_record_counts.items())),
+        },
         "reproducibility": {
             "manifest_sha256": manifest_sha256 or "NOT_SUPPLIED",
             "split_algorithm": "sha256(seed\\0source_id\\0source_revision) mod 10000",
             "vocabulary_id": VOCABULARY_ID,
         },
     }
+
+    if manifest is not None:
+        source_metadata = _manifest_source_metadata(manifest)
+        record_source_ids = {str(record["source_id"]) for record in records}
+        missing_sources = sorted(record_source_ids - set(source_metadata))
+        if missing_sources:
+            raise ValueError(
+                "records reference source_id values absent from manifest: "
+                + ", ".join(missing_sources)
+            )
+        result["provenance"] = {
+            "manifest_id": manifest.get("manifest_id"),
+            "status": manifest.get("status"),
+            "source_count": len(source_metadata),
+            "source_ids": sorted(source_metadata),
+            "license_spdx_counts": dict(sorted(
+                Counter(meta["spdx_id"] for meta in source_metadata.values()).items()
+            )),
+            "commercial_use_counts": dict(sorted(
+                Counter(meta["commercial_use"] for meta in source_metadata.values()).items()
+            )),
+            "redistribution_counts": dict(sorted(
+                Counter(meta["redistribution"] for meta in source_metadata.values()).items()
+            )),
+            "attribution_counts": dict(sorted(
+                Counter(meta["attribution"] for meta in source_metadata.values()).items()
+            )),
+            "providers": dict(sorted(
+                Counter(meta["provider"] for meta in source_metadata.values()).items()
+            )),
+            "unrepresented_manifest_sources": sorted(
+                set(source_metadata) - record_source_ids
+            ),
+        }
+
+    return result
 
 
 def write_shards(
@@ -249,6 +341,7 @@ def main() -> int:
     parser.add_argument("output_dir", type=Path)
     parser.add_argument("--max-records-per-shard", type=int, default=1024)
     parser.add_argument("--manifest-sha256")
+    parser.add_argument("--manifest", type=Path)
     args = parser.parse_args()
 
     if args.max_records_per_shard <= 0:
@@ -258,13 +351,14 @@ def main() -> int:
     try:
         records = read_jsonl(args.input_jsonl)
         validate_records(records)
+        manifest = _read_manifest(args.manifest) if args.manifest else None
         paths = write_shards(
             records, args.output_dir, args.max_records_per_shard
         )
         stats_path = args.output_dir / "dataset-statistics.json"
         stats_path.write_text(
             json.dumps(
-                _stats(records, args.manifest_sha256),
+                _stats(records, args.manifest_sha256, manifest),
                 ensure_ascii=False,
                 indent=2,
                 sort_keys=True,
