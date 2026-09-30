@@ -27,7 +27,6 @@ from evaluate_mozart_conditioning import (
 )
 
 
-EOS = 2
 DEFAULT_MAX_GENERATED_TOKENS = 32
 DEFAULT_MAX_REPORTED_DIFFS = 16
 DEFAULT_LOW_VALUE = 0.1
@@ -103,7 +102,7 @@ def validate_mozart_token_sequence(tokens: list[int]) -> dict[str, Any]:
             }
 
         if NOTE_BASE <= token < VELOCITY_BASE:
-            if index + 2 >= len(tokens) - 0:
+            if index + 2 >= len(tokens) - 1:
                 return {
                     "valid": False,
                     "index": index,
@@ -130,7 +129,7 @@ def validate_mozart_token_sequence(tokens: list[int]) -> dict[str, Any]:
             continue
 
         if CONTROLLER_BASE <= token < CONTROL_VALUE_BASE:
-            if index + 1 >= len(tokens):
+            if index + 1 >= len(tokens) - 1:
                 return {
                     "valid": False,
                     "index": index,
