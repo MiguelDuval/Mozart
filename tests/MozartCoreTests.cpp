@@ -2258,5 +2258,108 @@ int main() {
                 ratcheted.proposal.noteEvents.size() ==
                 first.proposal.noteEvents.size() * 2U);
     }
+
+#ifdef MOZART_ENABLE_LINK
+    {
+        class RuntimeGenerationOutput final
+                : public mozart::midi::MidiOutputTransport {
+        public:
+            mozart::midi::MidiSendResult send(
+                    const mozart::midi::MidiShortMessage& message) noexcept override {
+                return {
+                        mozart::midi::MidiTransportStatus::Ok,
+                        message.size
+                };
+            }
+
+            void close() noexcept override {}
+        };
+
+        class RuntimeGenerationBackend final
+                : public mozart::generation::TokenInferenceBackend {
+        public:
+            std::thread::id workerThread{};
+            int calls = 0;
+
+            [[nodiscard]] mozart::generation::TokenInferenceResult generateTokens(
+                    const mozart::generation::GenerationRequest&,
+                    const std::size_t maxTokens) override {
+                workerThread = std::this_thread::get_id();
+                ++calls;
+
+                const std::vector<mozart::generation::MidiEventToken> tokens{
+                        mozart::generation::midi_event_vocabulary::kBos,
+                        mozart::generation::midi_event_vocabulary::channelToken(0),
+                        mozart::generation::midi_event_vocabulary::noteToken(54),
+                        mozart::generation::midi_event_vocabulary::velocityToken(10),
+                        mozart::generation::midi_event_vocabulary::durationToken(16),
+                        mozart::generation::midi_event_vocabulary::kEos
+                };
+
+                if (tokens.size() > maxTokens) {
+                    return {
+                            mozart::generation::TokenInferenceStatus::Failed,
+                            {},
+                            0.0,
+                            0,
+                            "runtime generation token budget too small"
+                    };
+                }
+
+                return {
+                        mozart::generation::TokenInferenceStatus::Ok,
+                        tokens,
+                        0.8,
+                        4,
+                        {}
+                };
+            }
+
+            [[nodiscard]] bool isAvailable() const noexcept override {
+                return true;
+            }
+
+            [[nodiscard]] std::string id() const override {
+                return "runtime-generation-backend";
+            }
+        };
+
+        RuntimeGenerationOutput output;
+        RuntimeGenerationBackend backend;
+        mozart::runtime::MozartRuntime runtime(output);
+
+        assert(runtime.registerModelBackend(backend));
+        assert(runtime.registerModel({
+                "runtime-generation-model",
+                "Runtime Generation Model",
+                "runtime-generation-backend",
+                "/private/runtime-generation/model",
+                "/private/runtime-generation/manifest",
+                mozart::generation::ModelDistributionClass::PrivateExperimental,
+                true
+        }));
+        assert(runtime.selectModel("runtime-generation-model"));
+
+        runtime.start();
+
+        const auto callerThread = std::this_thread::get_id();
+        auto future = runtime.requestGeneration(
+                mozart::generation::GenerationRequest{});
+
+        assert(
+                future.wait_for(std::chrono::seconds(1)) ==
+                std::future_status::ready);
+
+        const auto result = future.get();
+        assert(result.ok());
+        assert(backend.calls == 1);
+        assert(backend.workerThread != callerThread);
+        assert(result.proposal.metadata.generatorId ==
+               "runtime-generation-backend");
+
+        runtime.stop();
+    }
+#endif
+
     return 0;
 }
