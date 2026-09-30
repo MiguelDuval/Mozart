@@ -159,10 +159,19 @@ Records are sorted deterministically before writing bounded JSONL shards.
 ## Training shard output
 
 The current offline tooling writes one or more bounded JSONL shards per split plus
-`dataset-statistics.json`. The statistics currently cover record counts, split counts,
-token-count totals/min/max/mean, bar-length totals/min/max/mean, and style/role
-conditioning counts. They also record the manifest checksum when supplied and the
-split/token vocabulary revisions.
+`dataset-statistics.json`. The statistics cover record counts, split counts,
+token-count totals/min/max/mean, bar-length totals/min/max/mean, musical-event
+histograms, and style/role conditioning counts. They also record source-group record
+counts, the manifest checksum when supplied, and the split/token vocabulary
+revisions.
+
+When an audited/release manifest is supplied to the shard builder with `--manifest`,
+the statistics additionally record the manifest ID/status, represented source IDs,
+SPDX license distribution, commercial-use and redistribution classifications,
+attribution classifications, providers, and any manifest sources not represented in
+the training records. The builder rejects a corpus whose record source IDs are absent
+from the supplied manifest; this prevents provenance statistics from silently
+covering only part of the corpus.
 
 This is the first corpus-packaging layer, not the final dataset evidence package:
 source/license distributions, rejection-reason statistics, and canonical duplicate
