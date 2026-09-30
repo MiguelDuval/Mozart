@@ -60,6 +60,10 @@ Use a dedicated PyTorch environment outside the Android build:
         --batch-size 4 \
         --seed 42
 
+Training records must carry independently supplied `performance_controls`;
+the example builder and window builder reject missing controls rather than
+deriving them from the target event sequence.
+
 ## ONNX export
 
 An experimental exporter can turn a trained checkpoint into a concrete ONNX graph:
