@@ -67,6 +67,12 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_validate_model_manifest.py'
 
+      - name: Test Android JNI key context contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_android_jni_key_context_contract.py'
+
       - name: Test pinned LiteRT SDK fetch
         shell: bash
         run: |
