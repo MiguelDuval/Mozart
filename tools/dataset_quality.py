@@ -212,12 +212,12 @@ def build_report(
     excluded_duplicates = sorted(
         digest
         for digest in candidate_digests
-        if reviews[digest].get("decision") == "exclude"
+        if reviews.get(digest, {}).get("decision") == "exclude"
     )
     intentional_duplicates = sorted(
         digest
         for digest in candidate_digests
-        if reviews[digest].get("decision") == "intentional"
+        if reviews.get(digest, {}).get("decision") == "intentional"
     )
     if unresolved_duplicates:
         reason_counts["duplicate_content_unreviewed"] += len(unresolved_duplicates)
