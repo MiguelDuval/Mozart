@@ -3,7 +3,11 @@
 
 from __future__ import annotations
 
+import sys
 import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
 from mozart_conditioning import (
     CONDITIONING_VOCABULARY_ID,
