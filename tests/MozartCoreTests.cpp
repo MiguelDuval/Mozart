@@ -2347,6 +2347,118 @@ int main() {
 
 #ifdef LINK_PLATFORM_LINUX
     {
+        // Prove the bounded handoff is not merely accepted: a queued AI note
+        // must cross the normal Link-quantized scheduler -> MIDI queue path.
+        class GeneratedPatternOutput final
+                : public mozart::midi::MidiOutputTransport {
+        public:
+            mozart::midi::MidiSendResult send(
+                    const mozart::midi::MidiShortMessage& message) noexcept override {
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    messages_.push_back(message);
+                }
+                condition_.notify_all();
+                return {
+                        mozart::midi::MidiTransportStatus::Ok,
+                        message.size
+                };
+            }
+
+            void close() noexcept override {}
+
+            bool waitForGeneratedNote(
+                    const std::uint8_t note,
+                    const std::chrono::milliseconds timeout) {
+                std::unique_lock<std::mutex> lock(mutex_);
+                return condition_.wait_for(
+                        lock,
+                        timeout,
+                        [this, note] {
+                            return std::any_of(
+                                    messages_.begin(),
+                                    messages_.end(),
+                                    [note](const auto& message) {
+                                        return (message.status & 0xF0) == 0x90 &&
+                                                message.data1 == note &&
+                                                message.data2 > 0;
+                                    });
+                        });
+            }
+
+            std::vector<mozart::midi::MidiShortMessage> messagesCopy() const {
+                std::lock_guard<std::mutex> lock(mutex_);
+                return messages_;
+            }
+
+        private:
+            mutable std::mutex mutex_;
+            std::condition_variable condition_;
+            std::vector<mozart::midi::MidiShortMessage> messages_;
+        };
+
+        GeneratedPatternOutput output;
+        mozart::clock::LinkClock clock(120.0, 4.0);
+        mozart::scheduler::MidiSendQueue queue(output);
+        mozart::scheduler::AccompanimentScheduler scheduler(clock, queue);
+
+        clock.setEnabled(true);
+        const auto beforeArm = clock.captureAppSnapshot();
+        const auto expectedLaunchBeat =
+                mozart::timing::nextQuantizedBeat(
+                        beforeArm.beat,
+                        beforeArm.quantum);
+        const auto expectedLaunchHostTime =
+                clock.hostTimeAtBeat(expectedLaunchBeat);
+
+        mozart::generation::PatternProposal proposal;
+        proposal.metadata.lengthBeats = 1.0;
+        proposal.metadata.confidence = 1.0;
+        proposal.noteEvents = {
+                // Deliberately distinctive channel/note so this event cannot
+                // be confused with the deterministic bass fallback.
+                {0.0, 0.25, 123, 110, 2}
+        };
+
+        assert(scheduler.queueGeneratedPattern(proposal));
+
+        queue.start();
+        scheduler.start();
+        scheduler.setArmed(true);
+
+        assert(output.waitForGeneratedNote(123, std::chrono::seconds(4)));
+
+        scheduler.setArmed(false);
+        scheduler.stop();
+        queue.stop();
+
+        const auto messages = output.messagesCopy();
+        const auto generated = std::find_if(
+                messages.begin(),
+                messages.end(),
+                [](const auto& message) {
+                    return (message.status & 0xF0) == 0x90 &&
+                            message.data1 == 123 &&
+                            message.data2 > 0;
+                });
+        assert(generated != messages.end());
+        assert(generated->timestampNanos >=
+                static_cast<std::uint64_t>(expectedLaunchHostTime.count()) *
+                        1000ULL);
+
+        const auto generatedNoteOff = std::find_if(
+                messages.begin(),
+                messages.end(),
+                [](const auto& message) {
+                    return (message.status & 0xF0) == 0x80 &&
+                            message.data1 == 123;
+                });
+        assert(generatedNoteOff != messages.end());
+    }
+#endif
+
+#ifdef LINK_PLATFORM_LINUX
+    {
         class RuntimeGenerationOutput final
                 : public mozart::midi::MidiOutputTransport {
         public:
