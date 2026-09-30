@@ -52,7 +52,6 @@ def _build_record(
         rhythm=rhythm,
         role=role,
         seed=seed,
-        performance_controls=performance_controls,
     )
 
     if start_beat < 0.0:
