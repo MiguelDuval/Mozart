@@ -44,6 +44,10 @@ class ConditioningFixtureTests(unittest.TestCase):
 
         self.assertEqual(result["record_count"], 10)
         self.assertEqual(len(records), 10)
+        self.assertEqual(
+            {record["split"] for record in records},
+            {"train", "validation", "test"},
+        )
 
         for control in CONTROL_ORDER:
             grouped: dict[float, list[tuple[int, ...]]] = {0.1: [], 0.9: []}
