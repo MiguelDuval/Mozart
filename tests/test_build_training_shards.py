@@ -72,6 +72,8 @@ class BuildTrainingShardsTests(unittest.TestCase):
             record("song-b", "rev-1", "train", "b.mid"),
             record("song-a", "rev-1", "train", "a.mid", role="chords"),
         ]
+        records[1]["performance_controls"]["energy"] = 1.0
+        records[1]["performance_controls"]["variation"] = 0.5
         with tempfile.TemporaryDirectory() as left, tempfile.TemporaryDirectory() as right:
             left_dir = Path(left)
             right_dir = Path(right)
@@ -120,6 +122,11 @@ class BuildTrainingShardsTests(unittest.TestCase):
             stats["conditioning"]["role"],
             {"bass": 1, "chords": 1},
         )
+        self.assertAlmostEqual(stats["performance_controls"]["energy"]["min"], 0.5)
+        self.assertAlmostEqual(stats["performance_controls"]["energy"]["max"], 1.0)
+        self.assertAlmostEqual(stats["performance_controls"]["energy"]["mean"], 0.75)
+        self.assertAlmostEqual(stats["performance_controls"]["energy"]["non_zero_fraction"], 1.0)
+        self.assertAlmostEqual(stats["performance_controls"]["variation"]["max"], 0.5)
         self.assertEqual(
             stats["reproducibility"]["manifest_sha256"],
             "abc123",
