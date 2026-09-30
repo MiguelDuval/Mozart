@@ -69,6 +69,11 @@ void AccompanimentScheduler::stop() {
     activeDensity_ = requestedDensity_.load();
     activeAccent_ = requestedAccent_.load();
     activeSwing_ = requestedSwing_.load();
+
+    std::lock_guard<std::mutex> lock(generatedPatternMutex_);
+    pendingGeneratedPattern_.reset();
+    activeGeneratedPattern_.reset();
+    activeGeneratedPatternStartBeat_ = -1.0;
 }
 
 void AccompanimentScheduler::setArmed(const bool armed) noexcept {
