@@ -16,7 +16,7 @@ class WorkerBackend final : public TokenInferenceBackend {
 public:
     bool available = true;
     std::thread::id executionThread{};
-    std::thread::id availabilityThread{};
+    mutable std::thread::id availabilityThread{};
     int calls = 0;
 
     [[nodiscard]] TokenInferenceResult generateTokens(
@@ -141,8 +141,6 @@ void testUnselectedModelIsUnavailable() {
 
     assert(result.status == GenerationStatus::Unavailable);
     assert(backend.calls == 0);
-
-    service.stop();
 }
 
 void testStoppedServiceRejectsRequestWithoutBackendCall() {
