@@ -7,6 +7,7 @@
 #include "generation/PatternDensity.h"
 #include "generation/NoteRepeat.h"
 #include "generation/PatternSwing.h"
+#include "generation/PatternProposal.h"
 #include "musical/KeyScale.h"
 #include "scheduler/MidiSendQueue.h"
 #include "scheduler/AccompanimentRole.h"
@@ -17,6 +18,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <mutex>
+#include <optional>
 #include <thread>
 
 namespace mozart::scheduler {
@@ -62,6 +64,12 @@ public:
     [[nodiscard]] generation::NoteRepeatRate noteRepeat() const noexcept;
     void setMacro(MacroControl control, std::uint8_t value) noexcept;
     [[nodiscard]] std::uint8_t macroEnergy() const noexcept;
+
+    // A validated AI proposal is consumed only at a musical boundary. The
+    // scheduler owns the active copy after the handoff and then returns to its
+    // deterministic generator when the proposal cycle is complete.
+    [[nodiscard]] bool queueGeneratedPattern(
+            generation::PatternProposal proposal);
     [[nodiscard]] std::uint8_t macroMotion() const noexcept;
 
 private:
@@ -71,6 +79,8 @@ private:
             const clock::LinkClockSnapshot& snapshot,
             const musical::MusicalNoteEvent& event,
             double startBeat);
+
+    void activatePendingGeneratedPattern() noexcept;
 
     clock::LinkClock& clock_;
     MidiSendQueue& sendQueue_;
@@ -109,6 +119,10 @@ private:
     generation::PatternSwing activeSwing_ = generation::PatternSwing::Off;
     generation::NoteRepeatRate activeNoteRepeat_ = generation::NoteRepeatRate::Off;
     std::uint32_t seed_ = 0x4D4F5A41u;
+
+    std::mutex generatedPatternMutex_;
+    std::optional<generation::PatternProposal> pendingGeneratedPattern_{};
+    std::optional<generation::PatternProposal> activeGeneratedPattern_{};
 };
 
 } // namespace mozart::scheduler
