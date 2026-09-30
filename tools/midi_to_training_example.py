@@ -301,6 +301,7 @@ def build_example(
         rhythm=rhythm,
         role=role,
         seed=seed,
+        performance_controls=performance_controls,
     )
 
 
