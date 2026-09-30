@@ -20,7 +20,7 @@
 #include "platform/android/AndroidMidiOutput.h"
 #include "platform/android/OnnxRuntimeBridge.h"
 #include "generation/OnnxTokenInferenceBackend.h"
-#include "generation/StyleVocabulary.h"
+#include "generation/GenerationRequestFactory.h"
 #include "generation/PatternDensity.h"
 #include "generation/PatternSwing.h"
 #include "scheduler/AccompanimentRole.h"
@@ -323,53 +323,28 @@ Java_com_miguelduval_mozart_MainActivity_nativeQueueExperimentalGeneration(
     const auto context = runtime()->captureKeyContextSnapshot();
     const auto link = runtime()->captureLinkSnapshot();
 
-    mozart::generation::GenerationRequest request;
-    request.keyScale = context.resolvedKeyScale;
-    request.style = mozart::generation::GenerationStyle::Techno;
-    mozart::generation::StyleVocabulary::applyDefaults(request);
-
-    // Snapshot the performer's current musical state on the caller thread.
-    // The generation worker receives an immutable request and never touches
-    // Link timing, MIDI transport or UI state.
-    request.tempoBpm = link.tempoBpm;
-    request.bars = 4;
-    request.polyphony = 1;
-    request.seed = 0x4D4F5A41u;
-
+    mozart::generation::GenerationRole role =
+            mozart::generation::GenerationRole::Bass;
     switch (runtime()->accompanimentRole()) {
         case mozart::scheduler::AccompanimentRole::Arpeggio:
-            request.role = mozart::generation::GenerationRole::Arpeggio;
+            role = mozart::generation::GenerationRole::Arpeggio;
             break;
         case mozart::scheduler::AccompanimentRole::Drums:
-            request.role = mozart::generation::GenerationRole::Drums;
+            role = mozart::generation::GenerationRole::Drums;
             break;
         case mozart::scheduler::AccompanimentRole::Bass:
         default:
-            request.role = mozart::generation::GenerationRole::Bass;
             break;
     }
 
-    request.density =
-            static_cast<double>(
-                    mozart::generation::densityPercent(
-                            runtime()->patternDensity())) / 100.0;
-    switch (runtime()->patternSwing()) {
-        case mozart::generation::PatternSwing::Light:
-            request.swing = 0.5;
-            break;
-        case mozart::generation::PatternSwing::Full:
-            request.swing = 1.0;
-            break;
-        case mozart::generation::PatternSwing::Off:
-        default:
-            request.swing = 0.0;
-            break;
-    }
-
-    // Macro energy is a performer-facing 0..127 control; keep the request
-    // inside the GenerationRequest 0..1 contract.
-    request.energy =
-            static_cast<double>(runtime()->macroEnergy()) / 127.0;
+    const auto request =
+            mozart::generation::GenerationRequestFactory::fromPerformanceContext(
+                    context.resolvedKeyScale,
+                    link.tempoBpm,
+                    role,
+                    runtime()->patternDensity(),
+                    runtime()->patternSwing(),
+                    runtime()->macroEnergy());
 
     if (!request.isValid()) {
         return JNI_FALSE;
