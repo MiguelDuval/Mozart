@@ -4,3 +4,4 @@
 torch==2.14.0+cpu
 onnx==1.23.0
 onnxscript==0.7.2
+onnxruntime==1.30.0
