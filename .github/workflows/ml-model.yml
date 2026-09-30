@@ -24,8 +24,10 @@ on:
       - "tests/test_mozart_model_config.py"
       - "tests/test_mozart_conditioning_response.py"
       - "tests/test_mozart_conditioning_sequence_response.py"
+      - "tests/test_build_conditioning_fixture_corpus.py"
       - "tools/evaluate_mozart_conditioning.py"
       - "tools/evaluate_mozart_conditioning_sequence.py"
+      - "tools/build_conditioning_fixture_corpus.py"
       - "tools/requirements-onnx-export.txt"
   pull_request:
     paths:
@@ -115,6 +117,7 @@ jobs:
             tools/inspect_mozart_onnx.py \
             tools/evaluate_mozart_conditioning.py \
             tools/evaluate_mozart_conditioning_sequence.py \
+            tools/build_conditioning_fixture_corpus.py \
             tools/mozart_conditioning.py \
             tools/midi_to_training_example.py \
             tools/build_training_windows.py \
@@ -139,18 +142,25 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_mozart_conditioning_sequence_response.py'
 
+      - name: Test control-driven conditioning fixture corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_build_conditioning_fixture_corpus.py'
+
       - name: Train development checkpoint and export ONNX ABI
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf build/ml-fixture build/ml-checkpoint
+          rm -rf build/ml-fixture build/ml-conditioning-fixture build/ml-checkpoint
           python3 tools/build_fixture_corpus.py build/ml-fixture
+          python3 tools/build_conditioning_fixture_corpus.py build/ml-conditioning-fixture
 
           python3 - <<'PY'
           import json
           from pathlib import Path
 
-          root = Path("build/ml-fixture")
+          root = Path("build/ml-conditioning-fixture")
           records = [
               json.loads(line)
               for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines()
@@ -170,8 +180,8 @@ jobs:
             build/ml-fixture/train.jsonl \
             --validation-jsonl build/ml-fixture/validation.jsonl \
             --output-dir build/ml-checkpoint \
-            --epochs 1 \
-            --batch-size 1 \
+            --epochs 12 \
+            --batch-size 4 \
             --learning-rate 3e-4 \
             --seed 42 \
             --device cpu
@@ -242,6 +252,9 @@ jobs:
             --config docs/model-training-config.json \
             --onnx build/ml-checkpoint/model.onnx \
             --max-generated-tokens 32 \
+            --low-value 0.1 \
+            --high-value 0.9 \
+            --base-value 0.5 \
             --seed 42 \
             --output build/ml-checkpoint/conditioning-sequence-response.json
 
