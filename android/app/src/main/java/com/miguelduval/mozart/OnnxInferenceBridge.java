@@ -346,6 +346,14 @@ public final class OnnxInferenceBridge {
             final Method byName =
                     sessionResult.getClass().getMethod("get", String.class);
             final Object result = byName.invoke(sessionResult, outputName);
+            if (result instanceof java.util.Optional) {
+                final java.util.Optional<?> optional =
+                        (java.util.Optional<?>) result;
+                if (optional.isPresent()) {
+                    return optional.get();
+                }
+                return null;
+            }
             if (result != null) {
                 return result;
             }
