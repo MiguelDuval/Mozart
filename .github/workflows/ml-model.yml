@@ -6,6 +6,8 @@ on:
       - main
       - "feature/**"
     paths:
+      - ".github/workflows/ml-model.yml"
+
       - "tools/build_fixture_corpus.py"
       - "tools/train_mozart_model.py"
       - "tools/export_mozart_onnx.py"
