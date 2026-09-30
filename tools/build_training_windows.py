@@ -86,6 +86,7 @@ def build_windows(
     seed: int = 0,
     max_bars: int = 16,
     min_bars: int = 4,
+    performance_controls: dict[str, float] | None = None,
 ) -> list[dict]:
     normalized = normalize_file(midi_path)
     output: list[dict] = []
@@ -110,6 +111,7 @@ def build_windows(
                 window_start_bar=start_bar,
                 window_end_bar=end_bar,
                 source_length_bars=normalized.length_bars,
+                performance_controls=performance_controls,
             )
         )
 
@@ -131,6 +133,11 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--min-bars", type=int, default=4)
     parser.add_argument("--max-bars", type=int, default=16)
+    parser.add_argument("--density", type=float, required=True)
+    parser.add_argument("--energy", type=float, required=True)
+    parser.add_argument("--syncopation", type=float, required=True)
+    parser.add_argument("--swing", type=float, required=True)
+    parser.add_argument("--variation", type=float, required=True)
     args = parser.parse_args()
 
     try:
@@ -147,6 +154,13 @@ def main() -> int:
             seed=args.seed,
             min_bars=args.min_bars,
             max_bars=args.max_bars,
+            performance_controls={
+                "density": args.density,
+                "energy": args.energy,
+                "syncopation": args.syncopation,
+                "swing": args.swing,
+                "variation": args.variation,
+            },
         )
         payload = "".join(
             json.dumps(item, ensure_ascii=False, sort_keys=True) + "\n"
