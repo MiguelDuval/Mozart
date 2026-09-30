@@ -99,7 +99,7 @@ def derive_performance_controls(
         len(notes) * 127.0
     )
     syncopation = sum(
-        round(float(note["start_beat"]) * 16.0) % 4 != 0
+        round(float(note["start_beat"]) * 4.0) % 4 != 0
         for note in notes
     ) / len(notes)
     unique_pitches = len({int(note["note"]) for note in notes})
