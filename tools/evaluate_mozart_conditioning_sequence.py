@@ -174,9 +174,6 @@ def compare_token_sequences(
     high_tokens: list[int],
     *,
     max_reported_diffs: int = DEFAULT_MAX_REPORTED_DIFFS,
-    low_value: float = DEFAULT_LOW_VALUE,
-    high_value: float = DEFAULT_HIGH_VALUE,
-    base_value: float = DEFAULT_BASE_VALUE,
 ) -> dict[str, Any]:
     if not low_tokens or not high_tokens:
         raise ValueError("token sequences must not be empty")
@@ -234,9 +231,12 @@ def evaluate_sequence_responsiveness(
     *,
     onnx_session: Any | None = None,
     max_generated_tokens: int = DEFAULT_MAX_GENERATED_TOKENS,
-    prefix_tokens: tuple[int, ...] = PROBE_INPUT_IDS,
+    prefix_tokens: tuple[int, ...] = (1, 16, 68, 185),
     require_divergence: bool = True,
     max_reported_diffs: int = DEFAULT_MAX_REPORTED_DIFFS,
+    low_value: float = DEFAULT_LOW_VALUE,
+    high_value: float = DEFAULT_HIGH_VALUE,
+    base_value: float = DEFAULT_BASE_VALUE,
 ) -> dict[str, Any]:
     if max_generated_tokens < 2:
         raise ValueError("max_generated_tokens must be at least 2")
@@ -360,7 +360,7 @@ def main() -> int:
     parser.add_argument(
         "--prefix-tokens",
         type=str,
-        default=",".join(str(token) for token in PROBE_INPUT_IDS),
+        default="1,16,68,185",
     )
     parser.add_argument(
         "--require-divergence",
