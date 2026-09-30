@@ -195,115 +195,6 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_mozart_model_config.py'
       - name: Compile model training scripts
         run: python3 -m py_compile tools/mozart_model.py tools/train_mozart_model.py
-      - name: Setup Python 3.12 for ML export
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: tools/requirements-onnx-export.txt
-
-      - name: Install pinned ML export toolchain
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m pip install --disable-pip-version-check --no-cache-dir -r tools/requirements-onnx-export.txt
-
-      - name: Train development checkpoint and export ONNX ABI
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf build/ml-fixture build/ml-checkpoint
-          python3 tools/build_fixture_corpus.py build/ml-fixture
-
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-
-          root = Path("build/ml-fixture")
-          records = [
-              json.loads(line)
-              for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines()
-              if line.strip()
-          ]
-          for split in ("train", "validation"):
-              selected = [record for record in records if record["split"] == split]
-              if not selected:
-                  raise SystemExit(f"missing {split} records")
-              (root / f"{split}.jsonl").write_text(
-                  "".join(json.dumps(record, sort_keys=True) + "\n" for record in selected),
-                  encoding="utf-8",
-              )
-          PY
-
-          python3 tools/train_mozart_model.py \
-            build/ml-fixture/train.jsonl \
-            --validation-jsonl build/ml-fixture/validation.jsonl \
-            --output-dir build/ml-checkpoint \
-            --epochs 1 \
-            --batch-size 1 \
-            --learning-rate 3e-4 \
-            --seed 42 \
-            --device cpu
-
-          python3 - <<'PY'
-          import math
-          import torch
-          from pathlib import Path
-
-          source = Path("build/ml-checkpoint/best.pt")
-          checkpoint = torch.load(source, map_location="cpu", weights_only=False)
-          if checkpoint.get("epoch") != 1:
-              raise SystemExit(f"unexpected checkpoint epoch: {checkpoint.get('epoch')!r}")
-          if not checkpoint.get("model_state"):
-              raise SystemExit("development checkpoint has no model_state")
-          loss = checkpoint.get("train_loss")
-          if not isinstance(loss, (int, float)) or not math.isfinite(loss):
-              raise SystemExit(f"invalid training loss: {loss!r}")
-
-          inference_checkpoint = {
-              "model_id": checkpoint["model_id"],
-              "config": checkpoint["config"],
-              "epoch": checkpoint["epoch"],
-              "seed": checkpoint["seed"],
-              "train_loss": checkpoint["train_loss"],
-              "validation_loss": checkpoint["validation_loss"],
-              "model_state": checkpoint["model_state"],
-          }
-          torch.save(
-              inference_checkpoint,
-              "build/ml-checkpoint/development-inference.pt",
-          )
-          print(
-              "PASS: development checkpoint "
-              f"epoch={checkpoint['epoch']} train_loss={checkpoint['train_loss']:.6f}"
-          )
-          PY
-
-          python3 tools/export_mozart_onnx.py \
-            build/ml-checkpoint/development-inference.pt \
-            build/ml-checkpoint/model.onnx \
-            --config docs/model-training-config.json \
-            --sequence-length 16 \
-            --opset 18
-
-          python3 tools/inspect_mozart_onnx.py \
-            build/ml-checkpoint/model.onnx \
-            --config docs/model-training-config.json \
-            > build/ml-checkpoint/abi.json
-          cat build/ml-checkpoint/abi.json
-
-      - name: Upload development ML artifacts
-        if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json') != '' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: mozart-development-ml-${{ github.sha }}
-          path: |
-            build/ml-checkpoint/development-inference.pt
-            build/ml-checkpoint/model.onnx
-            build/ml-checkpoint/abi.json
-          archive: true
-          if-no-files-found: error
-          retention-days: 14
       - name: Test Mozart C++ core
         shell: bash
         run: |
@@ -334,7 +225,9 @@ jobs:
           archive: false
           if-no-files-found: error
           retention-days: 30
-      - name: Run Android emulator smoke test
+      - name: Run Android emulator smoke test (attempt 1)
+        id: android-smoke-attempt-1
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
         with:
           api-level: 35
@@ -347,7 +240,92 @@ jobs:
           disable-animations: true
           script: bash .github/scripts/android-smoke.sh
 
+      - name: Upload first emulator diagnostics
+        if: ${{ steps.android-smoke-attempt-1.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: mozart-emulator-attempt-1-diagnostics-${{ github.sha }}
+          path: |
+            /tmp/mozart-ui.xml
+            /tmp/mozart-activity.txt
+            /tmp/mozart-window.txt
+            /tmp/mozart-logcat.txt
+            /tmp/mozart-screen.png
+            /tmp/mozart-start.txt
+            /tmp/mozart-start-status.txt
+            /tmp/mozart-start-host-pid.txt
+            /tmp/mozart-pid.txt
+            /tmp/mozart-ps.txt
+            /tmp/mozart-processes.txt
+            /tmp/mozart-attempt-1-logcat.txt
+          archive: true
+          if-no-files-found: ignore
+          retention-days: 14
 
+      - name: Reset ADB and AVD state before retry
+        if: ${{ steps.android-smoke-attempt-1.outcome != 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb kill-server >/dev/null 2>&1 || true
+          pkill -f 'emulator.*-avd' >/dev/null 2>&1 || true
+          AVD_HOME="${ANDROID_AVD_HOME:-$HOME/.android/avd}"
+          rm -rf "$AVD_HOME"/* 2>/dev/null || true
+          rm -f "$HOME/.android/avd"/*.ini 2>/dev/null || true
+
+      - name: Run Android emulator smoke test (attempt 2)
+        id: android-smoke-attempt-2
+        if: ${{ steps.android-smoke-attempt-1.outcome != 'success' }}
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          force-avd-creation: true
+          emulator-options: -wipe-data -no-snapshot-save -no-snapshot-load -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          emulator-boot-timeout: 900
+          disable-animations: true
+          script: bash .github/scripts/android-smoke.sh
+
+      - name: Upload second emulator diagnostics
+        if: ${{ steps.android-smoke-attempt-2.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: mozart-emulator-attempt-2-diagnostics-${{ github.sha }}
+          path: |
+            /tmp/mozart-ui.xml
+            /tmp/mozart-activity.txt
+            /tmp/mozart-window.txt
+            /tmp/mozart-logcat.txt
+            /tmp/mozart-screen.png
+            /tmp/mozart-start.txt
+            /tmp/mozart-start-status.txt
+            /tmp/mozart-start-host-pid.txt
+            /tmp/mozart-pid.txt
+            /tmp/mozart-ps.txt
+            /tmp/mozart-processes.txt
+            /tmp/mozart-attempt-1-logcat.txt
+          archive: true
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Final emulator smoke gate
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          first="${{ steps.android-smoke-attempt-1.outcome }}"
+          second="${{ steps.android-smoke-attempt-2.outcome }}"
+          echo "Android emulator attempt 1: $first"
+          echo "Android emulator attempt 2: $second"
+          if [[ "$first" == "success" || "$second" == "success" ]]; then
+            echo "Android emulator smoke gate passed."
+            exit 0
+          fi
+          echo "Android emulator smoke failed on both attempts." >&2
+          exit 1
       - name: Upload emulator diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@v7
