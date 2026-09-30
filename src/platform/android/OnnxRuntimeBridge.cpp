@@ -40,29 +40,28 @@ void clearJniException(JNIEnv* env) noexcept {
 [[nodiscard]] std::string jsonForRequest(
         const generation::GenerationRequest& request) {
     std::ostringstream json;
-    json << "{"
-         << "\\"style\\":" << static_cast<int>(request.style)
-         << ",\\"substyle\\":" << static_cast<int>(request.substyle)
-         << ",\\"mood\\":" << static_cast<int>(request.mood)
-         << ",\\"rhythm\\":" << static_cast<int>(request.rhythm)
-         << ",\\"role\\":" << static_cast<int>(request.role)
-         << ",\\"root_pitch_class\\":"
+    json << R"({"style":)" << static_cast<int>(request.style)
+         << R"(,"substyle":)" << static_cast<int>(request.substyle)
+         << R"(,"mood":)" << static_cast<int>(request.mood)
+         << R"(,"rhythm":)" << static_cast<int>(request.rhythm)
+         << R"(,"role":)" << static_cast<int>(request.role)
+         << R"(,"root_pitch_class":)"
          << static_cast<int>(request.keyScale.rootPitchClass())
-         << ",\\"scale\\":"
+         << R"(,"scale":)"
          << static_cast<int>(request.keyScale.scale())
-         << ",\\"tempo_bpm\\":" << request.tempoBpm
-         << ",\\"bars\\":" << static_cast<int>(request.bars)
-         << ",\\"polyphony\\":" << static_cast<int>(request.polyphony)
-         << ",\\"min_note\\":" << static_cast<int>(request.minNote)
-         << ",\\"max_note\\":" << static_cast<int>(request.maxNote)
-         << ",\\"density\\":" << request.density
-         << ",\\"probability\\":" << request.probability
-         << ",\\"ratchet\\":" << static_cast<int>(request.ratchet)
-         << ",\\"energy\\":" << request.energy
-         << ",\\"syncopation\\":" << request.syncopation
-         << ",\\"swing\\":" << request.swing
-         << ",\\"variation\\":" << request.variation
-         << ",\\"seed\\":" << request.seed
+         << R"(,"tempo_bpm":)" << request.tempoBpm
+         << R"(,"bars":)" << static_cast<int>(request.bars)
+         << R"(,"polyphony":)" << static_cast<int>(request.polyphony)
+         << R"(,"min_note":)" << static_cast<int>(request.minNote)
+         << R"(,"max_note":)" << static_cast<int>(request.maxNote)
+         << R"(,"density":)" << request.density
+         << R"(,"probability":)" << request.probability
+         << R"(,"ratchet":)" << static_cast<int>(request.ratchet)
+         << R"(,"energy":)" << request.energy
+         << R"(,"syncopation":)" << request.syncopation
+         << R"(,"swing":)" << request.swing
+         << R"(,"variation":)" << request.variation
+         << R"(,"seed":)" << request.seed
          << "}";
     return json.str();
 }
