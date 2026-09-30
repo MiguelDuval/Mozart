@@ -23,7 +23,9 @@ on:
       - "tests/test_corpus_pipeline.py"
       - "tests/test_mozart_model_config.py"
       - "tests/test_mozart_conditioning_response.py"
+      - "tests/test_mozart_conditioning_sequence_response.py"
       - "tools/evaluate_mozart_conditioning.py"
+      - "tools/evaluate_mozart_conditioning_sequence.py"
       - "tools/requirements-onnx-export.txt"
   pull_request:
     paths:
@@ -112,6 +114,7 @@ jobs:
             tools/export_mozart_onnx.py \
             tools/inspect_mozart_onnx.py \
             tools/evaluate_mozart_conditioning.py \
+            tools/evaluate_mozart_conditioning_sequence.py \
             tools/mozart_conditioning.py \
             tools/midi_to_training_example.py \
             tools/build_training_windows.py \
@@ -129,6 +132,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_mozart_conditioning_response.py'
+
+      - name: Test greedy conditioning sequence evaluator contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_mozart_conditioning_sequence_response.py'
 
       - name: Train development checkpoint and export ONNX ABI
         shell: bash
@@ -224,8 +233,20 @@ jobs:
             --onnx build/ml-checkpoint/model.onnx \
             --output build/ml-checkpoint/conditioning-response.json
 
+      - name: Evaluate development greedy conditioning responsiveness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/evaluate_mozart_conditioning_sequence.py \
+            build/ml-checkpoint/development-inference.pt \
+            --config docs/model-training-config.json \
+            --onnx build/ml-checkpoint/model.onnx \
+            --max-generated-tokens 32 \
+            --seed 42 \
+            --output build/ml-checkpoint/conditioning-sequence-response.json
+
       - name: Upload development ML artifacts
-        if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json') != '' }}
+        if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json', 'build/ml-checkpoint/conditioning-sequence-response.json') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: mozart-development-ml-${{ github.sha }}
@@ -234,6 +255,7 @@ jobs:
             build/ml-checkpoint/model.onnx
             build/ml-checkpoint/abi.json
             build/ml-checkpoint/conditioning-response.json
+            build/ml-checkpoint/conditioning-sequence-response.json
           archive: true
           if-no-files-found: error
           retention-days: 14
