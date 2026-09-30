@@ -13,6 +13,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from dataset_split import source_key
+from mozart_conditioning import CONDITIONING_VOCABULARY_ID, validate_conditioning
 
 
 SPLITS = ("train", "validation", "test")
@@ -119,8 +120,23 @@ def validate_records(records: list[dict]) -> None:
         conditioning = record.get("conditioning")
         if not isinstance(conditioning, dict):
             raise ValueError(f"{where}.conditioning must be an object")
+        if record.get("conditioning_vocabulary_id") != CONDITIONING_VOCABULARY_ID:
+            raise ValueError(
+                f"{where}.conditioning_vocabulary_id must be {CONDITIONING_VOCABULARY_ID}"
+            )
         for key in ("style", "substyle", "mood", "rhythm", "role"):
             _require_string(conditioning, key)
+        try:
+            validate_conditioning(
+                style=conditioning["style"],
+                substyle=conditioning["substyle"],
+                mood=conditioning["mood"],
+                rhythm=conditioning["rhythm"],
+                role=conditioning["role"],
+                seed=conditioning.get("seed", 0),
+            )
+        except ValueError as exc:
+            raise ValueError(f"{where}.conditioning is invalid: {exc}") from exc
 
 
 def _stable_record_key(record: dict) -> tuple[str, str, str, str]:
@@ -168,6 +184,7 @@ def _stats(records: list[dict], manifest_sha256: str | None) -> dict:
     return {
         "schema_version": 1,
         "vocabulary_id": VOCABULARY_ID,
+        "conditioning_vocabulary_id": CONDITIONING_VOCABULARY_ID,
         "record_count": len(records),
         "source_group_count": len(source_groups),
         "split_counts": {split: split_counts.get(split, 0) for split in SPLITS},

@@ -30,6 +30,7 @@ def record(
         "source_path": source_path,
         "vocabulary_id": "mozart-midi-events-v1",
         "vocabulary_size": 512,
+        "conditioning_vocabulary_id": "mozart-conditioning-v1",
         "conditioning": {
             "style": style,
             "substyle": "techno",
@@ -62,7 +63,7 @@ class BuildTrainingShardsTests(unittest.TestCase):
     def test_shards_are_deterministic_and_bounded(self) -> None:
         records = [
             record("song-b", "rev-1", "train", "b.mid"),
-            record("song-a", "rev-1", "train", "a.mid", role="chord"),
+            record("song-a", "rev-1", "train", "a.mid", role="chords"),
         ]
         with tempfile.TemporaryDirectory() as left, tempfile.TemporaryDirectory() as right:
             left_dir = Path(left)
@@ -110,12 +111,24 @@ class BuildTrainingShardsTests(unittest.TestCase):
         )
         self.assertEqual(
             stats["conditioning"]["role"],
-            {"bass": 1, "chord": 1},
+            {"bass": 1, "chords": 1},
         )
         self.assertEqual(
             stats["reproducibility"]["manifest_sha256"],
             "abc123",
         )
+
+    def test_invalid_conditioning_slug_is_rejected(self) -> None:
+        item = record("song-a", "rev-1", "train", "a.mid")
+        item["conditioning"]["mood"] = "not_a_real_mood"
+        with self.assertRaises(ValueError):
+            validate_records([item])
+
+    def test_missing_conditioning_vocabulary_is_rejected(self) -> None:
+        item = record("song-a", "rev-1", "train", "a.mid")
+        del item["conditioning_vocabulary_id"]
+        with self.assertRaises(ValueError):
+            validate_records([item])
 
     def test_jsonl_round_trip(self) -> None:
         records = [record("song-a", "rev-1", "train", "a.mid")]
