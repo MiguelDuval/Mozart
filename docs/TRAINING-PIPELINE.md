@@ -179,6 +179,20 @@ than automatically rejected because identical musical material may be intentiona
 
 These statistics are evidence for dataset QA only; they do not replace the provenance/license gate.
 
+## Synthetic fixture corpus
+
+Before any external MIDI is used, the repository can generate a deterministic
+development-only corpus with `tools/build_fixture_corpus.py`. The fixture set
+covers 4-bar, 8-bar, 16-bar and 20-bar inputs, including a 3/4 meter example and
+source-aware 20-bar windowing. Generation runs the real normalization,
+tokenization, conditioning, split, shard and QA code paths and emits fixture MIDI,
+JSONL records, bounded shards, statistics, and a non-production metadata file.
+
+The fixture corpus is synthetic and contains no external data or rights claims.
+Its metadata deliberately marks `production_use=false` and
+`external_data=false`. A CI regression test also checks byte-for-byte
+determinism and requires zero QA rejections or cross-split source groups.
+
 ## Manifest digest
 
 The canonical manifest digest is computed from normalized JSON with
