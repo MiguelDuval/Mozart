@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Development baseline architecture for Mozart symbolic MIDI training."""
 
+# Training/export executes in the dedicated ML workflow; Android builds consume contracts only.
+
 from __future__ import annotations
 
 from dataclasses import dataclass
