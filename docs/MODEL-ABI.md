@@ -170,6 +170,7 @@ The project currently has:
 - provider interface;
 - strict validation;
 - LiteRT 2.2.0 SDK preparation;
+- experimental ONNX Runtime 1.30.0 adapter behind TokenInferenceBackend;
 - runtime-neutral conditioning vocabulary for style, substyle, mood, rhythm and role.
 
 The project does **not** yet have:
