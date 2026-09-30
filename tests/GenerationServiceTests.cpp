@@ -16,6 +16,7 @@ class WorkerBackend final : public TokenInferenceBackend {
 public:
     bool available = true;
     std::thread::id executionThread{};
+    std::thread::id availabilityThread{};
     int calls = 0;
 
     [[nodiscard]] TokenInferenceResult generateTokens(
@@ -74,6 +75,30 @@ void testGenerationRunsOffCallerThread() {
     assert(result.message == "worker-test");
     assert(backend.calls == 1);
     assert(backend.executionThread != callerThread);
+
+    service.stop();
+}
+
+
+void testBackendAvailabilityRunsOnWorkerThread() {
+    ModelCatalog catalog;
+    WorkerBackend backend;
+
+    assert(catalog.registerBackend(backend));
+    assert(catalog.registerModel(experimentalEntry()));
+    assert(catalog.selectModel("experimental-worker"));
+
+    GenerationService service(catalog);
+    service.start();
+
+    const auto callerThread = std::this_thread::get_id();
+    auto future = service.submit(GenerationRequest{});
+
+    assert(future.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
+    (void) future.get();
+
+    assert(backend.availabilityThread != callerThread);
+    assert(backend.availabilityThread == backend.executionThread);
 
     service.stop();
 }
@@ -142,6 +167,7 @@ void testStoppedServiceRejectsRequestWithoutBackendCall() {
 
 int main() {
     testGenerationRunsOffCallerThread();
+    testBackendAvailabilityRunsOnWorkerThread();
     testUnavailableSelectionDoesNotEnterWorker();
     testUnselectedModelIsUnavailable();
     testStoppedServiceRejectsRequestWithoutBackendCall();
