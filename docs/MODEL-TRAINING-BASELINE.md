@@ -28,6 +28,8 @@ retrospective `derive_performance_controls()` helper is reserved for QA metrics
 and is not used to construct model conditioning. This remains a development
 baseline; the production tensor ABI is not frozen.
 
+The CI development checkpoint uses a separate synthetic conditioning fixture: control profiles are declared first and a deterministic renderer creates target MIDI from them. Each of density, energy, syncopation, swing and variation is exercised at low/high values while the other controls remain at a neutral baseline. This fixture exists specifically to prove that conditioning can be learned without deriving labels from the target sequence.
+
 The baseline deliberately does not claim that key/scale, continuous macro controls,
 LiteRT tensor names or production sampling policy are frozen. Those remain future
 model-dependent decisions. Key/scale and range constraints remain enforced by
