@@ -107,6 +107,11 @@ Before a proposal enters the musical model:
 
 Malformed or out-of-contract AI output must never reach the MIDI transport unchanged.
 
+The current scheduler handoff intentionally accepts note events only. A proposal
+containing control events is rejected at the scheduler boundary until semantic
+CC/control scheduling is implemented. The engine must never silently discard a
+valid-looking control event produced by a model.
+
 ## Integration gate and implementation order
 
 Local AI integration is a later vertical slice, not a prerequisite for the core instrument.
