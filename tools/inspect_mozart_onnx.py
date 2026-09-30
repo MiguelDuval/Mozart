@@ -23,9 +23,13 @@ EXPECTED_INPUTS = (
 
 
 def dtype_name(value: int) -> str:
+    names = {
+        TensorProto.INT64: "int64",
+        TensorProto.FLOAT: "float32",
+    }
     try:
-        return TensorProto.DataType.Name(value).lower()
-    except ValueError as exc:
+        return names[value]
+    except KeyError as exc:
         raise ValueError(f"unsupported ONNX tensor dtype enum: {value}") from exc
 
 
@@ -174,7 +178,7 @@ def inspect_model(path: Path, model_id: str) -> dict:
         "opsets": opsets,
         "vocabulary_size": 512,
         "context_symbolic": {
-            "batch": batch_symbol,
+            "batch": 1,
             "sequence": sequence_symbol,
         },
         "file_sha256": __import__("hashlib").sha256(path.read_bytes()).hexdigest(),
