@@ -255,6 +255,7 @@ def main() -> int:
     parser.add_argument("input_jsonl", type=Path)
     parser.add_argument("output_json", type=Path)
     parser.add_argument("--manifest-sha256")
+    parser.add_argument("--duplicate-review", type=Path)
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_args()
 
