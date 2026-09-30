@@ -11,17 +11,16 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-import shutil
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from build_training_shards import write_shards
+from build_training_windows import build_windows
 from dataset_quality import build_report
 from dataset_split import assign_records
 from dataset_split import split_for_key
 from midi_to_training_example import build_example
-from build_training_windows import build_windows
 
 
 PPQ = 480
@@ -41,14 +40,6 @@ def vlq(value: int) -> bytes:
     return bytes(parts)
 
 
-def meta_delta(payload: bytes, delta: int = 0) -> bytes:
-    return vlq(delta) + payload
-
-
-def note_event(status: int, note: int, velocity: int, delta: int) -> bytes:
-    return vlq(delta) + bytes((status, note, velocity))
-
-
 def make_smf(
     *,
     bars: int,
@@ -56,76 +47,34 @@ def make_smf(
     notes_by_bar: list[list[tuple[int, int, int, int]]],
     tempo_bpm: int = 120,
 ) -> bytes:
+    if bars <= 0 or beats_per_bar <= 0:
+        raise ValueError("fixture dimensions must be positive")
     if len(notes_by_bar) != bars:
         raise ValueError("notes_by_bar length must equal bars")
-    if beats_per_bar <= 0:
-        raise ValueError("beats_per_bar must be positive")
+    if tempo_bpm <= 0:
+        raise ValueError("tempo must be positive")
 
+    denominator_power = 2  # quarter-note denominator
     events = bytearray()
-    numerator = beats_per_bar
-    denominator_power = 2
-    events += meta_delta(
-        bytes.fromhex(
-            f"FF 51 03 {(60000000 // tempo_bpm):06X}"
-        )
-    )
-    events += meta_delta(
-        bytes.fromhex(f"FF 58 04 {numerator:02X} {denominator_power:02X} 18 08")
+    tempo_us = 60000000 // tempo_bpm
+    events += bytes.fromhex("00 FF 51 03") + tempo_us.to_bytes(3, "big")
+    events += bytes.fromhex(
+        f"00 FF 58 04 {beats_per_bar:02X} {denominator_power:02X} 18 08"
     )
 
+    absolute_events: list[tuple[int, int, bytes]] = []
+    ticks_per_bar = beats_per_bar * PPQ
     for bar_index, bar_notes in enumerate(notes_by_bar):
+        bar_origin = bar_index * ticks_per_bar
         for note, start_tick, duration_tick, velocity in bar_notes:
             if not 0 <= note <= 127:
                 raise ValueError("fixture note out of range")
+            if not 0 <= velocity <= 127:
+                raise ValueError("fixture velocity out of range")
             if start_tick < 0 or duration_tick <= 0:
                 raise ValueError("fixture note timing must be positive")
-            if start_tick + duration_tick > beats_per_bar * PPQ:
+            if start_tick + duration_tick > ticks_per_bar:
                 raise ValueError("fixture note exceeds bar boundary")
-
-        timeline: list[tuple[int, int, bytes]] = []
-        for note, start_tick, duration_tick, velocity in bar_notes:
-            timeline.append(
-                (start_tick, 1, bytes((0x90, note, velocity)))
-            )
-            timeline.append(
-                (start_tick + duration_tick, 0, bytes((0x80, note, 0)))
-            )
-        timeline.sort(key=lambda item: (item[0], item[1], item[2]))
-
-        previous_tick = 0
-        for tick, _, message in timeline:
-            events += vlq(tick - previous_tick) + message
-            previous_tick = tick
-
-        bar_end = beats_per_bar * PPQ
-        events += vlq(bar_end - previous_tick) if bar_notes else vlq(bar_end)
-
-        if bar_index != bars - 1:
-            # The delta above advances to the next bar; the next event therefore
-            # starts at tick zero relative to that bar.
-            pass
-
-    # Remove the extra inter-bar advancement caused by the bar loop: each bar's
-    # final delta already advances exactly to its boundary, which is the desired
-    # absolute timeline.
-    events += bytes.fromhex("00 FF 2F 00")
-
-    # The fixture event builder writes absolute-in-bar timelines followed by an
-    # end-of-bar delta. Rebuild with one absolute timeline to avoid accidental
-    # stateful assumptions when simultaneous notes are present.
-    rebuilt = bytearray()
-    rebuilt += meta_delta(
-        bytes.fromhex(
-            f"FF 51 03 {(60000000 // tempo_bpm):06X}"
-        )
-    )
-    rebuilt += meta_delta(
-        bytes.fromhex(f"FF 58 04 {numerator:02X} {denominator_power:02X} 18 08")
-    )
-    absolute_events: list[tuple[int, int, bytes]] = []
-    for bar_index, bar_notes in enumerate(notes_by_bar):
-        bar_origin = bar_index * beats_per_bar * PPQ
-        for note, start_tick, duration_tick, velocity in bar_notes:
             absolute_events.append(
                 (bar_origin + start_tick, 1, bytes((0x90, note, velocity)))
             )
@@ -136,28 +85,27 @@ def make_smf(
                     bytes((0x80, note, 0)),
                 )
             )
-    absolute_events.sort(key=lambda item: (item[0], item[1], item[2]))
 
+    absolute_events.sort(key=lambda item: (item[0], item[1], item[2]))
     previous_tick = 0
     for tick, _, message in absolute_events:
-        rebuilt += vlq(tick - previous_tick) + message
+        events += vlq(tick - previous_tick) + message
         previous_tick = tick
-    rebuilt += bytes.fromhex("00 FF 2F 00")
+    events += bytes.fromhex("00 FF 2F 00")
 
     header = b"MThd" + bytes.fromhex("00 00 00 06 00 00 00 01 01 E0")
-    track = b"MTrk" + len(rebuilt).to_bytes(4, "big") + bytes(rebuilt)
+    track = b"MTrk" + len(events).to_bytes(4, "big") + bytes(events)
     return header + track
 
 
-def fixture_notes(kind: str) -> tuple[int, int, list[list[tuple[int, int, int, int]]]]:
+def fixture_notes(
+    kind: str,
+) -> tuple[int, int, list[list[tuple[int, int, int, int]]]]:
     if kind == "bass-4bar":
         bars, meter = 4, 4
         roots = (36, 38, 41, 43)
         notes = [
-            [
-                (roots[bar], beat * 480, 360, 92)
-                for beat in range(4)
-            ]
+            [(roots[bar], beat * PPQ, 360, 92) for beat in range(4)]
             for bar in range(bars)
         ]
         return bars, meter, notes
@@ -182,7 +130,7 @@ def fixture_notes(kind: str) -> tuple[int, int, list[list[tuple[int, int, int, i
         scale = (60, 62, 63, 65, 67, 68, 70)
         notes = [
             [
-                (scale[(bar + beat) % len(scale)], beat * 480, 360, 80 + beat * 6)
+                (scale[(bar + beat) % len(scale)], beat * PPQ, 360, 80 + beat * 6)
                 for beat in range(3)
             ]
             for bar in range(bars)
@@ -201,10 +149,42 @@ def fixture_notes(kind: str) -> tuple[int, int, list[list[tuple[int, int, int, i
 
 
 FIXTURES = (
-    ("bass-4bar", "bass-4bar.mid", "electronic", "techno", "driving", "straight", "bass"),
-    ("chords-8bar", "chords-8bar.mid", "electronic", "techno", "hypnotic", "straight", "chords"),
-    ("lead-16bar-3-4", "lead-16bar-3-4.mid", "electronic", "techno", "atmospheric", "syncopated", "lead"),
-    ("window-20bar", "window-20bar.mid", "techno", "dark_techno", "dark", "straight", "bass"),
+    (
+        "bass-4bar",
+        "bass-4bar.mid",
+        "electronic",
+        "techno",
+        "driving",
+        "straight",
+        "bass",
+    ),
+    (
+        "chords-8bar",
+        "chords-8bar.mid",
+        "electronic",
+        "techno",
+        "hypnotic",
+        "straight",
+        "chords",
+    ),
+    (
+        "lead-16bar-3-4",
+        "lead-16bar-3-4.mid",
+        "electronic",
+        "techno",
+        "atmospheric",
+        "syncopated",
+        "lead",
+    ),
+    (
+        "window-20bar",
+        "window-20bar.mid",
+        "techno",
+        "dark_techno",
+        "dark",
+        "straight",
+        "bass",
+    ),
 )
 
 
@@ -236,12 +216,15 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def collect_hashes(root: Path) -> list[dict]:
+def collect_hashes(root: Path, *, exclude: set[str] | None = None) -> list[dict]:
+    excluded = exclude or set()
     entries = []
     for path in sorted(root.rglob("*")):
         if not path.is_file():
             continue
         relative = path.relative_to(root).as_posix()
+        if relative in excluded:
+            continue
         entries.append(
             {
                 "path": relative,
@@ -277,12 +260,15 @@ def build_fixture_corpus(output_dir: Path) -> dict:
     ) in enumerate(FIXTURES):
         bars, meter, notes = fixture_notes(kind)
         midi_path = midi_dir / filename
-        midi_path.write_bytes(make_smf(bars=bars, beats_per_bar=meter, notes_by_bar=notes))
+        midi_path.write_bytes(
+            make_smf(bars=bars, beats_per_bar=meter, notes_by_bar=notes)
+        )
 
-        if index < 3:
-            source_id = split_sources[SPLIT_ORDER[index]]
-        else:
-            source_id = split_sources["extra_train"]
+        source_id = (
+            split_sources[SPLIT_ORDER[index]]
+            if index < 3
+            else split_sources["extra_train"]
+        )
 
         if bars > 16:
             records.extend(
@@ -360,17 +346,13 @@ def build_fixture_corpus(output_dir: Path) -> dict:
         "qa_path": "qa.json",
         "statistics_path": "shards/dataset-statistics.json",
         "shard_count": len(shard_paths),
-        "files": collect_hashes(output_dir),
+        "files": [],
     }
     metadata_path = output_dir / "fixture-metadata.json"
-    metadata["files"] = []
-    metadata_path.write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
+    metadata["files"] = collect_hashes(
+        output_dir,
+        exclude={metadata_path.relative_to(output_dir).as_posix()},
     )
-
-    # Metadata intentionally excludes its own hash to keep the manifest stable.
-    metadata["files"] = collect_hashes(output_dir)
     metadata_path.write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
