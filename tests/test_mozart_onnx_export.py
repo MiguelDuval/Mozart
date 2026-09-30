@@ -90,11 +90,11 @@ class MozartOnnxExportTests(unittest.TestCase):
                         "dtype": "int64",
                         "shape": [1, "sequence"],
                     },
-                    {"name": "style_id", "dtype": "int64", "shape": ["batch"]},
-                    {"name": "substyle_id", "dtype": "int64", "shape": ["batch"]},
-                    {"name": "mood_id", "dtype": "int64", "shape": ["batch"]},
-                    {"name": "rhythm_id", "dtype": "int64", "shape": ["batch"]},
-                    {"name": "role_id", "dtype": "int64", "shape": ["batch"]},
+                    {"name": "style_id", "dtype": "int64", "shape": [1]},
+                    {"name": "substyle_id", "dtype": "int64", "shape": [1]},
+                    {"name": "mood_id", "dtype": "int64", "shape": [1]},
+                    {"name": "rhythm_id", "dtype": "int64", "shape": [1]},
+                    {"name": "role_id", "dtype": "int64", "shape": [1]},
                 ],
             )
             self.assertEqual(
