@@ -13,8 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from midi_normalize import MidiValidationError, NormalizedMidi, normalize_file
 from mozart_conditioning import (
     CONDITIONING_VOCABULARY_ID,
-    derive_performance_controls,
     validate_conditioning,
+    validate_performance_controls,
 )
 from mozart_tokenizer import VOCABULARY_ID, VOCABULARY_SIZE, encode
 
@@ -36,6 +36,7 @@ def _build_record(
     window_start_bar: int | None = None,
     window_end_bar: int | None = None,
     source_length_bars: int | None = None,
+    performance_controls: dict[str, float] | None = None,
 ) -> dict:
     source_id = source_id.strip()
     source_revision = source_revision.strip()
@@ -51,6 +52,7 @@ def _build_record(
         rhythm=rhythm,
         role=role,
         seed=seed,
+        performance_controls=performance_controls,
     )
 
     if start_beat < 0.0:
@@ -174,10 +176,11 @@ def _build_record(
         if source_length_bars is not None
         else normalized.length_bars
     )
-    performance_controls = derive_performance_controls(
-        notes,
-        end_beat - start_beat,
-    )
+    if performance_controls is None:
+        raise ValueError(
+            "performance_controls must be supplied independently of target events"
+        )
+    performance_controls = validate_performance_controls(performance_controls)
     record = {
         "schema_version": 1,
         "source_id": source_id,
@@ -245,6 +248,7 @@ def build_example_from_normalized(
     window_start_bar: int | None = None,
     window_end_bar: int | None = None,
     source_length_bars: int | None = None,
+    performance_controls: dict[str, float] | None = None,
 ) -> dict:
     if end_beat is None:
         end_beat = normalized.length_beats
@@ -264,6 +268,7 @@ def build_example_from_normalized(
         window_start_bar=window_start_bar,
         window_end_bar=window_end_bar,
         source_length_bars=source_length_bars,
+        performance_controls=performance_controls,
     )
 
 
@@ -279,6 +284,7 @@ def build_example(
     rhythm: str = "straight",
     role: str = "bass",
     seed: int = 0,
+    performance_controls: dict[str, float] | None = None,
 ) -> dict:
     normalized = normalize_file(midi_path)
     if not 4 <= normalized.length_bars <= 16:
@@ -312,6 +318,11 @@ def main() -> int:
     parser.add_argument("--rhythm", default="straight")
     parser.add_argument("--role", default="bass")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--density", type=float, required=True)
+    parser.add_argument("--energy", type=float, required=True)
+    parser.add_argument("--syncopation", type=float, required=True)
+    parser.add_argument("--swing", type=float, required=True)
+    parser.add_argument("--variation", type=float, required=True)
     args = parser.parse_args()
 
     try:
@@ -326,6 +337,13 @@ def main() -> int:
             rhythm=args.rhythm,
             role=args.role,
             seed=args.seed,
+            performance_controls={
+                "density": args.density,
+                "energy": args.energy,
+                "syncopation": args.syncopation,
+                "swing": args.swing,
+                "variation": args.variation,
+            },
         )
     except (MidiValidationError, OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
