@@ -94,6 +94,16 @@ add_executable(mozart_model_catalog_tests
     ModelCatalogTests.cpp
 )
 
+add_executable(mozart_generation_service_tests
+    GenerationServiceTests.cpp
+)
+
+target_include_directories(mozart_generation_service_tests PRIVATE
+    ../src
+)
+target_compile_features(mozart_generation_service_tests PRIVATE cxx_std_20)
+
+
 target_include_directories(mozart_model_catalog_tests PRIVATE
     ../src
 )
