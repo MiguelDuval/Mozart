@@ -188,10 +188,19 @@ def _build_sequence_probes(records: list[dict]) -> dict:
                 f"missing low/high control pair for {name}"
             )
 
+        if low_record.get("split") != "train" or high_record.get("split") != "train":
+            raise RuntimeError(
+                f"control pair for {name} must remain entirely in the train split"
+            )
+
         prefix = _longest_common_prefix(
             list(low_record["tokens"]),
             list(high_record["tokens"]),
         )
+        if len(prefix) >= 32:
+            raise RuntimeError(
+                f"control pair for {name} leaves no generation budget"
+            )
         first_divergence = len(prefix)
 
         probes[name] = {
