@@ -45,6 +45,35 @@ class ConditioningFixtureTests(unittest.TestCase):
 
         self.assertEqual(result["record_count"], 12)
         self.assertEqual(len(records), 12)
+
+        probes = json.loads(
+            (root / "sequence-probes.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            probes["status"],
+            "synthetic-conditioning-sequence-probes",
+        )
+        self.assertEqual(
+            set(probes["controls"]),
+            set(CONTROL_ORDER),
+        )
+        for control in CONTROL_ORDER:
+            probe = probes["controls"][control]
+            self.assertGreaterEqual(probe["prefix_length"], 1)
+            self.assertEqual(
+                probe["prefix_tokens"],
+                probe["prefix_tokens"][:probe["prefix_length"]],
+            )
+            low_profile = dict(BASE_PROFILE)
+            low_profile[control] = 0.1
+            high_profile = dict(BASE_PROFILE)
+            high_profile[control] = 0.9
+            self.assertEqual(probe["low_profile"], low_profile)
+            self.assertEqual(probe["high_profile"], high_profile)
+            self.assertLess(
+                probe["prefix_length"],
+                probe["first_target_divergence_index"] + 1,
+            )
         self.assertEqual(
             {record["split"] for record in records},
             {"train", "validation", "test"},
