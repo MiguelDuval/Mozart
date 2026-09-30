@@ -29,10 +29,10 @@ class FixtureCorpusTests(unittest.TestCase):
             result = build_fixture_corpus(root)
 
             self.assertEqual(result["record_count"], 5)
-            self.assertEqual(result["shard_count"], 3)
+            self.assertEqual(result["shard_count"], 4)
             self.assertEqual(
                 result["split_counts"],
-                {"train": 2, "validation": 1, "test": 1},
+                {"train": 3, "validation": 1, "test": 1},
             )
             self.assertEqual(result["qa"]["rejected_count"], 0)
             self.assertEqual(result["qa"]["source_groups_crossing_splits"], [])
