@@ -71,25 +71,37 @@ def main() -> int:
     )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    torch.onnx.export(
+    batch_dim = torch.export.Dim("batch", min=1)
+    sequence_dim = torch.export.Dim(
+        "sequence",
+        min=1,
+        max=config.max_sequence_length,
+    )
+    dynamic_shapes = {
+        "input_ids": {0: batch_dim, 1: sequence_dim},
+        **{name: {0: batch_dim} for name in CONDITIONING_NAMES},
+    }
+    onnx_program = torch.onnx.export(
         model,
         (input_ids, *condition_ids),
-        args.output,
         input_names=("input_ids", *CONDITIONING_NAMES),
         output_names=("logits",),
-        dynamic_axes={
-            "input_ids": {0: "batch", 1: "sequence"},
-            **{name: {0: "batch"} for name in CONDITIONING_NAMES},
-            "logits": {0: "batch", 1: "sequence"},
-        },
+        dynamic_shapes=dynamic_shapes,
         opset_version=args.opset,
-        do_constant_folding=True,
-        dynamo=False,
+        dynamo=True,
     )
+    if onnx_program is None:
+        raise RuntimeError("ONNX exporter did not return a program")
+    onnx_program.save(args.output)
 
     parameter_count = sum(
         parameter.numel() for parameter in model.parameters()
     )
+    if parameter_count != 32817024:
+        raise ValueError(
+            "model parameter count does not match the configured baseline: "
+            f"{parameter_count}"
+        )
     print(
         f"PASS: exported {config.model_id} "
         f"parameters={parameter_count} "
