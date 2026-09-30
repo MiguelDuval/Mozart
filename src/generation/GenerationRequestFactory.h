@@ -16,6 +16,7 @@ public:
             const PatternDensity density,
             const PatternSwing swing,
             const std::uint8_t energyControl,
+            const std::uint8_t motionControl,
             const std::uint32_t seed = 0x4D4F5A41u) noexcept {
         GenerationRequest request;
         request.style = GenerationStyle::Techno;
@@ -34,6 +35,11 @@ public:
                                 : 0.0;
         request.energy =
                 static_cast<double>(energyControl) / 127.0;
+        const double motion =
+                static_cast<double>(motionControl) / 127.0;
+        // Motion shapes the model's phrase movement without touching Link timing.
+        request.syncopation = 0.10 + (0.65 * motion);
+        request.variation = 0.20 + (0.70 * motion);
         request.bars = 4;
         request.polyphony = 1;
         request.seed = seed;

@@ -83,6 +83,7 @@ int main() {
                         PatternDensity::Normal,
                         PatternSwing::Full,
                         127,
+                        127,
                         0x12345678u);
 
         assert(request.isValid());
@@ -93,6 +94,8 @@ int main() {
         assert(std::abs(request.density - 0.75) < 1.0e-12);
         assert(std::abs(request.swing - 1.0) < 1.0e-12);
         assert(std::abs(request.energy - 1.0) < 1.0e-12);
+        assert(std::abs(request.syncopation - 0.75) < 1.0e-12);
+        assert(std::abs(request.variation - 0.90) < 1.0e-12);
         assert(request.bars == 4);
         assert(request.polyphony == 1);
         assert(request.seed == 0x12345678u);
@@ -104,11 +107,14 @@ int main() {
                         GenerationRole::Bass,
                         PatternDensity::Sparse,
                         PatternSwing::Off,
+                        0,
                         0);
         assert(low.isValid());
         assert(std::abs(low.density - 0.50) < 1.0e-12);
         assert(std::abs(low.swing) < 1.0e-12);
         assert(std::abs(low.energy) < 1.0e-12);
+        assert(std::abs(low.syncopation - 0.10) < 1.0e-12);
+        assert(std::abs(low.variation - 0.20) < 1.0e-12);
         assert(low.role == GenerationRole::Bass);
     }
 

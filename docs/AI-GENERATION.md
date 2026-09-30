@@ -77,6 +77,8 @@ A request can include:
 - seed;
 - constraints.
 
+Live performance macros are normalized into the same request contract. Energy maps to the model's energy field; Motion maps to syncopation and variation so the generator becomes more rhythmically active as Motion rises. Motion does not modify Link tempo, beat, phase or scheduler timing.
+
 Controlled style vocabulary should initially use explicit tags such as electronic -> techno -> dark techno or hip-hop -> trap -> dark trap. A future text parser may map natural-language requests into these tags, but a general-purpose LLM is not required for the baseline generator.
 
 ## Response

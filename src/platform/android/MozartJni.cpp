@@ -344,7 +344,8 @@ Java_com_miguelduval_mozart_MainActivity_nativeQueueExperimentalGeneration(
                     role,
                     runtime()->patternDensity(),
                     runtime()->patternSwing(),
-                    runtime()->macroEnergy());
+                    runtime()->macroEnergy(),
+                    runtime()->macroMotion());
 
     if (!request.isValid()) {
         return JNI_FALSE;
