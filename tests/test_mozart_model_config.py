@@ -30,6 +30,10 @@ class MozartModelConfigTests(unittest.TestCase):
                 "role": 8,
             },
         )
+        self.assertEqual(
+            config["performance_control_names"],
+            ["density", "energy", "syncopation", "swing", "variation"],
+        )
 
         d_model = config["d_model"]
         layers = config["num_layers"]
@@ -47,10 +51,12 @@ class MozartModelConfigTests(unittest.TestCase):
         condition_params = sum(
             size * d_model for size in config["conditioning"].values()
         )
+        performance_projection_params = 5 * d_model + d_model
         total = (
             vocab * d_model
             + context * d_model
             + condition_params
+            + performance_projection_params
             + layers * per_layer
             + 2 * d_model
         )
