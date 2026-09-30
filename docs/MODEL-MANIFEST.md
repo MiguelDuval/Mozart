@@ -139,6 +139,33 @@ licenses:
 
 The exact field representation may change when the export toolchain is selected, but the information itself is mandatory.
 
+## Experimental ONNX runtime extension
+
+Private experimental ONNX manifests may add a runtime object beside the
+runtime-neutral fields defined above:
+
+```json
+{
+  "runtime": {
+    "backend": "onnxruntime",
+    "input_name": "input_ids",
+    "output_name": "logits",
+    "input_dtype": "int64",
+    "token_mode": "mozart_ids",
+    "external_vocabulary_size": 512,
+    "context_length_tokens": 1024,
+    "max_generated_tokens": 512,
+    "bos_token_id": 1,
+    "eos_token_id": 2,
+    "allow_unhashed_experimental": true
+  }
+}
+```
+
+This extension is for the debug Experimental Model Lab. It does not freeze
+the production tensor ABI and it does not change the commercial packaging
+rules. See docs/EXPERIMENTAL-ONNX-BACKEND.md.
+
 ## Freeze procedure
 
 Freeze the manifest only after the production checkpoint has been selected.
