@@ -326,24 +326,3 @@ jobs:
           fi
           echo "Android emulator smoke failed on both attempts." >&2
           exit 1
-      - name: Upload emulator diagnostics on failure
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: mozart-emulator-diagnostics-${{ github.sha }}
-          path: |
-            /tmp/mozart-ui.xml
-            /tmp/mozart-activity.txt
-            /tmp/mozart-window.txt
-            /tmp/mozart-logcat.txt
-            /tmp/mozart-screen.png
-            /tmp/mozart-start.txt
-            /tmp/mozart-start-status.txt
-            /tmp/mozart-start-host-pid.txt
-            /tmp/mozart-pid.txt
-            /tmp/mozart-ps.txt
-            /tmp/mozart-processes.txt
-            /tmp/mozart-attempt-1-logcat.txt
-          archive: true
-          if-no-files-found: ignore
-          retention-days: 14
