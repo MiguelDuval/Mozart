@@ -60,19 +60,41 @@ class ConditioningFixtureTests(unittest.TestCase):
         for control in CONTROL_ORDER:
             probe = probes["controls"][control]
             self.assertGreaterEqual(probe["prefix_length"], 1)
-            self.assertEqual(
-                probe["prefix_tokens"],
-                probe["prefix_tokens"][:probe["prefix_length"]],
-            )
             low_profile = dict(BASE_PROFILE)
             low_profile[control] = 0.1
             high_profile = dict(BASE_PROFILE)
             high_profile[control] = 0.9
             self.assertEqual(probe["low_profile"], low_profile)
             self.assertEqual(probe["high_profile"], high_profile)
-            self.assertLess(
-                probe["prefix_length"],
-                probe["first_target_divergence_index"] + 1,
+
+            low_record = next(
+                record
+                for record in records
+                if record["performance_controls"] == low_profile
+            )
+            high_record = next(
+                record
+                for record in records
+                if record["performance_controls"] == high_profile
+            )
+            prefix_length = probe["prefix_length"]
+            self.assertEqual(
+                probe["prefix_tokens"],
+                low_record["tokens"][:prefix_length],
+            )
+            self.assertEqual(
+                probe["prefix_tokens"],
+                high_record["tokens"][:prefix_length],
+            )
+            self.assertLess(prefix_length, len(low_record["tokens"]))
+            self.assertLess(prefix_length, len(high_record["tokens"]))
+            self.assertNotEqual(
+                low_record["tokens"][prefix_length],
+                high_record["tokens"][prefix_length],
+            )
+            self.assertEqual(
+                probe["first_target_divergence_index"],
+                prefix_length,
             )
         self.assertEqual(
             {record["split"] for record in records},
