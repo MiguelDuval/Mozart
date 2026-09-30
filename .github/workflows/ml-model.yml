@@ -269,6 +269,7 @@ jobs:
             --high-value 0.9 \
             --base-value 0.5 \
             --probe-file build/ml-conditioning-fixture/sequence-probes.json \
+            --require-valid-grammar \
             --seed 42 \
             --output build/ml-checkpoint/conditioning-sequence-response.json
 
