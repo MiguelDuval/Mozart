@@ -92,12 +92,13 @@ public final class ExperimentalModelLab {
                     "").trim();
             final String manifestName = properties.getProperty(
                     "manifest",
-                    "model.manifest").trim();
+                    "model.manifest.json").trim();
 
-            final File artifact = artifactName.isEmpty()
-                    ? directory
-                    : new File(directory, artifactName);
-            final File manifest = new File(directory, manifestName);
+            final File artifact = resolveChildFile(directory, artifactName);
+            final File manifest = resolveChildFile(directory, manifestName);
+            if (artifact == null || manifest == null) {
+                continue;
+            }
 
             models.add(new ModelCandidate(
                     modelId,
@@ -110,6 +111,25 @@ public final class ExperimentalModelLab {
         models.sort((first, second) ->
                 first.displayName.compareToIgnoreCase(second.displayName));
         return models;
+    }
+
+    private File resolveChildFile(File directory, String childName) {
+        if (childName == null || childName.isEmpty()) {
+            return null;
+        }
+
+        final File candidate = new File(directory, childName);
+        try {
+            final String directoryPath =
+                    directory.getCanonicalPath() + File.separator;
+            final String candidatePath = candidate.getCanonicalPath();
+            if (!candidatePath.startsWith(directoryPath)) {
+                return null;
+            }
+            return candidate;
+        } catch (IOException ignored) {
+            return null;
+        }
     }
 
     private void inspectOnnx(ModelCandidate model) {
@@ -166,6 +186,14 @@ public final class ExperimentalModelLab {
             item.setOnClickListener(view -> {
                 final File artifact = new File(model.artifactPath);
                 final File manifest = new File(model.manifestPath);
+                if (model.backendId.isEmpty()) {
+                    new AlertDialog.Builder(context)
+                            .setTitle("MODEL UNAVAILABLE")
+                            .setMessage("No inference backend is assigned to this model.")
+                            .setPositiveButton("OK", null)
+                            .show();
+                    return;
+                }
                 if (!artifact.isFile()) {
                     new AlertDialog.Builder(context)
                             .setTitle("MODEL UNAVAILABLE")
