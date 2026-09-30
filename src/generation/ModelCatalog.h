@@ -106,6 +106,9 @@ public:
         for (auto& model : models_) {
             if (model.modelId == modelId) {
                 model.enabled = enabled;
+                if (!enabled && selectedModelId_ == model.modelId) {
+                    selectedModelId_.clear();
+                }
                 return true;
             }
         }
