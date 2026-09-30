@@ -150,6 +150,10 @@ public final class OnnxInferenceBridge {
                         outputValue = getResultValue(
                                 sessionResult,
                                 runtime.getString("output_name"));
+                        if (outputValue == null) {
+                            throw new IllegalArgumentException(
+                                    "ONNX output tensor was not found");
+                        }
                         final Object raw = outputValue.getClass()
                                 .getMethod("getValue")
                                 .invoke(outputValue);
