@@ -35,6 +35,7 @@ public:
     }
 
     [[nodiscard]] bool isAvailable() const noexcept override {
+        availabilityThread = std::this_thread::get_id();
         return available;
     }
 
