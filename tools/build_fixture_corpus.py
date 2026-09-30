@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from build_training_shards import write_shards
+from build_training_shards import _stats, write_shards
 from build_training_windows import build_windows
 from dataset_quality import build_report
 from dataset_split import assign_records
@@ -320,6 +320,16 @@ def build_fixture_corpus(output_dir: Path) -> dict:
     )
 
     stats_path = shards_dir / "dataset-statistics.json"
+    stats_path.write_text(
+        json.dumps(
+            _stats(assigned, manifest_sha256=None),
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     qa = build_report(assigned, manifest_sha256=None)
     qa_path = output_dir / "qa.json"
     qa_path.write_text(
