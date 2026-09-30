@@ -42,13 +42,12 @@ class ConditioningFixtureTests(unittest.TestCase):
                 .splitlines()
                 if line.strip()
             ]
+            probes = json.loads(
+                (root / "sequence-probes.json").read_text(encoding="utf-8")
+            )
 
         self.assertEqual(result["record_count"], 12)
         self.assertEqual(len(records), 12)
-
-        probes = json.loads(
-            (root / "sequence-probes.json").read_text(encoding="utf-8")
-        )
         self.assertEqual(
             probes["status"],
             "synthetic-conditioning-sequence-probes",
