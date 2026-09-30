@@ -1,5 +1,6 @@
 # Development-only ML export toolchain.
 # Production Android runtime does not depend on these packages.
-torch==2.14.0
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.14.0+cpu
 onnx==1.23.0
 onnxscript==0.7.2
