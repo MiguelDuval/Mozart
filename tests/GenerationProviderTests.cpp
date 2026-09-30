@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstddef>
 #include <string>
+#include <iterator>
 #include <utility>
 #include <vector>
 
@@ -137,7 +138,7 @@ void testInvalidProposalNeverBypassesValidator() {
     backend.tokens = {
             1,
             16,
-            32 + 30, // C2, below default minNote and out of F# minor.
+            32 + 55, // G3, inside range but outside F# natural minor.
             185,
             271,
             2
