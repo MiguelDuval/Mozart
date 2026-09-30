@@ -127,6 +127,15 @@ The model-independent conditioning vocabulary is frozen as `mozart-conditioning-
 The Python training pipeline mirrors the runtime slugs exactly and validates every
 conditioning record before tokenization.
 
+Continuous performance controls are training labels, not statistics of the target
+sequence. Each training example must receive `density`, `energy`,
+`syncopation`, `swing` and `variation` from an independent intent/context
+source and `tools/midi_to_training_example.py` rejects records when they are not
+supplied. The target MIDI remains available for musical quality QA, but its note
+statistics must never be copied into the conditioning vector used for next-token
+prediction. The `derive_performance_controls()` helper is therefore analysis/QA
+only and is not part of training-example construction.
+
 The current allowed slugs are:
 
 - styles: `electronic`, `techno`, `dark_techno`, `hard_techno`, `trap`, `custom`;
