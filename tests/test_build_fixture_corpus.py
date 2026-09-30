@@ -44,14 +44,6 @@ class FixtureCorpusTests(unittest.TestCase):
             self.assertEqual(stats["record_count"], 5)
             self.assertEqual(stats["split_counts"], result["split_counts"])
             self.assertEqual(stats["conditioning_vocabulary_id"], "mozart-conditioning-v1")
-            self.assertEqual(
-                {tuple(record["performance_controls"].values()) for record in records},
-                {
-                    (0.25, 0.7, 0.1, 0.0, 0.2),
-                    (0.2, 0.6, 0.25, 0.15, 0.5),
-                    (0.3, 0.55, 0.6, 0.25, 0.8),
-                },
-            )
 
             records = [
                 json.loads(line)
@@ -60,6 +52,14 @@ class FixtureCorpusTests(unittest.TestCase):
             ]
             self.assertEqual(len(records), 5)
             self.assertTrue(all(record["source_revision"] == FIXTURE_REVISION for record in records))
+            self.assertEqual(
+                {tuple(record["performance_controls"].values()) for record in records},
+                {
+                    (0.25, 0.7, 0.1, 0.0, 0.2),
+                    (0.2, 0.6, 0.25, 0.15, 0.5),
+                    (0.3, 0.55, 0.6, 0.25, 0.8),
+                },
+            )
             self.assertTrue(
                 all(
                     4 <= record["music"]["length_bars"] <= 16
