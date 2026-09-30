@@ -312,6 +312,11 @@ std::future<generation::GenerationResult> MozartRuntime::requestGeneration(
     return generationService_.submit(std::move(request));
 }
 
+bool MozartRuntime::queueGeneratedPattern(
+        generation::PatternProposal proposal) {
+    return scheduler_.queueGeneratedPattern(std::move(proposal));
+}
+
 bool MozartRuntime::selectModel(const std::string_view modelId) {
     return modelCatalog_.selectModel(modelId);
 }
