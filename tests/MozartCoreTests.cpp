@@ -2336,6 +2336,7 @@ int main() {
         assert(runtime.queueGeneratedPattern(proposal));
         assert(!runtime.queueGeneratedPattern(proposal));
     }
+#endif
 
 #ifdef LINK_PLATFORM_LINUX
     {
