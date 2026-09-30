@@ -68,6 +68,22 @@ class ConditioningFixtureTests(unittest.TestCase):
                 msg=f"target token stream did not react to {control}",
             )
 
+    def test_fixture_is_byte_for_byte_deterministic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            left = Path(directory) / "left"
+            right = Path(directory) / "right"
+            build_conditioning_fixture_corpus(left)
+            build_conditioning_fixture_corpus(right)
+
+            def tree(root: Path) -> dict[str, bytes]:
+                return {
+                    path.relative_to(root).as_posix(): path.read_bytes()
+                    for path in sorted(root.rglob("*"))
+                    if path.is_file()
+                }
+
+            self.assertEqual(tree(left), tree(right))
+
     def test_fixture_is_explicit_and_non_production(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "fixture"
