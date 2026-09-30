@@ -86,6 +86,21 @@ def _validate_runtime_extension(root: dict) -> None:
     if not input_name or not output_name:
         raise ValueError("manifest.runtime input/output names are required")
 
+    input_names = {
+        tensor["name"] for tensor in root["inputs"]
+    }
+    output_names = {
+        tensor["name"] for tensor in root["outputs"]
+    }
+    if input_name not in input_names:
+        raise ValueError(
+            "manifest.runtime.input_name must reference an inputs[] tensor"
+        )
+    if output_name not in output_names:
+        raise ValueError(
+            "manifest.runtime.output_name must reference an outputs[] tensor"
+        )
+
     if runtime.get("input_dtype") != "int64":
         raise ValueError("manifest.runtime.input_dtype must be int64")
 
@@ -115,6 +130,14 @@ def _validate_runtime_extension(root: dict) -> None:
     if runtime["max_generated_tokens"] < 2:
         raise ValueError(
             "manifest.runtime.max_generated_tokens must be at least 2"
+        )
+    if runtime["context_length_tokens"] > root["context_length_tokens"]:
+        raise ValueError(
+            "manifest.runtime.context_length_tokens exceeds root context_length_tokens"
+        )
+    if runtime["max_generated_tokens"] > root["max_generated_tokens"]:
+        raise ValueError(
+            "manifest.runtime.max_generated_tokens exceeds root max_generated_tokens"
         )
 
     if runtime.get("bos_token_id") != 1:
