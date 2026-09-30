@@ -38,6 +38,13 @@ class FixtureCorpusTests(unittest.TestCase):
             self.assertEqual(result["qa"]["source_groups_crossing_splits"], [])
             self.assertEqual(result["qa"]["duplicate_content_candidates"], [])
 
+            stats = json.loads(
+                (root / "shards" / "dataset-statistics.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(stats["record_count"], 5)
+            self.assertEqual(stats["split_counts"], result["split_counts"])
+            self.assertEqual(stats["conditioning_vocabulary_id"], "mozart-conditioning-v1")
+
             records = [
                 json.loads(line)
                 for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines()
