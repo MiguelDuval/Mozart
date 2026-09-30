@@ -65,7 +65,7 @@ def canonical_shape(
         and shape[0] == 1
         and shape[1] == sequence_symbol
     ):
-        return ["batch", "sequence", shape[2]]
+        return [1, "sequence", shape[2]]
 
     return shape
 
@@ -123,9 +123,9 @@ def inspect_model(path: Path, model_id: str) -> dict:
             batch_symbol=1,
             sequence_symbol=sequence_symbol,
         )
-        if name != "input_ids" and canonical != ["batch"]:
+        if name != "input_ids" and canonical != [1]:
             raise ValueError(
-                f"{name} first dimension is not tied to input_ids batch: {shape!r}"
+                f"{name} first dimension must be fixed to 1: {shape!r}"
             )
         inputs.append({
             "name": name,
@@ -139,7 +139,7 @@ def inspect_model(path: Path, model_id: str) -> dict:
     canonical_output = canonical_shape(
         "logits",
         output_shape,
-        batch_symbol=batch_symbol,
+        batch_symbol=1,
         sequence_symbol=sequence_symbol,
     )
     if output_dtype != "float32":
