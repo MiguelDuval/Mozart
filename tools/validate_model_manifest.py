@@ -49,9 +49,9 @@ def _require_positive_int(value: Any, where: str) -> int:
 
 def _validate_tensor(value: Any, where: str) -> None:
     tensor = _require_object(value, where)
-    for key in REQUIRED_TENSOR_FIELDS:
+    for key in ("name", "dtype", "layout", "role"):
         _require_string(tensor.get(key), f"{where}.{key}")
-    shape = tensor["shape"]
+    shape = tensor.get("shape")
     if not isinstance(shape, list) or not shape:
         raise ValueError(f"{where}.shape must be a non-empty array")
     for index, dimension in enumerate(shape):
