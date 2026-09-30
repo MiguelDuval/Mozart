@@ -56,6 +56,14 @@ class ConditioningFixtureTests(unittest.TestCase):
             },
             {"train": 10, "validation": 1, "test": 1},
         )
+        self.assertTrue(
+            all(
+                record["split"] == "train"
+                for record in records[:10]
+            )
+        )
+        self.assertEqual(records[10]["split"], "validation")
+        self.assertEqual(records[11]["split"], "test")
 
         for control in CONTROL_ORDER:
             grouped: dict[float, list[tuple[int, ...]]] = {0.1: [], 0.9: []}
