@@ -153,6 +153,71 @@ def render_notes(controls: dict[str, float], seed: int) -> list[list[tuple[int, 
     return notes
 
 
+def _longest_common_prefix(left: list[int], right: list[int]) -> tuple[int, ...]:
+    limit = min(len(left), len(right))
+    index = 0
+    while index < limit and left[index] == right[index]:
+        index += 1
+    if index == 0:
+        raise RuntimeError("control pair has no shared BOS prefix")
+    if index >= len(left) or index >= len(right):
+        raise RuntimeError("control pair targets are identical")
+    return tuple(left[:index])
+
+
+def _profile_key(controls: dict[str, float]) -> tuple[float, ...]:
+    return tuple(float(controls[name]) for name in CONTROL_ORDER)
+
+
+def _build_sequence_probes(records: list[dict]) -> dict:
+    probes: dict[str, dict] = {}
+    indexed = {
+        _profile_key(record["performance_controls"]): record
+        for record in records
+    }
+
+    for name in CONTROL_ORDER:
+        low_profile = dict(BASE_PROFILE)
+        low_profile[name] = 0.1
+        high_profile = dict(BASE_PROFILE)
+        high_profile[name] = 0.9
+        low_record = indexed.get(_profile_key(low_profile))
+        high_record = indexed.get(_profile_key(high_profile))
+        if low_record is None or high_record is None:
+            raise RuntimeError(
+                f"missing low/high control pair for {name}"
+            )
+
+        prefix = _longest_common_prefix(
+            list(low_record["tokens"]),
+            list(high_record["tokens"]),
+        )
+        first_divergence = len(prefix)
+
+        probes[name] = {
+            "low_profile": low_profile,
+            "high_profile": high_profile,
+            "prefix_tokens": list(prefix),
+            "prefix_length": len(prefix),
+            "first_target_divergence_index": first_divergence,
+            "low_record_source_id": low_record["source_id"],
+            "high_record_source_id": high_record["source_id"],
+        }
+
+    return {
+        "schema_version": 1,
+        "fixture_revision": FIXTURE_REVISION,
+        "status": "synthetic-conditioning-sequence-probes",
+        "control_probe_values": {
+            "low": 0.1,
+            "high": 0.9,
+            "base_other_controls": 0.5,
+        },
+        "max_generated_tokens": 32,
+        "controls": probes,
+    }
+
+
 def build_conditioning_fixture_corpus(output_dir: Path) -> dict:
     if output_dir.exists() and any(output_dir.iterdir()):
         raise ValueError(
@@ -209,6 +274,12 @@ def build_conditioning_fixture_corpus(output_dir: Path) -> dict:
             json.dumps(record, sort_keys=True) + "\n"
             for record in assigned
         ),
+        encoding="utf-8",
+    )
+
+    sequence_probes = _build_sequence_probes(assigned)
+    (output_dir / "sequence-probes.json").write_text(
+        json.dumps(sequence_probes, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 
