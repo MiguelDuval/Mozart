@@ -286,6 +286,8 @@ def main() -> int:
     if args.strict and (
         report["rejected_count"]
         or report["source_groups_crossing_splits"]
+        or report["duplicate_content_review"]["unreviewed_count"]
+        or report["duplicate_content_review"]["excluded_count"]
     ):
         return 1
     return 0
