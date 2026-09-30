@@ -62,6 +62,18 @@ if(MOZART_ENABLE_LINK)
     target_link_libraries(mozart_core_tests PRIVATE Ableton::Link Threads::Threads)
 endif()
 
+add_executable(mozart_generation_provider_tests
+    GenerationProviderTests.cpp
+    ../src/generation/LocalNeuralPatternProvider.cpp
+    ../src/musical/KeyScale.cpp
+    ../src/musical/Chord.cpp
+)
+
+target_include_directories(mozart_generation_provider_tests PRIVATE
+    ../src
+)
+target_compile_features(mozart_generation_provider_tests PRIVATE cxx_std_20)
+
 add_executable(mozart_pattern_variation_tests
     PatternVariationTests.cpp
     ../src/musical/KeyScale.cpp
