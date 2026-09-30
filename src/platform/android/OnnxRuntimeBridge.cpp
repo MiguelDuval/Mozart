@@ -79,8 +79,20 @@ void clearJniException(JNIEnv* env) noexcept {
     if (!std::getline(stream, status, '|') ||
         !std::getline(stream, confidence, '|') ||
         !std::getline(stream, generationMs, '|') ||
-        !std::getline(stream, tokens, '|') ||
-        !std::getline(stream, message)) {
+        !std::getline(stream, tokens, '|')) {
+        return {
+                generation::TokenInferenceStatus::Failed,
+                {},
+                0.0,
+                0,
+                "malformed ONNX bridge response"
+        };
+    }
+
+    // An empty final message is valid and may be represented by a trailing
+    // separator. Treat EOF with no message as an empty message, not as a
+    // malformed response.
+    if (!std::getline(stream, message) && !stream.eof()) {
         return {
                 generation::TokenInferenceStatus::Failed,
                 {},
