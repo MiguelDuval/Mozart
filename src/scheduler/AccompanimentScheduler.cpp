@@ -202,8 +202,13 @@ std::uint8_t AccompanimentScheduler::macroMotion() const noexcept {
 
 [[nodiscard]] bool AccompanimentScheduler::queueGeneratedPattern(
         generation::PatternProposal proposal) {
+    // The scheduler currently has a note-event playback path only.
+    // Reject proposals carrying controls rather than silently dropping part
+    // of an otherwise valid AI result. Control-event playback is a separate
+    // semantic scheduling feature and must be added explicitly.
     if (!proposal.isWellFormed() ||
         proposal.noteEvents.empty() ||
+        !proposal.controlEvents.empty() ||
         proposal.metadata.lengthBeats <= 0.0 ||
         !std::isfinite(proposal.metadata.lengthBeats)) {
         return false;
