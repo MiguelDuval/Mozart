@@ -18,6 +18,8 @@ on:
       - "tests/test_corpus_pipeline.py"
       - "tests/test_mozart_model_config.py"
       - "tests/test_mozart_conditioning_response.py"
+      - "tools/evaluate_mozart_conditioning.py"
+      - "tools/requirements-onnx-export.txt"
   pull_request:
     paths:
       - "tools/build_fixture_corpus.py"
@@ -95,20 +97,20 @@ jobs:
             tools/mozart_model.py \
             tools/train_mozart_model.py \
             tools/export_mozart_onnx.py \
-            tools/inspect_mozart_onnx.py \\
+            tools/inspect_mozart_onnx.py \
             tools/evaluate_mozart_conditioning.py
-
-      - name: Test conditioning response evaluator contract
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m unittest discover -s tests -p 'test_mozart_conditioning_response.py'
 
       - name: Install pinned ML export toolchain
         shell: bash
         run: |
           set -euo pipefail
           python3 -m pip install --disable-pip-version-check --no-cache-dir -r tools/requirements-onnx-export.txt
+
+      - name: Test conditioning response evaluator contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_mozart_conditioning_response.py'
 
       - name: Train development checkpoint and export ONNX ABI
         shell: bash
@@ -205,7 +207,7 @@ jobs:
             --output build/ml-checkpoint/conditioning-response.json
 
       - name: Upload development ML artifacts
-        if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json') != '' }}
+        if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: mozart-development-ml-${{ github.sha }}
