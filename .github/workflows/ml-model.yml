@@ -96,6 +96,12 @@ jobs:
             tools/export_mozart_onnx.py \
             tools/inspect_mozart_onnx.py
 
+      - name: Test conditioning response evaluator contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_mozart_conditioning_response.py'
+
       - name: Install pinned ML export toolchain
         shell: bash
         run: |
