@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from build_fixture_corpus import make_smf, sha256_file
-from dataset_split import assign_records
+from dataset_split import assign_records, split_for_key
 from midi_to_training_example import build_example
 from mozart_conditioning import PERFORMANCE_CONTROL_NAMES
 
@@ -45,6 +45,29 @@ CONTROL_ORDER = (
     "swing",
     "variation",
 )
+
+
+def deterministic_source_ids(count: int) -> list[str]:
+    """Return exactly 8 train, 1 validation and 1 test source groups."""
+    selected: dict[str, list[str]] = {
+        "train": [],
+        "validation": [],
+        "test": [],
+    }
+    for index in range(500_000):
+        source_id = f"mozart-conditioning-source-{index:06d}"
+        split = split_for_key(f"{source_id}\0{FIXTURE_REVISION}")
+        if split == "train" and len(selected["train"]) < 8:
+            selected["train"].append(source_id)
+        elif split in ("validation", "test") and len(selected[split]) < 1:
+            selected[split].append(source_id)
+        if sum(len(values) for values in selected.values()) >= count:
+            break
+
+    result = selected["train"] + selected["validation"] + selected["test"]
+    if len(result) != count:
+        raise RuntimeError("could not construct deterministic conditioning splits")
+    return result
 
 
 def render_notes(controls: dict[str, float], seed: int) -> list[list[tuple[int, int, int, int]]]:
@@ -126,6 +149,7 @@ def build_conditioning_fixture_corpus(output_dir: Path) -> dict:
 
     records: list[dict] = []
     profiles: list[dict] = []
+    source_ids = deterministic_source_ids(len(CONTROL_PROFILES))
 
     for index, controls in enumerate(CONTROL_PROFILES):
         filename = f"control-probe-{index:02d}.mid"
@@ -140,7 +164,7 @@ def build_conditioning_fixture_corpus(output_dir: Path) -> dict:
 
         record = build_example(
             midi_path,
-            source_id=f"mozart-conditioning-source-{index:02d}",
+            source_id=source_ids[index],
             source_revision=FIXTURE_REVISION,
             source_path=f"midi/{filename}",
             style="electronic",
