@@ -2259,7 +2259,7 @@ int main() {
                 first.proposal.noteEvents.size() * 2U);
     }
 
-#ifdef MOZART_ENABLE_LINK
+#ifdef LINK_PLATFORM_LINUX
     {
         class RuntimeGenerationOutput final
                 : public mozart::midi::MidiOutputTransport {
