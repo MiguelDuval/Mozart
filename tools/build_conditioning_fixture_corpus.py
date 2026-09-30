@@ -36,6 +36,22 @@ CONTROL_PROFILES: tuple[dict[str, float], ...] = tuple(
         for name in PERFORMANCE_CONTROL_NAMES
         for value in (0.1, 0.9)
     ]
+    + [
+        {
+            "density": 0.2,
+            "energy": 0.8,
+            "syncopation": 0.7,
+            "swing": 0.2,
+            "variation": 0.8,
+        },
+        {
+            "density": 0.8,
+            "energy": 0.2,
+            "syncopation": 0.2,
+            "swing": 0.8,
+            "variation": 0.2,
+        },
+    ]
 )
 
 CONTROL_ORDER = (
@@ -48,7 +64,7 @@ CONTROL_ORDER = (
 
 
 def deterministic_source_ids(count: int) -> list[str]:
-    """Return exactly 8 train, 1 validation and 1 test source groups."""
+    """Return exactly count-2 train, 1 validation and 1 test groups."""
     selected: dict[str, list[str]] = {
         "train": [],
         "validation": [],
@@ -57,7 +73,7 @@ def deterministic_source_ids(count: int) -> list[str]:
     for index in range(500_000):
         source_id = f"mozart-conditioning-source-{index:06d}"
         split = split_for_key(f"{source_id}\0{FIXTURE_REVISION}")
-        if split == "train" and len(selected["train"]) < 8:
+        if split == "train" and len(selected["train"]) < count - 2:
             selected["train"].append(source_id)
         elif split in ("validation", "test") and len(selected[split]) < 1:
             selected[split].append(source_id)
