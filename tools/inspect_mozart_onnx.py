@@ -150,10 +150,10 @@ def inspect_model(path: Path, model_id: str) -> dict:
         raise ValueError(
             f"logits dtype mismatch: {output_dtype!r} != 'float32'"
         )
-    if canonical_output != ["batch", "sequence", 512]:
+    if canonical_output != [1, "sequence", 512]:
         raise ValueError(
             "logits shape mismatch: "
-            f"{canonical_output!r} != ['batch', 'sequence', 512]"
+            f"{canonical_output!r} != [1, 'sequence', 512]"
         )
 
     opsets = [
