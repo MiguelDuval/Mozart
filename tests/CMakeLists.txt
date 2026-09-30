@@ -10,6 +10,7 @@ add_executable(mozart_core_tests
     MozartCoreTests.cpp
     ../src/core/MidiTypes.cpp
     ../src/core/TransportMath.cpp
+    ../src/core/MidiEndpoint.cpp
     ../src/generation/RhythmGenerator.cpp
 )
 

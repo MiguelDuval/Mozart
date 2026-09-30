@@ -9,36 +9,46 @@
 - [x] Dependency policy and pins.
 - [ ] First green CI on the bootstrap commit.
 
-## Stage 1 — MIDI
+## Stage 1 — MIDI / MicroFreak transport
 - [ ] Android MIDI device enumeration.
-- [ ] Deterministic endpoint selection.
+- [ ] Deterministic USB-MIDI endpoint selection.
+- [ ] Identify/select Arturia MicroFreak without accidentally selecting unrelated devices.
 - [ ] MIDI IN receive queue.
 - [ ] MIDI OUT queue.
 - [ ] Timestamp preservation.
 - [ ] Virtual/test MIDI adapter.
-- [ ] Physical MIDI test record.
+- [ ] MicroFreak physical MIDI test record.
 
-## Stage 2 — Link clock
+## Stage 2 — Ableton Link accompanist clock
 - [ ] Link 4.0 wrapper.
 - [ ] Link enable/disable.
 - [ ] Session tempo readout.
 - [ ] Beat/phase conversion.
 - [ ] Quantized launch.
 - [ ] Follow-session policy.
+- [ ] Scheduler look-ahead.
 - [ ] Link test suite.
 
-## Stage 3 — First instrument
+## Stage 3 — First useful accompanist
 - [ ] Deterministic seeded rhythm generator.
+- [ ] Kick/snare/hat-style accompaniment patterns.
+- [ ] Bass accompaniment.
+- [ ] Simple arpeggio role.
 - [ ] Step density.
 - [ ] Accent.
 - [ ] Probability.
 - [ ] Ratchet.
 - [ ] Swing.
 - [ ] MIDI scheduler.
-- [ ] External synth validation.
+- [ ] MicroFreak external validation.
 
 ## Stage 4 — Harmony
 - [ ] Scale model.
+- [ ] Key/Scale context service with explicit source selection (Manual / Audio).
+- [ ] Manual Key/Scale control.
+- [ ] Local/offline microphone key/scale detector integration.
+- [ ] Audio detector confidence/stability/hysteresis policy.
+- [ ] Performer override from Audio back to Manual.
 - [ ] Chord model.
 - [ ] Chord progression generator.
 - [ ] Bass generator.
@@ -61,13 +71,15 @@
 - [ ] Latency diagnostics.
 - [ ] Realtime-safe audio graph.
 
-## Stage 7 — AI
+## Stage 7 — AI-assisted accompaniment
 - [ ] Provider interface.
 - [ ] Structured schema.
 - [ ] Local deterministic fallback.
 - [ ] NVIDIA NIM provider.
 - [ ] Response validation.
 - [ ] Prompt templates.
+- [ ] Convert NIM musical suggestions into deterministic accompaniment plans.
+- [ ] Never allow NIM/network operations into realtime scheduling.
 
 ## Stage 8 — Persistence
 - [ ] Session format v1.
