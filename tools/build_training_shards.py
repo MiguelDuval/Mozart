@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dataset_split import source_key
 from mozart_conditioning import (
     CONDITIONING_VOCABULARY_ID,
+    PERFORMANCE_CONTROL_NAMES,
     validate_conditioning,
     validate_performance_controls,
 )
