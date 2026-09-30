@@ -111,7 +111,12 @@ jobs:
             tools/train_mozart_model.py \
             tools/export_mozart_onnx.py \
             tools/inspect_mozart_onnx.py \
-            tools/evaluate_mozart_conditioning.py
+            tools/evaluate_mozart_conditioning.py \
+            tools/mozart_conditioning.py \
+            tools/midi_to_training_example.py \
+            tools/build_training_windows.py \
+            tools/build_training_shards.py \
+            tools/build_fixture_corpus.py
 
       - name: Install pinned ML export toolchain
         shell: bash
