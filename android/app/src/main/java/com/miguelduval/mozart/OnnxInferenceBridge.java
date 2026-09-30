@@ -288,10 +288,9 @@ public final class OnnxInferenceBridge {
             throw new IllegalArgumentException(
                     "manifest context/generation lengths are invalid");
         }
-        if (bos < 0 || bos >= MOZART_VOCABULARY_SIZE ||
-                eos < 0 || eos >= MOZART_VOCABULARY_SIZE) {
+        if (bos != BOS || eos != EOS) {
             throw new IllegalArgumentException(
-                    "manifest BOS/EOS are outside Mozart vocabulary");
+                    "manifest BOS/EOS must match Mozart BOS=1 and EOS=2");
         }
 
         if (modelHash.equals("<FROZEN>") || modelHash.isEmpty()) {
