@@ -199,11 +199,14 @@ jobs:
           import torch
           from pathlib import Path
 
-          source = Path("build/ml-checkpoint/best.pt")
+          source = Path("build/ml-checkpoint/latest.pt")
           checkpoint = torch.load(source, map_location="cpu", weights_only=False)
           epoch = checkpoint.get("epoch")
-          if not isinstance(epoch, int) or epoch < 1 or epoch > 12:
-              raise SystemExit(f"unexpected checkpoint epoch: {epoch!r}")
+          if epoch != 12:
+              raise SystemExit(
+                  "development fit checkpoint must be the final requested epoch; "
+                  f"got epoch={epoch!r}"
+              )
           if not checkpoint.get("model_state"):
               raise SystemExit("development checkpoint has no model_state")
           loss = checkpoint.get("train_loss")
@@ -224,8 +227,9 @@ jobs:
               "build/ml-checkpoint/development-inference.pt",
           )
           print(
-              "PASS: development checkpoint "
-              f"epoch={checkpoint['epoch']} train_loss={checkpoint['train_loss']:.6f}"
+              "PASS: final development fit checkpoint "
+              f"epoch={checkpoint['epoch']} train_loss={checkpoint['train_loss']:.6f} "
+              f"validation_loss={checkpoint['validation_loss']:.6f}"
           )
           PY
 
@@ -264,11 +268,12 @@ jobs:
             --low-value 0.1 \
             --high-value 0.9 \
             --base-value 0.5 \
+            --probe-file build/ml-conditioning-fixture/sequence-probes.json \
             --seed 42 \
             --output build/ml-checkpoint/conditioning-sequence-response.json
 
       - name: Upload development ML artifacts
-        if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json', 'build/ml-checkpoint/conditioning-sequence-response.json') != '' }}
+        if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json', 'build/ml-checkpoint/conditioning-sequence-response.json', 'build/ml-conditioning-fixture/sequence-probes.json') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: mozart-development-ml-${{ github.sha }}
@@ -278,6 +283,7 @@ jobs:
             build/ml-checkpoint/abi.json
             build/ml-checkpoint/conditioning-response.json
             build/ml-checkpoint/conditioning-sequence-response.json
+            build/ml-conditioning-fixture/sequence-probes.json
           archive: true
           if-no-files-found: error
           retention-days: 14
