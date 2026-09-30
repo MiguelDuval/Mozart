@@ -1,0 +1,89 @@
+{
+  "manifest_schema_version": 1,
+  "manifest_status": "template",
+  "model_id": "<FROZEN>",
+  "model_revision": "<FROZEN>",
+  "model_file": "model.onnx",
+  "model_format": "onnx",
+  "model_sha256": "<FROZEN>",
+  "distribution_class": "private_experimental",
+  "vocabulary_id": "mozart-midi-events-v1",
+  "vocabulary_size": 512,
+  "context_length_tokens": 1024,
+  "max_generated_tokens": 512,
+  "inputs": [
+    {
+      "name": "input_ids",
+      "dtype": "int64",
+      "shape": [-1, -1],
+      "layout": "batch_sequence",
+      "role": "token_ids"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "logits",
+      "dtype": "float32",
+      "shape": [-1, -1, 512],
+      "layout": "batch_sequence_vocabulary",
+      "role": "token_scores"
+    }
+  ],
+  "kv_cache": {
+    "enabled": false,
+    "tensors": []
+  },
+  "quantization": {
+    "scheme": "model_dependent",
+    "activations": "model_dependent",
+    "weights": "model_dependent",
+    "scales": "model_dependent",
+    "zero_points": "model_dependent"
+  },
+  "conditioning": {
+    "style_family": "model_dependent",
+    "substyle": "model_dependent",
+    "mood": "model_dependent",
+    "rhythm": "model_dependent",
+    "role": "model_dependent",
+    "key_scale": "model_dependent",
+    "chords": "model_dependent",
+    "density": "model_dependent",
+    "energy": "model_dependent",
+    "syncopation": "model_dependent",
+    "swing": "model_dependent",
+    "variation": "model_dependent",
+    "seed": "model_dependent"
+  },
+  "decoding": {
+    "strategy": "greedy_argmax",
+    "temperature": 0,
+    "top_k": 1,
+    "top_p": 1,
+    "seed_policy": "model_dependent"
+  },
+  "provenance": {
+    "training_source": "<FROZEN>",
+    "dataset_manifest": "<FROZEN>",
+    "preprocessing_revision": "<FROZEN>"
+  },
+  "licenses": {
+    "implementation": "<FROZEN>",
+    "model_weights": "<FROZEN>",
+    "training_data": "<FROZEN>",
+    "redistribution": "<FROZEN>"
+  },
+  "runtime": {
+    "backend": "onnxruntime",
+    "input_name": "input_ids",
+    "output_name": "logits",
+    "input_dtype": "int64",
+    "token_mode": "mozart_ids",
+    "external_vocabulary_size": 512,
+    "context_length_tokens": 1024,
+    "max_generated_tokens": 512,
+    "bos_token_id": 1,
+    "eos_token_id": 2,
+    "allow_unhashed_experimental": true
+  }
+}
