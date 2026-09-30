@@ -80,7 +80,7 @@ private:
             const musical::MusicalNoteEvent& event,
             double startBeat);
 
-    void activatePendingGeneratedPattern() noexcept;
+    void activatePendingGeneratedPattern(double startBeat);
 
     clock::LinkClock& clock_;
     MidiSendQueue& sendQueue_;
@@ -123,6 +123,7 @@ private:
     std::mutex generatedPatternMutex_;
     std::optional<generation::PatternProposal> pendingGeneratedPattern_{};
     std::optional<generation::PatternProposal> activeGeneratedPattern_{};
+    double activeGeneratedPatternStartBeat_ = -1.0;
 };
 
 } // namespace mozart::scheduler
