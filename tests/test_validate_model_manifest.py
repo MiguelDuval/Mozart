@@ -124,6 +124,48 @@ class ModelManifestValidationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate(self._write(manifest, Path(directory)))
 
+
+    def test_experimental_onnx_runtime_extension_passes(self) -> None:
+        manifest = template_manifest()
+        manifest["model_format"] = "onnx"
+        manifest["runtime"] = {
+            "backend": "onnxruntime",
+            "input_name": "input_ids",
+            "output_name": "logits",
+            "input_dtype": "int64",
+            "token_mode": "mozart_ids",
+            "external_vocabulary_size": 512,
+            "context_length_tokens": 1024,
+            "max_generated_tokens": 512,
+            "bos_token_id": 1,
+            "eos_token_id": 2,
+            "allow_unhashed_experimental": True,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            result = validate(self._write(manifest, Path(directory)))
+            self.assertEqual(result["manifest_status"], "template")
+
+    def test_experimental_onnx_runtime_rejects_wrong_bos(self) -> None:
+        manifest = template_manifest()
+        manifest["model_format"] = "onnx"
+        manifest["runtime"] = {
+            "backend": "onnxruntime",
+            "input_name": "input_ids",
+            "output_name": "logits",
+            "input_dtype": "int64",
+            "token_mode": "mozart_ids",
+            "external_vocabulary_size": 512,
+            "context_length_tokens": 1024,
+            "max_generated_tokens": 512,
+            "bos_token_id": 99,
+            "eos_token_id": 2,
+            "allow_unhashed_experimental": True,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError):
+                validate(self._write(manifest, Path(directory)))
+
+
     def test_enabled_kv_cache_requires_tensors(self) -> None:
         manifest = copy.deepcopy(template_manifest())
         manifest["kv_cache"]["enabled"] = True
