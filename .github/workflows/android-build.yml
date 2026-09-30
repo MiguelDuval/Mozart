@@ -70,6 +70,12 @@ jobs:
           set -euo pipefail
           python3 tools/validate_dataset_manifest.py docs/dataset-manifest.example.json
 
+      - name: Test dataset provenance manifest validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_validate_dataset_manifest.py'
+
       - name: Test manifest digest
         shell: bash
         run: |

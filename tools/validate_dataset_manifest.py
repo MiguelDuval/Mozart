@@ -11,6 +11,7 @@ from pathlib import Path
 
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+SPDX_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.+-]*$")
 
 
 def fail(message: str) -> None:
@@ -48,12 +49,20 @@ def validate(path: Path) -> None:
     if not isinstance(sources, list) or not sources:
         fail("sources must contain at least one source")
 
+    seen_source_ids: set[str] = set()
+    seen_file_paths: set[str] = set()
+
     for index, source in enumerate(sources):
         where = f"sources[{index}]"
         if not isinstance(source, dict):
             fail(f"{where} must be an object")
         for key in ("source_id", "name", "locator", "revision"):
             require_string(source, key, where)
+
+        source_id = source["source_id"]
+        if source_id in seen_source_ids:
+            fail(f"duplicate source_id: {source_id}")
+        seen_source_ids.add(source_id)
 
         license_info = source.get("license")
         if not isinstance(license_info, dict):
@@ -66,6 +75,14 @@ def validate(path: Path) -> None:
         if license_info["attribution"] not in {"required", "not-required", "requires-review"}:
             fail(f"{where}.license.attribution has invalid classification")
 
+        if status in {"audited", "release"}:
+            spdx_id = license_info["spdx_id"]
+            if spdx_id == "REPLACE" or not SPDX_ID_RE.fullmatch(spdx_id):
+                fail(
+                    f"{where}.license.spdx_id must be a concrete SPDX license identifier "
+                    f"for {status} manifests"
+                )
+
         files = source.get("files")
         if not isinstance(files, list) or not files:
             fail(f"{where}.files must contain at least one file")
@@ -73,7 +90,10 @@ def validate(path: Path) -> None:
             file_where = f"{where}.files[{file_index}]"
             if not isinstance(item, dict):
                 fail(f"{file_where} must be an object")
-            require_string(item, "path", file_where)
+            path_value = require_string(item, "path", file_where)
+            if path_value in seen_file_paths:
+                fail(f"duplicate manifest file path: {path_value}")
+            seen_file_paths.add(path_value)
             checksum = require_string(item, "sha256", file_where)
             if checksum != "REPLACE" and not SHA256_RE.fullmatch(checksum):
                 fail(f"{file_where}.sha256 must be a 64-character hex checksum or REPLACE")
