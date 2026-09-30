@@ -76,7 +76,7 @@ class MidiToTrainingExampleTests(unittest.TestCase):
             ),
         )
         self.assertAlmostEqual(result["performance_controls"]["energy"], 100 / 127)
-        self.assertAlmostEqual(result["performance_controls"]["syncopation"], 0.0)
+        self.assertAlmostEqual(result["performance_controls"]["syncopation"], 0.5)
         self.assertAlmostEqual(result["performance_controls"]["swing"], 0.0)
         self.assertAlmostEqual(result["performance_controls"]["variation"], 0.0)
         self.assertEqual(result["tokens"][0], 1)
