@@ -21,7 +21,7 @@ from build_conditioning_fixture_corpus import (
 
 class ConditioningFixtureTests(unittest.TestCase):
     def test_fixture_has_two_levels_for_every_control(self) -> None:
-        self.assertEqual(len(CONTROL_PROFILES), 10)
+        self.assertEqual(len(CONTROL_PROFILES), 12)
         for name in CONTROL_ORDER:
             values = {
                 profile[name]
@@ -42,11 +42,18 @@ class ConditioningFixtureTests(unittest.TestCase):
                 if line.strip()
             ]
 
-        self.assertEqual(result["record_count"], 10)
-        self.assertEqual(len(records), 10)
+        self.assertEqual(result["record_count"], 12)
+        self.assertEqual(len(records), 12)
         self.assertEqual(
             {record["split"] for record in records},
             {"train", "validation", "test"},
+        )
+        self.assertEqual(
+            {
+                split: sum(record["split"] == split for record in records)
+                for split in ("train", "validation", "test")
+            },
+            {"train": 10, "validation": 1, "test": 1},
         )
 
         for control in CONTROL_ORDER:
