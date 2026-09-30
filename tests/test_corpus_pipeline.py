@@ -76,6 +76,13 @@ class CorpusPipelineIntegrationTests(unittest.TestCase):
                     rhythm="straight",
                     role="bass",
                     seed=12345,
+                    performance_controls={
+                        "density": 0.25,
+                        "energy": 0.5,
+                        "syncopation": 0.0,
+                        "swing": 0.0,
+                        "variation": 0.0,
+                    },
                 )
                 for source_id in source_ids
             ]
