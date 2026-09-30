@@ -33,6 +33,9 @@ on:
       - "tests/test_build_fixture_corpus.py"
       - "tests/test_corpus_pipeline.py"
       - "tests/test_mozart_model_config.py"
+      - "tests/test_mozart_conditioning_response.py"
+      - "tools/evaluate_mozart_conditioning.py"
+      - "tools/requirements-onnx-export.txt"
   workflow_dispatch:
 
 concurrency:
