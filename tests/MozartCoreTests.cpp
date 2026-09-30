@@ -654,12 +654,10 @@ int main() {
                 ModelDistributionClass::PrivateExperimental,
                 true
         }));
-        assert(unavailableCatalog.selectModel("unavailable-model"));
-        assert(unavailableCatalog.resolveSelectedBackend() == &unavailableBackend);
+        assert(!unavailableCatalog.selectModel("unavailable-model"));
+        assert(unavailableCatalog.selectedModelId().empty());
+        assert(unavailableCatalog.resolveSelectedBackend() == nullptr);
         assert(!unavailableCatalog.selectedBackendAvailable());
-        // Selection may succeed before a runtime/backend becomes usable; the
-        // runtime-facing availability flag must reflect the backend itself.
-        assert(!unavailableCatalog.resolveSelectedBackend()->isAvailable());
 
         assert(catalog.modelCount() == 1);
         assert(catalog.backendCount() == 1);
