@@ -128,6 +128,7 @@ void testValidTokenStreamIsDetokenizedAndValidated() {
     assert(result.proposal.noteEvents[0].startBeat == 0.0);
     assert(result.proposal.noteEvents[0].durationBeats == 1.0);
     assert(result.proposal.metadata.seed == request.seed);
+    assert(result.proposal.metadata.lengthBeats == 16.0);
     assert(result.proposal.metadata.confidence == backend.confidence);
     assert(result.proposal.metadata.generationTimeMs == backend.generationTimeMs);
     assert(result.proposal.metadata.generatorId == "test-backend");
