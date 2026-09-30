@@ -111,15 +111,12 @@ class MozartConditioningSequenceTests(unittest.TestCase):
             },
         }
         with tempfile.TemporaryDirectory() as directory:
-            path = ROOT / "build-test-sequence-probes.json"
-            try:
-                path.write_text(
-                    json.dumps(payload),
-                    encoding="utf-8",
-                )
-                probes = load_sequence_probe_file(path)
-            finally:
-                path.unlink(missing_ok=True)
+            path = Path(directory) / "sequence-probes.json"
+            path.write_text(
+                json.dumps(payload),
+                encoding="utf-8",
+            )
+            probes = load_sequence_probe_file(path)
 
         self.assertEqual(
             probes["density"],
