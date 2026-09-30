@@ -71,10 +71,6 @@ std::future<GenerationResult> GenerationService::submit(
         return unavailableFuture("selected model backend is unavailable");
     }
 
-    if (!backend->isAvailable()) {
-        return unavailableFuture("selected model backend is unavailable");
-    }
-
     Job job;
     job.backend = backend;
     job.request = std::move(request);
