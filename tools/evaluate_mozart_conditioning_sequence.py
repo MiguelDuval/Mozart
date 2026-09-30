@@ -35,6 +35,64 @@ DEFAULT_HIGH_VALUE = 0.9
 DEFAULT_BASE_VALUE = 0.5
 
 
+def load_sequence_probe_file(path: Path) -> dict[str, tuple[int, ...]]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot read sequence probe file {path}: {exc}") from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError("sequence probe file root must be an object")
+    if payload.get("status") != "synthetic-conditioning-sequence-probes":
+        raise ValueError("unsupported sequence probe file status")
+
+    controls = payload.get("controls")
+    if not isinstance(controls, dict):
+        raise ValueError("sequence probe file controls must be an object")
+
+    result: dict[str, tuple[int, ...]] = {}
+    for name in PERFORMANCE_CONTROL_NAMES:
+        entry = controls.get(name)
+        if not isinstance(entry, dict):
+            raise ValueError(f"missing sequence probe for control {name}")
+        raw_tokens = entry.get("prefix_tokens")
+        if not isinstance(raw_tokens, list) or not raw_tokens:
+            raise ValueError(
+                f"sequence probe {name} must contain non-empty prefix_tokens"
+            )
+        try:
+            prefix = tuple(int(token) for token in raw_tokens)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"sequence probe {name} prefix_tokens must be integers"
+            ) from exc
+        if any(token < 0 or token >= 512 for token in prefix):
+            raise ValueError(
+                f"sequence probe {name} prefix token ids must be in the Mozart vocabulary"
+            )
+        if prefix[0] != 1:
+            raise ValueError(
+                f"sequence probe {name} must start with BOS token 1"
+            )
+        if prefix[-1] == EOS:
+            raise ValueError(
+                f"sequence probe {name} must stop before EOS"
+            )
+        declared_length = entry.get("prefix_length")
+        if declared_length != len(prefix):
+            raise ValueError(
+                f"sequence probe {name} prefix_length does not match prefix_tokens"
+            )
+        divergence_index = entry.get("first_target_divergence_index")
+        if divergence_index != len(prefix):
+            raise ValueError(
+                f"sequence probe {name} divergence index must equal prefix length"
+            )
+        result[name] = prefix
+
+    return result
+
+
 def _torch_next_logits(
     model: Any,
     input_ids: list[int],
@@ -232,6 +290,7 @@ def evaluate_sequence_responsiveness(
     onnx_session: Any | None = None,
     max_generated_tokens: int = DEFAULT_MAX_GENERATED_TOKENS,
     prefix_tokens: tuple[int, ...] = (1, 16, 68, 185),
+    prefix_tokens_by_control: dict[str, tuple[int, ...]] | None = None,
     require_divergence: bool = True,
     max_reported_diffs: int = DEFAULT_MAX_REPORTED_DIFFS,
     low_value: float = DEFAULT_LOW_VALUE,
@@ -256,6 +315,16 @@ def evaluate_sequence_responsiveness(
     failures: list[str] = []
 
     for name in PERFORMANCE_CONTROL_NAMES:
+        control_prefix = (
+            prefix_tokens_by_control.get(name, prefix_tokens)
+            if prefix_tokens_by_control is not None
+            else prefix_tokens
+        )
+        if len(control_prefix) >= max_generated_tokens:
+            raise ValueError(
+                f"conditioning control {name} prefix leaves no generation budget"
+            )
+
         low = dict(baseline)
         low[name] = low_value
         high = dict(baseline)
@@ -265,13 +334,13 @@ def evaluate_sequence_responsiveness(
             model,
             low,
             max_generated_tokens=max_generated_tokens,
-            prefix_tokens=prefix_tokens,
+            prefix_tokens=control_prefix,
         )
         torch_high = generate_greedy_torch(
             model,
             high,
             max_generated_tokens=max_generated_tokens,
-            prefix_tokens=prefix_tokens,
+            prefix_tokens=control_prefix,
         )
         torch_compare = compare_token_sequences(
             torch_low,
@@ -280,7 +349,9 @@ def evaluate_sequence_responsiveness(
         )
 
         entry: dict[str, Any] = {
-"low_controls": dict(low),
+            "prefix_tokens": list(control_prefix),
+            "prefix_length": len(control_prefix),
+            "low_controls": dict(low),
             "high_controls": dict(high),
             "torch": {
                 **torch_compare,
@@ -300,13 +371,13 @@ def evaluate_sequence_responsiveness(
                 onnx_session,
                 low,
                 max_generated_tokens=max_generated_tokens,
-                prefix_tokens=prefix_tokens,
+                prefix_tokens=control_prefix,
             )
             onnx_high = generate_greedy_onnx(
                 onnx_session,
                 high,
                 max_generated_tokens=max_generated_tokens,
-                prefix_tokens=prefix_tokens,
+                prefix_tokens=control_prefix,
             )
             onnx_compare = compare_token_sequences(
                 onnx_low,
@@ -342,6 +413,14 @@ def evaluate_sequence_responsiveness(
             "base_other_controls": base_value,
         },
         "prefix_tokens": list(prefix_tokens),
+        "prefix_tokens_by_control": (
+            {
+                name: list(value)
+                for name, value in prefix_tokens_by_control.items()
+            }
+            if prefix_tokens_by_control is not None
+            else None
+        ),
         "controls": controls_report,
         "failures": failures,
     }
@@ -361,6 +440,11 @@ def main() -> int:
         "--prefix-tokens",
         type=str,
         default="1,16,68,185",
+    )
+    parser.add_argument(
+        "--probe-file",
+        type=Path,
+        help="Use fixture-derived control-specific greedy probe prefixes.",
     )
     parser.add_argument(
         "--require-divergence",
@@ -392,6 +476,12 @@ def main() -> int:
     if any(token < 0 or token >= 512 for token in prefix_tokens):
         raise ValueError("prefix token ids must be inside the Mozart vocabulary")
 
+    prefix_tokens_by_control = (
+        load_sequence_probe_file(args.probe_file)
+        if args.probe_file is not None
+        else None
+    )
+
     torch.manual_seed(args.seed)
 
     model, config = load_model(
@@ -413,6 +503,7 @@ def main() -> int:
         onnx_session=onnx_session,
         max_generated_tokens=args.max_generated_tokens,
         prefix_tokens=prefix_tokens,
+        prefix_tokens_by_control=prefix_tokens_by_control,
         require_divergence=args.require_divergence,
         max_reported_diffs=args.max_reported_diffs,
         low_value=args.low_value,
