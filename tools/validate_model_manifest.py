@@ -59,6 +59,76 @@ def _validate_tensor(value: Any, where: str) -> None:
             raise ValueError(f"{where}.shape[{index}] must be a non-zero integer")
 
 
+def _validate_runtime_extension(root: dict) -> None:
+    runtime = root.get("runtime")
+    if runtime is None:
+        return
+
+    runtime = _require_object(runtime, "manifest.runtime")
+
+    backend = _require_string(
+        runtime.get("backend"),
+        "manifest.runtime.backend",
+    )
+    if backend != "onnxruntime":
+        raise ValueError(
+            "manifest.runtime.backend must be onnxruntime when runtime is present"
+        )
+
+    input_name = _require_string(
+        runtime.get("input_name"),
+        "manifest.runtime.input_name",
+    )
+    output_name = _require_string(
+        runtime.get("output_name"),
+        "manifest.runtime.output_name",
+    )
+    if not input_name or not output_name:
+        raise ValueError("manifest.runtime input/output names are required")
+
+    if runtime.get("input_dtype") != "int64":
+        raise ValueError("manifest.runtime.input_dtype must be int64")
+
+    if runtime.get("token_mode") != "mozart_ids":
+        raise ValueError(
+            "manifest.runtime.token_mode must be mozart_ids"
+        )
+
+    if runtime.get("external_vocabulary_size") != 512:
+        raise ValueError(
+            "manifest.runtime.external_vocabulary_size must be 512"
+        )
+
+    _require_positive_int(
+        runtime.get("context_length_tokens"),
+        "manifest.runtime.context_length_tokens",
+    )
+    _require_positive_int(
+        runtime.get("max_generated_tokens"),
+        "manifest.runtime.max_generated_tokens",
+    )
+
+    if runtime["context_length_tokens"] < 2:
+        raise ValueError(
+            "manifest.runtime.context_length_tokens must be at least 2"
+        )
+    if runtime["max_generated_tokens"] < 2:
+        raise ValueError(
+            "manifest.runtime.max_generated_tokens must be at least 2"
+        )
+
+    if runtime.get("bos_token_id") != 1:
+        raise ValueError("manifest.runtime.bos_token_id must be 1")
+    if runtime.get("eos_token_id") != 2:
+        raise ValueError("manifest.runtime.eos_token_id must be 2")
+
+    allow_unhashed = runtime.get("allow_unhashed_experimental", False)
+    if not isinstance(allow_unhashed, bool):
+        raise ValueError(
+            "manifest.runtime.allow_unhashed_experimental must be boolean"
+        )
+
+
 def _reject_placeholders(value: Any, where: str = "manifest") -> None:
     if isinstance(value, str):
         if "<FROZEN>" in value or value == "REPLACE":
@@ -151,6 +221,8 @@ def validate(path: Path) -> dict:
         _require_string(provenance.get(key), f"manifest.provenance.{key}")
 
     licenses = _require_object(root["licenses"], "manifest.licenses")
+    _validate_runtime_extension(root)
+
     for key in REQUIRED_LICENSE_FIELDS:
         _require_string(licenses.get(key), f"manifest.licenses.{key}")
 
