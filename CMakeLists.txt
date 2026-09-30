@@ -29,6 +29,7 @@ add_library(mozart-core STATIC
     src/generation/DeterministicPatternProvider.cpp
     src/generation/LocalNeuralPatternProvider.cpp
     src/generation/GenerationService.cpp
+    src/generation/OnnxTokenInferenceBackend.cpp
     src/midi/MidiReceiveQueue.cpp
     src/midi/ControllerMapping.cpp
 )
@@ -51,6 +52,7 @@ if(ANDROID)
     add_library(mozart SHARED
         src/platform/android/MozartJni.cpp
         src/platform/android/AndroidMidiOutput.cpp
+        src/platform/android/OnnxRuntimeBridge.cpp
     )
 
     if(MOZART_ENABLE_LINK)
