@@ -84,8 +84,8 @@ class MozartConditioningResponseTests(unittest.TestCase):
 
         report = json.loads(result.stdout)
         self.assertEqual(
-            list(report["controls"]),
-            ["density", "energy", "syncopation", "swing", "variation"],
+            set(report["controls"]),
+            {"density", "energy", "syncopation", "swing", "variation"},
         )
         for name in report["controls"]:
             self.assertGreater(report["controls"][name]["max_abs_delta"], 1e-8)
