@@ -186,6 +186,22 @@ For ONNX artifacts the lab also performs asynchronous model inspection through O
 
 Concrete external-runtime inference adapters and native generation execution are the next implementation layers.
 
+
+### Concrete ONNX adapter
+
+The first external-runtime inference adapter is now implemented as
+OnnxTokenInferenceBackend plus an Android JNI bridge to the existing debug
+ONNX Runtime dependency. It is still a private experimental path: model
+artifacts are loaded from app-private storage and are never packaged into the
+release artifact.
+
+The adapter currently accepts only ONNX exports whose output IDs already use
+Mozart's frozen 512-token vocabulary (token_mode=mozart_ids). Models using a
+different external vocabulary require a separate model-specific translation
+layer rather than an implicit mapping.
+
+See docs/EXPERIMENTAL-ONNX-BACKEND.md.
+
 ## Related documents
 
 - docs/AI-GENERATION.md
