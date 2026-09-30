@@ -187,7 +187,7 @@ jobs:
           script: bash .github/scripts/android-smoke.sh
 
       - name: Upload debug APK
-        if: always()
+        if: ${{ always() && hashFiles('android/app/build/outputs/apk/debug/app-debug.apk') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: mozart-android-debug-${{ github.sha }}
