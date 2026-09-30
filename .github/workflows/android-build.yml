@@ -54,11 +54,12 @@ jobs:
         shell: bash
         run: bash tools/fetch_link.sh
 
-      - name: Validate model manifest template
+      - name: Validate model manifest templates
         shell: bash
         run: |
           set -euo pipefail
           python3 tools/validate_model_manifest.py docs/model-manifest.example.json
+          python3 tools/validate_model_manifest.py docs/experimental-onnx-manifest.example.json
 
       - name: Test model manifest validator
         shell: bash
