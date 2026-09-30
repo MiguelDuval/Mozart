@@ -78,6 +78,11 @@ def main() -> int:
     )
     dynamic_shapes = {
         "input_ids": {1: sequence_dim},
+        "style_id": {},
+        "substyle_id": {},
+        "mood_id": {},
+        "rhythm_id": {},
+        "role_id": {},
     }
     onnx_program = torch.onnx.export(
         model,
