@@ -423,6 +423,8 @@ void AccompanimentScheduler::run() {
                         }
                     }
                 }
+            }
+        }
 
         std::unique_lock<std::mutex> lock(wakeMutex_);
         wakeCondition_.wait_for(
