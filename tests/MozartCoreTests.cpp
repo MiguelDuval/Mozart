@@ -7,6 +7,7 @@
 #include "generation/RhythmGenerator.h"
 #include "generation/NoteRepeat.h"
 #include "generation/GenerationRequest.h"
+#include "generation/GenerationRequestFactory.h"
 #include "generation/StyleVocabulary.h"
 #include "generation/ModelCatalog.h"
 #include "generation/PatternProposal.h"
@@ -50,6 +51,48 @@
 #include <vector>
 
 int main() {
+    {
+        using namespace mozart::generation;
+
+        const auto request =
+                GenerationRequestFactory::fromPerformanceContext(
+                        mozart::musical::KeyScale{
+                                6,
+                                mozart::musical::Scale::NaturalMinor},
+                        140.0,
+                        GenerationRole::Arpeggio,
+                        PatternDensity::Normal,
+                        PatternSwing::Full,
+                        127,
+                        0x12345678u);
+
+        assert(request.isValid());
+        assert(request.keyScale.rootPitchClass() == 6);
+        assert(request.keyScale.scale() == mozart::musical::Scale::NaturalMinor);
+        assert(std::abs(request.tempoBpm - 140.0) < 1.0e-12);
+        assert(request.role == GenerationRole::Arpeggio);
+        assert(std::abs(request.density - 0.75) < 1.0e-12);
+        assert(std::abs(request.swing - 1.0) < 1.0e-12);
+        assert(std::abs(request.energy - 1.0) < 1.0e-12);
+        assert(request.bars == 4);
+        assert(request.polyphony == 1);
+        assert(request.seed == 0x12345678u);
+
+        const auto low =
+                GenerationRequestFactory::fromPerformanceContext(
+                        request.keyScale,
+                        120.0,
+                        GenerationRole::Bass,
+                        PatternDensity::Sparse,
+                        PatternSwing::Off,
+                        0);
+        assert(low.isValid());
+        assert(std::abs(low.density - 0.50) < 1.0e-12);
+        assert(std::abs(low.swing) < 1.0e-12);
+        assert(std::abs(low.energy) < 1.0e-12);
+        assert(low.role == GenerationRole::Bass);
+    }
+
     {
         mozart::generation::PatternProposal proposal;
         proposal.noteEvents.push_back(
