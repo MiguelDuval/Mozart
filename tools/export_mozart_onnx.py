@@ -50,8 +50,8 @@ def main() -> int:
     args = parser.parse_args()
 
     config = ModelConfig.from_json(args.config)
-    if args.sequence_length < 1:
-        raise ValueError("--sequence-length must be positive")
+    if args.sequence_length < 2:
+        raise ValueError("--sequence-length must be at least 2")
     if args.sequence_length > config.max_sequence_length:
         raise ValueError("--sequence-length exceeds configured model context")
     if args.opset < 17:
