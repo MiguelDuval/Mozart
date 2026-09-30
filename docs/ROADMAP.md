@@ -112,7 +112,8 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Define permanent Experimental Model Lab boundary (external model files stay outside repository/release artifacts).
 - [x] Add Android debug-only Experimental Model Lab selector UI.
 - [x] Connect Lab selection to native ModelCatalog selection state.
-- [ ] Connect selected model to actual native generation backend execution.
+- [x] Connect selected experimental model to the native generation backend execution path.
+- [ ] Connect the selected production model to the native generation backend after ABI freeze.
 - [x] Add debug-only ONNX Runtime inspection for external model tensor ABI.
 - [x] Keep ONNX Runtime out of the commercial release dependency set via debug-only packaging.
 - [x] Define licensed-data provenance manifest schema and CI validation.
@@ -131,7 +132,8 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Add deterministic synthetic fixture corpus generation and CI regression coverage before external data.
 - [x] Add manifest-aware source/license/provenance statistics to the training shard report.
 - [x] Add explicit duplicate-content review decisions and a strict unresolved-duplicate QA gate.
-- [ ] Add concrete external-runtime inference adapters (ONNX and/or LiteRT).
+- [x] Add experimental ONNX external-runtime inference adapter.
+- [ ] Add production LiteRT external-runtime inference adapter.
 - [ ] Bind conditioning fields to the production model's tensor representation after the model ABI is frozen.
 - [x] Record and audit public MIDI dataset candidates without approving them for production.
 - [ ] Build licensed-data provenance manifest.
