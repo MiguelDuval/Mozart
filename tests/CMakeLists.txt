@@ -31,6 +31,7 @@ add_executable(mozart_core_tests
     ../src/generation/DeterministicPatternProvider.cpp
     ../src/generation/LocalNeuralPatternProvider.cpp
     ../src/generation/GenerationService.cpp
+    ../src/generation/OnnxTokenInferenceBackend.cpp
     ../src/midi/MidiReceiveQueue.cpp
     ../src/midi/ControllerMapping.cpp
 )
