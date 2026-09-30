@@ -151,8 +151,8 @@ class BuildTrainingShardsTests(unittest.TestCase):
         }
         stats = _stats(records, "abc123", manifest)
         self.assertEqual(stats["sources"]["record_counts"], {
-            "song-a\\0rev-1": 1,
-            "song-b\\0rev-2": 1,
+            "song-a\0rev-1": 1,
+            "song-b\0rev-2": 1,
         })
         self.assertEqual(stats["provenance"]["manifest_id"], "dataset-v1")
         self.assertEqual(stats["provenance"]["source_count"], 2)
