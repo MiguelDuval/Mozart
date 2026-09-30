@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import json
 import sys
+import tempfile
 import unittest
 
 ROOT = __import__("pathlib").Path(__file__).resolve().parents[1]
@@ -47,6 +49,83 @@ class FakeGreedyModel:
 
 
 class MozartConditioningSequenceTests(unittest.TestCase):
+    def test_loads_fixture_derived_control_probe_prefixes(self) -> None:
+        from evaluate_mozart_conditioning_sequence import (
+            load_sequence_probe_file,
+        )
+
+        payload = {
+            "schema_version": 1,
+            "fixture_revision": "mozart-conditioning-fixture-v1",
+            "status": "synthetic-conditioning-sequence-probes",
+            "controls": {
+                name: {
+                    "prefix_tokens": [1, 16 + index],
+                    "prefix_length": 2,
+                    "first_target_divergence_index": 2,
+                }
+                for index, name in enumerate(
+                    (
+                        "density",
+                        "energy",
+                        "syncopation",
+                        "swing",
+                        "variation",
+                    )
+                )
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = ROOT / "build-test-sequence-probes.json"
+            try:
+                path.write_text(
+                    json.dumps(payload),
+                    encoding="utf-8",
+                )
+                probes = load_sequence_probe_file(path)
+            finally:
+                path.unlink(missing_ok=True)
+
+        self.assertEqual(
+            probes["density"],
+            (1, 16),
+        )
+        self.assertEqual(
+            probes["variation"],
+            (1, 20),
+        )
+
+    def test_control_specific_prefix_is_used(self) -> None:
+        from evaluate_mozart_conditioning_sequence import (
+            evaluate_sequence_responsiveness,
+        )
+
+        prefixes = {
+            "density": (1,),
+            "energy": (1, 16),
+            "syncopation": (1, 16, 68),
+            "swing": (1, 16, 68, 177),
+            "variation": (1, 16),
+        }
+        report = evaluate_sequence_responsiveness(
+            FakeGreedyModel(responsive=True),
+            max_generated_tokens=6,
+            prefix_tokens=(1, 16, 92),
+            prefix_tokens_by_control=prefixes,
+            require_divergence=True,
+        )
+
+        for name, prefix in prefixes.items():
+            self.assertEqual(
+                report["controls"][name]["prefix_tokens"],
+                list(prefix),
+            )
+            self.assertEqual(
+                report["controls"][name]["prefix_length"],
+                len(prefix),
+            )
+
+
     def test_sequence_comparison_detects_first_divergence(self) -> None:
         from evaluate_mozart_conditioning_sequence import compare_token_sequences
 
