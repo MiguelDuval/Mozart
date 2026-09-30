@@ -71,15 +71,13 @@ def main() -> int:
     )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    batch_dim = torch.export.Dim("batch", min=1)
     sequence_dim = torch.export.Dim(
         "sequence",
-        min=1,
+        min=2,
         max=config.max_sequence_length,
     )
     dynamic_shapes = {
-        "input_ids": {0: batch_dim, 1: sequence_dim},
-        **{name: {0: batch_dim} for name in CONDITIONING_NAMES},
+        "input_ids": {1: sequence_dim},
     }
     onnx_program = torch.onnx.export(
         model,
