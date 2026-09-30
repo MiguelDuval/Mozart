@@ -89,7 +89,7 @@ class BuildTrainingShardsTests(unittest.TestCase):
     def test_statistics_capture_split_and_conditioning_counts(self) -> None:
         records = [
             record("song-a", "rev-1", "train", "a.mid"),
-            record("song-b", "rev-1", "test", "b.mid", role="chord"),
+            record("song-b", "rev-1", "test", "b.mid", role="chords"),
         ]
         stats = _stats(records, "abc123")
         self.assertEqual(stats["record_count"], 2)
