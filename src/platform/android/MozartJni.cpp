@@ -93,6 +93,19 @@ mozart::runtime::MozartRuntime* runtime() {
     return result;
 }
 
+[[nodiscard]] const char* accompanimentRoleName(
+        mozart::scheduler::AccompanimentRole role) noexcept {
+    switch (role) {
+        case mozart::scheduler::AccompanimentRole::Arpeggio:
+            return "arpeggio";
+        case mozart::scheduler::AccompanimentRole::Drums:
+            return "drums";
+        case mozart::scheduler::AccompanimentRole::Bass:
+        default:
+            return "bass";
+    }
+}
+
 [[nodiscard]] std::int32_t intAt(
         JNIEnv* env,
         jintArray values,
@@ -340,15 +353,23 @@ Java_com_miguelduval_mozart_MainActivity_nativeQueueExperimentalGeneration(
             static_cast<double>(
                     mozart::generation::densityPercent(
                             runtime()->patternDensity())) / 100.0;
-    request.swing =
-            mozart::generation::swingOffsetBeats(
-                    runtime()->patternSwing());
+    switch (runtime()->patternSwing()) {
+        case mozart::generation::PatternSwing::Light:
+            request.swing = 0.5;
+            break;
+        case mozart::generation::PatternSwing::Full:
+            request.swing = 1.0;
+            break;
+        case mozart::generation::PatternSwing::Off:
+        default:
+            request.swing = 0.0;
+            break;
+    }
 
     // Macro energy is a performer-facing 0..127 control; keep the request
     // inside the GenerationRequest 0..1 contract.
     request.energy =
-            0.5 + 0.5 * (
-                    static_cast<double>(runtime()->macroEnergy()) / 127.0);
+            static_cast<double>(runtime()->macroEnergy()) / 127.0;
 
     if (!request.isValid()) {
         return JNI_FALSE;
@@ -420,11 +441,7 @@ Java_com_miguelduval_mozart_MainActivity_nativeExperimentalGenerationSnapshot(
             " tempo=" +
                     std::to_string(link.tempoBpm) +
             " role=" +
-                    std::string(
-                            mozart::generation::StyleVocabulary::roleSlug(
-                                    result.proposal.metadata.generatorId == "deterministic-local-v1"
-                                            ? mozart::generation::GenerationRole::Bass
-                                            : mozart::generation::GenerationRole::Bass)) +
+                    accompanimentRoleName(runtime()->accompanimentRole()) +
             " message=" + message;
 
     return env->NewStringUTF(text.c_str());
