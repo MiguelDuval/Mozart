@@ -128,6 +128,10 @@ class ModelManifestValidationTests(unittest.TestCase):
     def test_experimental_onnx_runtime_extension_passes(self) -> None:
         manifest = template_manifest()
         manifest["model_format"] = "onnx"
+        manifest["inputs"][0]["name"] = "input_ids"
+        manifest["inputs"][0]["dtype"] = "int64"
+        manifest["outputs"][0]["name"] = "logits"
+        manifest["outputs"][0]["dtype"] = "float32"
         manifest["runtime"] = {
             "backend": "onnxruntime",
             "input_name": "input_ids",
