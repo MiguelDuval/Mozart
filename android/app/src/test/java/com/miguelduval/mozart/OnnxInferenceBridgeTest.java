@@ -138,6 +138,56 @@ public class OnnxInferenceBridgeTest {
     }
 
     @Test
+    public void conditioningManifestOrderRejectsNonCanonicalLayout()
+            throws Exception {
+        final Method method = findRequiredPrivateMethod(
+                "validateCanonicalConditioningOrder",
+                JSONObject.class);
+
+        final JSONObject runtime = new JSONObject();
+        runtime.put(
+                "conditioning_input_names",
+                new String[] {
+                        "style_id",
+                        "substyle_id",
+                        "mood_id",
+                        "rhythm_id",
+                        "role_id",
+                        "performance_controls"
+                });
+        runtime.put(
+                "performance_control_names",
+                new String[] {
+                        "density",
+                        "energy",
+                        "syncopation",
+                        "swing",
+                        "variation"
+                });
+
+        method.invoke(null, runtime);
+
+        runtime.put(
+                "performance_control_names",
+                new String[] {
+                        "density",
+                        "energy",
+                        "swing",
+                        "syncopation",
+                        "variation"
+                });
+        try {
+            method.invoke(null, runtime);
+            fail("expected non-canonical performance control order rejection");
+        } catch (InvocationTargetException expected) {
+            assertTrue(expected.getCause() instanceof IllegalArgumentException);
+            assertTrue(
+                    expected.getCause().getMessage().contains(
+                            "performance_control_names"));
+        }
+    }
+
+    @Test
     public void sessionAbiRejectsMissingConditioningInputs() throws Exception {
         final Method method = OnnxInferenceBridge.class.getDeclaredMethod(
                 "validateSessionAbi",
