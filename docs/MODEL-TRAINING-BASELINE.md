@@ -82,7 +82,10 @@ the same model architecture and exported tensor shapes but disables dropout and
 weight decay during this capacity test. The goal is to remove regularization as
 a confound when asking the narrow question "can this architecture memorize and
 respond to the explicit conditioning labels?" It is not the production training
-recipe.
+recipe. The current CI budget is 12 epochs with 10 train records repeated 16
+times, batch size 4: exactly 40 optimizer updates per epoch and 480 updates in
+the final checkpoint. The checkpoint records this budget explicitly and CI
+verifies it before ONNX export.
 
 ## Training
 
