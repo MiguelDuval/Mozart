@@ -58,6 +58,12 @@ control mapping. The CI greedy sequence gate therefore evaluates the final
 requested training checkpoint (latest.pt), while the validation loss remains
 reported for diagnostics.
 
+The CI also records a teacher-forced diagnostic at the exact low/high target
+divergence point for each control. This answers a different question from greedy
+generation: whether the model assigns the correct target token high enough in
+the learned context. The report is diagnostic-only for now; `--require-target-top1`
+is available for a future stricter fit gate after the first reproducible results.
+
 The greedy sequence gate validates generated output as a bounded grammar prefix.
 It does not require EOS inside the fixed 32-token observation budget, because EOS
 marks completion of a stream rather than validity of an unfinished autoregressive
