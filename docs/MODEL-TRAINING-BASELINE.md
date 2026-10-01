@@ -77,6 +77,13 @@ is deterministic repeated exposure, not data augmentation and not new musical
 data; its purpose is to provide enough optimizer updates to test whether the
 development architecture can actually fit the explicit conditioning signal.
 
+The CI uses `--fit-diagnostic` for this tiny synthetic corpus. That mode keeps
+the same model architecture and exported tensor shapes but disables dropout and
+weight decay during this capacity test. The goal is to remove regularization as
+a confound when asking the narrow question "can this architecture memorize and
+respond to the explicit conditioning labels?" It is not the production training
+recipe.
+
 ## Training
 
 Use a dedicated PyTorch environment outside the Android build:
