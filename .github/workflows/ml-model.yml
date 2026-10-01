@@ -59,7 +59,6 @@ on:
       - "tests/test_train_mozart_model.py"
       - "tests/test_mozart_conditioning_teacher_forced.py"
       - "tools/evaluate_mozart_conditioning_teacher_forced.py"
-      - "tests/test_mozart_conditioning_teacher_forced.py"
       - "tools/evaluate_mozart_conditioning.py"
       - "tools/evaluate_mozart_conditioning_sequence.py"
       - "tools/build_conditioning_fixture_corpus.py"
