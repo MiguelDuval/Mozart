@@ -12,6 +12,7 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.nio.LongBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -168,40 +169,40 @@ public final class OnnxInferenceBridge {
                     tokens.add(runtime.getInt("bos_token_id"));
 
                     for (int step = 0; step < maxTokens - 1; ++step) {
-                    if (tokens.size() >= contextLength) {
-                        return response(
-                                "FAILED",
-                                0,
-                                elapsedMs(started),
-                                encodeTokens(tokens),
-                                "ONNX context exhausted before EOS");
-                    }
+                        if (tokens.size() >= contextLength) {
+                            return response(
+                                    "FAILED",
+                                    0,
+                                    elapsedMs(started),
+                                    encodeTokens(tokens),
+                                    "ONNX context exhausted before EOS");
+                        }
 
-                    final long[] inputValues = new long[tokens.size()];
-                    for (int i = 0; i < tokens.size(); ++i) {
-                        inputValues[i] = tokens.get(i);
-                    }
+                        final long[] inputValues = new long[tokens.size()];
+                        for (int i = 0; i < tokens.size(); ++i) {
+                            inputValues[i] = tokens.get(i);
+                        }
 
-                    final LongBuffer inputBuffer =
-                            ByteBuffer.allocateDirect(
-                                            inputValues.length * Long.BYTES)
-                                    .order(ByteOrder.nativeOrder())
-                                    .asLongBuffer();
-                    inputBuffer.put(inputValues);
-                    inputBuffer.rewind();
+                        final LongBuffer inputBuffer =
+                                ByteBuffer.allocateDirect(
+                                                inputValues.length * Long.BYTES)
+                                        .order(ByteOrder.nativeOrder())
+                                        .asLongBuffer();
+                        inputBuffer.put(inputValues);
+                        inputBuffer.rewind();
 
-                    final Object inputTensor =
-                            createLongTensor(
-                                    tensorClass,
-                                    environment,
-                                    inputBuffer,
-                                    new long[] {1, inputValues.length});
+                        final Object inputTensor =
+                                createLongTensor(
+                                        tensorClass,
+                                        environment,
+                                        inputBuffer,
+                                        new long[] {1, inputValues.length});
 
-                    final Map<String, Object> inputs = new LinkedHashMap<>();
-                    inputs.put(runtime.getString("input_name"), inputTensor);
-                    inputs.putAll(conditioningTensors);
+                        final Map<String, Object> inputs = new LinkedHashMap<>();
+                        inputs.put(runtime.getString("input_name"), inputTensor);
+                        inputs.putAll(conditioningTensors);
 
-                    Object sessionResult = null;
+                        Object sessionResult = null;
                     Object outputValue = null;
                     try {
                         final Method runMethod =
