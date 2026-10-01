@@ -80,6 +80,7 @@ class TeacherForcedTests(unittest.TestCase):
             record = {
                 "source_id": "same",
                 "tokens": [1, 16, 68, 160, 258, 2],
+                "split": "train",
                 "performance_controls": {
                     name: 0.5 for name in CONTROL_NAMES
                 },
@@ -100,6 +101,7 @@ class TeacherForcedTests(unittest.TestCase):
             high_id = f"{name}-high"
             records[low_id] = {
                 "source_id": low_id,
+                "split": "train",
                 "tokens": [1, 16, 68, 100 + index * 2, 160, 258, 2],
                 "performance_controls": {
                     control: (0.1 if control == name else 0.5)
@@ -108,6 +110,7 @@ class TeacherForcedTests(unittest.TestCase):
             }
             records[high_id] = {
                 "source_id": high_id,
+                "split": "train",
                 "tokens": [1, 16, 68, 101 + index * 2, 160, 258, 2],
                 "performance_controls": {
                     control: (0.9 if control == name else 0.5)
