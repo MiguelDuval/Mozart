@@ -209,8 +209,9 @@ jobs:
             --output-dir build/ml-checkpoint \
             --epochs 12 \
             --batch-size 4 \
-            --repeat-train-records 4 \
+            --repeat-train-records 16 \
             --learning-rate 3e-4 \
+            --fit-diagnostic \
             --seed 42 \
             --device cpu
 
