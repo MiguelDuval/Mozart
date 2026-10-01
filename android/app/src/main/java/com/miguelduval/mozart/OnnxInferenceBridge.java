@@ -252,7 +252,6 @@ public final class OnnxInferenceBridge {
                             elapsedMs(started),
                             encodeTokens(tokens),
                             "ONNX model did not emit EOS before max_generated_tokens");
-                    }
                 } finally {
                     closeQuietly(session);
                 }
