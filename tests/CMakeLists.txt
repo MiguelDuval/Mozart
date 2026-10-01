@@ -123,6 +123,7 @@ target_link_libraries(mozart_generation_service_tests PRIVATE Threads::Threads)
 
 add_executable(mozart_generation_request_json_tests
     GenerationRequestJsonTests.cpp
+    ../src/musical/KeyScale.cpp
 )
 
 target_include_directories(mozart_generation_request_json_tests PRIVATE
