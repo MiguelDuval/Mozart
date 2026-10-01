@@ -117,6 +117,48 @@ class MozartConditioningSequenceTests(unittest.TestCase):
         self.assertFalse(malformed["valid"])
         self.assertEqual(malformed["token"], 452)
 
+    def test_probe_loader_rejects_malformed_grammar_prefix(self) -> None:
+        from evaluate_mozart_conditioning_sequence import (
+            load_sequence_probe_file,
+        )
+
+        payload = {
+            "schema_version": 1,
+            "fixture_revision": "mozart-conditioning-fixture-v1",
+            "status": "synthetic-conditioning-sequence-probes",
+            "controls": {
+                name: {
+                    "prefix_tokens": (
+                        [1, 16, 68, 452]
+                        if name == "density"
+                        else [1, 16, 68]
+                    ),
+                    "prefix_length": (
+                        4 if name == "density" else 3
+                    ),
+                    "first_target_divergence_index": (
+                        4 if name == "density" else 3
+                    ),
+                }
+                for name in (
+                    "density",
+                    "energy",
+                    "syncopation",
+                    "swing",
+                    "variation",
+                )
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sequence-probes.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(
+                ValueError,
+                "valid MIDI grammar prefix",
+            ):
+                load_sequence_probe_file(path)
+
     def test_loads_fixture_derived_control_probe_prefixes(self) -> None:
         from evaluate_mozart_conditioning_sequence import (
             load_sequence_probe_file,
