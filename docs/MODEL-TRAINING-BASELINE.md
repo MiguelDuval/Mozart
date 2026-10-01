@@ -58,6 +58,12 @@ control mapping. The CI greedy sequence gate therefore evaluates the final
 requested training checkpoint (latest.pt), while the validation loss remains
 reported for diagnostics.
 
+Because this fixture intentionally contains only ten train records, the CI fit may
+repeat those exact records within each epoch using `--repeat-train-records`. This
+is deterministic repeated exposure, not data augmentation and not new musical
+data; its purpose is to provide enough optimizer updates to test whether the
+development architecture can actually fit the explicit conditioning signal.
+
 ## Training
 
 Use a dedicated PyTorch environment outside the Android build:
