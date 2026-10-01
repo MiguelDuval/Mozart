@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+"""Contract tests for the development trainer's tiny-fit repetition mode."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+
+from train_mozart_model import TokenRecordDataset
+
+
+def _record() -> dict:
+    return {
+        "tokens": [1, 16, 68, 160, 258, 2],
+        "conditioning": {
+            "style": "electronic",
+            "substyle": "techno",
+            "mood": "driving",
+            "rhythm": "straight",
+            "role": "bass",
+        },
+        "performance_controls": {
+            "density": 0.1,
+            "energy": 0.9,
+            "syncopation": 0.5,
+            "swing": 0.5,
+            "variation": 0.5,
+        },
+    }
+
+
+class TrainDatasetTests(unittest.TestCase):
+    def test_repeat_expands_examples_without_mutating_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "train.jsonl"
+            path.write_text(
+                json.dumps(_record()) + "\n",
+                encoding="utf-8",
+            )
+
+            dataset = TokenRecordDataset(path, 16, repeat=4)
+
+        self.assertEqual(len(dataset), 4)
+        self.assertEqual(dataset[0], dataset[1])
+        self.assertEqual(dataset[0], dataset[3])
+
+    def test_repeat_must_be_positive(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "train.jsonl"
+            path.write_text(
+                json.dumps(_record()) + "\n",
+                encoding="utf-8",
+            )
+
+            for repeat in (0, -1):
+                with self.assertRaisesRegex(ValueError, "repeat must be positive"):
+                    TokenRecordDataset(path, 16, repeat=repeat)
+
+
+if __name__ == "__main__":
+    unittest.main()
