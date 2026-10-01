@@ -27,8 +27,17 @@ PAD = 0
 
 
 class TokenRecordDataset(Dataset[dict]):
-    def __init__(self, path: Path, max_sequence_length: int) -> None:
-        self.records: list[dict] = []
+    def __init__(
+        self,
+        path: Path,
+        max_sequence_length: int,
+        *,
+        repeat: int = 1,
+    ) -> None:
+        if repeat <= 0:
+            raise ValueError("repeat must be positive")
+
+        records: list[dict] = []
         with path.open("r", encoding="utf-8") as handle:
             for line_number, line in enumerate(handle, 1):
                 if not line.strip():
@@ -43,14 +52,19 @@ class TokenRecordDataset(Dataset[dict]):
                 if len(tokens) < 2:
                     continue
                 conditioning = conditioning_ids(record)
-                self.records.append({
+                records.append({
                     "tokens": tokens,
                     "conditioning": conditioning,
                     "performance_controls": performance_controls(record),
                 })
 
-        if not self.records:
+        if not records:
             raise ValueError(f"{path}: no usable training records")
+
+        # Repeating a deliberately tiny development corpus increases the number
+        # of optimizer updates without changing targets or creating synthetic
+        # variants. This is a fit-capacity diagnostic, not data augmentation.
+        self.records = records * repeat
 
     def __len__(self) -> int:
         return len(self.records)
@@ -178,6 +192,12 @@ def main() -> int:
     )
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument(
+        "--repeat-train-records",
+        type=int,
+        default=1,
+        help="Repeat the train records per epoch for tiny fit-capacity diagnostics.",
+    )
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
@@ -190,6 +210,8 @@ def main() -> int:
 
     if args.epochs <= 0 or args.batch_size <= 0:
         raise ValueError("epochs and batch-size must be positive")
+    if args.repeat_train_records <= 0:
+        raise ValueError("repeat-train-records must be positive")
     if args.learning_rate <= 0.0:
         raise ValueError("learning-rate must be positive")
     if args.num_workers < 0:
@@ -211,6 +233,7 @@ def main() -> int:
     train_dataset = TokenRecordDataset(
         args.train_jsonl,
         config.max_sequence_length,
+        repeat=args.repeat_train_records,
     )
     validation_dataset = (
         TokenRecordDataset(args.validation_jsonl, config.max_sequence_length)
@@ -261,7 +284,9 @@ def main() -> int:
     print(
         f"MODEL {config.model_id} "
         f"parameters={parameter_count} "
-        f"device={device}"
+        f"device={device} "
+        f"train_records={len(train_dataset)} "
+        f"repeat_train_records={args.repeat_train_records}"
     )
 
     for epoch in range(1, args.epochs + 1):
