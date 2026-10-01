@@ -21,6 +21,7 @@
 #include "platform/android/OnnxRuntimeBridge.h"
 #include "generation/OnnxTokenInferenceBackend.h"
 #include "generation/GenerationRequestFactory.h"
+#include "generation/GenerationRequestTicket.h"
 #include "generation/PatternDensity.h"
 #include "generation/PatternSwing.h"
 #include "scheduler/AccompanimentRole.h"
@@ -36,6 +37,8 @@ std::unique_ptr<mozart::runtime::MozartRuntime> g_runtime;
 std::mutex g_runtimeMutex;
 std::mutex g_generationMutex;
 std::optional<std::future<mozart::generation::GenerationResult>> g_generationFuture;
+mozart::generation::GenerationRequestTicket g_generationTicket;
+std::uint64_t g_modelSelectionGeneration = 0;
 mozart::midi::MidiReceiveQueue g_midiReceiveQueue;
 mozart::midi::MidiInputParser g_midiInputParser;
 mozart::midi::MidiReceiveQueue g_controllerQueue(64);
@@ -277,9 +280,13 @@ Java_com_miguelduval_mozart_MainActivity_nativeSelectExperimentalModel(
         jobject,
         jstring modelId) {
     const auto value = jstringToUtf8(env, modelId);
-    return runtime()->selectModel(value)
-            ? JNI_TRUE
-            : JNI_FALSE;
+    if (!runtime()->selectModel(value)) {
+        return JNI_FALSE;
+    }
+
+    std::lock_guard<std::mutex> lock(g_generationMutex);
+    ++g_modelSelectionGeneration;
+    return JNI_TRUE;
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -295,6 +302,8 @@ Java_com_miguelduval_mozart_MainActivity_nativeClearSelectedModel(
         g_generationFuture.reset();
     }
     runtime()->clearSelectedModel();
+    ++g_modelSelectionGeneration;
+    g_generationTicket = {};
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
@@ -316,7 +325,8 @@ Java_com_miguelduval_mozart_MainActivity_nativeQueueExperimentalGeneration(
         }
     }
 
-    if (runtime()->selectedModelId().empty()) {
+    const auto selectedModelId = runtime()->selectedModelId();
+    if (selectedModelId.empty()) {
         return JNI_FALSE;
     }
 
@@ -352,6 +362,10 @@ Java_com_miguelduval_mozart_MainActivity_nativeQueueExperimentalGeneration(
     }
 
     runtime()->start();
+    g_generationTicket = {
+            selectedModelId,
+            g_modelSelectionGeneration
+    };
     g_generationFuture.emplace(runtime()->requestGeneration(
             std::move(request)));
     return JNI_TRUE;
@@ -380,13 +394,25 @@ Java_com_miguelduval_mozart_MainActivity_nativeExperimentalGenerationSnapshot(
     const auto result = g_generationFuture->get();
     g_generationFuture.reset();
 
+    const bool staleModelSelection =
+            !g_generationTicket.matches(
+                    runtime()->selectedModelId(),
+                    g_modelSelectionGeneration);
+    g_generationTicket = {};
+
     bool queuedForPlayback = false;
-    if (result.ok()) {
+    bool discardedAsStale = false;
+    if (result.ok() && !staleModelSelection) {
         queuedForPlayback =
                 runtime()->queueGeneratedPattern(result.proposal);
+    } else if (result.ok() && staleModelSelection) {
+        discardedAsStale = true;
     }
 
     const char* status = "failed";
+    if (discardedAsStale) {
+        status = "stale_model";
+    }
     switch (result.status) {
         case mozart::generation::GenerationStatus::Ok:
             status = "ok";
@@ -404,7 +430,9 @@ Java_com_miguelduval_mozart_MainActivity_nativeExperimentalGenerationSnapshot(
     }
 
     const std::string message =
-            result.message.empty() ? "none" : result.message;
+            discardedAsStale
+                    ? "generation completed for an obsolete model selection"
+                    : (result.message.empty() ? "none" : result.message);
 
     const auto context = runtime()->captureKeyContextSnapshot();
     const auto link = runtime()->captureLinkSnapshot();
