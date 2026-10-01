@@ -273,6 +273,37 @@ def _evaluate_with_model(
             for step in steps
         ]
 
+        low_divergence_step = next(
+            step
+            for step in steps
+            if step["side"] == "low"
+            and step["target_index"] == len(prefix_tuple)
+        )
+        high_divergence_step = next(
+            step
+            for step in steps
+            if step["side"] == "high"
+            and step["target_index"] == len(prefix_tuple)
+        )
+        low_target_report = dict(low_divergence_step["native"])
+        high_target_report = dict(high_divergence_step["native"])
+        control_effect = {
+            "low_target_token": low_target_report["target_token"],
+            "high_target_token": high_target_report["target_token"],
+            "target_token_difference": (
+                high_target_report["target_token"]
+                - low_target_report["target_token"]
+            ),
+            "low_target_logit": low_target_report["target_logit"],
+            "high_target_logit": high_target_report["target_logit"],
+            "target_logit_difference": (
+                high_target_report["target_logit"]
+                - low_target_report["target_logit"]
+            ),
+            "low_target_top1": low_target_report["target_top1"],
+            "high_target_top1": high_target_report["target_top1"],
+        }
+
         entry: dict[str, Any] = {
             "prefix_tokens": list(prefix_tuple),
             "prefix_length": len(prefix_tuple),
@@ -289,6 +320,9 @@ def _evaluate_with_model(
                 if target_logit_deltas
                 else 0.0
             ),
+            "low_target": low_target_report,
+            "high_target": high_target_report,
+            "control_effect": control_effect,
             "steps": steps,
         }
 
@@ -308,6 +342,13 @@ def _evaluate_with_model(
         entry["native_target_top1_count"]
         for entry in report_controls.values()
     )
+    controls_with_both_targets_top1 = sum(
+        int(
+            entry["low_target"]["target_top1"]
+            and entry["high_target"]["target_top1"]
+        )
+        for entry in report_controls.values()
+    )
 
     return {
         "status": "FAIL" if failures else "PASS",
@@ -316,6 +357,7 @@ def _evaluate_with_model(
         "control_count": len(PERFORMANCE_CONTROL_NAMES),
         "observed_teacher_forced_steps": observed_steps,
         "native_target_top1_steps": native_top1_steps,
+        "controls_with_both_targets_top1": controls_with_both_targets_top1,
         "controls": report_controls,
         "failures": failures,
     }
