@@ -74,6 +74,64 @@ class TeacherForcedTests(unittest.TestCase):
         self.assertEqual(report["top1_token"], 42)
         self.assertEqual(report["target_top1_margin"], 0.0)
 
+    def test_counterfactual_window_isolates_control_effect(self) -> None:
+        records = {}
+        probes = {"controls": {}}
+
+        for index, name in enumerate(CONTROL_NAMES):
+            low_id = f"{name}-low"
+            high_id = f"{name}-high"
+            tokens = [1, 16, 68, 100 + index * 2, 160, 258, 2]
+            records[low_id] = {
+                "source_id": low_id,
+                "split": "train",
+                "tokens": tokens,
+                "performance_controls": {
+                    control: (0.1 if control == name else 0.5)
+                    for control in CONTROL_NAMES
+                },
+            }
+            records[high_id] = {
+                "source_id": high_id,
+                "split": "train",
+                "tokens": tokens,
+                "performance_controls": {
+                    control: (0.9 if control == name else 0.5)
+                    for control in CONTROL_NAMES
+                },
+            }
+            probes["controls"][name] = {
+                "prefix_tokens": [1, 16, 68],
+                "prefix_length": 3,
+                "first_target_divergence_index": 3,
+                "low_profile": records[low_id]["performance_controls"],
+                "high_profile": records[high_id]["performance_controls"],
+                "low_record_source_id": low_id,
+                "high_record_source_id": high_id,
+            }
+
+        report = _evaluate_with_model(
+            FakeTeacherForcedModel(),
+            records,
+            probes,
+            window_size=2,
+        )
+
+        self.assertEqual(report["status"], "PASS")
+        self.assertEqual(report["observed_teacher_forced_steps"], 20)
+        for name in CONTROL_NAMES:
+            entry = report["controls"][name]
+            self.assertEqual(entry["window_step_count"], 4)
+            self.assertEqual(
+                entry["top1_changed_by_control_steps"],
+                4,
+            )
+            deltas = [
+                step["target_logit_delta_native_minus_counterfactual"]
+                for step in entry["steps"]
+            ]
+            self.assertTrue(all(delta != 0.0 for delta in deltas))
+
     def test_load_records_rejects_duplicate_source_ids(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "records.jsonl"
