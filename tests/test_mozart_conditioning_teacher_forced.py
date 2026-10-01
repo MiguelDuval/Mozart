@@ -52,7 +52,8 @@ class FakeTeacherForcedModel:
             index = next(
                 index
                 for index, value in enumerate(values)
-                if value in (0.1, 0.9)
+                if abs(value - 0.1) < 1.0e-5
+                or abs(value - 0.9) < 1.0e-5
             )
             high = values[index] > 0.5
             token = 100 + index * 2 + int(high)
@@ -81,11 +82,12 @@ class TeacherForcedTests(unittest.TestCase):
         for index, name in enumerate(CONTROL_NAMES):
             low_id = f"{name}-low"
             high_id = f"{name}-high"
-            tokens = [1, 16, 68, 100 + index * 2, 160, 258, 2]
+            low_tokens = [1, 16, 68, 100 + index * 2, 160, 258, 2]
+            high_tokens = [1, 16, 68, 101 + index * 2, 160, 258, 2]
             records[low_id] = {
                 "source_id": low_id,
                 "split": "train",
-                "tokens": tokens,
+                "tokens": low_tokens,
                 "performance_controls": {
                     control: (0.1 if control == name else 0.5)
                     for control in CONTROL_NAMES
@@ -94,7 +96,7 @@ class TeacherForcedTests(unittest.TestCase):
             records[high_id] = {
                 "source_id": high_id,
                 "split": "train",
-                "tokens": tokens,
+                "tokens": high_tokens,
                 "performance_controls": {
                     control: (0.9 if control == name else 0.5)
                     for control in CONTROL_NAMES
