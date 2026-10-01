@@ -44,7 +44,7 @@ class FakeTeacherForcedModel:
         batch, sequence = input_ids.shape
         logits = torch.full(
             (batch, sequence, 512),
-            -1000.0,
+            0.0,
             dtype=torch.float32,
         )
         for row in range(batch):
@@ -56,8 +56,19 @@ class FakeTeacherForcedModel:
                 or abs(value - 0.9) < 1.0e-5
             )
             high = values[index] > 0.5
-            token = 100 + index * 2 + int(high)
-            logits[row, -1, token] = 100.0
+
+            if sequence == 3:
+                # At the exact fixture divergence, make the expected low/high
+                # target token the unique top-1 result.
+                token = 100 + index * 2 + int(high)
+                logits[row, -1, token] = 100.0
+            else:
+                # After divergence, model a non-zero control response while
+                # keeping the top-1 token control-dependent. This exercises the
+                # counterfactual window without pretending to know the target.
+                logits[row, :, :] = 1.0 if high else 0.0
+                winner = 501 + index if high else 500 + index
+                logits[row, -1, winner] = 11.0
         return logits
 
 
