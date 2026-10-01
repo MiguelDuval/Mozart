@@ -125,6 +125,30 @@ class ModelManifestValidationTests(unittest.TestCase):
                 validate(self._write(manifest, Path(directory)))
 
 
+    def test_experimental_onnx_conditioning_order_is_canonical(self) -> None:
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "docs"
+            / "experimental-onnx-manifest.example.json"
+        )
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            manifest["runtime"]["conditioning_input_names"],
+            [
+                "style_id",
+                "substyle_id",
+                "mood_id",
+                "rhythm_id",
+                "role_id",
+                "performance_controls",
+            ],
+        )
+        self.assertEqual(
+            manifest["runtime"]["performance_control_names"],
+            ["density", "energy", "syncopation", "swing", "variation"],
+        )
+
     def test_experimental_onnx_runtime_extension_passes(self) -> None:
         manifest = template_manifest()
         manifest["model_format"] = "onnx"
