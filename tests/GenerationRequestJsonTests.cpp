@@ -24,11 +24,19 @@ void testFactoryControlsReachConditioningJson() {
                     0xCAFEBABEu);
 
     assert(request.style == mozart::generation::GenerationStyle::Techno);
+    assert(request.substyle == mozart::generation::GenerationSubstyle::Techno);
+    assert(request.mood == mozart::generation::GenerationMood::Driving);
+    assert(request.rhythm == mozart::generation::GenerationRhythm::Straight);
     assert(request.role == mozart::generation::GenerationRole::Arpeggio);
 
     const auto json =
             mozart::generation::serializeGenerationRequestJson(request);
 
+    assert(json.find(R"("style":1)") != std::string::npos);
+    assert(json.find(R"("substyle":1)") != std::string::npos);
+    assert(json.find(R"("mood":1)") != std::string::npos);
+    assert(json.find(R"("rhythm":0)") != std::string::npos);
+    assert(json.find(R"("role":1)") != std::string::npos);
     assert(json.find(R"("density":0.75)") != std::string::npos);
     assert(json.find(R"("swing":0.5)") != std::string::npos);
     assert(json.find(R"("energy":0.503937)") != std::string::npos);
