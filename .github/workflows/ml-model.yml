@@ -29,8 +29,10 @@ on:
       - "tests/test_build_conditioning_fixture_corpus.py"
       - "tests/test_train_mozart_model.py"
       - "tests/test_mozart_conditioning_teacher_forced.py"
+      - "tools/evaluate_mozart_conditioning_teacher_forced.py"
       - "tools/evaluate_mozart_conditioning.py"
       - "tools/evaluate_mozart_conditioning_sequence.py"
+      - "tools/evaluate_mozart_conditioning_teacher_forced.py"
       - "tools/build_conditioning_fixture_corpus.py"
       - "docs/MODEL-TRAINING-BASELINE.md"
       - "tools/requirements-onnx-export.txt"
@@ -300,6 +302,7 @@ jobs:
             build/ml-conditioning-fixture/sequence-probes.json \
             --config docs/model-training-config.json \
             --onnx build/ml-checkpoint/model.onnx \
+            --window-size 8 \
             --output build/ml-checkpoint/conditioning-teacher-forced.json
 
       - name: Upload development ML artifacts
