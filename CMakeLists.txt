@@ -30,6 +30,7 @@ add_library(mozart-core STATIC
     src/generation/LocalNeuralPatternProvider.cpp
     src/generation/GenerationService.cpp
     src/generation/OnnxTokenInferenceBackend.cpp
+    src/generation/GenerationRequestJson.cpp
     src/midi/MidiReceiveQueue.cpp
     src/midi/ControllerMapping.cpp
 )
