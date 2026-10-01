@@ -27,6 +27,7 @@ on:
       - "tests/test_mozart_conditioning_response.py"
       - "tests/test_mozart_conditioning_sequence_response.py"
       - "tests/test_build_conditioning_fixture_corpus.py"
+      - "tests/test_train_mozart_model.py"
       - "tools/evaluate_mozart_conditioning.py"
       - "tools/evaluate_mozart_conditioning_sequence.py"
       - "tools/build_conditioning_fixture_corpus.py"
@@ -131,6 +132,12 @@ jobs:
             tools/build_training_windows.py \
             tools/build_training_shards.py \
             tools/build_fixture_corpus.py
+
+      - name: Test development trainer repetition contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_train_mozart_model.py'
 
       - name: Install pinned ML export toolchain
         shell: bash
