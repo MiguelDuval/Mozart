@@ -328,6 +328,7 @@ def evaluate_teacher_forced(
     *,
     config_path: Path | None = None,
     onnx_path: Path | None = None,
+    window_size: int = 8,
     require_target_top1: bool = False,
 ) -> dict[str, Any]:
     records = _load_records(records_path)
@@ -359,6 +360,7 @@ def evaluate_teacher_forced(
         records,
         raw_probes,
         onnx_session=onnx_session,
+        window_size=window_size,
         require_target_top1=require_target_top1,
     )
 
@@ -370,6 +372,12 @@ def main() -> int:
     parser.add_argument("probe_file", type=Path)
     parser.add_argument("--config", type=Path)
     parser.add_argument("--onnx", type=Path)
+    parser.add_argument(
+        "--window-size",
+        type=int,
+        default=8,
+        help="Teacher-forced steps observed after each fixture divergence.",
+    )
     parser.add_argument(
         "--require-target-top1",
         action=argparse.BooleanOptionalAction,
@@ -384,6 +392,7 @@ def main() -> int:
         args.probe_file,
         config_path=args.config,
         onnx_path=args.onnx,
+        window_size=args.window_size,
         require_target_top1=args.require_target_top1,
     )
     encoded = json.dumps(
