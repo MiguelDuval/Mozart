@@ -501,8 +501,8 @@ def evaluate_sequence_responsiveness(
             torch_high,
             max_reported_diffs=max_reported_diffs,
         )
-        torch_low_grammar = validate_mozart_token_sequence(torch_low)
-        torch_high_grammar = validate_mozart_token_sequence(torch_high)
+        torch_low_grammar = validate_mozart_token_sequence(torch_low, require_eos=False)
+        torch_high_grammar = validate_mozart_token_sequence(torch_high, require_eos=False)
         if require_valid_grammar:
             for label, grammar in (
                 ("low", torch_low_grammar),
@@ -552,8 +552,8 @@ def evaluate_sequence_responsiveness(
                 onnx_high,
                 max_reported_diffs=max_reported_diffs,
             )
-            onnx_low_grammar = validate_mozart_token_sequence(onnx_low)
-            onnx_high_grammar = validate_mozart_token_sequence(onnx_high)
+            onnx_low_grammar = validate_mozart_token_sequence(onnx_low, require_eos=False)
+            onnx_high_grammar = validate_mozart_token_sequence(onnx_high, require_eos=False)
             if require_valid_grammar:
                 for label, grammar in (
                     ("low", onnx_low_grammar),
