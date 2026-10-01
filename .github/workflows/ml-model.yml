@@ -230,6 +230,22 @@ jobs:
               )
           if not checkpoint.get("model_state"):
               raise SystemExit("development checkpoint has no model_state")
+          if checkpoint.get("fit_diagnostic") is not True:
+              raise SystemExit("development checkpoint was not trained in fit-diagnostic mode")
+          if checkpoint.get("repeat_train_records") != 16:
+              raise SystemExit(
+                  "development fit checkpoint has unexpected repeated-record budget: "
+                  f"{checkpoint.get('repeat_train_records')!r}"
+              )
+          if checkpoint.get("weight_decay") != 0.0:
+              raise SystemExit(
+                  "fit-diagnostic checkpoint must have weight_decay=0"
+              )
+          if checkpoint.get("total_optimizer_updates") != 480:
+              raise SystemExit(
+                  "development fit checkpoint must contain exactly 480 optimizer updates; "
+                  f"got {checkpoint.get('total_optimizer_updates')!r}"
+              )
           loss = checkpoint.get("train_loss")
           if not isinstance(loss, (int, float)) or not math.isfinite(loss):
               raise SystemExit(f"invalid training loss: {loss!r}")
