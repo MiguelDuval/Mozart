@@ -11,7 +11,12 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
-from train_mozart_model import TokenRecordDataset
+from torch import nn
+
+from train_mozart_model import (
+    TokenRecordDataset,
+    apply_fit_diagnostic,
+)
 
 
 def _record() -> dict:
@@ -60,6 +65,23 @@ class TrainDatasetTests(unittest.TestCase):
             for repeat in (0, -1):
                 with self.assertRaisesRegex(ValueError, "repeat must be positive"):
                     TokenRecordDataset(path, 16, repeat=repeat)
+
+
+    def test_fit_diagnostic_disables_dropout_without_changing_module_shape(self) -> None:
+        model = nn.Sequential(
+            nn.Linear(4, 4),
+            nn.Dropout(p=0.25),
+            nn.Sequential(nn.Dropout(p=0.5)),
+        )
+        apply_fit_diagnostic(model)
+        dropouts = [
+            module
+            for module in model.modules()
+            if isinstance(module, nn.Dropout)
+        ]
+        self.assertEqual(len(dropouts), 2)
+        self.assertEqual([module.p for module in dropouts], [0.0, 0.0])
+        self.assertEqual(model[0].weight.shape, (4, 4))
 
 
 if __name__ == "__main__":
