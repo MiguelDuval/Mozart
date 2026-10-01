@@ -3,12 +3,7 @@
 #include <cassert>
 #include <string>
 
-namespace mozart::platform::android {
-
-std::string jsonForRequest(
-        const mozart::generation::GenerationRequest& request);
-
-} // namespace mozart::platform::android
+#include "generation/GenerationRequestJson.h"
 
 namespace {
 
@@ -26,7 +21,7 @@ void testGenerationRequestSerializesConditioningContract() {
     request.variation = 1.0;
 
     const auto json =
-            mozart::platform::android::jsonForRequest(request);
+            mozart::generation::serializeGenerationRequestJson(request);
 
     assert(json.find(R"("style":5)") != std::string::npos);
     assert(json.find(R"("substyle":6)") != std::string::npos);
