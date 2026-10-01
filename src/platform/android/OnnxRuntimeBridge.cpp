@@ -11,32 +11,6 @@
 
 namespace mozart::platform::android {
 
-namespace {
-
-void clearJniException(JNIEnv* env) noexcept {
-    if (env != nullptr && env->ExceptionCheck()) {
-        env->ExceptionClear();
-    }
-}
-
-[[nodiscard]] std::string fromJavaString(
-        JNIEnv* env,
-        jstring value) {
-    if (env == nullptr || value == nullptr) {
-        return {};
-    }
-
-    const char* utf = env->GetStringUTFChars(value, nullptr);
-    if (utf == nullptr) {
-        clearJniException(env);
-        return {};
-    }
-
-    const std::string result(utf);
-    env->ReleaseStringUTFChars(value, utf);
-    return result;
-}
-
 [[nodiscard]] std::string jsonForRequest(
         const generation::GenerationRequest& request) {
     std::ostringstream json;
@@ -64,6 +38,32 @@ void clearJniException(JNIEnv* env) noexcept {
          << R"(,"seed":)" << request.seed
          << "}";
     return json.str();
+}
+
+namespace {
+
+void clearJniException(JNIEnv* env) noexcept {
+    if (env != nullptr && env->ExceptionCheck()) {
+        env->ExceptionClear();
+    }
+}
+
+[[nodiscard]] std::string fromJavaString(
+        JNIEnv* env,
+        jstring value) {
+    if (env == nullptr || value == nullptr) {
+        return {};
+    }
+
+    const char* utf = env->GetStringUTFChars(value, nullptr);
+    if (utf == nullptr) {
+        clearJniException(env);
+        return {};
+    }
+
+    const std::string result(utf);
+    env->ReleaseStringUTFChars(value, utf);
+    return result;
 }
 
 [[nodiscard]] generation::TokenInferenceResult parseResponse(
