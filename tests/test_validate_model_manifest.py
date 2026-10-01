@@ -435,5 +435,21 @@ class ModelManifestValidationTests(unittest.TestCase):
                 validate(self._write(manifest, Path(directory)))
 
 
+
+    def test_experimental_onnx_runtime_requires_fixed_token_io_names(self) -> None:
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "docs"
+            / "experimental-onnx-manifest.example.json"
+        )
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        manifest["runtime"]["input_name"] = "style_id"
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(
+                ValueError, "input_name.*input_ids"
+            ):
+                validate(self._write(manifest, Path(directory)))
+
+
 if __name__ == "__main__":
     unittest.main()
