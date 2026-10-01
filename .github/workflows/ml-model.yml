@@ -295,6 +295,8 @@ jobs:
             --output build/ml-checkpoint/conditioning-response.json
 
       - name: Evaluate development greedy conditioning responsiveness
+        id: greedy-evaluation
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -312,6 +314,9 @@ jobs:
             --output build/ml-checkpoint/conditioning-sequence-response.json
 
       - name: Evaluate teacher-forced conditioning targets
+        id: teacher-forced-evaluation
+        if: ${{ always() }}
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -323,6 +328,23 @@ jobs:
             --onnx build/ml-checkpoint/model.onnx \
             --window-size 8 \
             --output build/ml-checkpoint/conditioning-teacher-forced.json
+
+      - name: Enforce development conditioning gates
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          greedy_outcome="${{ steps.greedy-evaluation.outcome }}"
+          teacher_outcome="${{ steps.teacher-forced-evaluation.outcome }}"
+          if [[ "$greedy_outcome" != "success" ]]; then
+            echo "FAIL: greedy conditioning gate outcome=$greedy_outcome"
+            exit 1
+          fi
+          if [[ "$teacher_outcome" != "success" ]]; then
+            echo "FAIL: teacher-forced conditioning diagnostic outcome=$teacher_outcome"
+            exit 1
+          fi
+          echo "PASS: development conditioning gates passed"
 
       - name: Upload development ML artifacts
         if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json', 'build/ml-checkpoint/conditioning-sequence-response.json', 'build/ml-checkpoint/conditioning-teacher-forced.json', 'build/ml-conditioning-fixture/sequence-probes.json') != '' }}
