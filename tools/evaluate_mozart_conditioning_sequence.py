@@ -47,9 +47,23 @@ CONTROL_VALUE_BASE = 480
 VOCABULARY_SIZE = 512
 
 
-def validate_mozart_token_sequence(tokens: list[int]) -> dict[str, Any]:
-    if len(tokens) < 2:
-        return {"valid": False, "error": "token sequence is shorter than BOS/EOS"}
+def validate_mozart_token_sequence(
+    tokens: list[int],
+    *,
+    require_eos: bool = True,
+) -> dict[str, Any]:
+    """Validate a complete token stream or an open-ended generation prefix.
+
+    When require_eos is False, the final event may be incomplete because the
+    evaluator is validating a bounded autoregressive prefix rather than claiming
+    that generation has finished. Malformed token ordering is still rejected.
+    """
+    minimum = 2 if require_eos else 1
+    if len(tokens) < minimum:
+        return {
+            "valid": False,
+            "error": "token sequence is shorter than the required minimum",
+        }
     if tokens[0] != BOS:
         return {
             "valid": False,
@@ -57,17 +71,28 @@ def validate_mozart_token_sequence(tokens: list[int]) -> dict[str, Any]:
             "token": tokens[0],
             "error": "token sequence must start with BOS",
         }
-    if tokens[-1] != EOS:
+
+    eos_present = bool(tokens and tokens[-1] == EOS)
+    if require_eos and not eos_present:
         return {
             "valid": False,
             "index": len(tokens) - 1,
             "token": tokens[-1],
             "error": "token sequence must end with EOS",
         }
+    if eos_present and len(tokens) == 1:
+        return {
+            "valid": False,
+            "index": 0,
+            "token": tokens[0],
+            "error": "token sequence cannot be only BOS/EOS",
+        }
 
+    stream_end = len(tokens) - 1 if eos_present else len(tokens)
     channel_initialized = False
     index = 1
-    while index < len(tokens) - 1:
+
+    while index < stream_end:
         token = tokens[index]
         if not 0 <= token < VOCABULARY_SIZE:
             return {
@@ -102,15 +127,10 @@ def validate_mozart_token_sequence(tokens: list[int]) -> dict[str, Any]:
             }
 
         if NOTE_BASE <= token < VELOCITY_BASE:
-            if index + 2 >= len(tokens) - 1:
-                return {
-                    "valid": False,
-                    "index": index,
-                    "token": token,
-                    "error": "note token is missing velocity/duration tokens",
-                }
+            remaining = stream_end - index
+            if remaining == 1 and not require_eos:
+                return {"valid": True, "error": None, "complete": False}
             velocity = tokens[index + 1]
-            duration = tokens[index + 2]
             if not VELOCITY_BASE <= velocity < TIME_SHIFT_BASE:
                 return {
                     "valid": False,
@@ -118,6 +138,9 @@ def validate_mozart_token_sequence(tokens: list[int]) -> dict[str, Any]:
                     "token": velocity,
                     "error": "note token is not followed by a velocity token",
                 }
+            if remaining == 2 and not require_eos:
+                return {"valid": True, "error": None, "complete": False}
+            duration = tokens[index + 2]
             if not DURATION_BASE <= duration < CONTROLLER_BASE:
                 return {
                     "valid": False,
@@ -129,13 +152,9 @@ def validate_mozart_token_sequence(tokens: list[int]) -> dict[str, Any]:
             continue
 
         if CONTROLLER_BASE <= token < CONTROL_VALUE_BASE:
-            if index + 1 >= len(tokens) - 1:
-                return {
-                    "valid": False,
-                    "index": index,
-                    "token": token,
-                    "error": "controller token is missing a value token",
-                }
+            remaining = stream_end - index
+            if remaining == 1 and not require_eos:
+                return {"valid": True, "error": None, "complete": False}
             value = tokens[index + 1]
             if not CONTROL_VALUE_BASE <= value < VOCABULARY_SIZE:
                 return {
@@ -162,7 +181,11 @@ def validate_mozart_token_sequence(tokens: list[int]) -> dict[str, Any]:
             "error": "unknown Mozart token range",
         }
 
-    return {"valid": True, "error": None}
+    return {
+        "valid": True,
+        "error": None,
+        "complete": eos_present,
+    }
 
 
 def load_sequence_probe_file(path: Path) -> dict[str, tuple[int, ...]]:
