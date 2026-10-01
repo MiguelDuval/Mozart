@@ -41,7 +41,7 @@ MidiEventDetokenizer
 PatternProposalValidator
 ```
 
-GenerationService invokes the backend only on its dedicated worker thread.
+GenerationService invokes the backend only on its dedicated worker thread. A generation request is also tagged with the model-selection epoch; if the user changes or clears the selection before completion, the result is discarded instead of entering the scheduler.
 
 ## Compatibility gate
 
