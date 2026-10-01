@@ -58,6 +58,13 @@ control mapping. The CI greedy sequence gate therefore evaluates the final
 requested training checkpoint (latest.pt), while the validation loss remains
 reported for diagnostics.
 
+The greedy sequence gate validates generated output as a bounded grammar prefix.
+It does not require EOS inside the fixed 32-token observation budget, because EOS
+marks completion of a stream rather than validity of an unfinished autoregressive
+window. A malformed continuation (for example a controller token emitted where
+a note velocity is required) still fails immediately. Complete-stream validation
+continues to require EOS in the standalone grammar contract.
+
 Because this fixture intentionally contains only ten train records, the CI fit may
 repeat those exact records within each epoch using `--repeat-train-records`. This
 is deterministic repeated exposure, not data augmentation and not new musical
