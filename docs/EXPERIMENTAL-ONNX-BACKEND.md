@@ -65,6 +65,13 @@ alongside the current `input_ids`. Key/scale and chord progression remain part
 of the portable request contract but are not sent to this exported graph because
 they are not among its seven ONNX inputs.
 
+The machine-readable manifest validator also cross-checks the six canonical
+conditioning entries against the declared `inputs[]` tensors before Android
+runtime use. Each categorical condition must be int64 `[1]`, while
+`performance_controls` must be float32 `[1,5]` in the documented order.
+Input/output tensor names must be unique, and tensor dimensions may use only
+positive extents or ONNX's `-1` dynamic-dimension marker.
+
 After the ONNX session is created, the Java bridge compares the manifest tensor
 contract with the actual session input/output tensor metadata for all seven
 inputs plus the output. A missing or incompatible conditioning tensor is
