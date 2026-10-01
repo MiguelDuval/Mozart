@@ -28,6 +28,7 @@ on:
       - "tests/test_mozart_conditioning_sequence_response.py"
       - "tests/test_build_conditioning_fixture_corpus.py"
       - "tests/test_train_mozart_model.py"
+      - "tests/test_mozart_conditioning_teacher_forced.py"
       - "tools/evaluate_mozart_conditioning.py"
       - "tools/evaluate_mozart_conditioning_sequence.py"
       - "tools/build_conditioning_fixture_corpus.py"
@@ -132,6 +133,12 @@ jobs:
             tools/build_training_windows.py \
             tools/build_training_shards.py \
             tools/build_fixture_corpus.py
+
+      - name: Test teacher-forced conditioning evaluator contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_mozart_conditioning_teacher_forced.py'
 
       - name: Test development trainer repetition contract
         shell: bash
@@ -281,8 +288,20 @@ jobs:
             --seed 42 \
             --output build/ml-checkpoint/conditioning-sequence-response.json
 
+      - name: Evaluate teacher-forced conditioning targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/evaluate_mozart_conditioning_teacher_forced.py \
+            build/ml-checkpoint/development-inference.pt \
+            build/ml-conditioning-fixture/train.jsonl \
+            build/ml-conditioning-fixture/sequence-probes.json \
+            --config docs/model-training-config.json \
+            --onnx build/ml-checkpoint/model.onnx \
+            --output build/ml-checkpoint/conditioning-teacher-forced.json
+
       - name: Upload development ML artifacts
-        if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json', 'build/ml-checkpoint/conditioning-sequence-response.json', 'build/ml-conditioning-fixture/sequence-probes.json') != '' }}
+        if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json', 'build/ml-checkpoint/conditioning-sequence-response.json', 'build/ml-checkpoint/conditioning-teacher-forced.json', 'build/ml-conditioning-fixture/sequence-probes.json') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: mozart-development-ml-${{ github.sha }}
@@ -292,6 +311,7 @@ jobs:
             build/ml-checkpoint/abi.json
             build/ml-checkpoint/conditioning-response.json
             build/ml-checkpoint/conditioning-sequence-response.json
+            build/ml-checkpoint/conditioning-teacher-forced.json
             build/ml-conditioning-fixture/sequence-probes.json
           archive: true
           if-no-files-found: error
