@@ -84,6 +84,39 @@ class MozartConditioningSequenceTests(unittest.TestCase):
         self.assertFalse(report["valid"])
         self.assertIn("end with EOS", report["error"])
 
+    def test_bounded_generation_prefix_does_not_require_eos(self) -> None:
+        from evaluate_mozart_conditioning_sequence import (
+            validate_mozart_token_sequence,
+        )
+
+        complete = validate_mozart_token_sequence(
+            [1, 16, 68, 160, 258],
+            require_eos=False,
+        )
+        self.assertTrue(complete["valid"])
+        self.assertFalse(complete["complete"])
+
+        open_note = validate_mozart_token_sequence(
+            [1, 16, 68],
+            require_eos=False,
+        )
+        self.assertTrue(open_note["valid"])
+        self.assertFalse(open_note["complete"])
+
+        open_note_after_velocity = validate_mozart_token_sequence(
+            [1, 16, 68, 160],
+            require_eos=False,
+        )
+        self.assertTrue(open_note_after_velocity["valid"])
+        self.assertFalse(open_note_after_velocity["complete"])
+
+        malformed = validate_mozart_token_sequence(
+            [1, 16, 68, 452],
+            require_eos=False,
+        )
+        self.assertFalse(malformed["valid"])
+        self.assertEqual(malformed["token"], 452)
+
     def test_loads_fixture_derived_control_probe_prefixes(self) -> None:
         from evaluate_mozart_conditioning_sequence import (
             load_sequence_probe_file,
