@@ -134,6 +134,15 @@ def _validate_runtime_extension(root: dict) -> None:
             "manifest.runtime.output_name must reference an outputs[] tensor"
         )
 
+    if input_name != "input_ids":
+        raise ValueError(
+            "manifest.runtime.input_name must be input_ids for the experimental ONNX ABI"
+        )
+    if output_name != "logits":
+        raise ValueError(
+            "manifest.runtime.output_name must be logits for the experimental ONNX ABI"
+        )
+
     if runtime.get("input_dtype") != "int64":
         raise ValueError("manifest.runtime.input_dtype must be int64")
 
