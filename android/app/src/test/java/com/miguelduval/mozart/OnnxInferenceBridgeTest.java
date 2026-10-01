@@ -11,6 +11,7 @@ import java.nio.FloatBuffer;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import org.junit.Test;
@@ -147,23 +148,25 @@ public class OnnxInferenceBridgeTest {
         final JSONObject runtime = new JSONObject();
         runtime.put(
                 "conditioning_input_names",
-                new String[] {
-                        "style_id",
-                        "substyle_id",
-                        "mood_id",
-                        "rhythm_id",
-                        "role_id",
-                        "performance_controls"
-                });
+                new JSONArray(
+                        new String[] {
+                                "style_id",
+                                "substyle_id",
+                                "mood_id",
+                                "rhythm_id",
+                                "role_id",
+                                "performance_controls"
+                        }));
         runtime.put(
                 "performance_control_names",
-                new String[] {
-                        "density",
-                        "energy",
-                        "syncopation",
-                        "swing",
-                        "variation"
-                });
+                new JSONArray(
+                        new String[] {
+                                "density",
+                                "energy",
+                                "syncopation",
+                                "swing",
+                                "variation"
+                        }));
 
         method.invoke(null, runtime);
 
