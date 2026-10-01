@@ -337,6 +337,8 @@ public final class OnnxInferenceBridge {
                     "first ONNX adapter requires int64 input_ids");
         }
 
+        validateCanonicalConditioningOrder(runtime);
+
         final String inputName =
                 runtime.optString("input_name", "");
         final String outputName =
@@ -380,6 +382,50 @@ public final class OnnxInferenceBridge {
         }
     }
 
+    private static void validateCanonicalConditioningOrder(
+            JSONObject runtime) throws Exception {
+        final JSONArray conditioningInputNames =
+                runtime.optJSONArray("conditioning_input_names");
+        if (conditioningInputNames == null ||
+                conditioningInputNames.length() !=
+                        CONDITIONING_INPUT_NAMES.length) {
+            throw new IllegalArgumentException(
+                    "manifest.runtime.conditioning_input_names must declare all conditioning inputs");
+        }
+
+        for (int i = 0; i < CONDITIONING_INPUT_NAMES.length; ++i) {
+            if (!CONDITIONING_INPUT_NAMES[i].equals(
+                    conditioningInputNames.getString(i))) {
+                throw new IllegalArgumentException(
+                        "manifest.runtime.conditioning_input_names must match canonical order");
+            }
+        }
+
+        final String[] performanceControlNames = {
+                "density",
+                "energy",
+                "syncopation",
+                "swing",
+                "variation"
+        };
+        final JSONArray configuredPerformanceControls =
+                runtime.optJSONArray("performance_control_names");
+        if (configuredPerformanceControls == null ||
+                configuredPerformanceControls.length() !=
+                        performanceControlNames.length) {
+            throw new IllegalArgumentException(
+                    "manifest.runtime.performance_control_names must declare all performance controls");
+        }
+
+        for (int i = 0; i < performanceControlNames.length; ++i) {
+            if (!performanceControlNames[i].equals(
+                    configuredPerformanceControls.getString(i))) {
+                throw new IllegalArgumentException(
+                        "manifest.runtime.performance_control_names must match canonical order");
+            }
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private static void validateSessionAbi(
             Object session,
@@ -387,6 +433,7 @@ public final class OnnxInferenceBridge {
         final JSONObject runtime = root.getJSONObject("runtime");
         final String inputName = runtime.getString("input_name");
         final String outputName = runtime.getString("output_name");
+        validateCanonicalConditioningOrder(runtime);
         if (!INPUT_IDS.equals(inputName) || !"logits".equals(outputName)) {
             throw new IllegalArgumentException(
                     "experimental Mozart ONNX ABI requires input_ids -> logits");
