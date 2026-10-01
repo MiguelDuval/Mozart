@@ -9,16 +9,17 @@ namespace {
 void testTicketMatchesOnlyCurrentModel() {
     const GenerationRequestTicket ticket{"model-a"};
 
-    assert(ticket.matches("model-a"));
-    assert(!ticket.matches("model-b"));
-    assert(!ticket.matches(""));
+    assert(ticket.matches("model-a", 7));
+    assert(!ticket.matches("model-a", 8));
+    assert(!ticket.matches("model-b", 7));
+    assert(!ticket.matches("", 7));
 }
 
 void testEmptyTicketNeverMatches() {
     const GenerationRequestTicket ticket{};
 
-    assert(!ticket.matches("model-a"));
-    assert(!ticket.matches(""));
+    assert(!ticket.matches("model-a", 1));
+    assert(!ticket.matches("", 0));
 }
 
 } // namespace
