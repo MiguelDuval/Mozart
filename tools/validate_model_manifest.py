@@ -27,6 +27,21 @@ REQUIRED_CONDITIONING_FIELDS = (
 REQUIRED_DECODING_FIELDS = ("strategy", "temperature", "top_k", "top_p", "seed_policy")
 REQUIRED_PROVENANCE_FIELDS = ("training_source", "dataset_manifest", "preprocessing_revision")
 REQUIRED_LICENSE_FIELDS = ("implementation", "model_weights", "training_data", "redistribution")
+CANONICAL_CONDITIONING_INPUT_NAMES = (
+    "style_id",
+    "substyle_id",
+    "mood_id",
+    "rhythm_id",
+    "role_id",
+    "performance_controls",
+)
+CANONICAL_PERFORMANCE_CONTROL_NAMES = (
+    "density",
+    "energy",
+    "syncopation",
+    "swing",
+    "variation",
+)
 
 
 def _require_object(value: Any, where: str) -> dict:
@@ -103,6 +118,18 @@ def _validate_runtime_extension(root: dict) -> None:
 
     if runtime.get("input_dtype") != "int64":
         raise ValueError("manifest.runtime.input_dtype must be int64")
+
+    conditioning_input_names = runtime.get("conditioning_input_names")
+    if conditioning_input_names != list(CANONICAL_CONDITIONING_INPUT_NAMES):
+        raise ValueError(
+            "manifest.runtime.conditioning_input_names must match the canonical ONNX conditioning order"
+        )
+
+    performance_control_names = runtime.get("performance_control_names")
+    if performance_control_names != list(CANONICAL_PERFORMANCE_CONTROL_NAMES):
+        raise ValueError(
+            "manifest.runtime.performance_control_names must match the canonical performance control order"
+        )
 
     if runtime.get("token_mode") != "mozart_ids":
         raise ValueError(
