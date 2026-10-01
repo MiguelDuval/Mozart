@@ -7,7 +7,7 @@ using namespace mozart::generation;
 namespace {
 
 void testTicketMatchesOnlyCurrentModel() {
-    const GenerationRequestTicket ticket{"model-a"};
+    const GenerationRequestTicket ticket{"model-a", 7};
 
     assert(ticket.matches("model-a", 7));
     assert(!ticket.matches("model-a", 8));
