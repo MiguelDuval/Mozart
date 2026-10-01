@@ -63,6 +63,32 @@ def template_manifest() -> dict:
     }
 
 
+def add_experimental_onnx_structure(manifest: dict) -> dict:
+    manifest["model_format"] = "onnx"
+    manifest["inputs"] = [
+        {"name": "input_ids", "dtype": "int64", "shape": [1, -1],
+         "layout": "batch_sequence", "role": "token_ids"},
+        {"name": "style_id", "dtype": "int64", "shape": [1],
+         "layout": "batch", "role": "style_condition"},
+        {"name": "substyle_id", "dtype": "int64", "shape": [1],
+         "layout": "batch", "role": "substyle_condition"},
+        {"name": "mood_id", "dtype": "int64", "shape": [1],
+         "layout": "batch", "role": "mood_condition"},
+        {"name": "rhythm_id", "dtype": "int64", "shape": [1],
+         "layout": "batch", "role": "rhythm_condition"},
+        {"name": "role_id", "dtype": "int64", "shape": [1],
+         "layout": "batch", "role": "role_condition"},
+        {"name": "performance_controls", "dtype": "float32", "shape": [1, 5],
+         "layout": "batch_performance_controls", "role": "performance_condition"},
+    ]
+    manifest["outputs"] = [
+        {"name": "logits", "dtype": "float32", "shape": [-1, -1, 512],
+         "layout": "batch_sequence_vocabulary", "role": "token_scores"}
+    ]
+    return manifest
+
+
+
 class ModelManifestValidationTests(unittest.TestCase):
     def _write(self, manifest: dict, root: Path) -> Path:
         path = root / "manifest.json"
