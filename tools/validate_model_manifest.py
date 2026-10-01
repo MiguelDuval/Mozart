@@ -70,8 +70,26 @@ def _validate_tensor(value: Any, where: str) -> None:
     if not isinstance(shape, list) or not shape:
         raise ValueError(f"{where}.shape must be a non-empty array")
     for index, dimension in enumerate(shape):
-        if isinstance(dimension, bool) or not isinstance(dimension, int) or dimension == 0:
-            raise ValueError(f"{where}.shape[{index}] must be a non-zero integer")
+        if (
+            isinstance(dimension, bool)
+            or not isinstance(dimension, int)
+            or dimension == 0
+            or dimension < -1
+        ):
+            raise ValueError(
+                f"{where}.shape[{index}] must be -1 or a positive integer"
+            )
+
+
+def _validate_unique_tensor_names(values: list[dict], where: str) -> None:
+    names = set()
+    for index, tensor in enumerate(values):
+        name = tensor["name"]
+        if name in names:
+            raise ValueError(
+                f"{where} tensor names must be unique; duplicate {name!r} at index {index}"
+            )
+        names.add(name)
 
 
 def _validate_runtime_extension(root: dict) -> None:
@@ -130,6 +148,33 @@ def _validate_runtime_extension(root: dict) -> None:
         raise ValueError(
             "manifest.runtime.performance_control_names must match the canonical performance control order"
         )
+
+    input_tensors = {tensor["name"]: tensor for tensor in root["inputs"]}
+    conditioning_contract = {
+        "style_id": ("int64", [1]),
+        "substyle_id": ("int64", [1]),
+        "mood_id": ("int64", [1]),
+        "rhythm_id": ("int64", [1]),
+        "role_id": ("int64", [1]),
+        "performance_controls": ("float32", [1, 5]),
+    }
+    for tensor_name in CANONICAL_CONDITIONING_INPUT_NAMES:
+        tensor = input_tensors.get(tensor_name)
+        if tensor is None:
+            raise ValueError(
+                f"manifest.runtime conditioning tensor {tensor_name} is missing from inputs[]"
+            )
+        expected_dtype, expected_shape = conditioning_contract[tensor_name]
+        if tensor["dtype"].lower() != expected_dtype:
+            raise ValueError(
+                f"manifest.runtime conditioning tensor {tensor_name} must use dtype "
+                f"{expected_dtype}"
+            )
+        if tensor["shape"] != expected_shape:
+            raise ValueError(
+                f"manifest.runtime conditioning tensor {tensor_name} has invalid shape; "
+                f"expected {expected_shape}"
+            )
 
     if runtime.get("token_mode") != "mozart_ids":
         raise ValueError(
@@ -238,6 +283,7 @@ def validate(path: Path) -> dict:
             raise ValueError(f"manifest.{field} must be a non-empty array")
         for index, tensor in enumerate(values):
             _validate_tensor(tensor, f"manifest.{field}[{index}]")
+        _validate_unique_tensor_names(values, f"manifest.{field}")
 
     cache = _require_object(root["kv_cache"], "manifest.kv_cache")
     enabled = cache.get("enabled")
