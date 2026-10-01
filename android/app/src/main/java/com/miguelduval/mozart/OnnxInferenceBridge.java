@@ -25,6 +25,15 @@ public final class OnnxInferenceBridge {
     private static final int MOZART_VOCABULARY_SIZE = 512;
     private static final int BOS = 1;
     private static final int EOS = 2;
+    private static final String INPUT_IDS = "input_ids";
+    private static final String[] CONDITIONING_INPUT_NAMES = {
+            "style_id",
+            "substyle_id",
+            "mood_id",
+            "rhythm_id",
+            "role_id",
+            "performance_controls"
+    };
 
     private OnnxInferenceBridge() {}
 
@@ -94,6 +103,9 @@ public final class OnnxInferenceBridge {
                 requestJson = "{}";
             }
 
+            final Map<String, Object> conditioningInputs =
+                    parseConditioningRequest(requestJson);
+
             final Class<?> envClass =
                     Class.forName("ai.onnxruntime.OrtEnvironment");
             final Class<?> tensorClass =
@@ -101,17 +113,61 @@ public final class OnnxInferenceBridge {
             final Object environment =
                     envClass.getMethod("getEnvironment").invoke(null);
 
-            final Object session =
-                    envClass.getMethod("createSession", String.class)
-                            .invoke(environment, artifact.getAbsolutePath());
-
-            validateSessionAbi(session, root);
-
-            final List<Integer> tokens = new ArrayList<>();
-            tokens.add(runtime.getInt("bos_token_id"));
-
+            final Map<String, Object> conditioningTensors =
+                    new LinkedHashMap<>();
             try {
-                for (int step = 0; step < maxTokens - 1; ++step) {
+                for (String inputName : CONDITIONING_INPUT_NAMES) {
+                    final Object values = conditioningInputs.get(inputName);
+                    if (values instanceof long[]) {
+                        final long[] conditionValues = (long[]) values;
+                        final LongBuffer conditionBuffer =
+                                ByteBuffer.allocateDirect(
+                                                conditionValues.length * Long.BYTES)
+                                        .order(ByteOrder.nativeOrder())
+                                        .asLongBuffer();
+                        conditionBuffer.put(conditionValues);
+                        conditionBuffer.rewind();
+                        conditioningTensors.put(
+                                inputName,
+                                createLongTensor(
+                                        tensorClass,
+                                        environment,
+                                        conditionBuffer,
+                                        new long[] {1}));
+                    } else if (values instanceof float[]) {
+                        final float[] conditionValues = (float[]) values;
+                        final FloatBuffer conditionBuffer =
+                                ByteBuffer.allocateDirect(
+                                                conditionValues.length * Float.BYTES)
+                                        .order(ByteOrder.nativeOrder())
+                                        .asFloatBuffer();
+                        conditionBuffer.put(conditionValues);
+                        conditionBuffer.rewind();
+                        conditioningTensors.put(
+                                inputName,
+                                createFloatTensor(
+                                        tensorClass,
+                                        environment,
+                                        conditionBuffer,
+                                        new long[] {1, 5}));
+                    } else {
+                        throw new IllegalArgumentException(
+                                "unsupported ONNX conditioning input: "
+                                        + inputName);
+                    }
+                }
+
+                final Object session =
+                        envClass.getMethod("createSession", String.class)
+                                .invoke(environment, artifact.getAbsolutePath());
+
+                try {
+                    validateSessionAbi(session, root);
+
+                    final List<Integer> tokens = new ArrayList<>();
+                    tokens.add(runtime.getInt("bos_token_id"));
+
+                    for (int step = 0; step < maxTokens - 1; ++step) {
                     if (tokens.size() >= contextLength) {
                         return response(
                                 "FAILED",
@@ -143,6 +199,7 @@ public final class OnnxInferenceBridge {
 
                     final Map<String, Object> inputs = new LinkedHashMap<>();
                     inputs.put(runtime.getString("input_name"), inputTensor);
+                    inputs.putAll(conditioningTensors);
 
                     Object sessionResult = null;
                     Object outputValue = null;
@@ -188,14 +245,20 @@ public final class OnnxInferenceBridge {
                     }
                 }
 
-                return response(
-                        "FAILED",
-                        0,
-                        elapsedMs(started),
-                        encodeTokens(tokens),
-                        "ONNX model did not emit EOS before max_generated_tokens");
+                    return response(
+                            "FAILED",
+                            0,
+                            elapsedMs(started),
+                            encodeTokens(tokens),
+                            "ONNX model did not emit EOS before max_generated_tokens");
+                    }
+                } finally {
+                    closeQuietly(session);
+                }
             } finally {
-                closeQuietly(session);
+                for (Object tensor : conditioningTensors.values()) {
+                    closeQuietly(tensor);
+                }
             }
         } catch (ClassNotFoundException e) {
             return response(
@@ -324,6 +387,16 @@ public final class OnnxInferenceBridge {
         final JSONObject runtime = root.getJSONObject("runtime");
         final String inputName = runtime.getString("input_name");
         final String outputName = runtime.getString("output_name");
+        if (!INPUT_IDS.equals(inputName) || !"logits".equals(outputName)) {
+            throw new IllegalArgumentException(
+                    "experimental Mozart ONNX ABI requires input_ids -> logits");
+        }
+
+        final JSONArray manifestInputs = root.getJSONArray("inputs");
+        if (manifestInputs.length() != 1 + CONDITIONING_INPUT_NAMES.length) {
+            throw new IllegalArgumentException(
+                    "experimental Mozart ONNX ABI requires exactly 7 inputs");
+        }
 
         final Map<String, ?> inputInfo =
                 (Map<String, ?>) session.getClass()
@@ -345,14 +418,76 @@ public final class OnnxInferenceBridge {
                     "ONNX output tensor not found: " + outputName);
         }
 
-        validateSessionTensor(
-                inputNode,
-                findManifestTensor(root.getJSONArray("inputs"), inputName),
-                "input");
+        final JSONObject tokenTensor =
+                findManifestTensor(manifestInputs, INPUT_IDS);
+        if (!"int64".equalsIgnoreCase(
+                normalizeOrtType(tokenTensor.getString("dtype")))) {
+            throw new IllegalArgumentException(
+                    "ONNX manifest input_ids must be int64");
+        }
+        if (tokenTensor.getJSONArray("shape").length() != 2) {
+            throw new IllegalArgumentException(
+                    "ONNX manifest input_ids must have rank 2");
+        }
+        validateSessionTensor(inputNode, tokenTensor, "input input_ids");
+
+        final String[] conditionDtypes = {
+                "int64",
+                "int64",
+                "int64",
+                "int64",
+                "int64",
+                "float32"
+        };
+        final int[] conditionRanks = {1, 1, 1, 1, 1, 2};
+
+        for (int i = 0; i < CONDITIONING_INPUT_NAMES.length; ++i) {
+            final String conditionName = CONDITIONING_INPUT_NAMES[i];
+            final JSONObject tensor =
+                    findManifestTensor(manifestInputs, conditionName);
+            final String expectedDtype = conditionDtypes[i];
+            final int expectedRank = conditionRanks[i];
+
+            if (!expectedDtype.equalsIgnoreCase(
+                    normalizeOrtType(tensor.getString("dtype")))) {
+                throw new IllegalArgumentException(
+                        "ONNX manifest " + conditionName
+                                + " must be " + expectedDtype);
+            }
+
+            final JSONArray expectedShape = tensor.getJSONArray("shape");
+            if (expectedShape.length() != expectedRank) {
+                throw new IllegalArgumentException(
+                        "ONNX manifest " + conditionName
+                                + " rank mismatch");
+            }
+            if (expectedRank == 1 && expectedShape.getLong(0) != 1L) {
+                throw new IllegalArgumentException(
+                        "ONNX manifest " + conditionName
+                                + " must have shape [1]");
+            }
+            if (expectedRank == 2 &&
+                    (expectedShape.getLong(0) != 1L ||
+                            expectedShape.getLong(1) != 5L)) {
+                throw new IllegalArgumentException(
+                        "ONNX manifest performance_controls must have shape [1,5]");
+            }
+
+            final Object node = inputInfo.get(conditionName);
+            if (node == null) {
+                throw new IllegalArgumentException(
+                        "ONNX input tensor not found: " + conditionName);
+            }
+            validateSessionTensor(
+                    node,
+                    tensor,
+                    "input " + conditionName);
+        }
+
         validateSessionTensor(
                 outputNode,
                 findManifestTensor(root.getJSONArray("outputs"), outputName),
-                "output");
+                "output logits");
 
         if (!"int64".equalsIgnoreCase(runtime.getString("input_dtype"))) {
             throw new IllegalArgumentException(
@@ -500,6 +635,103 @@ public final class OnnxInferenceBridge {
         final Method byIndex =
                 sessionResult.getClass().getMethod("get", int.class);
         return byIndex.invoke(sessionResult, 0);
+    }
+
+    private static Map<String, Object> parseConditioningRequest(
+            String requestJson) throws Exception {
+        final JSONObject request =
+                new JSONObject(requestJson == null || requestJson.isEmpty()
+                        ? "{}"
+                        : requestJson);
+
+        final String[] requestNames = {
+                "style",
+                "substyle",
+                "mood",
+                "rhythm",
+                "role"
+        };
+        final int[] maximums = {5, 6, 7, 6, 7};
+        final Map<String, Object> result = new LinkedHashMap<>();
+
+        for (int i = 0; i < requestNames.length; ++i) {
+            final String requestName = requestNames[i];
+            final Object raw = request.get(requestName);
+            if (!(raw instanceof Number)) {
+                throw new IllegalArgumentException(
+                        "ONNX request field " + requestName
+                                + " must be an integer");
+            }
+            final double value = ((Number) raw).doubleValue();
+            if (!Double.isFinite(value) ||
+                    Math.rint(value) != value ||
+                    value < 0.0 ||
+                    value > maximums[i]) {
+                throw new IllegalArgumentException(
+                        "ONNX request field " + requestName
+                                + " is outside its vocabulary range");
+            }
+            result.put(
+                    CONDITIONING_INPUT_NAMES[i],
+                    new long[] {((Number) raw).longValue()});
+        }
+
+        final String[] controlNames = {
+                "density",
+                "energy",
+                "syncopation",
+                "swing",
+                "variation"
+        };
+        final float[] controls = new float[controlNames.length];
+        for (int i = 0; i < controlNames.length; ++i) {
+            final String name = controlNames[i];
+            final Object raw = request.get(name);
+            if (!(raw instanceof Number)) {
+                throw new IllegalArgumentException(
+                        "ONNX request field " + name
+                                + " must be a number");
+            }
+            final double value = ((Number) raw).doubleValue();
+            if (!Double.isFinite(value) || value < 0.0 || value > 1.0) {
+                throw new IllegalArgumentException(
+                        "ONNX request field " + name
+                                + " must be in [0, 1]");
+            }
+            controls[i] = (float) value;
+        }
+        result.put("performance_controls", controls);
+
+        return result;
+    }
+
+    private static Object createFloatTensor(
+            Class<?> tensorClass,
+            Object environment,
+            FloatBuffer buffer,
+            long[] shape) throws Exception {
+        for (Method method : tensorClass.getMethods()) {
+            if (!"createTensor".equals(method.getName())) {
+                continue;
+            }
+
+            final Class<?>[] parameters = method.getParameterTypes();
+            if (parameters.length != 3 ||
+                    !parameters[0].isAssignableFrom(environment.getClass()) ||
+                    !parameters[1].isAssignableFrom(buffer.getClass()) ||
+                    parameters[2] != long[].class) {
+                continue;
+            }
+
+            return method.invoke(
+                    null,
+                    environment,
+                    buffer,
+                    shape);
+        }
+
+        throw new NoSuchMethodException(
+                "OnnxTensor.createTensor(environment, FloatBuffer, shape)");
     }
 
     private static double[] extractLastLogits(Object value) {
