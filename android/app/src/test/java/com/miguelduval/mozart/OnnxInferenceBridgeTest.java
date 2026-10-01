@@ -282,7 +282,14 @@ public class OnnxInferenceBridgeTest {
                         + "\"runtime\":{"
                         + "\"input_name\":\"input_ids\","
                         + "\"output_name\":\"logits\","
-                        + "\"input_dtype\":\"int64\""
+                        + "\"input_dtype\":\"int64\","
+                        + "\"conditioning_input_names\":["
+                        + "\"style_id\",\"substyle_id\",\"mood_id\","
+                        + "\"rhythm_id\",\"role_id\",\"performance_controls\""
+                        + "],"
+                        + "\"performance_control_names\":["
+                        + "\"density\",\"energy\",\"syncopation\",\"swing\",\"variation\""
+                        + "]"
                         + "}"
                         + "}");
     }
