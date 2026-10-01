@@ -231,6 +231,15 @@ def load_sequence_probe_file(path: Path) -> dict[str, tuple[int, ...]]:
             raise ValueError(
                 f"sequence probe {name} must stop before EOS"
             )
+        grammar = validate_mozart_token_sequence(
+            list(prefix),
+            require_eos=False,
+        )
+        if not grammar["valid"]:
+            raise ValueError(
+                f"sequence probe {name} is not a valid MIDI grammar prefix: "
+                f"{grammar['error']}"
+            )
         declared_length = entry.get("prefix_length")
         if declared_length != len(prefix):
             raise ValueError(
