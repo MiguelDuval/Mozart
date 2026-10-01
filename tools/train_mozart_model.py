@@ -308,6 +308,9 @@ def main() -> int:
         f"weight_decay={0.0 if args.fit_diagnostic else args.weight_decay}"
     )
 
+    updates_per_epoch = len(train_loader)
+    total_optimizer_updates = args.epochs * updates_per_epoch
+
     for epoch in range(1, args.epochs + 1):
         train_loss = run_epoch(
             model,
@@ -340,6 +343,11 @@ def main() -> int:
             "seed": args.seed,
             "train_loss": train_loss,
             "validation_loss": validation_loss,
+            "fit_diagnostic": args.fit_diagnostic,
+            "repeat_train_records": args.repeat_train_records,
+            "weight_decay": 0.0 if args.fit_diagnostic else args.weight_decay,
+            "updates_per_epoch": updates_per_epoch,
+            "total_optimizer_updates": total_optimizer_updates,
             "model_state": model.state_dict(),
             "optimizer_state": optimizer.state_dict(),
         }
