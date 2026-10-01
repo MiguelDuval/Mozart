@@ -207,6 +207,7 @@ jobs:
           build/native-tests/mozart_model_catalog_tests
           build/native-tests/mozart_generation_service_tests
           build/native-tests/mozart_generation_request_ticket_tests
+          build/native-tests/mozart_generation_request_json_tests
           build/native-tests/mozart_onnx_token_inference_backend_tests
 
       - name: Test Android JVM unit suite
