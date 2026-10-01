@@ -167,6 +167,21 @@ class ModelManifestValidationTests(unittest.TestCase):
             "max_generated_tokens": 512,
             "bos_token_id": 1,
             "eos_token_id": 2,
+            "conditioning_input_names": [
+                "style_id",
+                "substyle_id",
+                "mood_id",
+                "rhythm_id",
+                "role_id",
+                "performance_controls",
+            ],
+            "performance_control_names": [
+                "density",
+                "energy",
+                "syncopation",
+                "swing",
+                "variation",
+            ],
             "allow_unhashed_experimental": True,
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -187,6 +202,21 @@ class ModelManifestValidationTests(unittest.TestCase):
             "max_generated_tokens": 512,
             "bos_token_id": 99,
             "eos_token_id": 2,
+            "conditioning_input_names": [
+                "style_id",
+                "substyle_id",
+                "mood_id",
+                "rhythm_id",
+                "role_id",
+                "performance_controls",
+            ],
+            "performance_control_names": [
+                "density",
+                "energy",
+                "syncopation",
+                "swing",
+                "variation",
+            ],
             "allow_unhashed_experimental": True,
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -209,6 +239,21 @@ class ModelManifestValidationTests(unittest.TestCase):
             "max_generated_tokens": 512,
             "bos_token_id": 1,
             "eos_token_id": 2,
+            "conditioning_input_names": [
+                "style_id",
+                "substyle_id",
+                "mood_id",
+                "rhythm_id",
+                "role_id",
+                "performance_controls",
+            ],
+            "performance_control_names": [
+                "density",
+                "energy",
+                "syncopation",
+                "swing",
+                "variation",
+            ],
             "allow_unhashed_experimental": True,
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -229,6 +274,21 @@ class ModelManifestValidationTests(unittest.TestCase):
             "max_generated_tokens": 1024,
             "bos_token_id": 1,
             "eos_token_id": 2,
+            "conditioning_input_names": [
+                "style_id",
+                "substyle_id",
+                "mood_id",
+                "rhythm_id",
+                "role_id",
+                "performance_controls",
+            ],
+            "performance_control_names": [
+                "density",
+                "energy",
+                "syncopation",
+                "swing",
+                "variation",
+            ],
             "allow_unhashed_experimental": True,
         }
         with tempfile.TemporaryDirectory() as directory:
