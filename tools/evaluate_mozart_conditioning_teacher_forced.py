@@ -92,11 +92,14 @@ def _evaluate_with_model(
     probes: dict[str, Any],
     *,
     onnx_session: Any | None = None,
+    window_size: int = 8,
     require_target_top1: bool = False,
 ) -> dict[str, Any]:
     controls = probes.get("controls")
     if not isinstance(controls, dict):
         raise ValueError("probe file controls must be an object")
+    if window_size <= 0:
+        raise ValueError("window_size must be positive")
 
     failures: list[str] = []
     report_controls: dict[str, Any] = {}
@@ -126,7 +129,6 @@ def _evaluate_with_model(
         if not isinstance(prefix, list) or not prefix:
             raise ValueError(f"probe {name} has no prefix_tokens")
         prefix_tuple = tuple(int(token) for token in prefix)
-
         divergence_index = int(
             probe.get("first_target_divergence_index", -1)
         )
@@ -152,7 +154,6 @@ def _evaluate_with_model(
             raise ValueError(
                 f"probe {name} has no target token at divergence"
             )
-
         low_target = low_tokens[len(prefix_tuple)]
         high_target = high_tokens[len(prefix_tuple)]
         if low_target == high_target:
@@ -180,99 +181,141 @@ def _evaluate_with_model(
             raise ValueError(
                 f"probe {name} high profile does not match the referenced record"
             )
-        torch_low = _measure(
-            _torch_next_logits(model, list(prefix_tuple), low_controls),
-            low_target,
+
+        steps: list[dict[str, Any]] = []
+        for side, tokens, native_controls in (
+            ("low", low_tokens, low_controls),
+            ("high", high_tokens, high_controls),
+        ):
+            start_index = len(prefix_tuple)
+            end_index = min(
+                len(tokens) - 1,
+                start_index + window_size,
+            )
+            for target_index in range(start_index, end_index):
+                context = tokens[:target_index]
+                target = tokens[target_index]
+                native_logits = _torch_next_logits(
+                    model,
+                    context,
+                    native_controls,
+                )
+                opposite_controls = (
+                    high_controls if side == "low" else low_controls
+                )
+                opposite_logits = _torch_next_logits(
+                    model,
+                    context,
+                    opposite_controls,
+                )
+                native = _measure(native_logits, target)
+                opposite = _measure(opposite_logits, target)
+                step: dict[str, Any] = {
+                    "side": side,
+                    "target_index": target_index,
+                    "context_length": len(context),
+                    "target_token": target,
+                    "native": native,
+                    "counterfactual": opposite,
+                    "target_logit_delta_native_minus_counterfactual": (
+                        native["target_logit"] - opposite["target_logit"]
+                    ),
+                    "top1_changed_by_control": (
+                        native["top1_token"] != opposite["top1_token"]
+                    ),
+                }
+                if onnx_session is not None:
+                    native_onnx_logits = _onnx_next_logits(
+                        onnx_session,
+                        context,
+                        native_controls,
+                    )
+                    opposite_onnx_logits = _onnx_next_logits(
+                        onnx_session,
+                        context,
+                        opposite_controls,
+                    )
+                    native_onnx = _measure(
+                        native_onnx_logits,
+                        target,
+                    )
+                    opposite_onnx = _measure(
+                        opposite_onnx_logits,
+                        target,
+                    )
+                    step["onnx_native"] = native_onnx
+                    step["onnx_counterfactual"] = opposite_onnx
+                    if (
+                        native["top1_token"] != native_onnx["top1_token"]
+                        or opposite["top1_token"]
+                        != opposite_onnx["top1_token"]
+                    ):
+                        failures.append(
+                            "PyTorch/ONNX teacher-forced top1 mismatch "
+                            f"for control {name} step {target_index}"
+                        )
+                steps.append(step)
+
+        native_top1_count = sum(
+            int(step["native"]["target_top1"])
+            for step in steps
         )
-        torch_high = _measure(
-            _torch_next_logits(model, list(prefix_tuple), high_controls),
-            high_target,
+        counterfactual_top1_count = sum(
+            int(step["counterfactual"]["target_top1"])
+            for step in steps
         )
+        changed_steps = sum(
+            int(step["top1_changed_by_control"])
+            for step in steps
+        )
+        target_logit_deltas = [
+            float(step["target_logit_delta_native_minus_counterfactual"])
+            for step in steps
+        ]
 
         entry: dict[str, Any] = {
             "prefix_tokens": list(prefix_tuple),
             "prefix_length": len(prefix_tuple),
             "low_controls": low_controls,
             "high_controls": high_controls,
-            "low_target": torch_low,
-            "high_target": torch_high,
             "targets_differ": low_target != high_target,
-            "control_effect": {
-                "low_true_target_logit": torch_low["target_logit"],
-                "high_true_target_logit": torch_high["target_logit"],
-                "target_logit_difference": (
-                    torch_high["target_logit"]
-                    - torch_low["target_logit"]
-                ),
-            },
+            "window_size_requested": window_size,
+            "window_step_count": len(steps),
+            "native_target_top1_count": native_top1_count,
+            "counterfactual_target_top1_count": counterfactual_top1_count,
+            "top1_changed_by_control_steps": changed_steps,
+            "mean_target_logit_delta_native_minus_counterfactual": (
+                float(np.mean(target_logit_deltas))
+                if target_logit_deltas
+                else 0.0
+            ),
+            "steps": steps,
         }
 
-        if onnx_session is not None:
-            onnx_low = _measure(
-                _onnx_next_logits(
-                    onnx_session,
-                    list(prefix_tuple),
-                    low_controls,
-                ),
-                low_target,
-            )
-            onnx_high = _measure(
-                _onnx_next_logits(
-                    onnx_session,
-                    list(prefix_tuple),
-                    high_controls,
-                ),
-                high_target,
-            )
-            entry["onnx_low_target"] = onnx_low
-            entry["onnx_high_target"] = onnx_high
-            entry["torch_onnx_target_match"] = {
-                "low": (
-                    torch_low["target_token"]
-                    == onnx_low["target_token"]
-                    and torch_low["top1_token"]
-                    == onnx_low["top1_token"]
-                ),
-                "high": (
-                    torch_high["target_token"]
-                    == onnx_high["target_token"]
-                    and torch_high["top1_token"]
-                    == onnx_high["top1_token"]
-                ),
-            }
-            if (
-                not entry["torch_onnx_target_match"]["low"]
-                or not entry["torch_onnx_target_match"]["high"]
-            ):
-                failures.append(
-                    "PyTorch/ONNX teacher-forced target mismatch "
-                    f"for control {name}"
-                )
-
-        if require_target_top1 and (
-            not torch_low["target_top1"]
-            or not torch_high["target_top1"]
-        ):
+        if require_target_top1 and native_top1_count < len(steps):
             failures.append(
-                "teacher-forced target token is not top1 for both sides "
+                "teacher-forced target is not top1 for every observed step "
                 f"of control {name}"
             )
 
         report_controls[name] = entry
 
-    top1_count = sum(
-        int(
-            entry["low_target"]["target_top1"]
-            and entry["high_target"]["target_top1"]
-        )
+    observed_steps = sum(
+        entry["window_step_count"]
+        for entry in report_controls.values()
+    )
+    native_top1_steps = sum(
+        entry["native_target_top1_count"]
         for entry in report_controls.values()
     )
 
     return {
         "status": "FAIL" if failures else "PASS",
+        "window_size": window_size,
         "require_target_top1": require_target_top1,
         "control_count": len(PERFORMANCE_CONTROL_NAMES),
-        "controls_with_both_targets_top1": top1_count,
+        "observed_teacher_forced_steps": observed_steps,
+        "native_target_top1_steps": native_top1_steps,
         "controls": report_controls,
         "failures": failures,
     }
