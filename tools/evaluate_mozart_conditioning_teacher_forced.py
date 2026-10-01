@@ -114,6 +114,13 @@ def _evaluate_with_model(
             raise ValueError(
                 f"probe {name} refers to an unknown train record"
             )
+        if (
+            low_record.get("split") != "train"
+            or high_record.get("split") != "train"
+        ):
+            raise ValueError(
+                f"probe {name} teacher-forced records must both be in train split"
+            )
 
         prefix = probe.get("prefix_tokens")
         if not isinstance(prefix, list) or not prefix:
@@ -165,6 +172,14 @@ def _evaluate_with_model(
 
         low_controls = dict(probe["low_profile"])
         high_controls = dict(probe["high_profile"])
+        if low_record["performance_controls"] != low_controls:
+            raise ValueError(
+                f"probe {name} low profile does not match the referenced record"
+            )
+        if high_record["performance_controls"] != high_controls:
+            raise ValueError(
+                f"probe {name} high profile does not match the referenced record"
+            )
         torch_low = _measure(
             _torch_next_logits(model, list(prefix_tuple), low_controls),
             low_target,
