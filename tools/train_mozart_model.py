@@ -136,6 +136,13 @@ def set_seed(seed: int) -> None:
         torch.backends.cudnn.benchmark = False
 
 
+def apply_fit_diagnostic(model: nn.Module) -> None:
+    """Disable stochastic dropout for tiny-corpus capacity diagnostics."""
+    for module in model.modules():
+        if isinstance(module, nn.Dropout):
+            module.p = 0.0
+
+
 def run_epoch(
     model: MozartTransformer,
     loader: DataLoader,
@@ -199,6 +206,12 @@ def main() -> int:
         help="Repeat the train records per epoch for tiny fit-capacity diagnostics.",
     )
     parser.add_argument("--learning-rate", type=float, default=3e-4)
+    parser.add_argument("--weight-decay", type=float, default=0.01)
+    parser.add_argument(
+        "--fit-diagnostic",
+        action="store_true",
+        help="Disable dropout and weight decay for deterministic tiny-corpus capacity fitting.",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--device",
@@ -214,6 +227,8 @@ def main() -> int:
         raise ValueError("repeat-train-records must be positive")
     if args.learning_rate <= 0.0:
         raise ValueError("learning-rate must be positive")
+    if args.weight_decay < 0.0:
+        raise ValueError("weight-decay must not be negative")
     if args.num_workers < 0:
         raise ValueError("num-workers must not be negative")
 
@@ -268,11 +283,13 @@ def main() -> int:
     )
 
     model = MozartTransformer(config).to(device)
+    if args.fit_diagnostic:
+        apply_fit_diagnostic(model)
     criterion = nn.CrossEntropyLoss(ignore_index=-100)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=args.learning_rate,
-        weight_decay=0.01,
+        weight_decay=0.0 if args.fit_diagnostic else args.weight_decay,
     )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -286,7 +303,9 @@ def main() -> int:
         f"parameters={parameter_count} "
         f"device={device} "
         f"train_records={len(train_dataset)} "
-        f"repeat_train_records={args.repeat_train_records}"
+        f"repeat_train_records={args.repeat_train_records} "
+        f"fit_diagnostic={args.fit_diagnostic} "
+        f"weight_decay={0.0 if args.fit_diagnostic else args.weight_decay}"
     )
 
     for epoch in range(1, args.epochs + 1):
