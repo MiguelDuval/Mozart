@@ -46,19 +46,29 @@ GenerationService invokes the backend only on its dedicated worker thread. A gen
 ## Compatibility gate
 
 The first adapter accepts only ONNX models that already emit Mozart's frozen
-512-token vocabulary:
+512-token vocabulary and the exact development Transformer conditioning ABI:
 
 - vocabulary ID: mozart-midi-events-v1;
 - vocabulary size: 512;
-- input dtype: int64;
-- input/output tensor names and shapes declared by the manifest;
+- token input: `input_ids` as int64 `[1, sequence]`;
+- style inputs: `style_id`, `substyle_id`, `mood_id`, `rhythm_id`, and `role_id`
+  as int64 `[1]` tensors;
+- performance conditioning: `performance_controls` as float32 `[1, 5]`, ordered
+  as density, energy, syncopation, swing, variation;
+- output tensor: `logits`;
 - BOS=1 and EOS=2;
 - bounded context and generation length.
 
+The Android bridge converts the portable GenerationRequest JSON into those exact
+six conditioning tensors and sends them on every autoregressive `session.run`
+alongside the current `input_ids`. Key/scale and chord progression remain part
+of the portable request contract but are not sent to this exported graph because
+they are not among its seven ONNX inputs.
+
 After the ONNX session is created, the Java bridge compares the manifest tensor
-contract with the actual session input/output tensor metadata. A mismatch is
-reported as a failed/unavailable experimental model and inference does not
-continue.
+contract with the actual session input/output tensor metadata for all seven
+inputs plus the output. A missing or incompatible conditioning tensor is
+reported as a failed experimental model and inference does not continue.
 
 ## External vocabulary policy
 
@@ -118,11 +128,11 @@ control. The request is queued asynchronously and the UI polls for a completed
 GenerationResult without blocking the main thread.
 
 The current first adapter forwards the full GenerationRequest as a bridge
-payload, but intentionally starts the experimental ONNX model from BOS only.
-It does **not** claim that style, key/scale, role or other conditioning fields
-are already encoded into model tensors. That mapping belongs to the
-model-specific ABI gate and must be implemented only from the actual exported
-checkpoint contract.
+payload, starts autoregression from BOS, and encodes the exact seven-input
+development graph contract before each inference step. The five categorical
+fields are converted to int64 batch scalars; density, energy, syncopation, swing,
+and variation are converted to one float32 `[1,5]` batch tensor. No network or
+LLM dependency is introduced into this path.
 
 ## Fail-closed behavior
 
