@@ -152,6 +152,7 @@ class ModelManifestValidationTests(unittest.TestCase):
     def test_experimental_onnx_runtime_extension_passes(self) -> None:
         manifest = template_manifest()
         manifest["model_format"] = "onnx"
+        add_experimental_onnx_structure(manifest)
         manifest["inputs"][0]["name"] = "input_ids"
         manifest["inputs"][0]["dtype"] = "int64"
         manifest["outputs"][0]["name"] = "logits"
@@ -191,6 +192,7 @@ class ModelManifestValidationTests(unittest.TestCase):
     def test_experimental_onnx_runtime_rejects_wrong_bos(self) -> None:
         manifest = template_manifest()
         manifest["model_format"] = "onnx"
+        add_experimental_onnx_structure(manifest)
         manifest["runtime"] = {
             "backend": "onnxruntime",
             "input_name": "input_ids",
@@ -263,6 +265,7 @@ class ModelManifestValidationTests(unittest.TestCase):
     def test_experimental_onnx_runtime_cannot_exceed_root_limits(self) -> None:
         manifest = template_manifest()
         manifest["model_format"] = "onnx"
+        add_experimental_onnx_structure(manifest)
         manifest["runtime"] = {
             "backend": "onnxruntime",
             "input_name": "<FROZEN>",
@@ -301,6 +304,108 @@ class ModelManifestValidationTests(unittest.TestCase):
         manifest["kv_cache"]["enabled"] = True
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaises(ValueError):
+                validate(self._write(manifest, Path(directory)))
+
+
+    def test_experimental_onnx_runtime_rejects_missing_conditioning_tensor(self) -> None:
+        manifest = add_experimental_onnx_structure(template_manifest())
+        manifest["inputs"] = [
+            tensor for tensor in manifest["inputs"] if tensor["name"] != "style_id"
+        ]
+        manifest["runtime"] = {
+            "backend": "onnxruntime",
+            "input_name": "input_ids",
+            "output_name": "logits",
+            "input_dtype": "int64",
+            "token_mode": "mozart_ids",
+            "external_vocabulary_size": 512,
+            "context_length_tokens": 1024,
+            "max_generated_tokens": 512,
+            "bos_token_id": 1,
+            "eos_token_id": 2,
+            "conditioning_input_names": [
+                "style_id",
+                "substyle_id",
+                "mood_id",
+                "rhythm_id",
+                "role_id",
+                "performance_controls",
+            ],
+            "performance_control_names": [
+                "density", "energy", "syncopation", "swing", "variation"
+            ],
+            "allow_unhashed_experimental": True,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "style_id"):
+                validate(self._write(manifest, Path(directory)))
+
+    def test_experimental_onnx_runtime_rejects_wrong_conditioning_dtype(self) -> None:
+        manifest = add_experimental_onnx_structure(template_manifest())
+        manifest["inputs"][1]["dtype"] = "float32"
+        manifest["runtime"] = {
+            "backend": "onnxruntime",
+            "input_name": "input_ids",
+            "output_name": "logits",
+            "input_dtype": "int64",
+            "token_mode": "mozart_ids",
+            "external_vocabulary_size": 512,
+            "context_length_tokens": 1024,
+            "max_generated_tokens": 512,
+            "bos_token_id": 1,
+            "eos_token_id": 2,
+            "conditioning_input_names": [
+                "style_id", "substyle_id", "mood_id", "rhythm_id",
+                "role_id", "performance_controls"
+            ],
+            "performance_control_names": [
+                "density", "energy", "syncopation", "swing", "variation"
+            ],
+            "allow_unhashed_experimental": True,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "style_id.*int64"):
+                validate(self._write(manifest, Path(directory)))
+
+    def test_experimental_onnx_runtime_rejects_wrong_performance_shape(self) -> None:
+        manifest = add_experimental_onnx_structure(template_manifest())
+        manifest["inputs"][-1]["shape"] = [1, 4]
+        manifest["runtime"] = {
+            "backend": "onnxruntime",
+            "input_name": "input_ids",
+            "output_name": "logits",
+            "input_dtype": "int64",
+            "token_mode": "mozart_ids",
+            "external_vocabulary_size": 512,
+            "context_length_tokens": 1024,
+            "max_generated_tokens": 512,
+            "bos_token_id": 1,
+            "eos_token_id": 2,
+            "conditioning_input_names": [
+                "style_id", "substyle_id", "mood_id", "rhythm_id",
+                "role_id", "performance_controls"
+            ],
+            "performance_control_names": [
+                "density", "energy", "syncopation", "swing", "variation"
+            ],
+            "allow_unhashed_experimental": True,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "performance_controls.*shape"):
+                validate(self._write(manifest, Path(directory)))
+
+    def test_input_tensor_names_must_be_unique(self) -> None:
+        manifest = template_manifest()
+        manifest["inputs"].append(copy.deepcopy(manifest["inputs"][0]))
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "inputs.*unique"):
+                validate(self._write(manifest, Path(directory)))
+
+    def test_tensor_shape_rejects_invalid_negative_dimension(self) -> None:
+        manifest = template_manifest()
+        manifest["inputs"][0]["shape"] = [-2, 1024]
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "shape\[0\]"):
                 validate(self._write(manifest, Path(directory)))
 
 
