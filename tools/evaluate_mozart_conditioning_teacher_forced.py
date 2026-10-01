@@ -326,10 +326,13 @@ def _evaluate_with_model(
             "steps": steps,
         }
 
-        if require_target_top1 and native_top1_count < len(steps):
+        if require_target_top1 and (
+            not low_target_report["target_top1"]
+            or not high_target_report["target_top1"]
+        ):
             failures.append(
-                "teacher-forced target is not top1 for every observed step "
-                f"of control {name}"
+                "teacher-forced divergence targets must both be top1 "
+                f"for control {name}"
             )
 
         report_controls[name] = entry
@@ -424,6 +427,7 @@ def main() -> int:
         "--require-target-top1",
         action=argparse.BooleanOptionalAction,
         default=False,
+        help="Require both low/high target tokens to be top1 at the exact fixture divergence.",
     )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
