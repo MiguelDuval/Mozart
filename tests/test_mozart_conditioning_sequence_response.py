@@ -203,6 +203,72 @@ class MozartConditioningSequenceTests(unittest.TestCase):
             (1, 20),
         )
 
+    def test_grammar_next_token_mask_matches_frozen_event_order(self) -> None:
+        from evaluate_mozart_conditioning_sequence import (
+            is_allowed_next_token,
+        )
+
+        self.assertTrue(is_allowed_next_token([1], 16))
+        self.assertTrue(is_allowed_next_token([1], 193))
+        self.assertFalse(is_allowed_next_token([1], 68))
+
+        self.assertTrue(is_allowed_next_token([1, 16], 68))
+        self.assertTrue(is_allowed_next_token([1, 16], 352))
+        self.assertFalse(is_allowed_next_token([1, 16], 193))
+
+        self.assertTrue(is_allowed_next_token([1, 16, 68], 160))
+        self.assertFalse(is_allowed_next_token([1, 16, 68], 161))
+        self.assertFalse(is_allowed_next_token([1, 16, 68], 352))
+
+        self.assertTrue(
+            is_allowed_next_token([1, 16, 68, 160], 256)
+        )
+        self.assertFalse(
+            is_allowed_next_token([1, 16, 68, 160], 160)
+        )
+
+        self.assertTrue(
+            is_allowed_next_token([1, 16, 68, 160, 256], 2)
+        )
+        self.assertTrue(
+            is_allowed_next_token([1, 16, 68, 160, 256], 68)
+        )
+        self.assertTrue(
+            is_allowed_next_token([1, 16, 68, 160, 256, 193], 68)
+        )
+        self.assertFalse(
+            is_allowed_next_token([1, 16, 68, 160, 256, 193], 160)
+        )
+
+        self.assertTrue(
+            is_allowed_next_token([1, 16, 352], 480)
+        )
+        self.assertFalse(
+            is_allowed_next_token([1, 16, 352], 256)
+        )
+
+    def test_grammar_constrained_generation_uses_only_allowed_logits(self) -> None:
+        from evaluate_mozart_conditioning_sequence import (
+            _grammar_allowed_mask,
+            _greedy_token,
+        )
+        import numpy as np
+
+        tokens = [1, 16, 68]
+        logits = np.full(512, -1000.0, dtype=np.float32)
+        logits[68] = 1000.0
+        logits[161] = 500.0
+        logits[160] = 1.0
+
+        mask = _grammar_allowed_mask(tokens)
+        self.assertFalse(mask[68])
+        self.assertTrue(mask[160])
+        self.assertTrue(mask[191])
+        self.assertEqual(
+            _greedy_token(logits, allowed_mask=mask),
+            160,
+        )
+
     def test_control_specific_prefix_is_used(self) -> None:
         from evaluate_mozart_conditioning_sequence import (
             evaluate_sequence_responsiveness,
