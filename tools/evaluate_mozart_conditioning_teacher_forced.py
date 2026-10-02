@@ -17,6 +17,7 @@ from evaluate_mozart_conditioning import (
 )
 from evaluate_mozart_conditioning_sequence import (
     _onnx_next_logits,
+    _token_distribution_total_variation,
     _torch_next_logits,
     load_sequence_probe_file,
     validate_mozart_token_sequence,
@@ -208,6 +209,12 @@ def _evaluate_with_model(
                     context,
                     opposite_controls,
                 )
+                distribution_total_variation = _token_distribution_total_variation(
+                    native_logits,
+                    opposite_logits,
+                    context,
+                    grammar_constrained=True,
+                )
                 native = _measure(native_logits, target)
                 opposite = _measure(opposite_logits, target)
                 step: dict[str, Any] = {
@@ -223,6 +230,7 @@ def _evaluate_with_model(
                     "top1_changed_by_control": (
                         native["top1_token"] != opposite["top1_token"]
                     ),
+                    "distribution_total_variation_native_vs_counterfactual": distribution_total_variation,
                 }
                 if onnx_session is not None:
                     native_onnx_logits = _onnx_next_logits(
@@ -243,8 +251,20 @@ def _evaluate_with_model(
                         opposite_onnx_logits,
                         target,
                     )
+                    onnx_distribution_total_variation = _token_distribution_total_variation(
+                        native_onnx_logits,
+                        opposite_onnx_logits,
+                        context,
+                        grammar_constrained=True,
+                    )
                     step["onnx_native"] = native_onnx
                     step["onnx_counterfactual"] = opposite_onnx
+                    step["onnx_distribution_total_variation_native_vs_counterfactual"] = onnx_distribution_total_variation
+                    if abs(distribution_total_variation - onnx_distribution_total_variation) > 1.0e-4:
+                        failures.append(
+                            "PyTorch/ONNX teacher-forced distribution-response mismatch "
+                            f"for control {name} step {target_index}"
+                        )
                     if (
                         native["top1_token"] != native_onnx["top1_token"]
                         or opposite["top1_token"]
@@ -270,6 +290,10 @@ def _evaluate_with_model(
         )
         target_logit_deltas = [
             float(step["target_logit_delta_native_minus_counterfactual"])
+            for step in steps
+        ]
+        distribution_response_values = [
+            float(step["distribution_total_variation_native_vs_counterfactual"])
             for step in steps
         ]
 
@@ -320,6 +344,21 @@ def _evaluate_with_model(
                 if target_logit_deltas
                 else 0.0
             ),
+            "mean_distribution_total_variation_native_vs_counterfactual": (
+                float(np.mean(distribution_response_values))
+                if distribution_response_values
+                else 0.0
+            ),
+            "max_distribution_total_variation_native_vs_counterfactual": (
+                float(np.max(distribution_response_values))
+                if distribution_response_values
+                else 0.0
+            ),
+            "min_distribution_total_variation_native_vs_counterfactual": (
+                float(np.min(distribution_response_values))
+                if distribution_response_values
+                else 0.0
+            ),
             "low_target": low_target_report,
             "high_target": high_target_report,
             "control_effect": control_effect,
@@ -345,6 +384,11 @@ def _evaluate_with_model(
         entry["native_target_top1_count"]
         for entry in report_controls.values()
     )
+    distribution_response_values = [
+        float(step["distribution_total_variation_native_vs_counterfactual"])
+        for entry in report_controls.values()
+        for step in entry["steps"]
+    ]
     controls_with_both_targets_top1 = sum(
         int(
             entry["low_target"]["target_top1"]
@@ -360,6 +404,16 @@ def _evaluate_with_model(
         "control_count": len(PERFORMANCE_CONTROL_NAMES),
         "observed_teacher_forced_steps": observed_steps,
         "native_target_top1_steps": native_top1_steps,
+        "mean_distribution_total_variation_native_vs_counterfactual": (
+            float(np.mean(distribution_response_values))
+            if distribution_response_values
+            else 0.0
+        ),
+        "max_distribution_total_variation_native_vs_counterfactual": (
+            float(np.max(distribution_response_values))
+            if distribution_response_values
+            else 0.0
+        ),
         "controls_with_both_targets_top1": controls_with_both_targets_top1,
         "controls": report_controls,
         "failures": failures,
