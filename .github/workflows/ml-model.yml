@@ -568,8 +568,18 @@ jobs:
               "development": summarize(development),
               "grammar_aware": summarize(grammar_aware),
           }
-          if development is None and grammar_aware is None:
+          reports = (development, grammar_aware)
+          statuses = [
+              report.get("status")
+              for report in reports
+              if report is not None
+          ]
+          if not statuses:
               summary["status"] = "NO_REPORTS"
+          elif any(status != "PASS" for status in statuses):
+              summary["status"] = "FAIL"
+          elif len(statuses) != len(reports):
+              summary["status"] = "PARTIAL"
           Path("build/ml-semantic-ab-summary.json").write_text(
               json.dumps(summary, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
