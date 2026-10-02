@@ -329,6 +329,26 @@ jobs:
             --window-size 8 \
             --output build/ml-checkpoint/conditioning-teacher-forced.json
 
+      - name: Evaluate grammar-constrained conditioning responsiveness
+        id: grammar-constrained-evaluation
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/evaluate_mozart_conditioning_sequence.py \
+            build/ml-checkpoint/development-inference.pt \
+            --config docs/model-training-config.json \
+            --onnx build/ml-checkpoint/model.onnx \
+            --max-generated-tokens 32 \
+            --low-value 0.1 \
+            --high-value 0.9 \
+            --base-value 0.5 \
+            --probe-file build/ml-conditioning-fixture/sequence-probes.json \
+            --grammar-constrained \
+            --require-valid-grammar \
+            --seed 42 \
+            --output build/ml-checkpoint/conditioning-sequence-grammar-constrained.json
+
       - name: Enforce development conditioning gates
         if: ${{ always() }}
         shell: bash
@@ -347,7 +367,7 @@ jobs:
           echo "PASS: development conditioning gates passed"
 
       - name: Upload development ML artifacts
-        if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json', 'build/ml-checkpoint/conditioning-sequence-response.json', 'build/ml-checkpoint/conditioning-teacher-forced.json', 'build/ml-conditioning-fixture/sequence-probes.json') != '' }}
+        if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json', 'build/ml-checkpoint/conditioning-sequence-response.json', 'build/ml-checkpoint/conditioning-sequence-grammar-constrained.json', 'build/ml-checkpoint/conditioning-teacher-forced.json', 'build/ml-conditioning-fixture/sequence-probes.json') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: mozart-development-ml-${{ github.sha }}
@@ -357,6 +377,7 @@ jobs:
             build/ml-checkpoint/abi.json
             build/ml-checkpoint/conditioning-response.json
             build/ml-checkpoint/conditioning-sequence-response.json
+            build/ml-checkpoint/conditioning-sequence-grammar-constrained.json
             build/ml-checkpoint/conditioning-teacher-forced.json
             build/ml-conditioning-fixture/sequence-probes.json
           archive: true
