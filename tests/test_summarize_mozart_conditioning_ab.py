@@ -112,6 +112,34 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
         )
         self.assertEqual(comparison["energy"]["sequence_changed_delta"], 1)
 
+    def test_build_summary_passes_with_complete_input_contract(self) -> None:
+        summary = build_summary(
+            input_contract={
+                "status": "PASS",
+                "fixture_revision": "mozart-conditioning-fixture-v1",
+                "input_fingerprint": {
+                    "base_train_sha256": "base",
+                    "diverse_train_sha256": "diverse",
+                    "matched_train_sha256": "matched",
+                    "diverse_probe_sha256": "diverse-probe",
+                    "matched_probe_sha256": "matched-probe",
+                },
+                "probe_equivalence": {"status": "PASS"},
+            },
+            baseline_fit={"train_loss": 1.0, "validation_loss": 2.0},
+            matched_fit={"train_loss": 0.8, "validation_loss": 2.1},
+            diverse_fit={"train_loss": 0.7, "validation_loss": 2.0},
+            baseline_teacher=teacher_report(),
+            matched_teacher=teacher_report(),
+            diverse_teacher=teacher_report(),
+            baseline_sequence=sequence_report(),
+            matched_sequence=sequence_report(),
+            diverse_sequence=sequence_report(),
+        )
+        self.assertEqual(summary["status"], "PASS")
+        self.assertEqual(summary["input_contract"]["probe_equivalence"]["status"], "PASS")
+        self.assertIsNotNone(summary["diverse_minus_matched"]["fit"]["train_loss_delta"])
+
     def test_build_summary_reports_partial_when_required_artifact_is_missing(self) -> None:
         summary = build_summary(
             input_contract={
