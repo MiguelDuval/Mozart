@@ -114,6 +114,14 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
 
     def test_build_summary_reports_partial_when_required_artifact_is_missing(self) -> None:
         summary = build_summary(
+            input_contract={
+                "status": "PASS",
+                "fixture_revision": "mozart-conditioning-fixture-v1",
+                "input_fingerprint": {
+                    "diverse_train_sha256": "diverse",
+                    "matched_train_sha256": "matched",
+                },
+            },
             baseline_fit=None,
             matched_fit=None,
             diverse_fit=None,
@@ -125,6 +133,10 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
             diverse_sequence=None,
         )
         self.assertEqual(summary["status"], "PARTIAL")
+        self.assertEqual(
+            summary["input_contract"]["input_fingerprint"]["diverse_train_sha256"],
+            "diverse",
+        )
         self.assertIn(
             "context_diverse_teacher_forced",
             summary["missing_required_reports"],
