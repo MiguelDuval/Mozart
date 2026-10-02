@@ -647,9 +647,6 @@ jobs:
               matched.append(record)
               duplicate = dict(record)
               duplicate["source_id"] = f"{record['source_id']}-matched-repeat"
-              duplicate["source_path"] = (
-                  f"{record['source_path']}#matched-repeat"
-              )
               matched.append(duplicate)
           if len({record["source_id"] for record in matched}) != 20:
               raise SystemExit("matched-exposure baseline source identities must be unique")
