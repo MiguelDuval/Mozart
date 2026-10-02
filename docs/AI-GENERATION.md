@@ -38,6 +38,7 @@ For neural providers the transport-neutral model path is:
 GenerationRequest
     -> model input encoding
     -> model inference
+    -> grammar-constrained token selection
     -> MidiEventToken stream
     -> strict MidiEventDetokenizer
     -> PatternProposalValidator
@@ -108,6 +109,13 @@ Before a proposal enters the musical model:
 9. assign deterministic fallback values.
 
 Malformed or out-of-contract AI output must never reach the MIDI transport unchanged.
+
+The experimental Android ONNX bridge applies the same frozen Mozart token grammar
+while selecting each next token. This is a runtime safety layer, not a substitute
+for model quality: the development sequence evaluator deliberately measures the
+unconstrained model first, so grammar-constrained decoding cannot hide autoregressive
+training failures. PyTorch/ONNX diagnostic comparisons remain based on raw greedy
+selection.
 
 The current scheduler handoff intentionally accepts note events only. A proposal
 containing control events is rejected at the scheduler boundary until semantic
