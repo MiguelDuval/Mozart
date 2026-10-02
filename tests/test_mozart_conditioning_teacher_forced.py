@@ -89,6 +89,21 @@ class TeacherForcedTests(unittest.TestCase):
         self.assertEqual(report["top1_token"], 42)
         self.assertEqual(report["target_top1_margin"], 0.0)
 
+    def test_measure_reports_legal_target_probability_and_rank(self) -> None:
+        import numpy as np
+
+        logits = np.full(512, -10.0, dtype=np.float32)
+        logits[170] = 7.0
+        report = _measure(
+            logits,
+            170,
+            context=[1, 16, 68],
+        )
+
+        self.assertEqual(report["target_legal_rank"], 1)
+        self.assertTrue(report["target_legal_top1"])
+        self.assertGreater(report["target_probability"], 0.99)
+
     def test_counterfactual_window_isolates_control_effect(self) -> None:
         records = {}
         probes = {"controls": {}}
