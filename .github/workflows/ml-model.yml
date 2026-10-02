@@ -980,7 +980,7 @@ jobs:
                   }
               return comparison
 
-                    reports = (
+          reports = (
               baseline_teacher,
               matched_teacher,
               diverse_teacher,
