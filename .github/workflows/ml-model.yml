@@ -616,7 +616,7 @@ jobs:
           print(json.dumps(summary, indent=2, sort_keys=True))
           PY
       - name: Run context-diversity fit diagnostic
-        if: ${{ inputs.run_diversity_experiment }}
+        if: ${{ inputs.run_diversity_experiment || github.ref == 'refs/heads/feature/context-diversity-ab-experiment' }}
         continue-on-error: true
         shell: bash
         run: |
@@ -890,7 +890,7 @@ jobs:
           set -e
           echo "context-diverse diagnostics: teacher_forced_status=$diverse_teacher_status sequence_status=$diverse_sequence_status"
       - name: Summarize context-diversity experiment
-        if: ${{ always() && inputs.run_diversity_experiment }}
+        if: ${{ always() && (inputs.run_diversity_experiment || github.ref == 'refs/heads/feature/context-diversity-ab-experiment') }}
         shell: bash
         run: |
           set -euo pipefail
