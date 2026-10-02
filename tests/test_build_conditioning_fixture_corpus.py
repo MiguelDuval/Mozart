@@ -262,6 +262,37 @@ class ConditioningFixtureTests(unittest.TestCase):
             len(CONTROL_ORDER),
         )
 
+    def test_context_variant_probe_file_uses_v1_training_contexts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "fixture"
+            build_conditioning_fixture_corpus(
+                root,
+                context_variant_count=10,
+            )
+            records = [
+                json.loads(line)
+                for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            probes = json.loads(
+                (root / "sequence-probes-v1.json").read_text(encoding="utf-8")
+            )
+
+        train_ids = {
+            record["source_id"]
+            for record in records
+            if record["split"] == "train"
+        }
+        self.assertEqual(probes["probe_context"], "context-variant-records")
+        self.assertEqual(probes["probe_variant"], 1)
+        for entry in probes["controls"].values():
+            low_id = entry["low_record_source_id"]
+            high_id = entry["high_record_source_id"]
+            self.assertIn(low_id, train_ids)
+            self.assertIn(high_id, train_ids)
+            self.assertIn("-context-v1", low_id)
+            self.assertIn("-context-v1", high_id)
+
     def test_record_target_hash_matches_midi_bytes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "fixture"
