@@ -19,6 +19,7 @@ def _record(
 ) -> dict:
     return {
         "source_id": source_id,
+        "source_revision": "mozart-conditioning-fixture-v1",
         "source_path": source_path,
         "tokens": tokens,
         "target_sha256": f"sha-{source_path}",
@@ -153,6 +154,18 @@ class MozartConditioningABValidatorTests(unittest.TestCase):
         self.assertEqual(result["status"], "PASS")
         self.assertEqual(result["diverse_variant_positions"], 10)
         self.assertEqual(result["diverse_base_positions"], 10)
+
+    def test_rejects_source_revision_mismatch(self) -> None:
+        base, diverse, matched = _dataset()
+        diverse[4]["source_revision"] = "other-fixture-v9"
+        with self.assertRaisesRegex(ValueError, "diverse source_revision"):
+            validate_records(base, diverse, matched)
+
+    def test_rejects_probe_revision_mismatch(self) -> None:
+        records, probes = _probe_dataset()
+        records[0]["source_revision"] = "other-fixture-v9"
+        with self.assertRaisesRegex(ValueError, "probe records source_revision"):
+            validate_probes(records, probes)
 
     def test_rejects_target_mismatch_in_matched_baseline(self) -> None:
         base, diverse, matched = _dataset()
