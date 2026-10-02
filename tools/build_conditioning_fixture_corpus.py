@@ -268,7 +268,11 @@ def build_conditioning_fixture_corpus(
             CONTROL_PROFILES[:context_variant_count]
         )
     )
-    source_ids = deterministic_source_ids(len(profile_specs))
+    # Base and context-variant renderings of the same control profile are
+    # one source group. This keeps paired contexts in the same dataset split and
+    # prevents the diversity experiment from accidentally losing a probe side to
+    # validation/test assignment.
+    source_ids = deterministic_source_ids(len(CONTROL_PROFILES))
 
     for output_index, (profile_index, controls, variant) in enumerate(profile_specs):
         filename = f"control-probe-{profile_index:02d}-v{variant}.mid"
@@ -286,7 +290,7 @@ def build_conditioning_fixture_corpus(
 
         record = build_example(
             midi_path,
-            source_id=source_ids[output_index],
+            source_id=source_ids[profile_index],
             source_revision=FIXTURE_REVISION,
             source_path=f"midi/{filename}",
             style="electronic",
