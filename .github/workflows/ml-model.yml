@@ -609,7 +609,7 @@ jobs:
           elif len(statuses) != len(reports):
               summary["status"] = "PARTIAL"
           Path("build").mkdir(parents=True, exist_ok=True)
-                    Path("build/ml-semantic-ab-summary.json").write_text(
+          Path("build/ml-semantic-ab-summary.json").write_text(
               json.dumps(summary, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
           )
