@@ -554,6 +554,8 @@ jobs:
                   return None
               keys = (
                   "status",
+                  "train_loss",
+                  "validation_loss",
                   "observed_teacher_forced_steps",
                   "native_target_top1_steps",
                   "native_legal_target_top1_steps",
@@ -1028,7 +1030,8 @@ jobs:
           if matched_sequence_summary is not None and diverse_sequence_summary is not None:
               sequence_delta = {
                   "controls_with_sequence_change_delta": (
-                      diverse_sequence_summary.get("controls_with_sequence_change"),
+                      int(diverse_sequence_summary.get("controls_with_sequence_change") or 0)
+                      - int(matched_sequence_summary.get("controls_with_sequence_change") or 0)
                   ),
                   "mean_control_max_total_variation_delta": subtract(
                       diverse_sequence_summary.get("mean_control_max_total_variation"),
@@ -1043,11 +1046,6 @@ jobs:
                       matched_sequence_summary.get("max_control_max_total_variation"),
                   ),
               }
-              sequence_delta["controls_with_sequence_change_delta"] = (
-                  int(diverse_sequence_summary.get("controls_with_sequence_change") or 0)
-                  - int(matched_sequence_summary.get("controls_with_sequence_change") or 0)
-              )
-
           summary = {
               "status": experiment_status,
               "baseline_regular": {
