@@ -247,6 +247,80 @@ class MozartConditioningSequenceTests(unittest.TestCase):
             is_allowed_next_token([1, 16, 352], 256)
         )
 
+    def test_distribution_total_variation_uses_only_legal_tokens(self) -> None:
+        from evaluate_mozart_conditioning_sequence import (
+            _token_distribution_total_variation,
+        )
+        import numpy as np
+
+        low = np.full(512, -1000.0, dtype=np.float32)
+        high = np.full(512, -1000.0, dtype=np.float32)
+        low[160] = 4.0
+        low[161] = 3.0
+        high[160] = 3.0
+        high[161] = 4.0
+        # A dramatic invalid-token change must not count as conditioning response.
+        low[500] = 1000.0
+        high[500] = -1000.0
+
+        shift = _token_distribution_total_variation(
+            low,
+            high,
+            [1, 16, 68],
+            grammar_constrained=True,
+        )
+        self.assertGreater(shift, 0.2)
+
+    def test_distribution_response_gate_can_pass_without_greedy_divergence(self) -> None:
+        from evaluate_mozart_conditioning_sequence import (
+            evaluate_sequence_responsiveness,
+        )
+
+        report = evaluate_sequence_responsiveness(
+            FakeGreedyModel(responsive=True),
+            max_generated_tokens=6,
+            prefix_tokens=(1, 16),
+            require_divergence=False,
+            require_valid_grammar=True,
+            require_distribution_response=True,
+            min_distribution_total_variation=0.05,
+        )
+
+        self.assertEqual(report["status"], "PASS")
+        for name in (
+            "density",
+            "energy",
+            "syncopation",
+            "swing",
+            "variation",
+        ):
+            self.assertGreaterEqual(
+                report["controls"][name]["torch"]["distribution_response"]["max_total_variation"],
+                0.05,
+            )
+
+    def test_distribution_response_gate_rejects_unresponsive_model(self) -> None:
+        from evaluate_mozart_conditioning_sequence import (
+            evaluate_sequence_responsiveness,
+        )
+
+        report = evaluate_sequence_responsiveness(
+            FakeGreedyModel(responsive=False),
+            max_generated_tokens=6,
+            prefix_tokens=(1, 16),
+            require_divergence=False,
+            require_valid_grammar=True,
+            require_distribution_response=True,
+            min_distribution_total_variation=0.05,
+        )
+
+        self.assertEqual(report["status"], "FAIL")
+        self.assertEqual(len(report["failures"]), 5)
+        self.assertIn(
+            "PyTorch distribution response max total variation",
+            report["failures"][0],
+        )
+
     def test_grammar_constrained_generation_uses_only_allowed_logits(self) -> None:
         from evaluate_mozart_conditioning_sequence import (
             _grammar_allowed_mask,
