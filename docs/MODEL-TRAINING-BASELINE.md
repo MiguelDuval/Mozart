@@ -136,6 +136,16 @@ artifact containing the teacher-forced semantic metrics for both the regular and
 grammar-aware checkpoints. This keeps A/B comparisons reproducible across CI runs
 without turning the diagnostic into a production acceptance gate.
 
+A second follow-up experiment is now available as a manual CI run:
+the conditioning fixture can add deterministic target-MIDI context variants while
+keeping the exact same performance-control labels. The diversity experiment uses
+10 additional profile variants, producing 22 total records and 20 train records.
+With batch size 4 and `--repeat-train-records 8`, it remains exactly 480 optimizer
+updates with seed 42. Its purpose is to test whether greater musical-context
+diversity reduces autoregressive collapse without changing the model architecture,
+conditioning schema, optimizer family, learning rate, or total update budget.
+This is an experimental diagnostic, not a production training recipe.
+
 The first follow-up experiment is a grammar-aware training-loss A/B test. With
 `--grammar-constrained-loss`, each next-token cross-entropy term is normalized only
 over tokens valid for the current frozen MIDI grammar state; the model architecture,
