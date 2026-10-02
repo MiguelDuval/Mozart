@@ -659,6 +659,7 @@ jobs:
               for record in base_records
           }
           matched = []
+          matched_id_by_base_id = {}
           for index, diverse in enumerate(diverse_records):
               profile_path = diverse["source_path"].replace("-v1.mid", "-v0.mid")
               base = base_by_profile.get(profile_path)
@@ -673,13 +674,34 @@ jobs:
                       f"control mismatch at diverse train position {index}"
                   )
               matched.append(duplicate)
+              matched_id_by_base_id.setdefault(
+                  base["source_id"],
+                  duplicate["source_id"],
+              )
           if len({record["source_id"] for record in matched}) != 20:
               raise SystemExit("matched-exposure baseline source identities must be unique")
+
+          probes = json.loads(
+              Path("build/ml-diverse-conditioning-fixture/sequence-probes.json")
+              .read_text(encoding="utf-8")
+          )
+          for name, entry in probes["controls"].items():
+              for field in ("low_record_source_id", "high_record_source_id"):
+                  source_id = entry.get(field)
+                  if source_id not in matched_id_by_base_id:
+                      raise SystemExit(
+                          f"matched probe {name} refers to an unavailable base source {source_id!r}"
+                      )
+                  entry[field] = matched_id_by_base_id[source_id]
+          Path("build/ml-matched-sequence-probes.json").write_text(
+              json.dumps(probes, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
           Path("build/ml-matched-train.jsonl").write_text(
               "".join(json.dumps(record, sort_keys=True) + "\n" for record in matched),
               encoding="utf-8",
           )
-          print("PASS: matched-exposure baseline mirrors diverse train ordering with target-identical contexts")
+          print("PASS: matched-exposure baseline mirrors diverse train ordering with target-identical contexts and remapped teacher probes")
           PY
 
           python3 tools/train_mozart_model.py \
@@ -730,7 +752,7 @@ jobs:
           python3 tools/evaluate_mozart_conditioning_teacher_forced.py \
             build/ml-matched-checkpoint/development-inference.pt \
             build/ml-matched-train.jsonl \
-            build/ml-conditioning-fixture/sequence-probes.json \
+            build/ml-matched-sequence-probes.json \
             --config docs/model-training-config.json \
             --onnx build/ml-matched-checkpoint/model.onnx \
             --window-size 8 \
@@ -1135,6 +1157,7 @@ jobs:
           path: |
             build/ml-matched-checkpoint/**
             build/ml-matched-train.jsonl
+            build/ml-matched-sequence-probes.json
             build/ml-diverse-checkpoint/**
             build/ml-diverse-conditioning-fixture/**
             build/ml-context-diversity-summary.json
