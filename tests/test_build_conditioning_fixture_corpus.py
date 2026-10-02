@@ -216,6 +216,18 @@ class ConditioningFixtureTests(unittest.TestCase):
                 variants[0]["source_id"],
                 variants[1]["source_id"],
             )
+            self.assertTrue(
+                isinstance(variants[0]["target_sha256"], str)
+                and len(variants[0]["target_sha256"]) == 64
+            )
+            self.assertTrue(
+                isinstance(variants[1]["target_sha256"], str)
+                and len(variants[1]["target_sha256"]) == 64
+            )
+            self.assertNotEqual(
+                variants[0]["target_sha256"],
+                variants[1]["target_sha256"],
+            )
             self.assertEqual(
                 variants[0]["split"],
                 "train",
