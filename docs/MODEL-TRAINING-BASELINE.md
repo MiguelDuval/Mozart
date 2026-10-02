@@ -138,13 +138,22 @@ without turning the diagnostic into a production acceptance gate.
 
 A second follow-up experiment is now available as a manual CI run:
 the conditioning fixture can add deterministic target-MIDI context variants while
-keeping the exact same performance-control labels. The diversity experiment uses
-10 additional profile variants, producing 22 total records and 20 train records.
-With batch size 4 and `--repeat-train-records 8`, it remains exactly 480 optimizer
-updates with seed 42. Its purpose is to test whether greater musical-context
-diversity reduces autoregressive collapse without changing the model architecture,
-conditioning schema, optimizer family, learning rate, or total update budget.
-This is an experimental diagnostic, not a production training recipe. The manual experiment now preserves partial artifacts when an autoregressive sub-check fails, and its summary records both the teacher-forced report and the grammar-constrained sequence report for the regular and context-diverse checkpoints. This is intentional: a failed sequence criterion is evidence worth inspecting, not a reason to discard the checkpoint and teacher-forced measurements.
+keeping the exact same performance-control labels. The diversity experiment adds 10 context variants to the first 10 control profiles,
+producing 22 total records and 20 train records. Base and variant renderings share
+the same synthetic source group, so they stay in the same split; the resulting split
+is exactly 20 train / 1 validation / 1 test. With batch size 4 and
+`--repeat-train-records 8`, both the matched-exposure baseline and the context-diverse
+fit receive exactly 480 optimizer updates with seed 42. The matched-exposure baseline
+duplicates the ten base train records, while the context-diverse fit replaces those
+duplicates with ten independently rendered target-MIDI contexts under the same control
+labels. This isolates target-context diversity from the otherwise confounding change in
+example exposure. Architecture, conditioning schema, optimizer family, learning rate
+and update budget stay fixed. This is an experimental diagnostic, not a production
+training recipe. The manual experiment preserves partial artifacts when an autoregressive
+sub-check fails, and its summary records teacher-forced plus grammar-constrained sequence
+evidence for the regular baseline, matched-exposure baseline and context-diverse fit.
+This is intentional: a failed sequence criterion is evidence worth inspecting, not a
+reason to discard the checkpoint and teacher-forced measurements.
 
 The first follow-up experiment is a grammar-aware training-loss A/B test. With
 `--grammar-constrained-loss`, each next-token cross-entropy term is normalized only
