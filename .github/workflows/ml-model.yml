@@ -38,6 +38,7 @@ on:
       - "tools/summarize_mozart_conditioning_ab.py"
       - "tools/validate_mozart_conditioning_ab.py"
       - "tests/test_summarize_mozart_conditioning_ab.py"
+      - "tests/test_validate_mozart_conditioning_ab.py"
       - "docs/MODEL-TRAINING-BASELINE.md"
       - "tools/requirements-onnx-export.txt"
   pull_request:
@@ -72,6 +73,7 @@ on:
       - "tools/summarize_mozart_conditioning_ab.py"
       - "tools/validate_mozart_conditioning_ab.py"
       - "tests/test_summarize_mozart_conditioning_ab.py"
+      - "tests/test_validate_mozart_conditioning_ab.py"
       - "docs/MODEL-TRAINING-BASELINE.md"
       - "tools/requirements-onnx-export.txt"
   workflow_dispatch:
