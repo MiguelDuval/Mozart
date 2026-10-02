@@ -130,17 +130,18 @@ class TeacherForcedTests(unittest.TestCase):
         import numpy as np
 
         logits = np.full(512, -10.0, dtype=np.float32)
-        logits[170] = 7.0
+        logits[68] = 7.0
+        logits[69] = 6.0
         report = _measure(
             logits,
-            170,
-            context=[1, 16, 68],
+            68,
+            context=[1, 16],
         )
 
         self.assertEqual(report["target_legal_rank"], 1)
         self.assertTrue(report["target_legal_top1"])
-        self.assertEqual(report["target_token_family"], "velocity")
-        self.assertGreater(report["target_probability"], 0.99)
+        self.assertEqual(report["target_token_family"], "note")
+        self.assertGreater(report["target_probability"], 0.5)
         self.assertGreater(
             report["target_family_probability"],
             report["target_probability"],
