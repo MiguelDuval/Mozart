@@ -63,6 +63,16 @@ CONTROL_ORDER = (
 )
 
 
+def source_variant(source_path: object) -> int | None:
+    if not isinstance(source_path, str):
+        return None
+    if source_path.endswith("-v0.mid"):
+        return 0
+    if source_path.endswith("-v1.mid"):
+        return 1
+    return None
+
+
 def deterministic_source_ids(count: int) -> list[str]:
     """Return exactly count-2 train, 1 validation and 1 test groups."""
     selected: dict[str, list[str]] = {
