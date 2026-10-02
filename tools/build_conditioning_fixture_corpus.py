@@ -274,7 +274,7 @@ def build_conditioning_fixture_corpus(
     # validation/test assignment.
     source_ids = deterministic_source_ids(len(CONTROL_PROFILES))
 
-    for output_index, (profile_index, controls, variant) in enumerate(profile_specs):
+    for profile_index, controls, variant in profile_specs:
         filename = f"control-probe-{profile_index:02d}-v{variant}.mid"
         midi_path = midi_dir / filename
         midi_path.write_bytes(
