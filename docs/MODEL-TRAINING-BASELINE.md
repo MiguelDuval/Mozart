@@ -79,9 +79,13 @@ The diagnostic also verifies PyTorch/ONNX parity for the legal-token target
 probability, legal-token rank/top-1, and the distribution TV measurement. A
 control is additionally summarized as having a bidirectional target response
 only when both its low-side and high-side divergence targets gain probability
-under their corresponding native controls. This distinction is deliberate:
-a large distribution shift by itself is not evidence that the model learned the
-intended semantic target.
+under their corresponding native controls. The evaluator also measures the
+probability mass of the target's legal MIDI token family. This provides a less
+brittle semantic signal for controls where exact-token prediction is too narrow:
+a control can increase the correct event family without making one exact token
+the argmax. These metrics remain diagnostic-only; a large distribution shift,
+family shift, or exact-token shift by itself is not proof that the model learned
+the intended semantic mapping.
 
 The greedy sequence gate validates generated output as a bounded grammar prefix.
 It does not require EOS inside the fixed 32-token observation budget, because EOS
