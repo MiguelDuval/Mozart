@@ -185,6 +185,7 @@ class TeacherForcedTests(unittest.TestCase):
             records,
             probes,
             window_size=2,
+            require_legal_target_top1=True,
         )
 
         self.assertEqual(report["status"], "PASS")
@@ -196,6 +197,14 @@ class TeacherForcedTests(unittest.TestCase):
         self.assertEqual(
             report["target_probability_directional_response_rate"],
             1.0,
+        )
+        self.assertEqual(
+            report["controls_with_bidirectional_target_response"],
+            len(CONTROL_NAMES),
+        )
+        self.assertEqual(
+            report["controls_with_both_legal_targets_top1"],
+            len(CONTROL_NAMES),
         )
         for name in CONTROL_NAMES:
             entry = report["controls"][name]
