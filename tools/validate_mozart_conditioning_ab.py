@@ -191,6 +191,62 @@ def validate_probes(
     }
 
 
+def compare_probe_definitions(
+    diverse_probes: dict[str, Any],
+    matched_probes: dict[str, Any],
+) -> dict[str, Any]:
+    """Verify that A/B probes differ only in synthetic record identities."""
+    shared_fields = (
+        "schema_version",
+        "fixture_revision",
+        "status",
+        "probe_context",
+        "probe_variant",
+        "control_probe_values",
+        "max_generated_tokens",
+    )
+    for field in shared_fields:
+        if diverse_probes.get(field) != matched_probes.get(field):
+            raise ValueError(
+                f"probe definition field {field!r} differs between diverse and matched A/B inputs"
+            )
+
+    diverse_controls = diverse_probes.get("controls")
+    matched_controls = matched_probes.get("controls")
+    if not isinstance(diverse_controls, dict) or not isinstance(matched_controls, dict):
+        raise ValueError("both A/B probe files must contain a controls object")
+    if set(diverse_controls) != set(CONTROL_ORDER) or set(matched_controls) != set(CONTROL_ORDER):
+        raise ValueError("both A/B probe files must contain exactly the canonical performance controls")
+
+    compared_fields = (
+        "low_profile",
+        "high_profile",
+        "prefix_tokens",
+        "prefix_length",
+        "first_target_divergence_index",
+    )
+    for control in CONTROL_ORDER:
+        diverse_entry = diverse_controls[control]
+        matched_entry = matched_controls[control]
+        if not isinstance(diverse_entry, dict) or not isinstance(matched_entry, dict):
+            raise ValueError(f"probe {control} entries must be objects")
+        for field in compared_fields:
+            if diverse_entry.get(field) != matched_entry.get(field):
+                raise ValueError(
+                    f"probe {control} field {field!r} differs between diverse and matched A/B inputs"
+                )
+
+    return {
+        "status": "PASS",
+        "shared_definition_fields": list(shared_fields),
+        "controls": list(CONTROL_ORDER),
+        "record_identity_fields_ignored": [
+            "low_record_source_id",
+            "high_record_source_id",
+        ],
+    }
+
+
 def validate_records(
     base_records: list[dict[str, Any]],
     diverse_records: list[dict[str, Any]],
@@ -371,13 +427,19 @@ def main() -> int:
         diverse_records,
         matched_records,
     )
+    diverse_probe_payload = json.loads(args.probe_json.read_text(encoding="utf-8"))
+    matched_probe_payload = json.loads(args.matched_probe_json.read_text(encoding="utf-8"))
     result["diverse_probes"] = validate_probes(
         diverse_records,
-        json.loads(args.probe_json.read_text(encoding="utf-8")),
+        diverse_probe_payload,
     )
     result["matched_probes"] = validate_probes(
         matched_records,
-        json.loads(args.matched_probe_json.read_text(encoding="utf-8")),
+        matched_probe_payload,
+    )
+    result["probe_equivalence"] = compare_probe_definitions(
+        diverse_probe_payload,
+        matched_probe_payload,
     )
     result["input_fingerprint"] = {
         "base_train_sha256": sha256_file(args.base_train_jsonl),
