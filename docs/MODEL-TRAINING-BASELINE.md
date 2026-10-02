@@ -168,8 +168,12 @@ v1 context actually differs from its v0 base target. Sequence probes carry expli
 training contexts, while teacher-forced/autoregressive probes remain anchored to the
 canonical base contexts so both A/B fits use the same probe definition. Matched
 teacher-forced probes are remapped to unique synthetic identities instead of reusing
-base fixture IDs. This is intentional: a failed sequence criterion is evidence worth
-inspecting, not a reason to discard the checkpoint or other measurements.
+base fixture IDs. The validator also persists
+`build/ml-context-diversity-input-contract.json`, covering both the diverse and
+matched probe sets, so an experiment artifact records the exact dataset/probe
+integrity checks that preceded training. This is intentional: a failed sequence
+criterion is evidence worth inspecting, not a reason to discard the checkpoint or
+other measurements.
 
 The first follow-up experiment is a grammar-aware training-loss A/B test. With
 `--grammar-constrained-loss`, each next-token cross-entropy term is normalized only
