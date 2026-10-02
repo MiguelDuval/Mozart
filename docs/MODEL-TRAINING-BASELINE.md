@@ -108,6 +108,17 @@ autoregressive/grammar robustness and training diversity rather than merely incr
 the repetition factor or treating validation loss from the tiny holdout as a production
 model-selection criterion.
 
+The first follow-up experiment is a grammar-aware training-loss A/B test. With
+`--grammar-constrained-loss`, each next-token cross-entropy term is normalized only
+over tokens valid for the current frozen MIDI grammar state; the model architecture,
+conditioning inputs, token vocabulary, optimizer budget and 480-update fit-diagnostic
+budget remain unchanged. The resulting checkpoint is evaluated both with raw greedy
+decoding and with the same runtime grammar-constrained decoder, plus the existing
+teacher-forced diagnostic. This is intentionally experimental: masking impossible
+tokens during training may improve structural rollout without improving musical
+conditioning, so neither behavior is promoted to a production gate from a single
+tiny fixture.
+
 ## Training
 
 
