@@ -932,31 +932,31 @@ public final class OnnxInferenceBridge {
     }
 
     private static boolean isChannelToken(int token) {
-        return token >= 16 && token < 32;
+        return token >= CHANNEL_BASE && token < NOTE_BASE;
     }
 
     private static boolean isNoteToken(int token) {
-        return token >= 32 && token < 160;
+        return token >= NOTE_BASE && token < VELOCITY_BASE;
     }
 
     private static boolean isVelocityToken(int token) {
-        return token >= 160 && token < 192;
+        return token >= VELOCITY_BASE && token < TIME_SHIFT_BASE;
     }
 
     private static boolean isTimeShiftToken(int token) {
-        return token >= 192 && token < 256;
+        return token >= TIME_SHIFT_BASE && token < DURATION_BASE;
     }
 
     private static boolean isDurationToken(int token) {
-        return token >= 256 && token < 352;
+        return token >= DURATION_BASE && token < CONTROLLER_BASE;
     }
 
     private static boolean isControllerToken(int token) {
-        return token >= 352 && token < 480;
+        return token >= CONTROLLER_BASE && token < CONTROL_VALUE_BASE;
     }
 
     private static boolean isControlValueToken(int token) {
-        return token >= 480 && token < MOZART_VOCABULARY_SIZE;
+        return token >= CONTROL_VALUE_BASE && token < MOZART_VOCABULARY_SIZE;
     }
 
     private static int argmax(double[] values) {
