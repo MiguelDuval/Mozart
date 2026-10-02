@@ -268,13 +268,13 @@ def build_conditioning_fixture_corpus(
             CONTROL_PROFILES[:context_variant_count]
         )
     )
-    # Base and context-variant renderings of the same control profile are
-    # one source group. This keeps paired contexts in the same dataset split and
-    # prevents the diversity experiment from accidentally losing a probe side to
-    # validation/test assignment.
-    source_ids = deterministic_source_ids(len(CONTROL_PROFILES))
+    # Base and context-variant renderings receive unique record identities.
+    # The variant's split is explicitly inherited from its base profile after
+    # deterministic assignment, keeping the pair together without creating
+    # duplicate source_id values for strict evaluator/provenance contracts.
+    source_ids = deterministic_source_ids(len(profile_specs))
 
-    for profile_index, controls, variant in profile_specs:
+    for output_index, (profile_index, controls, variant) in enumerate(profile_specs):
         filename = f"control-probe-{profile_index:02d}-v{variant}.mid"
         midi_path = midi_dir / filename
         midi_path.write_bytes(
@@ -290,7 +290,7 @@ def build_conditioning_fixture_corpus(
 
         record = build_example(
             midi_path,
-            source_id=source_ids[profile_index],
+            source_id=source_ids[output_index],
             source_revision=FIXTURE_REVISION,
             source_path=f"midi/{filename}",
             style="electronic",
@@ -315,6 +315,15 @@ def build_conditioning_fixture_corpus(
         )
 
     assigned = assign_records(records)
+    base_split_by_profile = {
+        profile_index: assigned[index]["split"]
+        for index, (profile_index, _, variant) in enumerate(profile_specs)
+        if variant == 0
+    }
+    for index, (profile_index, _, variant) in enumerate(profile_specs):
+        if variant == 1:
+            assigned[index]["split"] = base_split_by_profile[profile_index]
+
     records_path = output_dir / "records.jsonl"
     records_path.write_text(
         "".join(
