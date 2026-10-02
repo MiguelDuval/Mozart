@@ -75,6 +75,45 @@ class FakeTeacherForcedModel:
         return logits
 
 
+class ReverseDirectionalTeacherForcedModel(FakeTeacherForcedModel):
+    def __call__(
+        self,
+        input_ids,
+        style_id,
+        substyle_id,
+        mood_id,
+        rhythm_id,
+        role_id,
+        performance_controls,
+    ):
+        logits = super().__call__(
+            input_ids,
+            style_id,
+            substyle_id,
+            mood_id,
+            rhythm_id,
+            role_id,
+            performance_controls,
+        )
+        if input_ids.shape[1] == 3:
+            import torch
+
+            for row in range(input_ids.shape[0]):
+                values = performance_controls[row].tolist()
+                index = next(
+                    index
+                    for index, value in enumerate(values)
+                    if abs(value - 0.1) < 1.0e-5
+                    or abs(value - 0.9) < 1.0e-5
+                )
+                high = values[index] > 0.5
+                native_token = 170 + index * 2 + int(high)
+                reverse_token = 170 + index * 2 + int(not high)
+                logits[row, -1, native_token] = 0.0
+                logits[row, -1, reverse_token] = 100.0
+        return logits
+
+
 class TeacherForcedTests(unittest.TestCase):
     def test_target_rank_and_margin(self) -> None:
         import numpy as np
@@ -199,6 +238,63 @@ class TeacherForcedTests(unittest.TestCase):
                 entry["max_distribution_total_variation_native_vs_counterfactual"],
                 0.0,
             )
+
+    def test_tv_response_does_not_imply_directionally_correct_target(self) -> None:
+        records = {}
+        probes = {"controls": {}}
+
+        for index, name in enumerate(CONTROL_NAMES):
+            low_id = f"{name}-low"
+            high_id = f"{name}-high"
+            records[low_id] = {
+                "source_id": low_id,
+                "split": "train",
+                "tokens": [1, 16, 68, 170 + index * 2, 260],
+                "performance_controls": {
+                    control: (0.1 if control == name else 0.5)
+                    for control in CONTROL_NAMES
+                },
+            }
+            records[high_id] = {
+                "source_id": high_id,
+                "split": "train",
+                "tokens": [1, 16, 68, 171 + index * 2, 260],
+                "performance_controls": {
+                    control: (0.9 if control == name else 0.5)
+                    for control in CONTROL_NAMES
+                },
+            }
+            probes["controls"][name] = {
+                "prefix_tokens": [1, 16, 68],
+                "prefix_length": 3,
+                "first_target_divergence_index": 3,
+                "low_profile": records[low_id]["performance_controls"],
+                "high_profile": records[high_id]["performance_controls"],
+                "low_record_source_id": low_id,
+                "high_record_source_id": high_id,
+            }
+
+        report = _evaluate_with_model(
+            ReverseDirectionalTeacherForcedModel(),
+            records,
+            probes,
+            window_size=1,
+        )
+
+        self.assertEqual(report["status"], "PASS")
+        self.assertGreater(
+            report["max_distribution_total_variation_native_vs_counterfactual"],
+            0.5,
+        )
+        self.assertEqual(
+            report["target_probability_directional_response_rate"],
+            0.0,
+        )
+        self.assertEqual(
+            report["controls_with_bidirectional_target_response"],
+            0,
+        )
+
 
     def test_illegal_teacher_forced_target_is_rejected(self) -> None:
         records = {}
