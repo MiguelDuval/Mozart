@@ -16,6 +16,7 @@ on:
       - "tools/midi_to_training_example.py"
       - "tools/build_training_windows.py"
       - "tools/mozart_conditioning.py"
+      - "tools/mozart_token_grammar.py"
       - "tests/test_midi_to_training_example.py"
       - "tests/test_build_training_windows.py"
       - "docs/model-training-config.json"
@@ -25,6 +26,7 @@ on:
       - "tests/test_corpus_pipeline.py"
       - "tests/test_mozart_model_config.py"
       - "tests/test_mozart_conditioning_response.py"
+      - "tests/test_mozart_token_grammar.py"
       - "tests/test_mozart_conditioning_sequence_response.py"
       - "tests/test_build_conditioning_fixture_corpus.py"
       - "tests/test_train_mozart_model.py"
@@ -144,6 +146,12 @@ jobs:
             tools/build_training_windows.py \
             tools/build_training_shards.py \
             tools/build_fixture_corpus.py
+
+      - name: Test shared Mozart token grammar contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_mozart_token_grammar.py'
 
       - name: Test teacher-forced conditioning evaluator contract
         shell: bash
@@ -348,6 +356,100 @@ jobs:
             --require-valid-grammar \
             --seed 42 \
             --output build/ml-checkpoint/conditioning-sequence-grammar-constrained.json
+
+      - name: Train grammar-aware development checkpoint
+        id: grammar-aware-training
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/ml-grammar-checkpoint
+          python3 tools/train_mozart_model.py             build/ml-conditioning-fixture/train.jsonl             --validation-jsonl build/ml-conditioning-fixture/validation.jsonl             --output-dir build/ml-grammar-checkpoint             --epochs 12             --batch-size 4             --repeat-train-records 16             --learning-rate 3e-4             --fit-diagnostic             --grammar-constrained-loss             --seed 42             --device cpu
+
+          python3 - <<'PY'
+          import torch
+          from pathlib import Path
+
+          source = Path("build/ml-grammar-checkpoint/latest.pt")
+          checkpoint = torch.load(source, map_location="cpu", weights_only=False)
+          if checkpoint.get("epoch") != 12:
+              raise SystemExit("grammar-aware checkpoint must reach epoch 12")
+          if checkpoint.get("fit_diagnostic") is not True:
+              raise SystemExit("grammar-aware checkpoint must use fit-diagnostic mode")
+          if checkpoint.get("grammar_constrained_loss") is not True:
+              raise SystemExit("grammar-aware checkpoint must record grammar-constrained loss")
+          if checkpoint.get("total_optimizer_updates") != 480:
+              raise SystemExit("grammar-aware checkpoint must contain exactly 480 updates")
+
+          inference_checkpoint = {
+              "model_id": checkpoint["model_id"],
+              "config": checkpoint["config"],
+              "epoch": checkpoint["epoch"],
+              "seed": checkpoint["seed"],
+              "train_loss": checkpoint["train_loss"],
+              "validation_loss": checkpoint["validation_loss"],
+              "grammar_constrained_loss": checkpoint["grammar_constrained_loss"],
+              "model_state": checkpoint["model_state"],
+          }
+          torch.save(
+              inference_checkpoint,
+              "build/ml-grammar-checkpoint/development-inference.pt",
+          )
+          print(
+              "PASS: grammar-aware development fit "
+              f"train_loss={checkpoint['train_loss']:.6f} "
+              f"validation_loss={checkpoint['validation_loss']:.6f}"
+          )
+          PY
+
+          python3 tools/export_mozart_onnx.py             build/ml-grammar-checkpoint/development-inference.pt             build/ml-grammar-checkpoint/model.onnx             --config docs/model-training-config.json             --sequence-length 16             --opset 18
+
+      - name: Evaluate grammar-aware checkpoint autoregression A/B
+        if: ${{ always() }}
+        id: grammar-aware-evaluation
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f build/ml-grammar-checkpoint/development-inference.pt
+          test -f build/ml-grammar-checkpoint/model.onnx
+
+          set +e
+          python3 tools/evaluate_mozart_conditioning_sequence.py             build/ml-grammar-checkpoint/development-inference.pt             --config docs/model-training-config.json             --onnx build/ml-grammar-checkpoint/model.onnx             --max-generated-tokens 32             --low-value 0.1             --high-value 0.9             --base-value 0.5             --probe-file build/ml-conditioning-fixture/sequence-probes.json             --require-valid-grammar             --seed 42             --output build/ml-grammar-checkpoint/conditioning-sequence-raw.json
+          raw_status=$?
+
+          python3 tools/evaluate_mozart_conditioning_sequence.py             build/ml-grammar-checkpoint/development-inference.pt             --config docs/model-training-config.json             --onnx build/ml-grammar-checkpoint/model.onnx             --max-generated-tokens 32             --low-value 0.1             --high-value 0.9             --base-value 0.5             --probe-file build/ml-conditioning-fixture/sequence-probes.json             --grammar-constrained             --require-valid-grammar             --seed 42             --output build/ml-grammar-checkpoint/conditioning-sequence-constrained.json
+          constrained_status=$?
+
+          python3 tools/evaluate_mozart_conditioning_teacher_forced.py             build/ml-grammar-checkpoint/development-inference.pt             build/ml-conditioning-fixture/train.jsonl             build/ml-conditioning-fixture/sequence-probes.json             --config docs/model-training-config.json             --onnx build/ml-grammar-checkpoint/model.onnx             --window-size 8             --output build/ml-grammar-checkpoint/conditioning-teacher-forced.json
+          teacher_status=$?
+
+          RAW_STATUS="$raw_status"           CONSTRAINED_STATUS="$constrained_status"           TEACHER_STATUS="$teacher_status"           python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = {
+              "raw_status": int(os.environ["RAW_STATUS"]),
+              "grammar_constrained_status": int(os.environ["CONSTRAINED_STATUS"]),
+              "teacher_forced_status": int(os.environ["TEACHER_STATUS"]),
+          }
+          report["status"] = (
+              "PASS"
+              if report["grammar_constrained_status"] == 0
+              and report["teacher_forced_status"] == 0
+              else "FAIL"
+          )
+          Path("build/ml-grammar-checkpoint/ab-summary.json").write_text(
+              json.dumps(report, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+
+          if [[ "$raw_status" -ne 0 || "$constrained_status" -ne 0 || "$teacher_status" -ne 0 ]]; then
+            exit 1
+          fi
 
       - name: Enforce development conditioning gates
         if: ${{ always() }}
