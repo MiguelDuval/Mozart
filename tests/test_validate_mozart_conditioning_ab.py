@@ -3,13 +3,12 @@
 
 from __future__ import annotations
 
-import copy
 import sys
 import unittest
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1] / "tools"))
 
-from validate_mozart_conditioning_ab import validate_records
+from validate_mozart_conditioning_ab import validate_probes, validate_records
 
 
 def _record(
@@ -71,7 +70,82 @@ def _dataset() -> tuple[list[dict], list[dict], list[dict]]:
     return base, diverse, matched
 
 
+def _probe_dataset() -> tuple[list[dict], dict]:
+    controls = ("density", "energy", "syncopation", "swing", "variation")
+    records = []
+    probe_controls = {}
+
+    for index, control in enumerate(controls):
+        low_index = index * 2
+        high_index = low_index + 1
+        low = {name: 0.5 for name in controls}
+        high = dict(low)
+        low[control] = 0.1
+        high[control] = 0.9
+        low_id = f"base-{low_index}"
+        high_id = f"base-{high_index}"
+        prefix = [100 + index]
+        low_record = _record(
+            low_id,
+            f"midi/control-probe-{low_index:02d}-v0.mid",
+            prefix + [10 + index],
+            0.5,
+        )
+        high_record = _record(
+            high_id,
+            f"midi/control-probe-{high_index:02d}-v0.mid",
+            prefix + [20 + index],
+            0.5,
+        )
+        low_record["performance_controls"] = low
+        high_record["performance_controls"] = high
+        records.extend((low_record, high_record))
+        probe_controls[control] = {
+            "low_profile": low,
+            "high_profile": high,
+            "prefix_tokens": prefix,
+            "prefix_length": 1,
+            "first_target_divergence_index": 1,
+            "low_record_source_id": low_id,
+            "high_record_source_id": high_id,
+        }
+
+    probes = {
+        "schema_version": 1,
+        "fixture_revision": "mozart-conditioning-fixture-v1",
+        "status": "synthetic-conditioning-sequence-probes",
+        "probe_context": "canonical-base-records",
+        "probe_variant": 0,
+        "control_probe_values": {
+            "low": 0.1,
+            "high": 0.9,
+            "base_other_controls": 0.5,
+        },
+        "max_generated_tokens": 32,
+        "controls": probe_controls,
+    }
+    return records, probes
+
+
 class MozartConditioningABValidatorTests(unittest.TestCase):
+    def test_valid_canonical_probes(self) -> None:
+        records, probes = _probe_dataset()
+        result = validate_probes(records, probes)
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["probe_count"], 5)
+
+    def test_rejects_probe_target_divergence_mismatch(self) -> None:
+        records, probes = _probe_dataset()
+        probes["controls"]["density"]["first_target_divergence_index"] = 0
+        with self.assertRaisesRegex(ValueError, "density divergence index is invalid"):
+            validate_probes(records, probes)
+
+    def test_rejects_variant_probe_record(self) -> None:
+        records, probes = _probe_dataset()
+        records[0]["source_path"] = "midi/control-probe-00-v1.mid"
+        with self.assertRaisesRegex(ValueError, "must use canonical v0"):
+            validate_probes(records, probes)
+
     def test_valid_matched_exposure_layout(self) -> None:
         base, diverse, matched = _dataset()
         result = validate_records(base, diverse, matched)
