@@ -127,6 +127,11 @@ autoregressive/grammar robustness and training diversity rather than merely incr
 the repetition factor or treating validation loss from the tiny holdout as a production
 model-selection criterion.
 
+The ML workflow also publishes a compact `ml-semantic-ab-summary.json`
+artifact containing the teacher-forced semantic metrics for both the regular and
+grammar-aware checkpoints. This keeps A/B comparisons reproducible across CI runs
+without turning the diagnostic into a production acceptance gate.
+
 The first follow-up experiment is a grammar-aware training-loss A/B test. With
 `--grammar-constrained-loss`, each next-token cross-entropy term is normalized only
 over tokens valid for the current frozen MIDI grammar state; the model architecture,
