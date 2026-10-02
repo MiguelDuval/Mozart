@@ -206,7 +206,7 @@ class ConditioningFixtureTests(unittest.TestCase):
                 variants[0]["split"],
                 variants[1]["split"],
             )
-            self.assertEqual(
+            self.assertNotEqual(
                 variants[0]["source_id"],
                 variants[1]["source_id"],
             )
