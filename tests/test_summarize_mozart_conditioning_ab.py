@@ -121,6 +121,7 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
                     "diverse_train_sha256": "diverse",
                     "matched_train_sha256": "matched",
                 },
+                "probe_equivalence": {"status": "PASS"},
             },
             baseline_fit=None,
             matched_fit=None,
@@ -149,6 +150,21 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
     def test_build_summary_marks_failed_input_contract(self) -> None:
         summary = build_summary(
             input_contract={"status": "FAIL"},
+            baseline_fit=None,
+            matched_fit=None,
+            diverse_fit=None,
+            baseline_teacher=teacher_report(),
+            matched_teacher=teacher_report(),
+            diverse_teacher=teacher_report(),
+            baseline_sequence=sequence_report(),
+            matched_sequence=sequence_report(),
+            diverse_sequence=sequence_report(),
+        )
+        self.assertEqual(summary["status"], "FAIL")
+
+    def test_build_summary_rejects_incomplete_input_contract(self) -> None:
+        summary = build_summary(
+            input_contract={"status": "PASS"},
             baseline_fit=None,
             matched_fit=None,
             diverse_fit=None,
