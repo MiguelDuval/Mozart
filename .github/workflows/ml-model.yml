@@ -870,6 +870,8 @@ jobs:
                   return None
               keys = (
                   "status",
+                  "train_loss",
+                  "validation_loss",
                   "observed_teacher_forced_steps",
                   "native_target_top1_steps",
                   "native_legal_target_top1_steps",
@@ -888,45 +890,6 @@ jobs:
               if report is None:
                   return None
               controls = report.get("controls") or {}
-          def summarize_training(report):
-              if report is None:
-                  return None
-              return {
-                  "status": report.get("status"),
-                  "train_loss": report.get("train_loss"),
-                  "validation_loss": report.get("validation_loss"),
-              }
-
-          def subtract(left, right):
-              if left is None or right is None:
-                  return None
-              return float(left) - float(right)
-
-          def compare_experiments(matched, diverse):
-              if matched is None or diverse is None:
-                  return None
-              matched_controls = matched.get("controls") or {}
-              diverse_controls = diverse.get("controls") or {}
-              comparison = {}
-              for name in sorted(set(matched_controls) & set(diverse_controls)):
-                  matched_entry = matched_controls[name]
-                  diverse_entry = diverse_controls[name]
-                  mt = (matched_entry.get("torch") or {})
-                  dt = (diverse_entry.get("torch") or {})
-                  mdr = (mt.get("distribution_response") or {})
-                  ddr = (dt.get("distribution_response") or {})
-                  comparison[name] = {
-                      "sequence_changed_delta": int(bool(dt.get("sequence_changed"))) - int(bool(mt.get("sequence_changed"))),
-                      "max_total_variation_delta": subtract(
-                          ddr.get("max_total_variation"),
-                          mdr.get("max_total_variation"),
-                      ),
-                      "mean_total_variation_delta": subtract(
-                          ddr.get("mean_total_variation"),
-                          mdr.get("mean_total_variation"),
-                      ),
-                  }
-              return comparison
               sequence_changed = 0
               max_tvs = []
               for entry in controls.values():
@@ -959,7 +922,41 @@ jobs:
               )
               return summary
 
-          reports = (
+          def subtract(left, right):
+              if left is None or right is None:
+                  return None
+              return float(left) - float(right)
+
+          def compare_experiments(matched, diverse):
+              if matched is None or diverse is None:
+                  return None
+              matched_controls = matched.get("controls") or {}
+              diverse_controls = diverse.get("controls") or {}
+              comparison = {}
+              for name in sorted(set(matched_controls) & set(diverse_controls)):
+                  matched_entry = matched_controls[name]
+                  diverse_entry = diverse_controls[name]
+                  mt = matched_entry.get("torch") or {}
+                  dt = diverse_entry.get("torch") or {}
+                  mdr = mt.get("distribution_response") or {}
+                  ddr = dt.get("distribution_response") or {}
+                  comparison[name] = {
+                      "sequence_changed_delta": (
+                          int(bool(dt.get("sequence_changed")))
+                          - int(bool(mt.get("sequence_changed")))
+                      ),
+                      "max_total_variation_delta": subtract(
+                          ddr.get("max_total_variation"),
+                          mdr.get("max_total_variation"),
+                      ),
+                      "mean_total_variation_delta": subtract(
+                          ddr.get("mean_total_variation"),
+                          mdr.get("mean_total_variation"),
+                      ),
+                  }
+              return comparison
+
+                    reports = (
               baseline_teacher,
               matched_teacher,
               diverse_teacher,
