@@ -555,7 +555,9 @@ jobs:
                   "controls_with_both_legal_targets_top1",
                   "controls_with_bidirectional_target_response",
                   "target_probability_directional_response_rate",
+                  "target_family_probability_directional_response_rate",
                   "mean_target_probability_delta_native_minus_counterfactual",
+                  "mean_target_family_probability_delta_native_minus_counterfactual",
                   "mean_target_probability_tv_alignment",
                   "mean_distribution_total_variation_native_vs_counterfactual",
               )
