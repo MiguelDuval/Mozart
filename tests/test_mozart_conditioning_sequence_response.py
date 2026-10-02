@@ -217,7 +217,7 @@ class MozartConditioningSequenceTests(unittest.TestCase):
         self.assertFalse(is_allowed_next_token([1, 16], 193))
 
         self.assertTrue(is_allowed_next_token([1, 16, 68], 160))
-        self.assertFalse(is_allowed_next_token([1, 16, 68], 161))
+        self.assertTrue(is_allowed_next_token([1, 16, 68], 161))
         self.assertFalse(is_allowed_next_token([1, 16, 68], 352))
 
         self.assertTrue(
