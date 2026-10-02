@@ -111,6 +111,17 @@ def _measure(
         "target_top1_margin": target_logit - top1_logit,
     }
     if context is not None:
+        allowed = _grammar_allowed_mask(context)
+        legal_logits = np.where(allowed, logits, -np.inf)
+        legal_target_rank = 1 + int(
+            np.count_nonzero(
+                legal_logits > legal_logits[target]
+            )
+        )
+        report["target_legal_rank"] = legal_target_rank
+        report["target_legal_top1"] = (
+            int(np.argmax(legal_logits)) == target
+        )
         report["target_probability"] = _legal_target_probability(
             logits,
             target,
@@ -497,6 +508,14 @@ def _evaluate_with_model(
                 "teacher-forced divergence targets must both be top1 "
                 f"for control {name}"
             )
+        if require_legal_target_top1 and (
+            not low_target_report["target_legal_top1"]
+            or not high_target_report["target_legal_top1"]
+        ):
+            failures.append(
+                "teacher-forced divergence targets must both be legal-token top1 "
+                f"for control {name}"
+            )
 
         report_controls[name] = entry
 
@@ -541,6 +560,7 @@ def _evaluate_with_model(
         "status": "FAIL" if failures else "PASS",
         "window_size": window_size,
         "require_target_top1": require_target_top1,
+        "require_legal_target_top1": require_legal_target_top1,
         "control_count": len(PERFORMANCE_CONTROL_NAMES),
         "observed_teacher_forced_steps": observed_steps,
         "native_target_top1_steps": native_top1_steps,
@@ -589,6 +609,7 @@ def evaluate_teacher_forced(
     onnx_path: Path | None = None,
     window_size: int = 8,
     require_target_top1: bool = False,
+    require_legal_target_top1: bool = False,
 ) -> dict[str, Any]:
     records = _load_records(records_path)
     probes = load_sequence_probe_file(probes_path)
@@ -643,6 +664,12 @@ def main() -> int:
         default=False,
         help="Require both low/high target tokens to be top1 at the exact fixture divergence.",
     )
+    parser.add_argument(
+        "--require-legal-target-top1",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Require both low/high targets to be top1 within the grammar-legal token distribution.",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
@@ -654,6 +681,7 @@ def main() -> int:
         onnx_path=args.onnx,
         window_size=args.window_size,
         require_target_top1=args.require_target_top1,
+        require_legal_target_top1=args.require_legal_target_top1,
     )
     encoded = json.dumps(
         report,
