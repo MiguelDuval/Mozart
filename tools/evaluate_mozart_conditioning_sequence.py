@@ -30,6 +30,7 @@ from evaluate_mozart_conditioning import (
 # Defaults intentionally mirror the CI probe contract and remain overrideable via CLI.
 DEFAULT_MAX_GENERATED_TOKENS = 32
 DEFAULT_MAX_REPORTED_DIFFS = 8
+DEFAULT_MIN_DISTRIBUTION_TOTAL_VARIATION = 0.05
 DEFAULT_LOW_VALUE = 0.1
 DEFAULT_HIGH_VALUE = 0.9
 DEFAULT_BASE_VALUE = 0.5
@@ -366,6 +367,77 @@ def _greedy_token(
     return int(np.argmax(masked))
 
 
+def _token_distribution_total_variation(
+    low_logits: np.ndarray,
+    high_logits: np.ndarray,
+    tokens: list[int],
+    *,
+    grammar_constrained: bool,
+) -> float:
+    """Measure low/high response over the tokens the decoder may legally emit."""
+    if low_logits.shape != (VOCABULARY_SIZE,) or high_logits.shape != (VOCABULARY_SIZE,):
+        raise ValueError("distribution logits must have shape [512]")
+    if not np.isfinite(low_logits).all() or not np.isfinite(high_logits).all():
+        raise ValueError("distribution logits must be finite")
+
+    allowed = (
+        _grammar_allowed_mask(tokens)
+        if grammar_constrained
+        else np.ones(VOCABULARY_SIZE, dtype=bool)
+    )
+
+    def _softmax(values: np.ndarray) -> np.ndarray:
+        selected = values[allowed].astype(np.float64, copy=False)
+        shifted = selected - np.max(selected)
+        probabilities = np.exp(shifted)
+        probabilities /= np.sum(probabilities)
+        return probabilities
+
+    low_probabilities = _softmax(low_logits)
+    high_probabilities = _softmax(high_logits)
+    return float(0.5 * np.abs(low_probabilities - high_probabilities).sum())
+
+
+def _distribution_response_trace(
+    next_logits: Any,
+    low_controls: dict[str, float],
+    high_controls: dict[str, float],
+    low_tokens: list[int],
+    high_tokens: list[int],
+    prefix_tokens: tuple[int, ...],
+    *,
+    grammar_constrained: bool,
+) -> dict[str, Any]:
+    """Measure control-induced probability shifts while both rollouts share context."""
+    common_limit = min(len(low_tokens), len(high_tokens))
+    contexts: list[list[int]] = [list(prefix_tokens)]
+    for context_length in range(len(prefix_tokens) + 1, common_limit):
+        if low_tokens[:context_length] != high_tokens[:context_length]:
+            break
+        contexts.append(low_tokens[:context_length])
+
+    shifts: list[float] = []
+    for context in contexts:
+        low_logits = next_logits(context, low_controls)
+        high_logits = next_logits(context, high_controls)
+        shifts.append(
+            _token_distribution_total_variation(
+                low_logits,
+                high_logits,
+                context,
+                grammar_constrained=grammar_constrained,
+            )
+        )
+
+    return {
+        "observed_context_count": len(shifts),
+        "mean_total_variation": float(np.mean(shifts)),
+        "max_total_variation": float(np.max(shifts)),
+        "min_total_variation": float(np.min(shifts)),
+        "values": shifts,
+    }
+
+
 def generate_greedy_torch(
     model: Any,
     controls: dict[str, float],
@@ -440,6 +512,8 @@ def compare_token_sequences(
         raise ValueError("token sequences must not be empty")
     if max_reported_diffs <= 0:
         raise ValueError("max_reported_diffs must be positive")
+    if not 0.0 <= min_distribution_total_variation <= 1.0:
+        raise ValueError("min_distribution_total_variation must be in [0, 1]")
 
     common_prefix = 0
     common_limit = min(len(low_tokens), len(high_tokens))
@@ -496,6 +570,8 @@ def evaluate_sequence_responsiveness(
     prefix_tokens_by_control: dict[str, tuple[int, ...]] | None = None,
     require_divergence: bool = True,
     require_valid_grammar: bool = False,
+    require_distribution_response: bool = False,
+    min_distribution_total_variation: float = DEFAULT_MIN_DISTRIBUTION_TOTAL_VARIATION,
     max_reported_diffs: int = DEFAULT_MAX_REPORTED_DIFFS,
     low_value: float = DEFAULT_LOW_VALUE,
     high_value: float = DEFAULT_HIGH_VALUE,
@@ -554,6 +630,15 @@ def evaluate_sequence_responsiveness(
             torch_high,
             max_reported_diffs=max_reported_diffs,
         )
+        torch_distribution = _distribution_response_trace(
+            lambda context, controls: _torch_next_logits(model, context, controls),
+            low,
+            high,
+            torch_low,
+            torch_high,
+            control_prefix,
+            grammar_constrained=grammar_constrained,
+        )
         torch_low_grammar = validate_mozart_token_sequence(torch_low, require_eos=False)
         torch_high_grammar = validate_mozart_token_sequence(torch_high, require_eos=False)
         if require_valid_grammar:
@@ -578,6 +663,7 @@ def evaluate_sequence_responsiveness(
                 "high_tokens": torch_high,
                 "low_grammar": torch_low_grammar,
                 "high_grammar": torch_high_grammar,
+                "distribution_response": torch_distribution,
             },
         }
 
@@ -586,6 +672,14 @@ def evaluate_sequence_responsiveness(
                 f"conditioning control {name} did not change the greedy "
                 "generated token sequence"
             )
+
+        if require_distribution_response and torch_distribution["max_total_variation"] < min_distribution_total_variation:
+            failures.append(
+                f"conditioning control {name} PyTorch distribution response "
+                f"max total variation {torch_distribution['max_total_variation']:.6f} "
+                f"is below {min_distribution_total_variation:.6f}"
+            )
+
 
         if onnx_session is not None:
             onnx_low = generate_greedy_onnx(
@@ -607,8 +701,24 @@ def evaluate_sequence_responsiveness(
                 onnx_high,
                 max_reported_diffs=max_reported_diffs,
             )
+            onnx_distribution = _distribution_response_trace(
+                lambda context, controls: _onnx_next_logits(onnx_session, context, controls),
+                low,
+                high,
+                onnx_low,
+                onnx_high,
+                control_prefix,
+                grammar_constrained=grammar_constrained,
+            )
             onnx_low_grammar = validate_mozart_token_sequence(onnx_low, require_eos=False)
             onnx_high_grammar = validate_mozart_token_sequence(onnx_high, require_eos=False)
+            if require_distribution_response and onnx_distribution["max_total_variation"] < min_distribution_total_variation:
+                failures.append(
+                    f"conditioning control {name} ONNX distribution response "
+                    f"max total variation {onnx_distribution['max_total_variation']:.6f} "
+                    f"is below {min_distribution_total_variation:.6f}"
+                )
+
             if require_valid_grammar:
                 for label, grammar in (
                     ("low", onnx_low_grammar),
@@ -625,6 +735,7 @@ def evaluate_sequence_responsiveness(
                 "high_tokens": onnx_high,
                 "low_grammar": onnx_low_grammar,
                 "high_grammar": onnx_high_grammar,
+                "distribution_response": onnx_distribution,
             }
 
             low_match = onnx_low == torch_low
@@ -644,6 +755,8 @@ def evaluate_sequence_responsiveness(
         "status": "FAIL" if failures else "PASS",
         "require_divergence": require_divergence,
         "require_valid_grammar": require_valid_grammar,
+        "require_distribution_response": require_distribution_response,
+        "min_distribution_total_variation": min_distribution_total_variation,
         "grammar_constrained": grammar_constrained,
         "max_generated_tokens": max_generated_tokens,
         "control_probe_values": {
@@ -695,6 +808,18 @@ def main() -> int:
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Require every generated PyTorch/ONNX sequence to be decoder-valid.",
+    )
+    parser.add_argument(
+        "--require-distribution-response",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Require each control to measurably shift the legal-token distribution during the shared greedy rollout.",
+    )
+    parser.add_argument(
+        "--min-distribution-total-variation",
+        type=float,
+        default=DEFAULT_MIN_DISTRIBUTION_TOTAL_VARIATION,
+        help="Minimum maximum total variation used by --require-distribution-response.",
     )
     parser.add_argument(
         "--grammar-constrained",
@@ -756,6 +881,8 @@ def main() -> int:
         prefix_tokens_by_control=prefix_tokens_by_control,
         require_divergence=args.require_divergence,
         require_valid_grammar=args.require_valid_grammar,
+        require_distribution_response=args.require_distribution_response,
+        min_distribution_total_variation=args.min_distribution_total_variation,
         grammar_constrained=args.grammar_constrained,
         max_reported_diffs=args.max_reported_diffs,
         low_value=args.low_value,
