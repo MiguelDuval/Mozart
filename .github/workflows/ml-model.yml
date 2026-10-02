@@ -642,7 +642,17 @@ jobs:
               raise SystemExit(
                   f"matched-exposure baseline must start from 10 base train records, got {len(records)}"
               )
-          matched = records + [dict(record) for record in records]
+          matched = []
+          for record in records:
+              matched.append(record)
+              duplicate = dict(record)
+              duplicate["source_id"] = f"{record['source_id']}-matched-repeat"
+              duplicate["source_path"] = (
+                  f"{record['source_path']}#matched-repeat"
+              )
+              matched.append(duplicate)
+          if len({record["source_id"] for record in matched}) != 20:
+              raise SystemExit("matched-exposure baseline source identities must be unique")
           Path("build/ml-matched-train.jsonl").write_text(
               "".join(json.dumps(record, sort_keys=True) + "\n" for record in matched),
               encoding="utf-8",
