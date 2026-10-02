@@ -52,6 +52,8 @@ class ConditioningFixtureTests(unittest.TestCase):
             probes["status"],
             "synthetic-conditioning-sequence-probes",
         )
+        self.assertEqual(probes["probe_context"], "canonical-base-records")
+        self.assertEqual(probes["probe_variant"], 0)
         self.assertEqual(
             set(probes["controls"]),
             set(CONTROL_ORDER),
@@ -227,6 +229,18 @@ class ConditioningFixtureTests(unittest.TestCase):
             for record in records
             if record["split"] == "train"
         }
+        self.assertEqual(probes["probe_context"], "canonical-base-records")
+        self.assertEqual(probes["probe_variant"], 0)
+        self.assertTrue(
+            all(
+                "-context-v" not in source_id
+                for entry in probes["controls"].values()
+                for source_id in (
+                    entry["low_record_source_id"],
+                    entry["high_record_source_id"],
+                )
+            )
+        )
         for entry in probes["controls"].values():
             self.assertIn(entry["low_record_source_id"], train_ids)
             self.assertIn(entry["high_record_source_id"], train_ids)
