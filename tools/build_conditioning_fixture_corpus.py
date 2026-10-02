@@ -306,6 +306,7 @@ def build_conditioning_fixture_corpus(
             seed=5000 + profile_index + (variant * 1000),
             performance_controls=controls,
         )
+        record["target_sha256"] = sha256_file(midi_path)
         records.append(record)
         profiles.append(
             {
