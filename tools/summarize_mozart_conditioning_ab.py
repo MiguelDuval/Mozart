@@ -358,6 +358,16 @@ def main() -> int:
     parser.add_argument("--matched-dir", type=Path, required=True)
     parser.add_argument("--diverse-dir", type=Path, required=True)
     parser.add_argument("--input-contract", type=Path)
+    parser.add_argument(
+        "--matched-sequence-v1",
+        type=Path,
+        help="Optional sequence report evaluated on context-variant (v1) prefixes.",
+    )
+    parser.add_argument(
+        "--diverse-sequence-v1",
+        type=Path,
+        help="Optional sequence report evaluated on context-variant (v1) prefixes.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -387,6 +397,16 @@ def main() -> int:
         ),
         diverse_sequence=load_json(
             args.diverse_dir / "conditioning-sequence-grammar-constrained.json"
+        ),
+        matched_sequence_v1=(
+            load_json(args.matched_sequence_v1)
+            if args.matched_sequence_v1 is not None
+            else None
+        ),
+        diverse_sequence_v1=(
+            load_json(args.diverse_sequence_v1)
+            if args.diverse_sequence_v1 is not None
+            else None
         ),
     )
 
