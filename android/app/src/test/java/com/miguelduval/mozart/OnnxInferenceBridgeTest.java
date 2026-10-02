@@ -8,7 +8,9 @@ import static org.junit.Assert.fail;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.json.JSONArray;
@@ -46,6 +48,100 @@ public class OnnxInferenceBridgeTest {
                     expected.getCause().getMessage().contains(
                             "vocabulary size"));
         }
+    }
+
+    @Test
+    public void grammarAllowsOnlyStructuralSuccessors() throws Exception {
+        final Method method = findRequiredPrivateMethod(
+                "isAllowedNextToken",
+                List.class,
+                int.class,
+                int.class,
+                int.class);
+
+        final List<Integer> bos = List.of(1);
+        assertTrue((Boolean) method.invoke(null, bos, 16, 1, 2));
+        assertTrue((Boolean) method.invoke(null, bos, 192, 1, 2));
+        assertFalse((Boolean) method.invoke(null, bos, 92, 1, 2));
+
+        final List<Integer> channel = List.of(1, 16);
+        assertTrue((Boolean) method.invoke(null, channel, 92, 1, 2));
+        assertTrue((Boolean) method.invoke(null, channel, 352, 1, 2));
+        assertFalse((Boolean) method.invoke(null, channel, 192, 1, 2));
+
+        final List<Integer> note = List.of(1, 16, 92);
+        assertTrue((Boolean) method.invoke(null, note, 160, 1, 2));
+        assertFalse((Boolean) method.invoke(null, note, 256, 1, 2));
+        assertFalse((Boolean) method.invoke(null, note, 352, 1, 2));
+
+        final List<Integer> velocity = List.of(1, 16, 92, 160);
+        assertTrue((Boolean) method.invoke(null, velocity, 256, 1, 2));
+        assertFalse((Boolean) method.invoke(null, velocity, 160, 1, 2));
+
+        final List<Integer> duration = List.of(1, 16, 92, 160, 256);
+        assertTrue((Boolean) method.invoke(null, duration, 2, 1, 2));
+        assertTrue((Boolean) method.invoke(null, duration, 16, 1, 2));
+        assertTrue((Boolean) method.invoke(null, duration, 192, 1, 2));
+        assertTrue((Boolean) method.invoke(null, duration, 92, 1, 2));
+        assertTrue((Boolean) method.invoke(null, duration, 352, 1, 2));
+        assertFalse((Boolean) method.invoke(null, duration, 160, 1, 2));
+
+        final List<Integer> controller = List.of(1, 16, 352);
+        assertTrue((Boolean) method.invoke(null, controller, 480, 1, 2));
+        assertFalse((Boolean) method.invoke(null, controller, 256, 1, 2));
+
+        final List<Integer> value = List.of(1, 16, 352, 480);
+        assertTrue((Boolean) method.invoke(null, value, 2, 1, 2));
+        assertTrue((Boolean) method.invoke(null, value, 192, 1, 2));
+        assertTrue((Boolean) method.invoke(null, value, 92, 1, 2));
+    }
+
+    @Test
+    public void grammarConstrainedArgmaxIgnoresHigherScoringInvalidTokens()
+            throws Exception {
+        final Method method = findRequiredPrivateMethod(
+                "argmaxAllowedNextToken",
+                double[].class,
+                List.class,
+                int.class,
+                int.class);
+
+        final double[] logits = new double[512];
+        logits[92] = 1000.0;
+        logits[161] = 12.0;
+        logits[2] = 999.0;
+
+        final Object result = method.invoke(
+                null,
+                logits,
+                List.of(1, 16, 92),
+                1,
+                2);
+
+        assertEquals(161, ((Integer) result).intValue());
+    }
+
+    @Test
+    public void grammarRejectsTerminalContinuation() throws Exception {
+        final Method method = findRequiredPrivateMethod(
+                "isAllowedNextToken",
+                List.class,
+                int.class,
+                int.class,
+                int.class);
+
+        final List<Integer> eos = new ArrayList<>();
+        eos.add(1);
+        eos.add(16);
+        eos.add(92);
+        eos.add(161);
+        eos.add(256);
+        eos.add(2);
+
+        assertTrue(
+                !(Boolean) method.invoke(null, eos, 92, 1, 2));
+        assertTrue(
+                !(Boolean) method.invoke(null, eos, 192, 1, 2));
     }
 
     @Test
