@@ -227,7 +227,15 @@ def _build_sequence_probes(records: list[dict]) -> dict:
     }
 
 
-def build_conditioning_fixture_corpus(output_dir: Path) -> dict:
+def build_conditioning_fixture_corpus(
+    output_dir: Path,
+    *,
+    context_variant_count: int = 0,
+) -> dict:
+    if context_variant_count < 0 or context_variant_count > len(CONTROL_PROFILES):
+        raise ValueError(
+            "context_variant_count must be between 0 and the number of control profiles"
+        )
     if output_dir.exists() and any(output_dir.iterdir()):
         raise ValueError(
             f"output directory must be empty when it exists: {output_dir}"
@@ -239,22 +247,35 @@ def build_conditioning_fixture_corpus(output_dir: Path) -> dict:
 
     records: list[dict] = []
     profiles: list[dict] = []
-    source_ids = deterministic_source_ids(len(CONTROL_PROFILES))
+    profile_specs = [
+        (index, controls, 0)
+        for index, controls in enumerate(CONTROL_PROFILES)
+    ]
+    profile_specs.extend(
+        (index, controls, 1)
+        for index, controls in enumerate(
+            CONTROL_PROFILES[:context_variant_count]
+        )
+    )
+    source_ids = deterministic_source_ids(len(profile_specs))
 
-    for index, controls in enumerate(CONTROL_PROFILES):
-        filename = f"control-probe-{index:02d}.mid"
+    for output_index, (profile_index, controls, variant) in enumerate(profile_specs):
+        filename = f"control-probe-{profile_index:02d}-v{variant}.mid"
         midi_path = midi_dir / filename
         midi_path.write_bytes(
             make_smf(
                 bars=4,
                 beats_per_bar=4,
-                notes_by_bar=render_notes(controls, seed=17),
+                notes_by_bar=render_notes(
+                    controls,
+                    seed=17 + (variant * 1009) + profile_index,
+                ),
             )
         )
 
         record = build_example(
             midi_path,
-            source_id=source_ids[index],
+            source_id=source_ids[output_index],
             source_revision=FIXTURE_REVISION,
             source_path=f"midi/{filename}",
             style="electronic",
@@ -262,13 +283,15 @@ def build_conditioning_fixture_corpus(output_dir: Path) -> dict:
             mood="driving",
             rhythm="straight",
             role="bass",
-            seed=5000 + index,
+            seed=5000 + profile_index + (variant * 1000),
             performance_controls=controls,
         )
         records.append(record)
         profiles.append(
             {
-                "index": index,
+                "index": profile_index,
+                "variant": variant,
+                "render_seed": 17 + (variant * 1009) + profile_index,
                 "file": f"midi/{filename}",
                 "performance_controls": controls,
                 "target_sha256": sha256_file(midi_path),
