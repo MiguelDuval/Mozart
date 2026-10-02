@@ -525,6 +525,55 @@ jobs:
           fi
           echo "PASS: grammar-constrained conditioning gates passed"
 
+      - name: Summarize teacher-forced semantic A/B
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          def load(path):
+              candidate = Path(path)
+              if not candidate.exists():
+                  return None
+              return json.loads(candidate.read_text(encoding="utf-8"))
+
+          development = load("build/ml-checkpoint/conditioning-teacher-forced.json")
+          grammar_aware = load("build/ml-grammar-checkpoint/conditioning-teacher-forced.json")
+
+          def summarize(report):
+              if report is None:
+                  return None
+              keys = (
+                  "status",
+                  "observed_teacher_forced_steps",
+                  "native_target_top1_steps",
+                  "native_legal_target_top1_steps",
+                  "controls_with_both_targets_top1",
+                  "controls_with_both_legal_targets_top1",
+                  "controls_with_bidirectional_target_response",
+                  "target_probability_directional_response_rate",
+                  "mean_target_probability_delta_native_minus_counterfactual",
+                  "mean_target_probability_tv_alignment",
+                  "mean_distribution_total_variation_native_vs_counterfactual",
+              )
+              return {key: report.get(key) for key in keys}
+
+          summary = {
+              "status": "PASS",
+              "development": summarize(development),
+              "grammar_aware": summarize(grammar_aware),
+          }
+          if development is None and grammar_aware is None:
+              summary["status"] = "NO_REPORTS"
+          Path("build/ml-semantic-ab-summary.json").write_text(
+              json.dumps(summary, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(summary, indent=2, sort_keys=True))
+          PY
       - name: Upload development ML artifacts
         if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json', 'build/ml-checkpoint/conditioning-sequence-response.json', 'build/ml-checkpoint/conditioning-sequence-grammar-constrained.json', 'build/ml-checkpoint/conditioning-teacher-forced.json', 'build/ml-conditioning-fixture/sequence-probes.json') != '' }}
         uses: actions/upload-artifact@v7
@@ -538,6 +587,7 @@ jobs:
             build/ml-checkpoint/conditioning-sequence-response.json
             build/ml-checkpoint/conditioning-sequence-grammar-constrained.json
             build/ml-checkpoint/conditioning-teacher-forced.json
+            build/ml-semantic-ab-summary.json
             build/ml-conditioning-fixture/sequence-probes.json
           archive: true
           if-no-files-found: error
