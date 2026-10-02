@@ -172,6 +172,7 @@ def compare_experiments(
 
 def build_summary(
     *,
+    input_contract: dict[str, Any] | None = None,
     baseline_fit: dict[str, Any] | None,
     matched_fit: dict[str, Any] | None,
     diverse_fit: dict[str, Any] | None,
@@ -286,6 +287,7 @@ def build_summary(
 
     return {
         "status": status,
+        "input_contract": input_contract,
         "missing_required_reports": missing,
         "baseline_regular": {
             "fit": baseline_fit,
@@ -328,10 +330,16 @@ def main() -> int:
     parser.add_argument("--baseline-dir", type=Path, required=True)
     parser.add_argument("--matched-dir", type=Path, required=True)
     parser.add_argument("--diverse-dir", type=Path, required=True)
+    parser.add_argument("--input-contract", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
     summary = build_summary(
+        input_contract=(
+            load_json(args.input_contract)
+            if args.input_contract is not None
+            else None
+        ),
         baseline_fit=load_fit(args.baseline_dir / "latest.pt"),
         matched_fit=load_fit(args.matched_dir / "latest.pt"),
         diverse_fit=load_fit(args.diverse_dir / "latest.pt"),
