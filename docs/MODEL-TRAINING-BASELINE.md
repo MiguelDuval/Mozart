@@ -158,8 +158,17 @@ matched-exposure baseline and context-diverse fit. The summary also computes
 aggregate autoregressive response and per-control sequence/TVD response. The reporting
 logic lives in `tools/summarize_mozart_conditioning_ab.py` with unit coverage in
 `tests/test_summarize_mozart_conditioning_ab.py`; a diagnostic `FAIL` is recorded as
-evidence but does not itself fail the manual CI job. Matched teacher-forced probes
-are remapped to unique synthetic identities instead of reusing base fixture IDs. This is intentional: a failed sequence criterion is evidence worth
+evidence but does not itself fail the manual CI job. The training-side A/B contract is
+validated before either fit by `tools/validate_mozart_conditioning_ab.py`, with unit
+coverage in `tests/test_validate_mozart_conditioning_ab.py`. That validator checks
+unique source identities, exact 10/20/20 train cardinalities, control-label alignment,
+base-target ordering, target identity of the matched baseline, and that each rendered
+v1 context actually differs from its v0 base target. Sequence probes carry explicit
+`probe_context="canonical-base-records"` metadata: diversity variants expand the
+training contexts, while teacher-forced/autoregressive probes remain anchored to the
+canonical base contexts so both A/B fits use the same probe definition. Matched
+teacher-forced probes are remapped to unique synthetic identities instead of reusing
+base fixture IDs. This is intentional: a failed sequence criterion is evidence worth
 inspecting, not a reason to discard the checkpoint or other measurements.
 
 The first follow-up experiment is a grammar-aware training-loss A/B test. With
