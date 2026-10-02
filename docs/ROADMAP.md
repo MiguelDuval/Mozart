@@ -130,6 +130,7 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [x] Add per-example musical quality statistics and deterministic corpus QA/rejection reporting.
 - [x] Add deterministic source-aware 4–16 bar windowing for long MIDI files.
 - [x] Add deterministic synthetic fixture corpus generation and CI regression coverage before external data.
+- [x] Add manual context-diversity fit diagnostic with fixed 480-update budget for autoregressive robustness experiments.
 - [x] Add manifest-aware source/license/provenance statistics to the training shard report.
 - [x] Add explicit duplicate-content review decisions and a strict unresolved-duplicate QA gate.
 - [x] Add experimental ONNX external-runtime inference adapter.
