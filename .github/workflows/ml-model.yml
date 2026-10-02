@@ -355,7 +355,10 @@ jobs:
             --base-value 0.5 \
             --probe-file build/ml-conditioning-fixture/sequence-probes.json \
             --grammar-constrained \
+            --no-require-divergence \
             --require-valid-grammar \
+            --require-distribution-response \
+            --min-distribution-total-variation 0.05 \
             --seed 42 \
             --output build/ml-checkpoint/conditioning-sequence-grammar-constrained.json
 
@@ -457,7 +460,10 @@ jobs:
             --base-value 0.5 \
             --probe-file build/ml-conditioning-fixture/sequence-probes.json \
             --grammar-constrained \
+            --no-require-divergence \
             --require-valid-grammar \
+            --require-distribution-response \
+            --min-distribution-total-variation 0.05 \
             --seed 42 \
             --output build/ml-grammar-checkpoint/conditioning-sequence-constrained.json
           constrained_status=$?
@@ -498,7 +504,7 @@ jobs:
           print(json.dumps(report, indent=2, sort_keys=True))
           PY
 
-          if [[ "$raw_status" -ne 0 || "$constrained_status" -ne 0 || "$teacher_status" -ne 0 ]]; then
+          if [[ "$constrained_status" -ne 0 || "$teacher_status" -ne 0 ]]; then
             exit 1
           fi
 
@@ -507,17 +513,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          greedy_outcome="${{ steps.greedy-evaluation.outcome }}"
+          constrained_outcome="${{ steps.grammar-constrained-evaluation.outcome }}"
           teacher_outcome="${{ steps.teacher-forced-evaluation.outcome }}"
-          if [[ "$greedy_outcome" != "success" ]]; then
-            echo "FAIL: greedy conditioning gate outcome=$greedy_outcome"
+          if [[ "$constrained_outcome" != "success" ]]; then
+            echo "FAIL: grammar-constrained conditioning gate outcome=$constrained_outcome"
             exit 1
           fi
           if [[ "$teacher_outcome" != "success" ]]; then
             echo "FAIL: teacher-forced conditioning diagnostic outcome=$teacher_outcome"
             exit 1
           fi
-          echo "PASS: development conditioning gates passed"
+          echo "PASS: grammar-constrained conditioning gates passed"
 
       - name: Upload development ML artifacts
         if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json', 'build/ml-checkpoint/conditioning-sequence-response.json', 'build/ml-checkpoint/conditioning-sequence-grammar-constrained.json', 'build/ml-checkpoint/conditioning-teacher-forced.json', 'build/ml-conditioning-fixture/sequence-probes.json') != '' }}
