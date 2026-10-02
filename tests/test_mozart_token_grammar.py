@@ -86,7 +86,7 @@ class MozartTokenGrammarTests(unittest.TestCase):
 
     def test_no_token_is_allowed_after_eos(self) -> None:
         self.assertEqual(allowed_next_token_ranges([EOS]), ())
-        for token in (PAD := 0, BOS, EOS, CHANNEL_BASE, NOTE_BASE, VOCABULARY_SIZE - 1):
+        for token in (0, BOS, EOS, CHANNEL_BASE, NOTE_BASE, VOCABULARY_SIZE - 1):
             self.assertFalse(is_allowed_next_token([EOS], token))
 
 
