@@ -370,6 +370,14 @@ def _evaluate_with_model(
             int(step["counterfactual"]["target_top1"])
             for step in steps
         )
+        native_legal_top1_count = sum(
+            int(step["native"]["target_legal_top1"])
+            for step in steps
+        )
+        counterfactual_legal_top1_count = sum(
+            int(step["counterfactual"]["target_legal_top1"])
+            for step in steps
+        )
         changed_steps = sum(
             int(step["top1_changed_by_control"])
             for step in steps
@@ -455,6 +463,10 @@ def _evaluate_with_model(
             "window_step_count": len(steps),
             "native_target_top1_count": native_top1_count,
             "counterfactual_target_top1_count": counterfactual_top1_count,
+            "native_legal_target_top1_count": native_legal_top1_count,
+            "counterfactual_legal_target_top1_count": (
+                counterfactual_legal_top1_count
+            ),
             "top1_changed_by_control_steps": changed_steps,
             "target_probability_directionally_correct_steps": (
                 directionally_correct_steps
@@ -555,6 +567,21 @@ def _evaluate_with_model(
         )
         for entry in report_controls.values()
     )
+    native_legal_top1_steps = sum(
+        entry["native_legal_target_top1_count"]
+        for entry in report_controls.values()
+    )
+    counterfactual_legal_top1_steps = sum(
+        entry["counterfactual_legal_target_top1_count"]
+        for entry in report_controls.values()
+    )
+    controls_with_both_legal_targets_top1 = sum(
+        int(
+            entry["low_target"]["target_legal_top1"]
+            and entry["high_target"]["target_legal_top1"]
+        )
+        for entry in report_controls.values()
+    )
 
     return {
         "status": "FAIL" if failures else "PASS",
@@ -564,6 +591,11 @@ def _evaluate_with_model(
         "control_count": len(PERFORMANCE_CONTROL_NAMES),
         "observed_teacher_forced_steps": observed_steps,
         "native_target_top1_steps": native_top1_steps,
+        "native_legal_target_top1_steps": native_legal_top1_steps,
+        "counterfactual_legal_target_top1_steps": counterfactual_legal_top1_steps,
+        "controls_with_both_legal_targets_top1": (
+            controls_with_both_legal_targets_top1
+        ),
         "mean_distribution_total_variation_native_vs_counterfactual": (
             float(np.mean(distribution_response_values))
             if distribution_response_values
@@ -642,6 +674,7 @@ def evaluate_teacher_forced(
         onnx_session=onnx_session,
         window_size=window_size,
         require_target_top1=require_target_top1,
+        require_legal_target_top1=require_legal_target_top1,
     )
 
 
