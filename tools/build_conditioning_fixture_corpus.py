@@ -228,6 +228,8 @@ def _build_sequence_probes(records: list[dict]) -> dict:
         "schema_version": 1,
         "fixture_revision": FIXTURE_REVISION,
         "status": "synthetic-conditioning-sequence-probes",
+        "probe_context": "canonical-base-records",
+        "probe_variant": 0,
         "control_probe_values": {
             "low": 0.1,
             "high": 0.9,
