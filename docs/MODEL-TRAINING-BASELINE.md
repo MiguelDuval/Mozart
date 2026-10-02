@@ -149,11 +149,13 @@ duplicates with ten independently rendered target-MIDI contexts under the same c
 labels. This isolates target-context diversity from the otherwise confounding change in
 example exposure. Architecture, conditioning schema, optimizer family, learning rate
 and update budget stay fixed. This is an experimental diagnostic, not a production
-training recipe. The manual experiment preserves partial artifacts when an autoregressive
-sub-check fails, and its summary records teacher-forced plus grammar-constrained sequence
-evidence for the regular baseline, matched-exposure baseline and context-diverse fit.
-This is intentional: a failed sequence criterion is evidence worth inspecting, not a
-reason to discard the checkpoint and teacher-forced measurements.
+training recipe. Teacher-forced and autoregressive evaluators in the manual experiment are
+run independently, so a failed diagnostic does not prevent the other measurements or the
+context-diverse fit from completing. Partial artifacts are preserved, and the summary records
+teacher-forced plus grammar-constrained sequence evidence for the regular baseline,
+matched-exposure baseline and context-diverse fit. This is intentional: a failed sequence
+criterion is evidence worth inspecting, not a reason to discard the checkpoint or other
+measurements.
 
 The first follow-up experiment is a grammar-aware training-loss A/B test. With
 `--grammar-constrained-loss`, each next-token cross-entropy term is normalized only
