@@ -171,26 +171,37 @@ def _profile_key(controls: dict[str, float]) -> tuple[float, ...]:
 
 def _build_sequence_probes(records: list[dict]) -> dict:
     probes: dict[str, dict] = {}
-    indexed = {
-        _profile_key(record["performance_controls"]): record
-        for record in records
-    }
+    indexed: dict[tuple[float, ...], list[dict]] = {}
+    for record in records:
+        indexed.setdefault(
+            _profile_key(record["performance_controls"]),
+            [],
+        ).append(record)
 
     for name in CONTROL_ORDER:
         low_profile = dict(BASE_PROFILE)
         low_profile[name] = 0.1
         high_profile = dict(BASE_PROFILE)
         high_profile[name] = 0.9
-        low_record = indexed.get(_profile_key(low_profile))
-        high_record = indexed.get(_profile_key(high_profile))
+        low_record = next(
+            (
+                record
+                for record in indexed.get(_profile_key(low_profile), [])
+                if record.get("split") == "train"
+            ),
+            None,
+        )
+        high_record = next(
+            (
+                record
+                for record in indexed.get(_profile_key(high_profile), [])
+                if record.get("split") == "train"
+            ),
+            None,
+        )
         if low_record is None or high_record is None:
             raise RuntimeError(
-                f"missing low/high control pair for {name}"
-            )
-
-        if low_record.get("split") != "train" or high_record.get("split") != "train":
-            raise RuntimeError(
-                f"control pair for {name} must remain entirely in the train split"
+                f"control pair for {name} must contain train records on both sides"
             )
 
         prefix = _longest_common_prefix(
@@ -324,6 +335,7 @@ def build_conditioning_fixture_corpus(
         "control_order": list(CONTROL_ORDER),
         "records_path": "records.jsonl",
         "profiles": profiles,
+        "context_variant_count": context_variant_count,
     }
     (output_dir / "fixture-metadata.json").write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n",
@@ -334,16 +346,26 @@ def build_conditioning_fixture_corpus(
         "record_count": len(assigned),
         "output_dir": str(output_dir),
         "profiles": profiles,
+        "context_variant_count": context_variant_count,
     }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output_dir", type=Path)
+    parser.add_argument(
+        "--context-variant-count",
+        type=int,
+        default=0,
+        help="Add one independent target-MIDI context variant for this many leading control profiles.",
+    )
     args = parser.parse_args()
 
     try:
-        result = build_conditioning_fixture_corpus(args.output_dir)
+        result = build_conditioning_fixture_corpus(
+            args.output_dir,
+            context_variant_count=args.context_variant_count,
+        )
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
