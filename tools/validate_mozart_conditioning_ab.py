@@ -266,8 +266,6 @@ def validate_records(
             raise ValueError(
                 f"matched[{index}] target_sha256 differs from the corresponding base target"
             )
-        if not isinstance(diverse_target_sha, str) or not isinstance(base_target_sha, str):
-            raise ValueError(f"diverse[{index}] target_sha256 must be present")
         if diverse_variant == 1:
             matched_variant_positions += 1
             if diverse_target_sha == base_target_sha:
