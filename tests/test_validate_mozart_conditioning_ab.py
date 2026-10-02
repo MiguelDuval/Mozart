@@ -8,7 +8,12 @@ import unittest
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1] / "tools"))
 
-from validate_mozart_conditioning_ab import sha256_file, validate_probes, validate_records
+from validate_mozart_conditioning_ab import (
+    compare_probe_definitions,
+    sha256_file,
+    validate_probes,
+    validate_records,
+)
 
 
 def _record(
@@ -158,6 +163,33 @@ class MozartConditioningABValidatorTests(unittest.TestCase):
             digest = sha256_file(path)
             self.assertEqual(len(digest), 64)
             self.assertEqual(digest, sha256_file(path))
+
+    def test_probe_definitions_accept_different_record_ids(self) -> None:
+        _, probes = _probe_dataset()
+        matched = __import__("copy").deepcopy(probes)
+        for control, entry in matched["controls"].items():
+            entry["low_record_source_id"] = f"matched-{control}-low"
+            entry["high_record_source_id"] = f"matched-{control}-high"
+        result = compare_probe_definitions(probes, matched)
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(
+            result["record_identity_fields_ignored"],
+            ["low_record_source_id", "high_record_source_id"],
+        )
+
+    def test_rejects_probe_definition_prefix_mismatch(self) -> None:
+        _, probes = _probe_dataset()
+        matched = __import__("copy").deepcopy(probes)
+        matched["controls"]["density"]["prefix_tokens"] = [999]
+        with self.assertRaisesRegex(ValueError, "density.*prefix_tokens.*differs"):
+            compare_probe_definitions(probes, matched)
+
+    def test_rejects_probe_definition_profile_mismatch(self) -> None:
+        _, probes = _probe_dataset()
+        matched = __import__("copy").deepcopy(probes)
+        matched["controls"]["energy"]["high_profile"]["energy"] = 0.8
+        with self.assertRaisesRegex(ValueError, "energy.*high_profile.*differs"):
+            compare_probe_definitions(probes, matched)
 
     def test_valid_matched_exposure_layout(self) -> None:
         base, diverse, matched = _dataset()
