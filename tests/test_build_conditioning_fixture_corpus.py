@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -260,6 +261,25 @@ class ConditioningFixtureTests(unittest.TestCase):
             len(probes["controls"]),
             len(CONTROL_ORDER),
         )
+
+    def test_record_target_hash_matches_midi_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "fixture"
+            build_conditioning_fixture_corpus(
+                root,
+                context_variant_count=10,
+            )
+            records = [
+                json.loads(line)
+                for line in (root / "records.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+                if line.strip()
+            ]
+            for record in records:
+                midi_path = root / record["source_path"]
+                digest = hashlib.sha256(midi_path.read_bytes()).hexdigest()
+                self.assertEqual(record["target_sha256"], digest)
 
     def test_fixture_is_byte_for_byte_deterministic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
