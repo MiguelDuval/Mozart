@@ -78,6 +78,11 @@ public class OnnxInferenceBridgeTest {
         assertTrue((Boolean) method.invoke(null, velocity, 256, 1, 2));
         assertFalse((Boolean) method.invoke(null, velocity, 160, 1, 2));
 
+        final List<Integer> shifted = List.of(1, 16, 92, 160, 256, 207);
+        assertTrue((Boolean) method.invoke(null, shifted, 92, 1, 2));
+        assertTrue((Boolean) method.invoke(null, shifted, 352, 1, 2));
+        assertTrue((Boolean) method.invoke(null, shifted, 192, 1, 2));
+
         final List<Integer> duration = List.of(1, 16, 92, 160, 256);
         assertTrue((Boolean) method.invoke(null, duration, 2, 1, 2));
         assertTrue((Boolean) method.invoke(null, duration, 16, 1, 2));
