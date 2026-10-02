@@ -299,6 +299,8 @@ def validate_records(
 
     matched_variant_positions = 0
     matched_base_positions = 0
+    diverse_profile_variant_counts: dict[int, dict[int, int]] = {}
+    matched_profile_counts: dict[int, int] = {}
     for index, (diverse, matched) in enumerate(zip(diverse_records, matched_records)):
         diverse_profile, diverse_variant = _identity(
             diverse,
@@ -362,6 +364,15 @@ def validate_records(
             raise ValueError(
                 f"matched[{index}] target_sha256 differs from the corresponding base target"
             )
+        diverse_counts = diverse_profile_variant_counts.setdefault(
+            diverse_profile,
+            {0: 0, 1: 0},
+        )
+        diverse_counts[diverse_variant] += 1
+        matched_profile_counts[matched_profile] = (
+            matched_profile_counts.get(matched_profile, 0) + 1
+        )
+
         if diverse_variant == 1:
             matched_variant_positions += 1
             if diverse_target_sha == base_target_sha:
@@ -390,6 +401,28 @@ def validate_records(
     if matched_base_positions != expected_base_count:
         raise ValueError(
             "diverse train ordering must contain exactly 10 base positions"
+        )
+
+    expected_profiles = set(range(expected_base_count))
+    if set(diverse_profile_variant_counts) != expected_profiles:
+        raise ValueError(
+            "diverse train records must contain exactly fixture profiles 0..9"
+        )
+    for profile_index in sorted(expected_profiles):
+        if diverse_profile_variant_counts[profile_index] != {0: 1, 1: 1}:
+            raise ValueError(
+                "each diverse profile must contain exactly one v0 and one v1 "
+                f"record; profile={profile_index} "
+                f"counts={diverse_profile_variant_counts[profile_index]!r}"
+            )
+
+    if set(matched_profile_counts) != expected_profiles:
+        raise ValueError(
+            "matched train records must contain exactly fixture profiles 0..9"
+        )
+    if any(count != 2 for count in matched_profile_counts.values()):
+        raise ValueError(
+            "each matched profile must contain exactly two v0 exposures"
         )
 
     return {
