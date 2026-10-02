@@ -744,7 +744,7 @@ def main() -> int:
         default=True,
         help="Require every generated PyTorch/ONNX sequence to be decoder-valid.",
     )
-        parser.add_argument(
+    parser.add_argument(
         "--grammar-constrained",
         action="store_true",
         help="Mask greedy logits to tokens valid for the current Mozart grammar state.",
