@@ -138,6 +138,18 @@ class ConditioningFixtureTests(unittest.TestCase):
                 msg=f"target token stream did not react to {control}",
             )
 
+    def test_context_variant_count_is_bounded(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "fixture"
+            with self.assertRaisesRegex(
+                ValueError,
+                "context_variant_count must be between 0",
+            ):
+                build_conditioning_fixture_corpus(
+                    root,
+                    context_variant_count=len(CONTROL_PROFILES) + 1,
+                )
+
     def test_context_variants_change_targets_without_changing_controls(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "fixture"
