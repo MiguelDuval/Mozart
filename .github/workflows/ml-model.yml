@@ -727,7 +727,11 @@ jobs:
           python3 tools/validate_mozart_conditioning_ab.py \
             --base-train-jsonl build/ml-conditioning-fixture/train.jsonl \
             --diverse-train-jsonl build/ml-diverse-conditioning-fixture/train.jsonl \
-            --matched-train-jsonl build/ml-matched-train.jsonl
+            --matched-train-jsonl build/ml-matched-train.jsonl \
+            --probe-json build/ml-diverse-conditioning-fixture/sequence-probes.json \
+            --matched-probe-json build/ml-matched-sequence-probes.json \
+            > build/ml-context-diversity-input-contract.json
+          cat build/ml-context-diversity-input-contract.json
 
           python3 tools/train_mozart_model.py \
             build/ml-matched-train.jsonl \
@@ -915,7 +919,7 @@ jobs:
           retention-days: 14
 
       - name: Upload context-diversity experiment artifacts
-        if: ${{ always() && hashFiles('build/ml-matched-checkpoint/**', 'build/ml-matched-train.jsonl', 'build/ml-diverse-checkpoint/**', 'build/ml-diverse-conditioning-fixture/**', 'build/ml-context-diversity-summary.json') != '' }}
+        if: ${{ always() && hashFiles('build/ml-matched-checkpoint/**', 'build/ml-matched-train.jsonl', 'build/ml-matched-sequence-probes.json', 'build/ml-context-diversity-input-contract.json', 'build/ml-diverse-checkpoint/**', 'build/ml-diverse-conditioning-fixture/**', 'build/ml-context-diversity-summary.json') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: mozart-context-diversity-ml-${{ github.sha }}
@@ -923,6 +927,7 @@ jobs:
             build/ml-matched-checkpoint/**
             build/ml-matched-train.jsonl
             build/ml-matched-sequence-probes.json
+            build/ml-context-diversity-input-contract.json
             build/ml-diverse-checkpoint/**
             build/ml-diverse-conditioning-fixture/**
             build/ml-context-diversity-summary.json
