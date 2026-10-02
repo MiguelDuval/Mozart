@@ -139,17 +139,17 @@ without turning the diagnostic into a production acceptance gate.
 A second follow-up experiment is now available as a manual CI run:
 the conditioning fixture can add deterministic target-MIDI context variants while
 keeping the exact same performance-control labels. The diversity experiment adds 10 context variants to the first 10 control profiles,
-producing 22 total records and 20 train records. Base and variant renderings share
-the same synthetic source group, so they stay in the same split; the resulting split
-is exactly 20 train / 1 validation / 1 test. With batch size 4 and
-`--repeat-train-records 8`, both the matched-exposure baseline and the context-diverse
-fit receive exactly 480 optimizer updates with seed 42. The matched-exposure baseline
-duplicates the ten base train records, while the context-diverse fit replaces those
-duplicates with ten independently rendered target-MIDI contexts under the same control
-labels. This isolates target-context diversity from the otherwise confounding change in
-example exposure. Architecture, conditioning schema, optimizer family, learning rate
-and update budget stay fixed. This is an experimental diagnostic, not a production
-training recipe. Teacher-forced and autoregressive evaluators in the manual experiment are
+producing 22 total records and 20 train records. Base and variant renderings have
+unique record identities; each variant explicitly inherits the split assigned to its
+base profile, yielding exactly 20 train / 1 validation / 1 test without duplicate
+`source_id` values. With batch size 4 and `--repeat-train-records 8`, both the
+matched-exposure baseline and the context-diverse fit receive exactly 480 optimizer
+updates with seed 42. The matched-exposure baseline mirrors the exact ordering of
+the 20 diverse train positions but substitutes the corresponding base target MIDI
+for every variant position. This isolates target-context diversity from the otherwise
+confounding change in example exposure. Architecture, conditioning schema, optimizer
+family, learning rate and update budget stay fixed. This is an experimental diagnostic,
+not a production training recipe. Teacher-forced and autoregressive evaluators in the manual experiment are
 run independently, so a failed diagnostic does not prevent the other measurements or the
 context-diverse fit from completing. Partial artifacts are preserved, and the summary records
 teacher-forced plus grammar-constrained sequence evidence for the regular baseline,
