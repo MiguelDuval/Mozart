@@ -23,6 +23,16 @@ from evaluate_mozart_conditioning_sequence import (
     load_sequence_probe_file,
     validate_mozart_token_sequence,
 )
+from mozart_token_grammar import (
+    CHANNEL_BASE,
+    CONTROL_VALUE_BASE,
+    CONTROLLER_BASE,
+    DURATION_BASE,
+    EOS,
+    NOTE_BASE,
+    TIME_SHIFT_BASE,
+    VELOCITY_BASE,
+)
 
 
 def _load_records(path: Path) -> dict[str, dict[str, Any]]:
@@ -88,6 +98,50 @@ def _legal_target_probability(
     target_position = int(np.searchsorted(allowed_indices, target))
     return float(probabilities[target_position])
 
+def _token_family(target: int) -> str:
+    if CHANNEL_BASE <= target < NOTE_BASE:
+        return "channel"
+    if NOTE_BASE <= target < VELOCITY_BASE:
+        return "note"
+    if VELOCITY_BASE <= target < TIME_SHIFT_BASE:
+        return "velocity"
+    if TIME_SHIFT_BASE <= target < DURATION_BASE:
+        return "time_shift"
+    if DURATION_BASE <= target < CONTROLLER_BASE:
+        return "duration"
+    if CONTROLLER_BASE <= target < CONTROL_VALUE_BASE:
+        return "controller"
+    if CONTROL_VALUE_BASE <= target < 512:
+        return "control_value"
+    if target == EOS:
+        return "eos"
+    return "special"
+
+
+def _legal_token_family_probability(
+    logits: np.ndarray,
+    target: int,
+    context: list[int],
+) -> float:
+    allowed = _grammar_allowed_mask(context)
+    if not allowed[target]:
+        raise ValueError(
+            f"target token {target} is not legal after the teacher-forced context"
+        )
+    family = _token_family(target)
+    family_mask = allowed.copy()
+    for token in np.flatnonzero(allowed):
+        family_mask[token] = _token_family(int(token)) == family
+    selected = logits[allowed].astype(np.float64, copy=False)
+    shifted = selected - np.max(selected)
+    probabilities = np.exp(shifted)
+    probabilities /= np.sum(probabilities)
+    allowed_indices = np.flatnonzero(allowed)
+    family_positions = np.flatnonzero(
+        family_mask[allowed_indices]
+    )
+    return float(probabilities[family_positions].sum())
+
 
 def _measure(
     logits: np.ndarray,
@@ -123,6 +177,12 @@ def _measure(
             int(np.argmax(legal_logits)) == target
         )
         report["target_probability"] = _legal_target_probability(
+            logits,
+            target,
+            context,
+        )
+        report["target_token_family"] = _token_family(target)
+        report["target_family_probability"] = _legal_token_family_probability(
             logits,
             target,
             context,
@@ -286,6 +346,10 @@ def _evaluate_with_model(
                     native["target_probability"]
                     - opposite["target_probability"]
                 )
+                target_family_probability_delta = (
+                    native["target_family_probability"]
+                    - opposite["target_family_probability"]
+                )
                 if distribution_total_variation > 0.0:
                     target_probability_tv_alignment = (
                         target_probability_delta / distribution_total_variation
@@ -307,6 +371,12 @@ def _evaluate_with_model(
                     ),
                     "target_probability_tv_alignment": (
                         target_probability_tv_alignment
+                    ),
+                    "target_family_probability_delta_native_minus_counterfactual": (
+                        target_family_probability_delta
+                    ),
+                    "target_family_directionally_correct": (
+                        target_family_probability_delta > 0.0
                     ),
                     "target_directionally_correct": (
                         target_probability_delta > 0.0
@@ -414,6 +484,14 @@ def _evaluate_with_model(
             int(step["target_directionally_correct"])
             for step in steps
         )
+        family_directionally_correct_steps = sum(
+            int(step["target_family_directionally_correct"])
+            for step in steps
+        )
+        target_family_probability_deltas = [
+            float(step["target_family_probability_delta_native_minus_counterfactual"])
+            for step in steps
+        ]
         target_logit_deltas = [
             float(step["target_logit_delta_native_minus_counterfactual"])
             for step in steps
@@ -499,6 +577,19 @@ def _evaluate_with_model(
             "target_probability_directionally_correct_steps": (
                 directionally_correct_steps
             ),
+            "target_family_probability_directionally_correct_steps": (
+                family_directionally_correct_steps
+            ),
+            "target_family_probability_directional_response_rate": (
+                float(family_directionally_correct_steps / len(steps))
+                if steps
+                else 0.0
+            ),
+            "mean_target_family_probability_delta_native_minus_counterfactual": (
+                float(np.mean(target_family_probability_deltas))
+                if target_family_probability_deltas
+                else 0.0
+            ),
             "target_probability_directional_response_rate": (
                 float(directionally_correct_steps / len(steps))
                 if steps
@@ -577,6 +668,16 @@ def _evaluate_with_model(
         for entry in report_controls.values()
         for step in entry["steps"]
     )
+    target_family_probability_directionally_correct_steps = sum(
+        int(step["target_family_directionally_correct"])
+        for entry in report_controls.values()
+        for step in entry["steps"]
+    )
+    target_family_probability_deltas = [
+        float(step["target_family_probability_delta_native_minus_counterfactual"])
+        for entry in report_controls.values()
+        for step in entry["steps"]
+    ]
     target_probability_deltas = [
         float(step["target_probability_delta_native_minus_counterfactual"])
         for entry in report_controls.values()
@@ -647,6 +748,22 @@ def _evaluate_with_model(
         ),
         "target_probability_directionally_correct_steps": (
             target_probability_directionally_correct_steps
+        ),
+        "target_family_probability_directionally_correct_steps": (
+            target_family_probability_directionally_correct_steps
+        ),
+        "target_family_probability_directional_response_rate": (
+            float(
+                target_family_probability_directionally_correct_steps
+                / observed_steps
+            )
+            if observed_steps
+            else 0.0
+        ),
+        "mean_target_family_probability_delta_native_minus_counterfactual": (
+            float(np.mean(target_family_probability_deltas))
+            if target_family_probability_deltas
+            else 0.0
         ),
         "target_probability_directional_response_rate": (
             float(
