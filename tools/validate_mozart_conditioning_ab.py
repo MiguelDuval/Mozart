@@ -9,6 +9,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from build_conditioning_fixture_corpus import CONTROL_ORDER
+
 _SOURCE_PATTERN = re.compile(r"^midi/control-probe-(\d{2})-v([01])\.mid$")
 
 
@@ -46,6 +48,115 @@ def _require_unique_source_ids(records: list[dict[str, Any]], *, label: str) -> 
         raise ValueError(f"{label} contains a missing or invalid source_id")
     if len(source_ids) != len(set(source_ids)):
         raise ValueError(f"{label} source_id values must be unique")
+
+
+def validate_probes(
+    records: list[dict[str, Any]],
+    probes: dict[str, Any],
+) -> dict[str, Any]:
+    if probes.get("schema_version") != 1:
+        raise ValueError("probe schema_version must be 1")
+    if probes.get("status") != "synthetic-conditioning-sequence-probes":
+        raise ValueError("unexpected probe status")
+    if probes.get("probe_context") != "canonical-base-records":
+        raise ValueError("probe_context must be canonical-base-records")
+    if probes.get("probe_variant") != 0:
+        raise ValueError("probe_variant must be 0")
+
+    probe_values = probes.get("control_probe_values")
+    if not isinstance(probe_values, dict):
+        raise ValueError("probe control_probe_values must be an object")
+    expected_values = {
+        "low": 0.1,
+        "high": 0.9,
+        "base_other_controls": 0.5,
+    }
+    if probe_values != expected_values:
+        raise ValueError(
+            f"probe control values must be {expected_values}, got {probe_values!r}"
+        )
+
+    controls = probes.get("controls")
+    if not isinstance(controls, dict):
+        raise ValueError("probe controls must be an object")
+    if set(controls) != set(CONTROL_ORDER):
+        raise ValueError(
+            "probe controls must contain exactly the canonical performance controls"
+        )
+
+    by_source_id = {
+        record.get("source_id"): record
+        for record in records
+        if isinstance(record.get("source_id"), str)
+    }
+    checked = 0
+
+    for control in CONTROL_ORDER:
+        entry = controls[control]
+        if not isinstance(entry, dict):
+            raise ValueError(f"probe {control} must be an object")
+
+        low_id = entry.get("low_record_source_id")
+        high_id = entry.get("high_record_source_id")
+        low_record = by_source_id.get(low_id)
+        high_record = by_source_id.get(high_id)
+        if low_record is None or high_record is None:
+            raise ValueError(
+                f"probe {control} refers to records outside the supplied dataset"
+            )
+
+        low_profile = entry.get("low_profile")
+        high_profile = entry.get("high_profile")
+        if not isinstance(low_profile, dict) or not isinstance(high_profile, dict):
+            raise ValueError(f"probe {control} profiles must be objects")
+
+        expected_low = {name: 0.5 for name in CONTROL_ORDER}
+        expected_high = dict(expected_low)
+        expected_low[control] = 0.1
+        expected_high[control] = 0.9
+        if low_profile != expected_low:
+            raise ValueError(f"probe {control} low_profile is inconsistent")
+        if high_profile != expected_high:
+            raise ValueError(f"probe {control} high_profile is inconsistent")
+        if low_record.get("performance_controls") != low_profile:
+            raise ValueError(f"probe {control} low record controls are inconsistent")
+        if high_record.get("performance_controls") != high_profile:
+            raise ValueError(f"probe {control} high record controls are inconsistent")
+
+        _, low_variant = _identity(low_record, label=f"probe-{control}-low", index=0)
+        _, high_variant = _identity(high_record, label=f"probe-{control}-high", index=0)
+        if low_variant != 0 or high_variant != 0:
+            raise ValueError(f"probe {control} must use canonical v0 records")
+        if low_id == high_id:
+            raise ValueError(f"probe {control} low/high records must differ")
+
+        prefix = entry.get("prefix_tokens")
+        prefix_length = entry.get("prefix_length")
+        divergence = entry.get("first_target_divergence_index")
+        if not isinstance(prefix, list) or not isinstance(prefix_length, int):
+            raise ValueError(f"probe {control} prefix is malformed")
+        if prefix_length != len(prefix) or prefix_length < 1:
+            raise ValueError(f"probe {control} prefix_length is invalid")
+        if divergence != prefix_length:
+            raise ValueError(f"probe {control} divergence index is invalid")
+        if prefix_length >= len(low_record["tokens"]) or prefix_length >= len(high_record["tokens"]):
+            raise ValueError(f"probe {control} leaves no target token")
+        if prefix != low_record["tokens"][:prefix_length]:
+            raise ValueError(f"probe {control} prefix does not match low record")
+        if prefix != high_record["tokens"][:prefix_length]:
+            raise ValueError(f"probe {control} prefix does not match high record")
+        if low_record["tokens"][prefix_length] == high_record["tokens"][prefix_length]:
+            raise ValueError(f"probe {control} does not have target divergence")
+
+        checked += 1
+
+    return {
+        "status": "PASS",
+        "probe_count": checked,
+        "probe_context": probes["probe_context"],
+        "probe_variant": probes["probe_variant"],
+        "controls": list(CONTROL_ORDER),
+    }
 
 
 def validate_records(
@@ -182,12 +293,25 @@ def main() -> int:
     parser.add_argument("--base-train-jsonl", type=Path, required=True)
     parser.add_argument("--diverse-train-jsonl", type=Path, required=True)
     parser.add_argument("--matched-train-jsonl", type=Path, required=True)
+    parser.add_argument("--probe-json", type=Path, required=True)
+    parser.add_argument("--matched-probe-json", type=Path, required=True)
     args = parser.parse_args()
 
+    base_records = load_jsonl(args.base_train_jsonl)
+    diverse_records = load_jsonl(args.diverse_train_jsonl)
+    matched_records = load_jsonl(args.matched_train_jsonl)
     result = validate_records(
-        load_jsonl(args.base_train_jsonl),
-        load_jsonl(args.diverse_train_jsonl),
-        load_jsonl(args.matched_train_jsonl),
+        base_records,
+        diverse_records,
+        matched_records,
+    )
+    result["diverse_probes"] = validate_probes(
+        diverse_records,
+        json.loads(args.probe_json.read_text(encoding="utf-8")),
+    )
+    result["matched_probes"] = validate_probes(
+        matched_records,
+        json.loads(args.matched_probe_json.read_text(encoding="utf-8")),
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
