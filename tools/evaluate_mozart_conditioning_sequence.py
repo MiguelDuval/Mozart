@@ -25,6 +25,15 @@ from evaluate_mozart_conditioning import (
     _load_onnx_session,
     load_model,
 )
+
+
+# Defaults intentionally mirror the CI probe contract and remain overrideable via CLI.
+DEFAULT_MAX_GENERATED_TOKENS = 32
+DEFAULT_MAX_REPORTED_DIFFS = 8
+DEFAULT_LOW_VALUE = 0.1
+DEFAULT_HIGH_VALUE = 0.9
+DEFAULT_BASE_VALUE = 0.5
+
 from mozart_token_grammar import (
     PAD,
     BOS,
