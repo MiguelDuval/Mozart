@@ -21,6 +21,10 @@ from mozart_model import (
     conditioning_ids,
     performance_controls,
 )
+from mozart_token_grammar import (
+    is_allowed_next_token,
+    allowed_next_token_ranges,
+)
 
 
 PAD = 0
@@ -126,6 +130,51 @@ def collate_records(
     }
 
 
+def build_grammar_target_mask(
+    input_ids: torch.Tensor,
+    padding_mask: torch.Tensor,
+    targets: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Build per-position masks for grammar-valid next-token logits."""
+    if input_ids.ndim != 2:
+        raise ValueError("input_ids must have shape [batch, sequence]")
+    if padding_mask.shape != input_ids.shape:
+        raise ValueError("padding_mask must match input_ids shape")
+    if targets is not None and targets.shape != input_ids.shape:
+        raise ValueError("targets must match input_ids shape")
+
+    batch_size, sequence_length = input_ids.shape
+    mask = torch.zeros(
+        (batch_size, sequence_length, 512),
+        dtype=torch.bool,
+        device=input_ids.device,
+    )
+
+    for row in range(batch_size):
+        active_length = int((~padding_mask[row]).sum().item())
+        if active_length <= 0:
+            continue
+
+        row_tokens = [
+            int(token)
+            for token in input_ids[row, :active_length].detach().cpu().tolist()
+        ]
+        for position in range(active_length):
+            prefix = row_tokens[:position + 1]
+            for start, end in allowed_next_token_ranges(prefix):
+                mask[row, position, start:end] = True
+
+            if targets is not None:
+                target = int(targets[row, position].item())
+                if target >= 0 and not is_allowed_next_token(prefix, target):
+                    raise ValueError(
+                        "training target is invalid for Mozart grammar at "
+                        f"batch row {row}, position {position}: token={target}"
+                    )
+
+    return mask
+
+
 def set_seed(seed: int) -> None:
     random.seed(seed)
     torch.manual_seed(seed)
@@ -149,6 +198,8 @@ def run_epoch(
     criterion: nn.Module,
     optimizer: torch.optim.Optimizer | None,
     device: torch.device,
+    *,
+    grammar_constrained_loss: bool = False,
 ) -> float:
     training = optimizer is not None
     model.train(training)
@@ -170,6 +221,17 @@ def run_epoch(
             batch["performance_controls"].to(device),
             padding_mask=padding_mask,
         )
+        if grammar_constrained_loss:
+            allowed_mask = build_grammar_target_mask(
+                input_ids,
+                padding_mask,
+                targets,
+            )
+            logits = logits.masked_fill(
+                ~allowed_mask,
+                torch.finfo(logits.dtype).min,
+            )
+
         loss = criterion(
             logits.reshape(-1, logits.size(-1)),
             targets.reshape(-1),
@@ -211,6 +273,11 @@ def main() -> int:
         "--fit-diagnostic",
         action="store_true",
         help="Disable dropout and weight decay for deterministic tiny-corpus capacity fitting.",
+    )
+    parser.add_argument(
+        "--grammar-constrained-loss",
+        action="store_true",
+        help="Mask impossible Mozart tokens during the next-token training loss.",
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
@@ -305,6 +372,7 @@ def main() -> int:
         f"train_records={len(train_dataset)} "
         f"repeat_train_records={args.repeat_train_records} "
         f"fit_diagnostic={args.fit_diagnostic} "
+        f"grammar_constrained_loss={args.grammar_constrained_loss} "
         f"weight_decay={0.0 if args.fit_diagnostic else args.weight_decay}"
     )
 
@@ -318,6 +386,7 @@ def main() -> int:
             criterion,
             optimizer,
             device,
+            grammar_constrained_loss=args.grammar_constrained_loss,
         )
         validation_loss = None
         if validation_loader is not None:
@@ -328,6 +397,7 @@ def main() -> int:
                     criterion,
                     None,
                     device,
+                    grammar_constrained_loss=args.grammar_constrained_loss,
                 )
 
         message = f"epoch={epoch} train_loss={train_loss:.6f}"
@@ -344,6 +414,7 @@ def main() -> int:
             "train_loss": train_loss,
             "validation_loss": validation_loss,
             "fit_diagnostic": args.fit_diagnostic,
+            "grammar_constrained_loss": args.grammar_constrained_loss,
             "repeat_train_records": args.repeat_train_records,
             "weight_decay": 0.0 if args.fit_diagnostic else args.weight_decay,
             "updates_per_epoch": updates_per_epoch,
