@@ -174,6 +174,7 @@ def validate_probes(
 
     return {
         "status": "PASS",
+        "fixture_revision": fixture_revision,
         "probe_count": checked,
         "probe_context": probes["probe_context"],
         "probe_variant": probes["probe_variant"],
@@ -328,6 +329,7 @@ def validate_records(
 
     return {
         "status": "PASS",
+        "fixture_revision": fixture_revision,
         "base_train_records": len(base_records),
         "diverse_train_records": len(diverse_records),
         "matched_train_records": len(matched_records),
