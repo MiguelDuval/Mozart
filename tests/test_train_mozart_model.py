@@ -16,6 +16,7 @@ from torch import nn
 from train_mozart_model import (
     TokenRecordDataset,
     apply_fit_diagnostic,
+    build_grammar_target_mask,
 )
 
 
@@ -66,6 +67,43 @@ class TrainDatasetTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "repeat must be positive"):
                     TokenRecordDataset(path, 16, repeat=repeat)
 
+
+    def test_grammar_target_mask_accepts_valid_targets(self) -> None:
+        import torch
+
+        input_ids = torch.tensor([[1, 16, 68, 160, 258]])
+        padding_mask = torch.zeros((1, 5), dtype=torch.bool)
+        targets = torch.tensor([[16, 68, 160, 258, 2]])
+
+        mask = build_grammar_target_mask(
+            input_ids,
+            padding_mask,
+            targets,
+        )
+
+        self.assertTrue(mask[0, 0, 16])
+        self.assertTrue(mask[0, 1, 68])
+        self.assertTrue(mask[0, 2, 160])
+        self.assertTrue(mask[0, 3, 258])
+        self.assertTrue(mask[0, 4, 2])
+        self.assertFalse(mask[0, 1, 500])
+
+    def test_grammar_target_mask_rejects_invalid_target(self) -> None:
+        import torch
+
+        input_ids = torch.tensor([[1, 16, 68]])
+        padding_mask = torch.zeros((1, 3), dtype=torch.bool)
+        targets = torch.tensor([[16, 68, 500]])
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "training target is invalid for Mozart grammar",
+        ):
+            build_grammar_target_mask(
+                input_ids,
+                padding_mask,
+                targets,
+            )
 
     def test_fit_diagnostic_disables_dropout_without_changing_module_shape(self) -> None:
         model = nn.Sequential(
