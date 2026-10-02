@@ -35,8 +35,16 @@ DEFAULT_BASE_VALUE = 0.5
 
 
 from mozart_token_grammar import (
+    PAD,
     BOS,
     EOS,
+    CHANNEL_BASE,
+    NOTE_BASE,
+    VELOCITY_BASE,
+    TIME_SHIFT_BASE,
+    DURATION_BASE,
+    CONTROLLER_BASE,
+    CONTROL_VALUE_BASE,
     VOCABULARY_SIZE,
     is_allowed_next_token,
     allowed_next_token_ranges,
