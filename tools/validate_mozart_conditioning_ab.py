@@ -248,9 +248,21 @@ def validate_records(
             raise ValueError(
                 f"matched[{index}] tokens differ from the corresponding base target"
             )
+        if matched.get("target_sha256") != base.get("target_sha256"):
+            raise ValueError(
+                f"matched[{index}] target_sha256 differs from the corresponding base target"
+            )
 
+        diverse_target_sha = diverse.get("target_sha256")
+        base_target_sha = base.get("target_sha256")
+        if not isinstance(diverse_target_sha, str) or not isinstance(base_target_sha, str):
+            raise ValueError(f"diverse[{index}] target_sha256 must be present")
         if diverse_variant == 1:
             matched_variant_positions += 1
+            if diverse_target_sha == base_target_sha:
+                raise ValueError(
+                    f"diverse[{index}] variant target_sha256 unexpectedly equals base target"
+                )
             if diverse.get("tokens") == base.get("tokens"):
                 raise ValueError(
                     f"diverse[{index}] variant target unexpectedly equals base target"
@@ -260,6 +272,10 @@ def validate_records(
             if diverse.get("tokens") != base.get("tokens"):
                 raise ValueError(
                     f"diverse[{index}] v0 target differs from base target"
+                )
+            if diverse_target_sha != base_target_sha:
+                raise ValueError(
+                    f"diverse[{index}] v0 target_sha256 differs from base target"
                 )
 
     if matched_variant_positions != expected_base_count:
