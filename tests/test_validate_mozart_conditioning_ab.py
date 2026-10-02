@@ -213,26 +213,25 @@ class MozartConditioningABValidatorTests(unittest.TestCase):
     def test_rejects_target_mismatch_in_matched_baseline(self) -> None:
         base, diverse, matched = _dataset()
         matched[7]["tokens"] = [10, 7, 99]
-        with self.assertRaisesRegex(ValueError, "matched\[7\] tokens differ"):
+        with self.assertRaisesRegex(ValueError, r"matched\[7\] tokens differ"):
             validate_records(base, diverse, matched)
 
     def test_rejects_control_mismatch(self) -> None:
         base, diverse, matched = _dataset()
         diverse[3]["performance_controls"]["density"] = 0.99
-        with self.assertRaisesRegex(ValueError, "diverse\[3\] controls differ"):
+        with self.assertRaisesRegex(ValueError, r"diverse\[3\] controls differ"):
             validate_records(base, diverse, matched)
 
     def test_rejects_missing_variant_difference(self) -> None:
         base, diverse, matched = _dataset()
         diverse[1]["tokens"] = list(base[0]["tokens"])
-        diverse[1]["target_sha256"] = base[0]["target_sha256"]
-        with self.assertRaisesRegex(ValueError, "variant target unexpectedly equals"):
+        with self.assertRaisesRegex(ValueError, r"variant target unexpectedly equals"):
             validate_records(base, diverse, matched)
 
     def test_rejects_matched_target_hash_mismatch(self) -> None:
         base, diverse, matched = _dataset()
         matched[2]["target_sha256"] = "sha-corrupt"
-        with self.assertRaisesRegex(ValueError, "matched\[2\] target_sha256"):
+        with self.assertRaisesRegex(ValueError, r"matched\[2\] target_sha256"):
             validate_records(base, diverse, matched)
 
 
