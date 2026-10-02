@@ -554,8 +554,6 @@ jobs:
                   return None
               keys = (
                   "status",
-                  "train_loss",
-                  "validation_loss",
                   "observed_teacher_forced_steps",
                   "native_target_top1_steps",
                   "native_legal_target_top1_steps",
@@ -1039,14 +1037,6 @@ jobs:
           teacher_delta = None
           if matched_teacher_summary is not None and diverse_teacher_summary is not None:
               teacher_delta = {
-                  "train_loss_delta": subtract(
-                      diverse_teacher_summary.get("train_loss"),
-                      matched_teacher_summary.get("train_loss"),
-                  ),
-                  "validation_loss_delta": subtract(
-                      diverse_teacher_summary.get("validation_loss"),
-                      matched_teacher_summary.get("validation_loss"),
-                  ),
                   "target_probability_directional_response_rate_delta": subtract(
                       diverse_teacher_summary.get("target_probability_directional_response_rate"),
                       matched_teacher_summary.get("target_probability_directional_response_rate"),
