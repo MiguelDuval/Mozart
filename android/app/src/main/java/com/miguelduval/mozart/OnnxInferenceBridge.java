@@ -907,13 +907,26 @@ public final class OnnxInferenceBridge {
                     isControllerToken(nextToken);
         }
         if (isTimeShiftToken(last)) {
-            return isChannelToken(nextToken) || isTimeShiftToken(nextToken);
+            return isChannelToken(nextToken) ||
+                    isTimeShiftToken(nextToken) ||
+                    (hasChannelToken(tokens) &&
+                            (isNoteToken(nextToken) ||
+                                    isControllerToken(nextToken)));
         }
         if (isChannelToken(last)) {
             return isNoteToken(nextToken) || isControllerToken(nextToken);
         }
         if (last == eosToken) {
             return false;
+        }
+        return false;
+    }
+
+    private static boolean hasChannelToken(List<Integer> tokens) {
+        for (Integer value : tokens) {
+            if (value != null && isChannelToken(value)) {
+                return true;
+            }
         }
         return false;
     }
