@@ -172,6 +172,10 @@ class ConditioningFixtureTests(unittest.TestCase):
         self.assertEqual(result["record_count"], 22)
         self.assertEqual(result["context_variant_count"], 10)
         self.assertEqual(len(records), 22)
+        self.assertEqual(
+            len({record["source_id"] for record in records}),
+            22,
+        )
         self.assertEqual(metadata["context_variant_count"], 10)
         split_counts = {
             split: sum(record["split"] == split for record in records)
