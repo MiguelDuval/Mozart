@@ -272,13 +272,11 @@ def build_conditioning_fixture_corpus(
     # derive unique record identities from that base group, while explicitly
     # inheriting its split so the 10/1/1 base split is preserved.
     base_source_ids = deterministic_source_ids(len(CONTROL_PROFILES))
-    source_ids: list[str] = []
 
     for profile_index, controls, variant in profile_specs:
         source_id = base_source_ids[profile_index]
         if variant:
             source_id = f"{source_id}-context-v{variant}"
-        source_ids.append(source_id)
 
         filename = f"control-probe-{profile_index:02d}-v{variant}.mid"
         midi_path = midi_dir / filename
@@ -295,7 +293,7 @@ def build_conditioning_fixture_corpus(
 
         record = build_example(
             midi_path,
-            source_id=source_ids[output_index],
+            source_id=source_id,
             source_revision=FIXTURE_REVISION,
             source_path=f"midi/{filename}",
             style="electronic",
