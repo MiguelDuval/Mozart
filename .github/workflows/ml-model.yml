@@ -36,6 +36,7 @@ on:
       - "tools/evaluate_mozart_conditioning_sequence.py"
       - "tools/build_conditioning_fixture_corpus.py"
       - "tools/summarize_mozart_conditioning_ab.py"
+      - "tools/validate_mozart_conditioning_ab.py"
       - "tests/test_summarize_mozart_conditioning_ab.py"
       - "docs/MODEL-TRAINING-BASELINE.md"
       - "tools/requirements-onnx-export.txt"
@@ -69,6 +70,7 @@ on:
       - "tools/evaluate_mozart_conditioning_sequence.py"
       - "tools/build_conditioning_fixture_corpus.py"
       - "tools/summarize_mozart_conditioning_ab.py"
+      - "tools/validate_mozart_conditioning_ab.py"
       - "tests/test_summarize_mozart_conditioning_ab.py"
       - "docs/MODEL-TRAINING-BASELINE.md"
       - "tools/requirements-onnx-export.txt"
@@ -154,6 +156,7 @@ jobs:
             tools/evaluate_mozart_conditioning_teacher_forced.py \
             tools/build_conditioning_fixture_corpus.py \
             tools/summarize_mozart_conditioning_ab.py \
+            tools/validate_mozart_conditioning_ab.py \
             tools/mozart_conditioning.py \
             tools/midi_to_training_example.py \
             tools/build_training_windows.py \
@@ -202,6 +205,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_summarize_mozart_conditioning_ab.py'
+
+      - name: Test context-diversity A/B training contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_validate_mozart_conditioning_ab.py'
 
       - name: Train development checkpoint and export ONNX ABI
         shell: bash
@@ -712,6 +721,11 @@ jobs:
           )
           print("PASS: matched-exposure baseline mirrors diverse train ordering with target-identical contexts and remapped teacher probes")
           PY
+
+          python3 tools/validate_mozart_conditioning_ab.py \
+            --base-train-jsonl build/ml-conditioning-fixture/train.jsonl \
+            --diverse-train-jsonl build/ml-diverse-conditioning-fixture/train.jsonl \
+            --matched-train-jsonl build/ml-matched-train.jsonl
 
           python3 tools/train_mozart_model.py \
             build/ml-matched-train.jsonl \
