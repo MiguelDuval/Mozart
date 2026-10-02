@@ -113,6 +113,13 @@ class ReverseDirectionalTeacherForcedModel(FakeTeacherForcedModel):
 
 
 class TeacherForcedTests(unittest.TestCase):
+    def test_internal_evaluator_accepts_legal_target_top1_gate(self) -> None:
+        import inspect
+
+        signature = inspect.signature(_evaluate_with_model)
+        self.assertIn("require_legal_target_top1", signature.parameters)
+        self.assertFalse(signature.parameters["require_legal_target_top1"].default)
+
     def test_target_rank_and_margin(self) -> None:
         import numpy as np
 
