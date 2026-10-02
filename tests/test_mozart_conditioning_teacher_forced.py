@@ -58,19 +58,15 @@ class FakeTeacherForcedModel:
             high = values[index] > 0.5
 
             if sequence == 3:
-                # At the exact fixture divergence, make the expected low/high
-                # target token the unique top-1 result.
-                token = 100 + index * 2 + int(high)
+                # The divergence target is a valid velocity token. Native
+                # controls make their own low/high target the legal top-1.
+                token = 170 + index * 2 + int(high)
                 logits[row, -1, token] = 100.0
             else:
-                # After divergence, model a non-zero control response while
-                # keeping the top-1 token control-dependent. This exercises the
-                # counterfactual window without pretending to know the target.
+                # Keep the native target as the legal top-1 and the
+                # counterfactual on the opposite token.
                 logits[row, :, :] = 1.0 if high else 0.0
-                if sequence == 4:
-                    winner = 160 + index if high else 161 + index
-                else:
-                    winner = 256 + index if high else 257 + index
+                winner = 260 + int(high)
                 logits[row, -1, winner] = 11.0
         return logits
 
@@ -96,8 +92,8 @@ class TeacherForcedTests(unittest.TestCase):
         for index, name in enumerate(CONTROL_NAMES):
             low_id = f"{name}-low"
             high_id = f"{name}-high"
-            low_tokens = [1, 16, 68, 100 + index * 2, 160, 258, 2]
-            high_tokens = [1, 16, 68, 101 + index * 2, 160, 258, 2]
+            low_tokens = [1, 16, 68, 170 + index * 2, 260, 192, 2]
+            high_tokens = [1, 16, 68, 171 + index * 2, 260, 192, 2]
             records[low_id] = {
                 "source_id": low_id,
                 "split": "train",
@@ -135,6 +131,14 @@ class TeacherForcedTests(unittest.TestCase):
 
         self.assertEqual(report["status"], "PASS")
         self.assertEqual(report["observed_teacher_forced_steps"], 20)
+        self.assertEqual(
+            report["target_probability_directionally_correct_steps"],
+            20,
+        )
+        self.assertEqual(
+            report["target_probability_directional_response_rate"],
+            1.0,
+        )
         for name in CONTROL_NAMES:
             entry = report["controls"][name]
             self.assertEqual(entry["window_step_count"], 4)
@@ -142,11 +146,28 @@ class TeacherForcedTests(unittest.TestCase):
                 entry["top1_changed_by_control_steps"],
                 4,
             )
+            self.assertEqual(
+                entry["target_probability_directionally_correct_steps"],
+                4,
+            )
+            self.assertEqual(
+                entry["target_probability_directional_response_rate"],
+                1.0,
+            )
+            self.assertGreater(
+                entry["mean_target_probability_tv_alignment"],
+                0.0,
+            )
             deltas = [
                 step["target_logit_delta_native_minus_counterfactual"]
                 for step in entry["steps"]
             ]
             self.assertTrue(all(delta != 0.0 for delta in deltas))
+            probability_deltas = [
+                step["target_probability_delta_native_minus_counterfactual"]
+                for step in entry["steps"]
+            ]
+            self.assertTrue(all(delta > 0.0 for delta in probability_deltas))
             tvs = [
                 step["distribution_total_variation_native_vs_counterfactual"]
                 for step in entry["steps"]
@@ -158,6 +179,51 @@ class TeacherForcedTests(unittest.TestCase):
             self.assertGreater(
                 entry["max_distribution_total_variation_native_vs_counterfactual"],
                 0.0,
+            )
+
+    def test_illegal_teacher_forced_target_is_rejected(self) -> None:
+        records = {}
+        probes = {"controls": {}}
+
+        for index, name in enumerate(CONTROL_NAMES):
+            low_id = f"{name}-low"
+            high_id = f"{name}-high"
+            low_target = 100 if name == "density" else 170 + index * 2
+            high_target = 171 + index * 2
+            records[low_id] = {
+                "source_id": low_id,
+                "split": "train",
+                "tokens": [1, 16, 68, low_target, 260],
+                "performance_controls": {
+                    control: (0.1 if control == name else 0.5)
+                    for control in CONTROL_NAMES
+                },
+            }
+            records[high_id] = {
+                "source_id": high_id,
+                "split": "train",
+                "tokens": [1, 16, 68, high_target, 260],
+                "performance_controls": {
+                    control: (0.9 if control == name else 0.5)
+                    for control in CONTROL_NAMES
+                },
+            }
+            probes["controls"][name] = {
+                "prefix_tokens": [1, 16, 68],
+                "prefix_length": 3,
+                "first_target_divergence_index": 3,
+                "low_profile": records[low_id]["performance_controls"],
+                "high_profile": records[high_id]["performance_controls"],
+                "low_record_source_id": low_id,
+                "high_record_source_id": high_id,
+            }
+
+        with self.assertRaisesRegex(ValueError, "target token 100 is not legal"):
+            _evaluate_with_model(
+                FakeTeacherForcedModel(),
+                records,
+                probes,
+                window_size=1,
             )
 
     def test_load_records_rejects_duplicate_source_ids(self) -> None:
@@ -188,7 +254,7 @@ class TeacherForcedTests(unittest.TestCase):
             records[low_id] = {
                 "source_id": low_id,
                 "split": "train",
-                "tokens": [1, 16, 68, 100 + index * 2, 160, 258, 2],
+                "tokens": [1, 16, 68, 170 + index * 2, 260, 192, 2],
                 "performance_controls": {
                     control: (0.1 if control == name else 0.5)
                     for control in CONTROL_NAMES
@@ -197,7 +263,7 @@ class TeacherForcedTests(unittest.TestCase):
             records[high_id] = {
                 "source_id": high_id,
                 "split": "train",
-                "tokens": [1, 16, 68, 101 + index * 2, 160, 258, 2],
+                "tokens": [1, 16, 68, 171 + index * 2, 260, 192, 2],
                 "performance_controls": {
                     control: (0.9 if control == name else 0.5)
                     for control in CONTROL_NAMES
@@ -231,6 +297,16 @@ class TeacherForcedTests(unittest.TestCase):
             self.assertEqual(entry["prefix_length"], 3)
             self.assertTrue(entry["low_target"]["target_top1"])
             self.assertTrue(entry["high_target"]["target_top1"])
+            self.assertTrue(entry["low_target"]["target_legal_top1"])
+            self.assertTrue(entry["high_target"]["target_legal_top1"])
+            self.assertGreater(
+                entry["control_effect"]["low_target_probability_lift_native_minus_counterfactual"],
+                0.0,
+            )
+            self.assertGreater(
+                entry["control_effect"]["high_target_probability_lift_native_minus_counterfactual"],
+                0.0,
+            )
             self.assertNotEqual(
                 entry["low_target"]["target_token"],
                 entry["high_target"]["target_token"],
