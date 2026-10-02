@@ -268,13 +268,18 @@ def build_conditioning_fixture_corpus(
             CONTROL_PROFILES[:context_variant_count]
         )
     )
-    # Base and context-variant renderings receive unique record identities.
-    # The variant's split is explicitly inherited from its base profile after
-    # deterministic assignment, keeping the pair together without creating
-    # duplicate source_id values for strict evaluator/provenance contracts.
-    source_ids = deterministic_source_ids(len(profile_specs))
+    # Each base control profile gets one deterministic source group. Variants
+    # derive unique record identities from that base group, while explicitly
+    # inheriting its split so the 10/1/1 base split is preserved.
+    base_source_ids = deterministic_source_ids(len(CONTROL_PROFILES))
+    source_ids: list[str] = []
 
-    for output_index, (profile_index, controls, variant) in enumerate(profile_specs):
+    for profile_index, controls, variant in profile_specs:
+        source_id = base_source_ids[profile_index]
+        if variant:
+            source_id = f"{source_id}-context-v{variant}"
+        source_ids.append(source_id)
+
         filename = f"control-probe-{profile_index:02d}-v{variant}.mid"
         midi_path = midi_dir / filename
         midi_path.write_bytes(
