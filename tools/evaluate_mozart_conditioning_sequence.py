@@ -34,17 +34,13 @@ DEFAULT_HIGH_VALUE = 0.9
 DEFAULT_BASE_VALUE = 0.5
 
 
-PAD = 0
-BOS = 1
-EOS = 2
-CHANNEL_BASE = 16
-NOTE_BASE = 32
-VELOCITY_BASE = 160
-TIME_SHIFT_BASE = 192
-DURATION_BASE = 256
-CONTROLLER_BASE = 352
-CONTROL_VALUE_BASE = 480
-VOCABULARY_SIZE = 512
+from mozart_token_grammar import (
+    BOS,
+    EOS,
+    VOCABULARY_SIZE,
+    is_allowed_next_token,
+    allowed_next_token_ranges,
+)
 
 
 def validate_mozart_token_sequence(
@@ -333,63 +329,11 @@ def _onnx_next_logits(
     return result
 
 
-def _has_channel_token(tokens: list[int]) -> bool:
-    return any(
-        CHANNEL_BASE <= token < NOTE_BASE
-        for token in tokens
-    )
-
-
-def is_allowed_next_token(tokens: list[int], next_token: int) -> bool:
-    """Return whether a token is valid at the current Mozart grammar state."""
-    if not tokens or not 0 <= next_token < VOCABULARY_SIZE:
-        return False
-
-    last = tokens[-1]
-    if last == BOS:
-        return CHANNEL_BASE <= next_token < NOTE_BASE or (
-            TIME_SHIFT_BASE <= next_token < DURATION_BASE
-        )
-    if NOTE_BASE <= last < VELOCITY_BASE:
-        return VELOCITY_BASE <= next_token < TIME_SHIFT_BASE
-    if VELOCITY_BASE <= last < TIME_SHIFT_BASE:
-        return DURATION_BASE <= next_token < CONTROLLER_BASE
-    if CONTROLLER_BASE <= last < CONTROL_VALUE_BASE:
-        return CONTROL_VALUE_BASE <= next_token < VOCABULARY_SIZE
-    if DURATION_BASE <= last < CONTROLLER_BASE or (
-        CONTROL_VALUE_BASE <= last < VOCABULARY_SIZE
-    ):
-        return (
-            next_token == EOS
-            or CHANNEL_BASE <= next_token < NOTE_BASE
-            or TIME_SHIFT_BASE <= next_token < DURATION_BASE
-            or NOTE_BASE <= next_token < VELOCITY_BASE
-            or CONTROLLER_BASE <= next_token < CONTROL_VALUE_BASE
-        )
-    if TIME_SHIFT_BASE <= last < DURATION_BASE:
-        return (
-            CHANNEL_BASE <= next_token < NOTE_BASE
-            or TIME_SHIFT_BASE <= next_token < DURATION_BASE
-            or (
-                _has_channel_token(tokens)
-                and (
-                    NOTE_BASE <= next_token < VELOCITY_BASE
-                    or CONTROLLER_BASE <= next_token < CONTROL_VALUE_BASE
-                )
-            )
-        )
-    if CHANNEL_BASE <= last < NOTE_BASE:
-        return (
-            NOTE_BASE <= next_token < VELOCITY_BASE
-            or CONTROLLER_BASE <= next_token < CONTROL_VALUE_BASE
-        )
-    return False
-
 
 def _grammar_allowed_mask(tokens: list[int]) -> np.ndarray:
     mask = np.zeros(VOCABULARY_SIZE, dtype=bool)
-    for token in range(VOCABULARY_SIZE):
-        mask[token] = is_allowed_next_token(tokens, token)
+    for start, end in allowed_next_token_ranges(tokens):
+        mask[start:end] = True
     if not np.any(mask):
         raise ValueError("Mozart grammar has no valid next token")
     return mask
