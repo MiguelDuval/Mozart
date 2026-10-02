@@ -173,6 +173,14 @@ class ConditioningFixtureTests(unittest.TestCase):
         self.assertEqual(result["context_variant_count"], 10)
         self.assertEqual(len(records), 22)
         self.assertEqual(metadata["context_variant_count"], 10)
+        split_counts = {
+            split: sum(record["split"] == split for record in records)
+            for split in ("train", "validation", "test")
+        }
+        self.assertEqual(
+            split_counts,
+            {"train": 20, "validation": 1, "test": 1},
+        )
 
         variants_by_profile: dict[tuple[float, ...], list[dict]] = {}
         for record in records:
@@ -193,6 +201,14 @@ class ConditioningFixtureTests(unittest.TestCase):
             self.assertEqual(
                 variants[0]["performance_controls"],
                 variants[1]["performance_controls"],
+            )
+            self.assertEqual(
+                variants[0]["split"],
+                variants[1]["split"],
+            )
+            self.assertEqual(
+                variants[0]["source_id"],
+                variants[1]["source_id"],
             )
 
     def test_fixture_is_byte_for_byte_deterministic(self) -> None:
