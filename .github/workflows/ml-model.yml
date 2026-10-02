@@ -366,7 +366,18 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf build/ml-grammar-checkpoint
-          python3 tools/train_mozart_model.py             build/ml-conditioning-fixture/train.jsonl             --validation-jsonl build/ml-conditioning-fixture/validation.jsonl             --output-dir build/ml-grammar-checkpoint             --epochs 12             --batch-size 4             --repeat-train-records 16             --learning-rate 3e-4             --fit-diagnostic             --grammar-constrained-loss             --seed 42             --device cpu
+          python3 tools/train_mozart_model.py \
+            build/ml-conditioning-fixture/train.jsonl \
+            --validation-jsonl build/ml-conditioning-fixture/validation.jsonl \
+            --output-dir build/ml-grammar-checkpoint \
+            --epochs 12 \
+            --batch-size 4 \
+            --repeat-train-records 16 \
+            --learning-rate 3e-4 \
+            --fit-diagnostic \
+            --grammar-constrained-loss \
+            --seed 42 \
+            --device cpu
 
           python3 - <<'PY'
           import torch
@@ -404,7 +415,12 @@ jobs:
           )
           PY
 
-          python3 tools/export_mozart_onnx.py             build/ml-grammar-checkpoint/development-inference.pt             build/ml-grammar-checkpoint/model.onnx             --config docs/model-training-config.json             --sequence-length 16             --opset 18
+          python3 tools/export_mozart_onnx.py \
+            build/ml-grammar-checkpoint/development-inference.pt \
+            build/ml-grammar-checkpoint/model.onnx \
+            --config docs/model-training-config.json \
+            --sequence-length 16 \
+            --opset 18
 
       - name: Evaluate grammar-aware checkpoint autoregression A/B
         if: ${{ always() }}
@@ -417,16 +433,49 @@ jobs:
           test -f build/ml-grammar-checkpoint/model.onnx
 
           set +e
-          python3 tools/evaluate_mozart_conditioning_sequence.py             build/ml-grammar-checkpoint/development-inference.pt             --config docs/model-training-config.json             --onnx build/ml-grammar-checkpoint/model.onnx             --max-generated-tokens 32             --low-value 0.1             --high-value 0.9             --base-value 0.5             --probe-file build/ml-conditioning-fixture/sequence-probes.json             --require-valid-grammar             --seed 42             --output build/ml-grammar-checkpoint/conditioning-sequence-raw.json
+          python3 tools/evaluate_mozart_conditioning_sequence.py \
+            build/ml-grammar-checkpoint/development-inference.pt \
+            --config docs/model-training-config.json \
+            --onnx build/ml-grammar-checkpoint/model.onnx \
+            --max-generated-tokens 32 \
+            --low-value 0.1 \
+            --high-value 0.9 \
+            --base-value 0.5 \
+            --probe-file build/ml-conditioning-fixture/sequence-probes.json \
+            --require-valid-grammar \
+            --seed 42 \
+            --output build/ml-grammar-checkpoint/conditioning-sequence-raw.json
           raw_status=$?
 
-          python3 tools/evaluate_mozart_conditioning_sequence.py             build/ml-grammar-checkpoint/development-inference.pt             --config docs/model-training-config.json             --onnx build/ml-grammar-checkpoint/model.onnx             --max-generated-tokens 32             --low-value 0.1             --high-value 0.9             --base-value 0.5             --probe-file build/ml-conditioning-fixture/sequence-probes.json             --grammar-constrained             --require-valid-grammar             --seed 42             --output build/ml-grammar-checkpoint/conditioning-sequence-constrained.json
+          python3 tools/evaluate_mozart_conditioning_sequence.py \
+            build/ml-grammar-checkpoint/development-inference.pt \
+            --config docs/model-training-config.json \
+            --onnx build/ml-grammar-checkpoint/model.onnx \
+            --max-generated-tokens 32 \
+            --low-value 0.1 \
+            --high-value 0.9 \
+            --base-value 0.5 \
+            --probe-file build/ml-conditioning-fixture/sequence-probes.json \
+            --grammar-constrained \
+            --require-valid-grammar \
+            --seed 42 \
+            --output build/ml-grammar-checkpoint/conditioning-sequence-constrained.json
           constrained_status=$?
 
-          python3 tools/evaluate_mozart_conditioning_teacher_forced.py             build/ml-grammar-checkpoint/development-inference.pt             build/ml-conditioning-fixture/train.jsonl             build/ml-conditioning-fixture/sequence-probes.json             --config docs/model-training-config.json             --onnx build/ml-grammar-checkpoint/model.onnx             --window-size 8             --output build/ml-grammar-checkpoint/conditioning-teacher-forced.json
+          python3 tools/evaluate_mozart_conditioning_teacher_forced.py \
+            build/ml-grammar-checkpoint/development-inference.pt \
+            build/ml-conditioning-fixture/train.jsonl \
+            build/ml-conditioning-fixture/sequence-probes.json \
+            --config docs/model-training-config.json \
+            --onnx build/ml-grammar-checkpoint/model.onnx \
+            --window-size 8 \
+            --output build/ml-grammar-checkpoint/conditioning-teacher-forced.json
           teacher_status=$?
 
-          RAW_STATUS="$raw_status"           CONSTRAINED_STATUS="$constrained_status"           TEACHER_STATUS="$teacher_status"           python3 - <<'PY'
+          RAW_STATUS="$raw_status" \
+          CONSTRAINED_STATUS="$constrained_status" \
+          TEACHER_STATUS="$teacher_status" \
+          python3 - <<'PY'
           import json
           import os
           from pathlib import Path
