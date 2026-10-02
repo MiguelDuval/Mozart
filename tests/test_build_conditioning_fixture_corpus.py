@@ -210,6 +210,10 @@ class ConditioningFixtureTests(unittest.TestCase):
                 variants[0]["source_id"],
                 variants[1]["source_id"],
             )
+            self.assertEqual(
+                variants[0]["split"],
+                "train",
+            )
 
     def test_fixture_is_byte_for_byte_deterministic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
