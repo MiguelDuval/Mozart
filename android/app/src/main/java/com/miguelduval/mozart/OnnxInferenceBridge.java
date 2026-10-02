@@ -220,7 +220,11 @@ public final class OnnxInferenceBridge {
                                 .invoke(outputValue);
 
                         final double[] logits = extractLastLogits(raw);
-                        final int next = argmax(logits);
+                        final int next = argmaxAllowedNextToken(
+                                logits,
+                                tokens,
+                                runtime.getInt("bos_token_id"),
+                                runtime.getInt("eos_token_id"));
                         if (next < 0 || next >= MOZART_VOCABULARY_SIZE) {
                             return response(
                                     "FAILED",
@@ -828,6 +832,128 @@ public final class OnnxInferenceBridge {
             result[i] = source[i];
         }
         return result;
+    }
+
+    private static int argmaxAllowedNextToken(
+            double[] values,
+            List<Integer> tokens,
+            int bosToken,
+            int eosToken) {
+        if (values == null || values.length != MOZART_VOCABULARY_SIZE) {
+            return argmax(values);
+        }
+        if (tokens == null || tokens.isEmpty()) {
+            throw new IllegalArgumentException("token history must not be empty");
+        }
+
+        int bestIndex = -1;
+        double bestValue = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i < MOZART_VOCABULARY_SIZE; ++i) {
+            if (!isAllowedNextToken(tokens, i, bosToken, eosToken)) {
+                continue;
+            }
+            final double value = values[i];
+            if (Double.isNaN(value)) {
+                continue;
+            }
+            if (bestIndex < 0 || value > bestValue) {
+                bestIndex = i;
+                bestValue = value;
+            }
+        }
+
+        if (bestIndex < 0) {
+            throw new IllegalArgumentException(
+                    "ONNX logits contain no grammar-valid next token");
+        }
+        return bestIndex;
+    }
+
+    private static boolean isAllowedNextToken(
+            List<Integer> tokens,
+            int nextToken,
+            int bosToken,
+            int eosToken) {
+        if (tokens == null || tokens.isEmpty() ||
+                nextToken < 0 || nextToken >= MOZART_VOCABULARY_SIZE) {
+            return false;
+        }
+
+        final int last = tokens.get(tokens.size() - 1);
+        if (last == bosToken) {
+            return isChannelToken(nextToken) || isTimeShiftToken(nextToken);
+        }
+        if (isNoteToken(last)) {
+            return isVelocityToken(nextToken);
+        }
+        if (isVelocityToken(last)) {
+            return isDurationToken(nextToken);
+        }
+        if (isControllerToken(last)) {
+            return isControlValueToken(nextToken);
+        }
+        if (isDurationToken(last) || isControlValueToken(last)) {
+            return nextToken == eosToken ||
+                    isChannelToken(nextToken) ||
+                    isTimeShiftToken(nextToken) ||
+                    isNoteToken(nextToken) ||
+                    isControllerToken(nextToken);
+        }
+        if (isTimeShiftToken(last)) {
+            return hasChannelToken(tokens, bosToken) &&
+                    (isChannelToken(nextToken) ||
+                            isTimeShiftToken(nextToken))
+                    || (!hasChannelToken(tokens, bosToken) &&
+                            (isChannelToken(nextToken) ||
+                                    isTimeShiftToken(nextToken)));
+        }
+        if (isChannelToken(last)) {
+            return isNoteToken(nextToken) || isControllerToken(nextToken);
+        }
+        if (last == eosToken) {
+            return false;
+        }
+        return false;
+    }
+
+    private static boolean hasChannelToken(
+            List<Integer> tokens,
+            int bosToken) {
+        for (Integer value : tokens) {
+            if (value != null && value >= CHANNEL_BASE && value < NOTE_BASE &&
+                    value != bosToken) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isChannelToken(int token) {
+        return token >= 16 && token < 32;
+    }
+
+    private static boolean isNoteToken(int token) {
+        return token >= 32 && token < 160;
+    }
+
+    private static boolean isVelocityToken(int token) {
+        return token >= 160 && token < 192;
+    }
+
+    private static boolean isTimeShiftToken(int token) {
+        return token >= 192 && token < 256;
+    }
+
+    private static boolean isDurationToken(int token) {
+        return token >= 256 && token < 352;
+    }
+
+    private static boolean isControllerToken(int token) {
+        return token >= 352 && token < 480;
+    }
+
+    private static boolean isControlValueToken(int token) {
+        return token >= 480 && token < MOZART_VOCABULARY_SIZE;
     }
 
     private static int argmax(double[] values) {
