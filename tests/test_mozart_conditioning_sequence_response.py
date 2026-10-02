@@ -257,7 +257,7 @@ class MozartConditioningSequenceTests(unittest.TestCase):
         tokens = [1, 16, 68]
         logits = np.full(512, -1000.0, dtype=np.float32)
         logits[68] = 1000.0
-        logits[161] = 500.0
+        logits[500] = 500.0
         logits[160] = 1.0
 
         mask = _grammar_allowed_mask(tokens)
