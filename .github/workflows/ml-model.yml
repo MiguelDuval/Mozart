@@ -532,6 +532,12 @@ jobs:
             build/ml-checkpoint/conditioning-sequence-response.json
             build/ml-checkpoint/conditioning-sequence-grammar-constrained.json
             build/ml-checkpoint/conditioning-teacher-forced.json
+            build/ml-grammar-checkpoint/development-inference.pt
+            build/ml-grammar-checkpoint/model.onnx
+            build/ml-grammar-checkpoint/conditioning-sequence-raw.json
+            build/ml-grammar-checkpoint/conditioning-sequence-constrained.json
+            build/ml-grammar-checkpoint/conditioning-teacher-forced.json
+            build/ml-grammar-checkpoint/ab-summary.json
             build/ml-conditioning-fixture/sequence-probes.json
           archive: true
           if-no-files-found: error
