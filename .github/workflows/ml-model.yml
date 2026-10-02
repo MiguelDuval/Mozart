@@ -749,6 +749,17 @@ jobs:
           def summarize_sequence(report):
               if report is None:
                   return None
+              controls = report.get("controls") or {}
+              sequence_changed = 0
+              max_tvs = []
+              for entry in controls.values():
+                  torch_report = entry.get("torch") or {}
+                  if torch_report.get("sequence_changed") is True:
+                      sequence_changed += 1
+                  response = torch_report.get("distribution_response") or {}
+                  value = response.get("max_total_variation")
+                  if isinstance(value, (int, float)):
+                      max_tvs.append(float(value))
               keys = (
                   "status",
                   "grammar_constrained",
@@ -758,7 +769,18 @@ jobs:
                   "max_generated_tokens",
                   "failures",
               )
-              return {key: report.get(key) for key in keys}
+              summary = {key: report.get(key) for key in keys}
+              summary["controls_with_sequence_change"] = sequence_changed
+              summary["mean_control_max_total_variation"] = (
+                  sum(max_tvs) / len(max_tvs) if max_tvs else None
+              )
+              summary["min_control_max_total_variation"] = (
+                  min(max_tvs) if max_tvs else None
+              )
+              summary["max_control_max_total_variation"] = (
+                  max(max_tvs) if max_tvs else None
+              )
+              return summary
 
           reports = (
               baseline_teacher,
