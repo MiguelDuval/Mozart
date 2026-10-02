@@ -114,10 +114,26 @@ over tokens valid for the current frozen MIDI grammar state; the model architect
 conditioning inputs, token vocabulary, optimizer budget and 480-update fit-diagnostic
 budget remain unchanged. The resulting checkpoint is evaluated both with raw greedy
 decoding and with the same runtime grammar-constrained decoder, plus the existing
-teacher-forced diagnostic. This is intentionally experimental: masking impossible
-tokens during training may improve structural rollout without improving musical
-conditioning, so neither behavior is promoted to a production gate from a single
-tiny fixture.
+teacher-forced diagnostic. This remains an experimental branch: the unconstrained
+greedy stream can still collapse structurally, while grammar-constrained rollout can
+remain valid even when a control does not change the discrete argmax sequence.
+
+### Grammar-aware A/B result
+
+The reproducible grammar-aware 480-update checkpoint reached train_loss=0.090398 and
+validation_loss=19.501389. Grammar-constrained decoding produced structurally valid
+bounded rollouts and PyTorch/ONNX greedy sequences matched for all five controls. Three
+controls changed the discrete generated sequence; density and energy did not.
+
+This exposes an important measurement distinction. Exact greedy-sequence divergence is
+a brittle proxy for continuous conditioning because low/high controls can shift the
+probability distribution without changing its argmax. The development evaluator now
+records total-variation distance over the currently legal token distribution during
+the shared rollout. The CI conditioning gate uses a maximum total-variation threshold
+of 0.05 for every control in the grammar-constrained path, while unconstrained greedy
+output remains diagnostic-only. This keeps structural validity and measurable control
+influence as separate checks instead of treating raw autoregressive collapse as a
+production-model signal.
 
 ## Training
 
