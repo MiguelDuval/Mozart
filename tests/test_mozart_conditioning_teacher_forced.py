@@ -96,8 +96,6 @@ class ReverseDirectionalTeacherForcedModel(FakeTeacherForcedModel):
             performance_controls,
         )
         if input_ids.shape[1] == 3:
-            import torch
-
             for row in range(input_ids.shape[0]):
                 values = performance_controls[row].tolist()
                 index = next(
