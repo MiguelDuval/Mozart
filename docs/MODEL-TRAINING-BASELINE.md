@@ -87,9 +87,29 @@ times, batch size 4: exactly 40 optimizer updates per epoch and 480 updates in
 the final checkpoint. The checkpoint records this budget explicitly and CI
 verifies it before ONNX export.
 
+## Latest fit-diagnostic result
+
+The reproducible 480-update fit diagnostic has now been executed successfully through
+training and ONNX export. The final checkpoint reached train_loss=0.129450 after
+12 epochs, while the one-record validation split reported validation_loss=22.605654.
+The unconstrained greedy sequence gate still failed on MIDI grammar, so increasing
+repeated exposure alone does not remove autoregressive collapse on this tiny corpus.
+
+The same checkpoint produced matching PyTorch and ONNX greedy token sequences.
+The separate teacher-forced diagnostic completed with 80 observed positions and
+63 native target-top1 positions; only one of the five independently varied controls
+had both low/high divergence targets at top-1. This separates two facts: conditioning
+signals are reaching the model, but learned next-token control mapping is incomplete
+and does not remain structurally reliable during free-running generation.
+
+These results are evidence for the development baseline only. They do not justify
+selecting this checkpoint for production. The next experiments should improve
+autoregressive/grammar robustness and training diversity rather than merely increasing
+the repetition factor or treating validation loss from the tiny holdout as a production
+model-selection criterion.
+
 ## Training
 
-Use a dedicated PyTorch environment outside the Android build:
 
     python tools/train_mozart_model.py \
         path/to/train.jsonl \
