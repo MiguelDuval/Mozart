@@ -201,6 +201,12 @@ def build_summary(
         if isinstance(input_contract, dict)
         else None
     )
+    probe_equivalence_status = (
+        input_contract.get("probe_equivalence", {}).get("status")
+        if isinstance(input_contract, dict)
+        and isinstance(input_contract.get("probe_equivalence"), dict)
+        else None
+    )
 
     required = {
         "matched_teacher_forced": matched_teacher,
@@ -211,6 +217,8 @@ def build_summary(
     missing = [name for name, report in required.items() if report is None]
 
     if contract_status not in (None, "PASS"):
+        status = "FAIL"
+    elif input_contract is not None and probe_equivalence_status != "PASS":
         status = "FAIL"
     elif not available_statuses:
         status = "NO_REPORTS"
