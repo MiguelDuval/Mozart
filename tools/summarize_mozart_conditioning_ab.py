@@ -182,6 +182,8 @@ def build_summary(
     baseline_sequence: dict[str, Any] | None,
     matched_sequence: dict[str, Any] | None,
     diverse_sequence: dict[str, Any] | None,
+    matched_sequence_v1: dict[str, Any] | None = None,
+    diverse_sequence_v1: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     reports = (
         baseline_teacher,
@@ -338,6 +340,14 @@ def build_summary(
                 matched_sequence,
                 diverse_sequence,
             ),
+            "cross_context_v1": {
+                "matched": summarize_sequence(matched_sequence_v1),
+                "diverse": summarize_sequence(diverse_sequence_v1),
+                "per_control_autoregressive": compare_experiments(
+                    matched_sequence_v1,
+                    diverse_sequence_v1,
+                ),
+            },
         },
     }
 
