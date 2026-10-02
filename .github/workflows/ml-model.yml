@@ -632,21 +632,44 @@ jobs:
           import json
           from pathlib import Path
 
-          source = Path("build/ml-conditioning-fixture/train.jsonl")
-          records = [
+          base_source = Path("build/ml-conditioning-fixture/train.jsonl")
+          diverse_source = Path("build/ml-diverse-conditioning-fixture/train.jsonl")
+          base_records = [
               json.loads(line)
-              for line in source.read_text(encoding="utf-8").splitlines()
+              for line in base_source.read_text(encoding="utf-8").splitlines()
               if line.strip()
           ]
-          if len(records) != 10:
+          diverse_records = [
+              json.loads(line)
+              for line in diverse_source.read_text(encoding="utf-8").splitlines()
+              if line.strip()
+          ]
+          if len(base_records) != 10:
               raise SystemExit(
-                  f"matched-exposure baseline must start from 10 base train records, got {len(records)}"
+                  f"matched-exposure baseline must start from 10 base train records, got {len(base_records)}"
               )
+          if len(diverse_records) != 20:
+              raise SystemExit(
+                  f"matched-exposure baseline must mirror 20 diverse train positions, got {len(diverse_records)}"
+              )
+          base_by_profile = {
+              record["source_path"]: record
+              for record in base_records
+          }
           matched = []
-          for record in records:
-              matched.append(record)
-              duplicate = dict(record)
-              duplicate["source_id"] = f"{record['source_id']}-matched-repeat"
+          for index, diverse in enumerate(diverse_records):
+              profile_path = diverse["source_path"].replace("-v1.mid", "-v0.mid")
+              base = base_by_profile.get(profile_path)
+              if base is None:
+                  raise SystemExit(
+                      f"no base train target for diverse record {diverse['source_path']!r}"
+                  )
+              duplicate = dict(base)
+              duplicate["source_id"] = f"{base['source_id']}-matched-{index:02d}"
+              if duplicate["performance_controls"] != diverse["performance_controls"]:
+                  raise SystemExit(
+                      f"control mismatch at diverse train position {index}"
+                  )
               matched.append(duplicate)
           if len({record["source_id"] for record in matched}) != 20:
               raise SystemExit("matched-exposure baseline source identities must be unique")
@@ -654,7 +677,7 @@ jobs:
               "".join(json.dumps(record, sort_keys=True) + "\n" for record in matched),
               encoding="utf-8",
           )
-          print("PASS: matched-exposure baseline has 20 train records")
+          print("PASS: matched-exposure baseline mirrors diverse train ordering with target-identical contexts")
           PY
 
           python3 tools/train_mozart_model.py \
