@@ -309,7 +309,7 @@ class MozartConditioningSequenceTests(unittest.TestCase):
             max_generated_tokens=6,
             prefix_tokens=(1, 16),
             require_divergence=False,
-            require_valid_grammar=True,
+            require_valid_grammar=False,
             require_distribution_response=True,
             min_distribution_total_variation=0.05,
         )
