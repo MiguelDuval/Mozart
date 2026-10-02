@@ -69,6 +69,12 @@ on:
       - "docs/MODEL-TRAINING-BASELINE.md"
       - "tools/requirements-onnx-export.txt"
   workflow_dispatch:
+    inputs:
+      run_diversity_experiment:
+        description: "Run the 22-record context-diversity fit diagnostic"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: mozart-ml-${{ github.head_ref || github.ref_name }}
@@ -586,6 +592,117 @@ jobs:
           )
           print(json.dumps(summary, indent=2, sort_keys=True))
           PY
+      - name: Run context-diversity fit diagnostic
+        if: ${{ inputs.run_diversity_experiment }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/ml-diverse-conditioning-fixture build/ml-diverse-checkpoint
+          python3 tools/build_conditioning_fixture_corpus.py \
+            build/ml-diverse-conditioning-fixture \
+            --context-variant-count 10
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("build/ml-diverse-conditioning-fixture")
+          records = [
+              json.loads(line)
+              for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines()
+              if line.strip()
+          ]
+          for split in ("train", "validation"):
+              selected = [record for record in records if record["split"] == split]
+              if not selected:
+                  raise SystemExit(f"missing {split} records")
+              (root / f"{split}.jsonl").write_text(
+                  "".join(json.dumps(record, sort_keys=True) + "\n" for record in selected),
+                  encoding="utf-8",
+              )
+          if len(records) != 22:
+              raise SystemExit(f"expected 22 diverse records, got {len(records)}")
+          train_count = sum(record["split"] == "train" for record in records)
+          if train_count != 20:
+              raise SystemExit(f"expected 20 diverse train records, got {train_count}")
+          PY
+
+          python3 tools/train_mozart_model.py \
+            build/ml-diverse-conditioning-fixture/train.jsonl \
+            --validation-jsonl build/ml-diverse-conditioning-fixture/validation.jsonl \
+            --output-dir build/ml-diverse-checkpoint \
+            --epochs 12 \
+            --batch-size 4 \
+            --repeat-train-records 8 \
+            --learning-rate 3e-4 \
+            --fit-diagnostic \
+            --seed 42 \
+            --device cpu
+
+          python3 - <<'PY'
+          import torch
+          from pathlib import Path
+
+          checkpoint = torch.load(
+              "build/ml-diverse-checkpoint/latest.pt",
+              map_location="cpu",
+              weights_only=False,
+          )
+          if checkpoint.get("total_optimizer_updates") != 480:
+              raise SystemExit(
+                  "diversity diagnostic must contain exactly 480 optimizer updates"
+              )
+          if checkpoint.get("repeat_train_records") != 8:
+              raise SystemExit("diversity diagnostic repeat factor must be 8")
+          inference_checkpoint = {
+              "model_id": checkpoint["model_id"],
+              "config": checkpoint["config"],
+              "epoch": checkpoint["epoch"],
+              "seed": checkpoint["seed"],
+              "train_loss": checkpoint["train_loss"],
+              "validation_loss": checkpoint["validation_loss"],
+              "grammar_constrained_loss": checkpoint["grammar_constrained_loss"],
+              "model_state": checkpoint["model_state"],
+          }
+          torch.save(
+              inference_checkpoint,
+              "build/ml-diverse-checkpoint/development-inference.pt",
+          )
+          PY
+
+          python3 tools/export_mozart_onnx.py \
+            build/ml-diverse-checkpoint/development-inference.pt \
+            build/ml-diverse-checkpoint/model.onnx \
+            --config docs/model-training-config.json \
+            --sequence-length 16 \
+            --opset 18
+
+          python3 tools/evaluate_mozart_conditioning_teacher_forced.py \
+            build/ml-diverse-checkpoint/development-inference.pt \
+            build/ml-diverse-conditioning-fixture/train.jsonl \
+            build/ml-diverse-conditioning-fixture/sequence-probes.json \
+            --config docs/model-training-config.json \
+            --onnx build/ml-diverse-checkpoint/model.onnx \
+            --window-size 8 \
+            --output build/ml-diverse-checkpoint/conditioning-teacher-forced.json
+
+          python3 tools/evaluate_mozart_conditioning_sequence.py \
+            build/ml-diverse-checkpoint/development-inference.pt \
+            --config docs/model-training-config.json \
+            --onnx build/ml-diverse-checkpoint/model.onnx \
+            --max-generated-tokens 32 \
+            --low-value 0.1 \
+            --high-value 0.9 \
+            --base-value 0.5 \
+            --probe-file build/ml-diverse-conditioning-fixture/sequence-probes.json \
+            --grammar-constrained \
+            --no-require-divergence \
+            --require-valid-grammar \
+            --require-distribution-response \
+            --min-distribution-total-variation 0.05 \
+            --seed 42 \
+            --output build/ml-diverse-checkpoint/conditioning-sequence-grammar-constrained.json
       - name: Upload development ML artifacts
         if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json', 'build/ml-checkpoint/conditioning-sequence-response.json', 'build/ml-checkpoint/conditioning-sequence-grammar-constrained.json', 'build/ml-checkpoint/conditioning-teacher-forced.json', 'build/ml-conditioning-fixture/sequence-probes.json') != '' }}
         uses: actions/upload-artifact@v7
@@ -605,6 +722,20 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload context-diversity experiment artifacts
+        if: ${{ always() && hashFiles('build/ml-diverse-checkpoint/development-inference.pt', 'build/ml-diverse-checkpoint/model.onnx', 'build/ml-diverse-checkpoint/conditioning-teacher-forced.json', 'build/ml-diverse-checkpoint/conditioning-sequence-grammar-constrained.json', 'build/ml-diverse-conditioning-fixture/sequence-probes.json') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: mozart-context-diversity-ml-${{ github.sha }}
+          path: |
+            build/ml-diverse-checkpoint/development-inference.pt
+            build/ml-diverse-checkpoint/model.onnx
+            build/ml-diverse-checkpoint/conditioning-teacher-forced.json
+            build/ml-diverse-checkpoint/conditioning-sequence-grammar-constrained.json
+            build/ml-diverse-conditioning-fixture/sequence-probes.json
+          archive: true
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload grammar-aware ML A/B artifacts
         if: ${{ always() && hashFiles('build/ml-grammar-checkpoint/development-inference.pt', 'build/ml-grammar-checkpoint/model.onnx', 'build/ml-grammar-checkpoint/conditioning-sequence-raw.json', 'build/ml-grammar-checkpoint/conditioning-sequence-constrained.json', 'build/ml-grammar-checkpoint/conditioning-teacher-forced.json', 'build/ml-grammar-checkpoint/ab-summary.json') != '' }}
         uses: actions/upload-artifact@v7
