@@ -212,12 +212,16 @@ class MozartConditioningABValidatorTests(unittest.TestCase):
 
     def test_rejects_incomplete_diverse_profile_coverage(self) -> None:
         base, diverse, matched = _dataset()
-        # Profile 1 must contain one v0 and one v1. Turn its v1 position
-        # (index 3) into a duplicate v0 while preserving profile order.
-        diverse[3]["source_path"] = "midi/control-probe-01-v0.mid"
-        diverse[3]["tokens"] = list(base[1]["tokens"])
-        diverse[3]["target_sha256"] = base[1]["target_sha256"]
-        diverse[3]["performance_controls"] = dict(base[1]["performance_controls"])
+        # Preserve the overall 10 v0 + 10 v1 counts and profile order, but make
+        # profile 1 contain two v1 records and profile 2 contain two v0 records.
+        diverse[2]["source_path"] = "midi/control-probe-01-v1.mid"
+        diverse[2]["tokens"] = list(diverse[3]["tokens"])
+        diverse[2]["target_sha256"] = diverse[3]["target_sha256"]
+        diverse[2]["performance_controls"] = dict(base[1]["performance_controls"])
+        diverse[5]["source_path"] = "midi/control-probe-02-v0.mid"
+        diverse[5]["tokens"] = list(base[2]["tokens"])
+        diverse[5]["target_sha256"] = base[2]["target_sha256"]
+        diverse[5]["performance_controls"] = dict(base[2]["performance_controls"])
         with self.assertRaisesRegex(
             ValueError,
             r"each diverse profile must contain exactly one v0 and one v1",
