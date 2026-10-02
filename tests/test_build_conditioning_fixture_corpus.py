@@ -215,6 +215,22 @@ class ConditioningFixtureTests(unittest.TestCase):
                 "train",
             )
 
+        probes = json.loads(
+            (root / "sequence-probes.json").read_text(encoding="utf-8")
+        )
+        train_ids = {
+            record["source_id"]
+            for record in records
+            if record["split"] == "train"
+        }
+        for entry in probes["controls"].values():
+            self.assertIn(entry["low_record_source_id"], train_ids)
+            self.assertIn(entry["high_record_source_id"], train_ids)
+        self.assertEqual(
+            len(probes["controls"]),
+            len(CONTROL_ORDER),
+        )
+
     def test_fixture_is_byte_for_byte_deterministic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             left = Path(directory) / "left"
