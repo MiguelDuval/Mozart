@@ -170,8 +170,8 @@ canonical base contexts so both A/B fits use the same probe definition. Matched
 teacher-forced probes are remapped to unique synthetic identities instead of reusing
 base fixture IDs. The validator also persists
 `build/ml-context-diversity-input-contract.json`, covering both the diverse and
-matched probe sets, so an experiment artifact records the exact dataset/probe
-integrity checks that preceded training. This is intentional: a failed sequence
+matched probe sets, including the shared fixture revision, so an experiment artifact
+records the exact dataset/probe integrity checks that preceded training. This is intentional: a failed sequence
 criterion is evidence worth inspecting, not a reason to discard the checkpoint or
 other measurements.
 
