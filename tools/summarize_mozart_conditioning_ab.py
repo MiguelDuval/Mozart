@@ -359,7 +359,8 @@ def main() -> int:
     encoded = json.dumps(summary, indent=2, sort_keys=True) + "\n"
     args.output.write_text(encoded, encoding="utf-8")
     print(encoded, end="")
-    return 0 if summary["status"] in {"PASS", "PARTIAL"} else 1
+    # Diagnostic FAIL is data, not a CI gate. Syntax/I/O/runtime errors still fail normally.
+    return 0
 
 
 if __name__ == "__main__":
