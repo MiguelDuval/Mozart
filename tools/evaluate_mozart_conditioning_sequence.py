@@ -333,10 +333,85 @@ def _onnx_next_logits(
     return result
 
 
-def _greedy_token(logits: np.ndarray) -> int:
+def _has_channel_token(tokens: list[int]) -> bool:
+    return any(
+        CHANNEL_BASE <= token < NOTE_BASE
+        for token in tokens
+    )
+
+
+def is_allowed_next_token(tokens: list[int], next_token: int) -> bool:
+    """Return whether a token is valid at the current Mozart grammar state."""
+    if not tokens or not 0 <= next_token < VOCABULARY_SIZE:
+        return False
+
+    last = tokens[-1]
+    if last == BOS:
+        return CHANNEL_BASE <= next_token < NOTE_BASE or (
+            TIME_SHIFT_BASE <= next_token < DURATION_BASE
+        )
+    if NOTE_BASE <= last < VELOCITY_BASE:
+        return VELOCITY_BASE <= next_token < TIME_SHIFT_BASE
+    if VELOCITY_BASE <= last < TIME_SHIFT_BASE:
+        return DURATION_BASE <= next_token < CONTROLLER_BASE
+    if CONTROLLER_BASE <= last < CONTROL_VALUE_BASE:
+        return CONTROL_VALUE_BASE <= next_token < VOCABULARY_SIZE
+    if DURATION_BASE <= last < CONTROLLER_BASE or (
+        CONTROL_VALUE_BASE <= last < VOCABULARY_SIZE
+    ):
+        return (
+            next_token == EOS
+            or CHANNEL_BASE <= next_token < NOTE_BASE
+            or TIME_SHIFT_BASE <= next_token < DURATION_BASE
+            or NOTE_BASE <= next_token < VELOCITY_BASE
+            or CONTROLLER_BASE <= next_token < CONTROL_VALUE_BASE
+        )
+    if TIME_SHIFT_BASE <= last < DURATION_BASE:
+        return (
+            CHANNEL_BASE <= next_token < NOTE_BASE
+            or TIME_SHIFT_BASE <= next_token < DURATION_BASE
+            or (
+                _has_channel_token(tokens)
+                and (
+                    NOTE_BASE <= next_token < VELOCITY_BASE
+                    or CONTROLLER_BASE <= next_token < CONTROL_VALUE_BASE
+                )
+            )
+        )
+    if CHANNEL_BASE <= last < NOTE_BASE:
+        return (
+            NOTE_BASE <= next_token < VELOCITY_BASE
+            or CONTROLLER_BASE <= next_token < CONTROL_VALUE_BASE
+        )
+    return False
+
+
+def _grammar_allowed_mask(tokens: list[int]) -> np.ndarray:
+    mask = np.zeros(VOCABULARY_SIZE, dtype=bool)
+    for token in range(VOCABULARY_SIZE):
+        mask[token] = is_allowed_next_token(tokens, token)
+    if not np.any(mask):
+        raise ValueError("Mozart grammar has no valid next token")
+    return mask
+
+
+def _greedy_token(
+    logits: np.ndarray,
+    *,
+    allowed_mask: np.ndarray | None = None,
+) -> int:
     if logits.shape != (512,):
         raise ValueError("greedy logits must have shape [512]")
-    return int(np.argmax(logits))
+    if not np.isfinite(logits).all():
+        raise ValueError("greedy logits must be finite")
+    if allowed_mask is None:
+        return int(np.argmax(logits))
+    if allowed_mask.shape != (512,) or allowed_mask.dtype != bool:
+        raise ValueError("allowed token mask must have shape [512] and bool dtype")
+    if not np.any(allowed_mask):
+        raise ValueError("allowed token mask must contain at least one token")
+    masked = np.where(allowed_mask, logits, -np.inf)
+    return int(np.argmax(masked))
 
 
 def generate_greedy_torch(
@@ -345,6 +420,7 @@ def generate_greedy_torch(
     *,
     max_generated_tokens: int,
     prefix_tokens: tuple[int, ...] = (1, 16, 68, 185),
+    grammar_constrained: bool = False,
 ) -> list[int]:
     if max_generated_tokens < 2:
         raise ValueError("max_generated_tokens must be at least 2")
@@ -355,8 +431,14 @@ def generate_greedy_torch(
 
     tokens = [int(token) for token in prefix_tokens]
     while len(tokens) < max_generated_tokens:
+        logits = _torch_next_logits(model, tokens, controls)
         next_token = _greedy_token(
-            _torch_next_logits(model, tokens, controls)
+            logits,
+            allowed_mask=(
+                _grammar_allowed_mask(tokens)
+                if grammar_constrained
+                else None
+            ),
         )
         tokens.append(next_token)
         if next_token == EOS:
@@ -370,6 +452,7 @@ def generate_greedy_onnx(
     *,
     max_generated_tokens: int,
     prefix_tokens: tuple[int, ...] = (1, 16, 68, 185),
+    grammar_constrained: bool = False,
 ) -> list[int]:
     if max_generated_tokens < 2:
         raise ValueError("max_generated_tokens must be at least 2")
@@ -380,8 +463,14 @@ def generate_greedy_onnx(
 
     tokens = [int(token) for token in prefix_tokens]
     while len(tokens) < max_generated_tokens:
+        logits = _onnx_next_logits(session, tokens, controls)
         next_token = _greedy_token(
-            _onnx_next_logits(session, tokens, controls)
+            logits,
+            allowed_mask=(
+                _grammar_allowed_mask(tokens)
+                if grammar_constrained
+                else None
+            ),
         )
         tokens.append(next_token)
         if next_token == EOS:
@@ -459,6 +548,7 @@ def evaluate_sequence_responsiveness(
     low_value: float = DEFAULT_LOW_VALUE,
     high_value: float = DEFAULT_HIGH_VALUE,
     base_value: float = DEFAULT_BASE_VALUE,
+    grammar_constrained: bool = False,
 ) -> dict[str, Any]:
     if max_generated_tokens < 2:
         raise ValueError("max_generated_tokens must be at least 2")
@@ -498,12 +588,14 @@ def evaluate_sequence_responsiveness(
             low,
             max_generated_tokens=max_generated_tokens,
             prefix_tokens=control_prefix,
+            grammar_constrained=grammar_constrained,
         )
         torch_high = generate_greedy_torch(
             model,
             high,
             max_generated_tokens=max_generated_tokens,
             prefix_tokens=control_prefix,
+            grammar_constrained=grammar_constrained,
         )
         torch_compare = compare_token_sequences(
             torch_low,
@@ -549,12 +641,14 @@ def evaluate_sequence_responsiveness(
                 low,
                 max_generated_tokens=max_generated_tokens,
                 prefix_tokens=control_prefix,
+                grammar_constrained=grammar_constrained,
             )
             onnx_high = generate_greedy_onnx(
                 onnx_session,
                 high,
                 max_generated_tokens=max_generated_tokens,
                 prefix_tokens=control_prefix,
+                grammar_constrained=grammar_constrained,
             )
             onnx_compare = compare_token_sequences(
                 onnx_low,
@@ -598,6 +692,7 @@ def evaluate_sequence_responsiveness(
         "status": "FAIL" if failures else "PASS",
         "require_divergence": require_divergence,
         "require_valid_grammar": require_valid_grammar,
+        "grammar_constrained": grammar_constrained,
         "max_generated_tokens": max_generated_tokens,
         "control_probe_values": {
             "low": low_value,
@@ -648,6 +743,11 @@ def main() -> int:
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Require every generated PyTorch/ONNX sequence to be decoder-valid.",
+    )
+        parser.add_argument(
+        "--grammar-constrained",
+        action="store_true",
+        help="Mask greedy logits to tokens valid for the current Mozart grammar state.",
     )
     parser.add_argument(
         "--max-reported-diffs",
@@ -704,6 +804,7 @@ def main() -> int:
         prefix_tokens_by_control=prefix_tokens_by_control,
         require_divergence=args.require_divergence,
         require_valid_grammar=args.require_valid_grammar,
+        grammar_constrained=args.grammar_constrained,
         max_reported_diffs=args.max_reported_diffs,
         low_value=args.low_value,
         high_value=args.high_value,
