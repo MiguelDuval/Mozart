@@ -138,6 +138,51 @@ class ConditioningFixtureTests(unittest.TestCase):
                 msg=f"target token stream did not react to {control}",
             )
 
+    def test_context_variants_change_targets_without_changing_controls(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "fixture"
+            result = build_conditioning_fixture_corpus(
+                root,
+                context_variant_count=10,
+            )
+            records = [
+                json.loads(line)
+                for line in (root / "records.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+                if line.strip()
+            ]
+            metadata = json.loads(
+                (root / "fixture-metadata.json")
+                .read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(result["record_count"], 22)
+        self.assertEqual(result["context_variant_count"], 10)
+        self.assertEqual(len(records), 22)
+        self.assertEqual(metadata["context_variant_count"], 10)
+
+        variants_by_profile: dict[tuple[float, ...], list[dict]] = {}
+        for record in records:
+            key = tuple(
+                float(record["performance_controls"][name])
+                for name in CONTROL_ORDER
+            )
+            variants_by_profile.setdefault(key, []).append(record)
+
+        for profile in CONTROL_PROFILES[:10]:
+            key = tuple(float(profile[name]) for name in CONTROL_ORDER)
+            variants = variants_by_profile[key]
+            self.assertEqual(len(variants), 2)
+            self.assertNotEqual(
+                variants[0]["tokens"],
+                variants[1]["tokens"],
+            )
+            self.assertEqual(
+                variants[0]["performance_controls"],
+                variants[1]["performance_controls"],
+            )
+
     def test_fixture_is_byte_for_byte_deterministic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             left = Path(directory) / "left"
@@ -174,7 +219,9 @@ class ConditioningFixtureTests(unittest.TestCase):
             metadata["control_order"],
             list(CONTROL_ORDER),
         )
+        self.assertEqual(metadata["context_variant_count"], 0)
         for profile in metadata["profiles"]:
+            self.assertEqual(profile["variant"], 0)
             self.assertTrue(
                 all(
                     key in profile["performance_controls"]
