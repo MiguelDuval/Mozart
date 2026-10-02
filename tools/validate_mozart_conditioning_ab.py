@@ -50,6 +50,19 @@ def _require_unique_source_ids(records: list[dict[str, Any]], *, label: str) -> 
         raise ValueError(f"{label} source_id values must be unique")
 
 
+def _require_single_source_revision(
+    records: list[dict[str, Any]],
+    *,
+    expected: str,
+    label: str,
+) -> None:
+    revisions = {record.get("source_revision") for record in records}
+    if revisions != {expected}:
+        raise ValueError(
+            f"{label} source_revision must match probe fixture revision {expected!r}"
+        )
+
+
 def validate_probes(
     records: list[dict[str, Any]],
     probes: dict[str, Any],
@@ -62,6 +75,15 @@ def validate_probes(
         raise ValueError("probe_context must be canonical-base-records")
     if probes.get("probe_variant") != 0:
         raise ValueError("probe_variant must be 0")
+
+    fixture_revision = probes.get("fixture_revision")
+    if not isinstance(fixture_revision, str) or not fixture_revision:
+        raise ValueError("probe fixture_revision must be a non-empty string")
+    _require_single_source_revision(
+        records,
+        expected=fixture_revision,
+        label="probe records",
+    )
 
     probe_values = probes.get("control_probe_values")
     if not isinstance(probe_values, dict):
@@ -180,12 +202,20 @@ def validate_records(
             f"expected {expected_diverse_count} matched train records, got {len(matched_records)}"
         )
 
+    fixture_revision = base_records[0].get("source_revision") if base_records else None
+    if not isinstance(fixture_revision, str) or not fixture_revision:
+        raise ValueError("base records must contain a non-empty source_revision")
     for records, label in (
         (base_records, "base"),
         (diverse_records, "diverse"),
         (matched_records, "matched"),
     ):
         _require_unique_source_ids(records, label=label)
+        _require_single_source_revision(
+            records,
+            expected=fixture_revision,
+            label=label,
+        )
 
     base_by_profile: dict[int, dict[str, Any]] = {}
     for index, record in enumerate(base_records):
