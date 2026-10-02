@@ -8,7 +8,7 @@ import unittest
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1] / "tools"))
 
-from validate_mozart_conditioning_ab import validate_probes, validate_records
+from validate_mozart_conditioning_ab import sha256_file, validate_probes, validate_records
 
 
 def _record(
@@ -147,6 +147,17 @@ class MozartConditioningABValidatorTests(unittest.TestCase):
         records[0]["source_path"] = "midi/control-probe-00-v1.mid"
         with self.assertRaisesRegex(ValueError, "must use canonical v0"):
             validate_probes(records, probes)
+
+    def test_sha256_file_is_stable(self) -> None:
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "input.jsonl"
+            path.write_bytes(b"mozart-ab\n")
+            digest = sha256_file(path)
+            self.assertEqual(len(digest), 64)
+            self.assertEqual(digest, sha256_file(path))
 
     def test_valid_matched_exposure_layout(self) -> None:
         base, diverse, matched = _dataset()
