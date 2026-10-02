@@ -196,6 +196,11 @@ def build_summary(
         for report in reports
         if isinstance(report, dict) and isinstance(report.get("status"), str)
     ]
+    contract_status = (
+        input_contract.get("status")
+        if isinstance(input_contract, dict)
+        else None
+    )
 
     required = {
         "matched_teacher_forced": matched_teacher,
@@ -205,10 +210,14 @@ def build_summary(
     }
     missing = [name for name, report in required.items() if report is None]
 
-    if not available_statuses:
+    if contract_status not in (None, "PASS"):
+        status = "FAIL"
+    elif not available_statuses:
         status = "NO_REPORTS"
     elif any(value != "PASS" for value in available_statuses):
         status = "FAIL"
+    elif input_contract is None:
+        status = "PARTIAL"
     elif missing:
         status = "PARTIAL"
     else:
