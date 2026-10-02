@@ -16,6 +16,7 @@ from evaluate_mozart_conditioning import (
     load_model,
 )
 from evaluate_mozart_conditioning_sequence import (
+    _grammar_allowed_mask,
     _onnx_next_logits,
     _token_distribution_total_variation,
     _torch_next_logits,
@@ -69,14 +70,38 @@ def _target_rank(logits: np.ndarray, target: int) -> int:
     return 1 + int(np.count_nonzero(logits > logits[target]))
 
 
-def _measure(logits: np.ndarray, target: int) -> dict[str, Any]:
+def _legal_target_probability(
+    logits: np.ndarray,
+    target: int,
+    context: list[int],
+) -> float:
+    allowed = _grammar_allowed_mask(context)
+    if not allowed[target]:
+        raise ValueError(
+            f"target token {target} is not legal after the teacher-forced context"
+        )
+    selected = logits[allowed].astype(np.float64, copy=False)
+    shifted = selected - np.max(selected)
+    probabilities = np.exp(shifted)
+    probabilities /= np.sum(probabilities)
+    allowed_indices = np.flatnonzero(allowed)
+    target_position = int(np.searchsorted(allowed_indices, target))
+    return float(probabilities[target_position])
+
+
+def _measure(
+    logits: np.ndarray,
+    target: int,
+    *,
+    context: list[int] | None = None,
+) -> dict[str, Any]:
     if not np.isfinite(logits).all():
         raise ValueError("logits contain non-finite values")
     rank = _target_rank(logits, target)
     top1 = int(np.argmax(logits))
     target_logit = float(logits[target])
     top1_logit = float(logits[top1])
-    return {
+    report: dict[str, Any] = {
         "target_token": target,
         "target_rank": rank,
         "target_top1": top1 == target,
@@ -85,6 +110,13 @@ def _measure(logits: np.ndarray, target: int) -> dict[str, Any]:
         "top1_logit": top1_logit,
         "target_top1_margin": target_logit - top1_logit,
     }
+    if context is not None:
+        report["target_probability"] = _legal_target_probability(
+            logits,
+            target,
+            context,
+        )
+    return report
 
 
 def _evaluate_with_model(
@@ -196,6 +228,20 @@ def _evaluate_with_model(
             for target_index in range(start_index, end_index):
                 context = tokens[:target_index]
                 target = tokens[target_index]
+                grammar = validate_mozart_token_sequence(
+                    context,
+                    require_eos=False,
+                )
+                if not grammar["valid"]:
+                    raise ValueError(
+                        f"control {name} has invalid teacher-forced context "
+                        f"at target index {target_index}: {grammar['error']}"
+                    )
+                if not _grammar_allowed_mask(context)[target]:
+                    raise ValueError(
+                        f"control {name} target token {target} is not legal "
+                        f"after the teacher-forced context at index {target_index}"
+                    )
                 native_logits = _torch_next_logits(
                     model,
                     context,
@@ -215,8 +261,26 @@ def _evaluate_with_model(
                     context,
                     grammar_constrained=True,
                 )
-                native = _measure(native_logits, target)
-                opposite = _measure(opposite_logits, target)
+                native = _measure(
+                    native_logits,
+                    target,
+                    context=context,
+                )
+                opposite = _measure(
+                    opposite_logits,
+                    target,
+                    context=context,
+                )
+                target_probability_delta = (
+                    native["target_probability"]
+                    - opposite["target_probability"]
+                )
+                if distribution_total_variation > 0.0:
+                    target_probability_tv_alignment = (
+                        target_probability_delta / distribution_total_variation
+                    )
+                else:
+                    target_probability_tv_alignment = 0.0
                 step: dict[str, Any] = {
                     "side": side,
                     "target_index": target_index,
@@ -226,6 +290,15 @@ def _evaluate_with_model(
                     "counterfactual": opposite,
                     "target_logit_delta_native_minus_counterfactual": (
                         native["target_logit"] - opposite["target_logit"]
+                    ),
+                    "target_probability_delta_native_minus_counterfactual": (
+                        target_probability_delta
+                    ),
+                    "target_probability_tv_alignment": (
+                        target_probability_tv_alignment
+                    ),
+                    "target_directionally_correct": (
+                        target_probability_delta > 0.0
                     ),
                     "top1_changed_by_control": (
                         native["top1_token"] != opposite["top1_token"]
@@ -246,10 +319,12 @@ def _evaluate_with_model(
                     native_onnx = _measure(
                         native_onnx_logits,
                         target,
+                        context=context,
                     )
                     opposite_onnx = _measure(
                         opposite_onnx_logits,
                         target,
+                        context=context,
                     )
                     onnx_distribution_total_variation = _token_distribution_total_variation(
                         native_onnx_logits,
@@ -288,6 +363,10 @@ def _evaluate_with_model(
             int(step["top1_changed_by_control"])
             for step in steps
         )
+        directionally_correct_steps = sum(
+            int(step["target_directionally_correct"])
+            for step in steps
+        )
         target_logit_deltas = [
             float(step["target_logit_delta_native_minus_counterfactual"])
             for step in steps
@@ -295,6 +374,15 @@ def _evaluate_with_model(
         distribution_response_values = [
             float(step["distribution_total_variation_native_vs_counterfactual"])
             for step in steps
+        ]
+        target_probability_deltas = [
+            float(step["target_probability_delta_native_minus_counterfactual"])
+            for step in steps
+        ]
+        target_probability_tv_alignments = [
+            float(step["target_probability_tv_alignment"])
+            for step in steps
+            if float(step["distribution_total_variation_native_vs_counterfactual"]) > 0.0
         ]
 
         low_divergence_step = next(
@@ -311,6 +399,12 @@ def _evaluate_with_model(
         )
         low_target_report = dict(low_divergence_step["native"])
         high_target_report = dict(high_divergence_step["native"])
+        low_target_probability_lift = float(
+            low_divergence_step["target_probability_delta_native_minus_counterfactual"]
+        )
+        high_target_probability_lift = float(
+            high_divergence_step["target_probability_delta_native_minus_counterfactual"]
+        )
         control_effect = {
             "low_target_token": low_target_report["target_token"],
             "high_target_token": high_target_report["target_token"],
@@ -326,6 +420,18 @@ def _evaluate_with_model(
             ),
             "low_target_top1": low_target_report["target_top1"],
             "high_target_top1": high_target_report["target_top1"],
+            "low_target_probability_lift_native_minus_counterfactual": (
+                low_target_probability_lift
+            ),
+            "high_target_probability_lift_native_minus_counterfactual": (
+                high_target_probability_lift
+            ),
+            "low_target_directionally_correct": (
+                low_target_probability_lift > 0.0
+            ),
+            "high_target_directionally_correct": (
+                high_target_probability_lift > 0.0
+            ),
         }
 
         entry: dict[str, Any] = {
@@ -339,6 +445,24 @@ def _evaluate_with_model(
             "native_target_top1_count": native_top1_count,
             "counterfactual_target_top1_count": counterfactual_top1_count,
             "top1_changed_by_control_steps": changed_steps,
+            "target_probability_directionally_correct_steps": (
+                directionally_correct_steps
+            ),
+            "target_probability_directional_response_rate": (
+                float(directionally_correct_steps / len(steps))
+                if steps
+                else 0.0
+            ),
+            "mean_target_probability_delta_native_minus_counterfactual": (
+                float(np.mean(target_probability_deltas))
+                if target_probability_deltas
+                else 0.0
+            ),
+            "mean_target_probability_tv_alignment": (
+                float(np.mean(target_probability_tv_alignments))
+                if target_probability_tv_alignments
+                else 0.0
+            ),
             "mean_target_logit_delta_native_minus_counterfactual": (
                 float(np.mean(target_logit_deltas))
                 if target_logit_deltas
@@ -389,6 +513,22 @@ def _evaluate_with_model(
         for entry in report_controls.values()
         for step in entry["steps"]
     ]
+    target_probability_directionally_correct_steps = sum(
+        int(step["target_directionally_correct"])
+        for entry in report_controls.values()
+        for step in entry["steps"]
+    )
+    target_probability_deltas = [
+        float(step["target_probability_delta_native_minus_counterfactual"])
+        for entry in report_controls.values()
+        for step in entry["steps"]
+    ]
+    target_probability_tv_alignments = [
+        float(step["target_probability_tv_alignment"])
+        for entry in report_controls.values()
+        for step in entry["steps"]
+        if float(step["distribution_total_variation_native_vs_counterfactual"]) > 0.0
+    ]
     controls_with_both_targets_top1 = sum(
         int(
             entry["low_target"]["target_top1"]
@@ -415,6 +555,26 @@ def _evaluate_with_model(
             else 0.0
         ),
         "controls_with_both_targets_top1": controls_with_both_targets_top1,
+        "target_probability_directionally_correct_steps": (
+            target_probability_directionally_correct_steps
+        ),
+        "target_probability_directional_response_rate": (
+            float(
+                target_probability_directionally_correct_steps / observed_steps
+            )
+            if observed_steps
+            else 0.0
+        ),
+        "mean_target_probability_delta_native_minus_counterfactual": (
+            float(np.mean(target_probability_deltas))
+            if target_probability_deltas
+            else 0.0
+        ),
+        "mean_target_probability_tv_alignment": (
+            float(np.mean(target_probability_tv_alignments))
+            if target_probability_tv_alignments
+            else 0.0
+        ),
         "controls": report_controls,
         "failures": failures,
     }
