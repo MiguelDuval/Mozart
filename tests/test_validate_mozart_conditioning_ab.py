@@ -210,6 +210,18 @@ class MozartConditioningABValidatorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "probe records source_revision"):
             validate_probes(records, probes)
 
+    def test_rejects_incomplete_diverse_profile_coverage(self) -> None:
+        base, diverse, matched = _dataset()
+        diverse[2]["source_path"] = "midi/control-probe-00-v0.mid"
+        diverse[2]["tokens"] = list(base[0]["tokens"])
+        diverse[2]["target_sha256"] = base[0]["target_sha256"]
+        diverse[2]["performance_controls"] = dict(base[0]["performance_controls"])
+        with self.assertRaisesRegex(
+            ValueError,
+            r"each diverse profile must contain exactly one v0 and one v1",
+        ):
+            validate_records(base, diverse, matched)
+
     def test_rejects_target_mismatch_in_matched_baseline(self) -> None:
         base, diverse, matched = _dataset()
         matched[7]["tokens"] = [10, 7, 99]
