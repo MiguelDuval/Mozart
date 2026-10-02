@@ -35,6 +35,8 @@ on:
       - "tools/evaluate_mozart_conditioning.py"
       - "tools/evaluate_mozart_conditioning_sequence.py"
       - "tools/build_conditioning_fixture_corpus.py"
+      - "tools/summarize_mozart_conditioning_ab.py"
+      - "tests/test_summarize_mozart_conditioning_ab.py"
       - "docs/MODEL-TRAINING-BASELINE.md"
       - "tools/requirements-onnx-export.txt"
   pull_request:
@@ -149,6 +151,7 @@ jobs:
             tools/evaluate_mozart_conditioning_sequence.py \
             tools/evaluate_mozart_conditioning_teacher_forced.py \
             tools/build_conditioning_fixture_corpus.py \
+            tools/summarize_mozart_conditioning_ab.py \
             tools/mozart_conditioning.py \
             tools/midi_to_training_example.py \
             tools/build_training_windows.py \
@@ -191,6 +194,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_build_conditioning_fixture_corpus.py'
+
+      - name: Test context-diversity A/B summarizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_summarize_mozart_conditioning_ab.py'
 
       - name: Train development checkpoint and export ONNX ABI
         shell: bash
@@ -862,264 +871,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
+          python3 tools/summarize_mozart_conditioning_ab.py \
+            --baseline-dir build/ml-checkpoint \
+            --matched-dir build/ml-matched-checkpoint \
+            --diverse-dir build/ml-diverse-checkpoint \
+            --output build/ml-context-diversity-summary.json
 
-          def load(path):
-              candidate = Path(path)
-              if not candidate.exists():
-                  return None
-              return json.loads(candidate.read_text(encoding="utf-8"))
-
-          def load_fit(path):
-              try:
-                  import torch
-                  candidate = Path(path)
-                  if not candidate.exists():
-                      return None
-                  checkpoint = torch.load(
-                      candidate,
-                      map_location="cpu",
-                      weights_only=False,
-                  )
-              except (OSError, RuntimeError, ValueError):
-                  return None
-              return {
-                  "epoch": checkpoint.get("epoch"),
-                  "train_loss": checkpoint.get("train_loss"),
-                  "validation_loss": checkpoint.get("validation_loss"),
-                  "total_optimizer_updates": checkpoint.get("total_optimizer_updates"),
-                  "repeat_train_records": checkpoint.get("repeat_train_records"),
-              }
-
-          baseline_fit = load_fit("build/ml-checkpoint/latest.pt")
-          matched_fit = load_fit("build/ml-matched-checkpoint/latest.pt")
-          diverse_fit = load_fit("build/ml-diverse-checkpoint/latest.pt")
-          baseline_teacher = load("build/ml-checkpoint/conditioning-teacher-forced.json")
-          matched_teacher = load("build/ml-matched-checkpoint/conditioning-teacher-forced.json")
-          diverse_teacher = load("build/ml-diverse-checkpoint/conditioning-teacher-forced.json")
-          baseline_sequence = load(
-              "build/ml-checkpoint/conditioning-sequence-grammar-constrained.json"
-          )
-          matched_sequence = load(
-              "build/ml-matched-checkpoint/conditioning-sequence-grammar-constrained.json"
-          )
-          diverse_sequence = load(
-              "build/ml-diverse-checkpoint/conditioning-sequence-grammar-constrained.json"
-          )
-
-          def summarize_teacher(report):
-              if report is None:
-                  return None
-              keys = (
-                  "status",
-                  "train_loss",
-                  "validation_loss",
-                  "observed_teacher_forced_steps",
-                  "native_target_top1_steps",
-                  "native_legal_target_top1_steps",
-                  "controls_with_both_legal_targets_top1",
-                  "controls_with_bidirectional_target_response",
-                  "target_probability_directional_response_rate",
-                  "target_family_probability_directional_response_rate",
-                  "mean_target_probability_delta_native_minus_counterfactual",
-                  "mean_target_family_probability_delta_native_minus_counterfactual",
-                  "mean_target_probability_tv_alignment",
-                  "mean_distribution_total_variation_native_vs_counterfactual",
-              )
-              return {key: report.get(key) for key in keys}
-
-          def summarize_sequence(report):
-              if report is None:
-                  return None
-              controls = report.get("controls") or {}
-              sequence_changed = 0
-              max_tvs = []
-              for entry in controls.values():
-                  torch_report = entry.get("torch") or {}
-                  if torch_report.get("sequence_changed") is True:
-                      sequence_changed += 1
-                  response = torch_report.get("distribution_response") or {}
-                  value = response.get("max_total_variation")
-                  if isinstance(value, (int, float)):
-                      max_tvs.append(float(value))
-              keys = (
-                  "status",
-                  "grammar_constrained",
-                  "require_valid_grammar",
-                  "require_distribution_response",
-                  "min_distribution_total_variation",
-                  "max_generated_tokens",
-                  "failures",
-              )
-              summary = {key: report.get(key) for key in keys}
-              summary["controls_with_sequence_change"] = sequence_changed
-              summary["mean_control_max_total_variation"] = (
-                  sum(max_tvs) / len(max_tvs) if max_tvs else None
-              )
-              summary["min_control_max_total_variation"] = (
-                  min(max_tvs) if max_tvs else None
-              )
-              summary["max_control_max_total_variation"] = (
-                  max(max_tvs) if max_tvs else None
-              )
-              return summary
-
-          def subtract(left, right):
-              if left is None or right is None:
-                  return None
-              return float(left) - float(right)
-
-          def compare_experiments(matched, diverse):
-              if matched is None or diverse is None:
-                  return None
-              matched_controls = matched.get("controls") or {}
-              diverse_controls = diverse.get("controls") or {}
-              comparison = {}
-              for name in sorted(set(matched_controls) & set(diverse_controls)):
-                  matched_entry = matched_controls[name]
-                  diverse_entry = diverse_controls[name]
-                  mt = matched_entry.get("torch") or {}
-                  dt = diverse_entry.get("torch") or {}
-                  mdr = mt.get("distribution_response") or {}
-                  ddr = dt.get("distribution_response") or {}
-                  comparison[name] = {
-                      "sequence_changed_delta": (
-                          int(bool(dt.get("sequence_changed")))
-                          - int(bool(mt.get("sequence_changed")))
-                      ),
-                      "max_total_variation_delta": subtract(
-                          ddr.get("max_total_variation"),
-                          mdr.get("max_total_variation"),
-                      ),
-                      "mean_total_variation_delta": subtract(
-                          ddr.get("mean_total_variation"),
-                          mdr.get("mean_total_variation"),
-                      ),
-                  }
-              return comparison
-
-          reports = (
-              baseline_teacher,
-              matched_teacher,
-              diverse_teacher,
-              baseline_sequence,
-              matched_sequence,
-              diverse_sequence,
-          )
-          available_statuses = [
-              report.get("status")
-              for report in reports
-              if report is not None
-          ]
-          matched_diverse_reports = (
-              matched_teacher,
-              matched_sequence,
-              diverse_teacher,
-              diverse_sequence,
-          )
-
-          if not available_statuses:
-              experiment_status = "NO_REPORTS"
-          elif any(status != "PASS" for status in available_statuses):
-              experiment_status = "FAIL"
-          elif any(report is None for report in matched_diverse_reports):
-              experiment_status = "PARTIAL"
-          else:
-              experiment_status = "PASS"
-
-          matched_teacher_summary = summarize_teacher(matched_teacher)
-          diverse_teacher_summary = summarize_teacher(diverse_teacher)
-          matched_sequence_summary = summarize_sequence(matched_sequence)
-          diverse_sequence_summary = summarize_sequence(diverse_sequence)
-
-          teacher_delta = None
-          if matched_teacher_summary is not None and diverse_teacher_summary is not None:
-              teacher_delta = {
-                  "target_probability_directional_response_rate_delta": subtract(
-                      diverse_teacher_summary.get("target_probability_directional_response_rate"),
-                      matched_teacher_summary.get("target_probability_directional_response_rate"),
-                  ),
-                  "target_family_probability_directional_response_rate_delta": subtract(
-                      diverse_teacher_summary.get("target_family_probability_directional_response_rate"),
-                      matched_teacher_summary.get("target_family_probability_directional_response_rate"),
-                  ),
-                  "mean_target_probability_delta_delta": subtract(
-                      diverse_teacher_summary.get("mean_target_probability_delta_native_minus_counterfactual"),
-                      matched_teacher_summary.get("mean_target_probability_delta_native_minus_counterfactual"),
-                  ),
-                  "mean_target_family_probability_delta_delta": subtract(
-                      diverse_teacher_summary.get("mean_target_family_probability_delta_native_minus_counterfactual"),
-                      matched_teacher_summary.get("mean_target_family_probability_delta_native_minus_counterfactual"),
-                  ),
-                  "mean_distribution_total_variation_delta": subtract(
-                      diverse_teacher_summary.get("mean_distribution_total_variation_native_vs_counterfactual"),
-                      matched_teacher_summary.get("mean_distribution_total_variation_native_vs_counterfactual"),
-                  ),
-              }
-
-          sequence_delta = None
-          if matched_sequence_summary is not None and diverse_sequence_summary is not None:
-              sequence_delta = {
-                  "controls_with_sequence_change_delta": (
-                      int(diverse_sequence_summary.get("controls_with_sequence_change") or 0)
-                      - int(matched_sequence_summary.get("controls_with_sequence_change") or 0)
-                  ),
-                  "mean_control_max_total_variation_delta": subtract(
-                      diverse_sequence_summary.get("mean_control_max_total_variation"),
-                      matched_sequence_summary.get("mean_control_max_total_variation"),
-                  ),
-                  "min_control_max_total_variation_delta": subtract(
-                      diverse_sequence_summary.get("min_control_max_total_variation"),
-                      matched_sequence_summary.get("min_control_max_total_variation"),
-                  ),
-                  "max_control_max_total_variation_delta": subtract(
-                      diverse_sequence_summary.get("max_control_max_total_variation"),
-                      matched_sequence_summary.get("max_control_max_total_variation"),
-                  ),
-              }
-          summary = {
-              "status": experiment_status,
-              "baseline_regular": {
-                  "fit": baseline_fit,
-                  "teacher_forced": summarize_teacher(baseline_teacher),
-                  "grammar_constrained_sequence": summarize_sequence(baseline_sequence),
-              },
-              "baseline_matched_exposure": {
-                  "fit": matched_fit,
-                  "teacher_forced": matched_teacher_summary,
-                  "grammar_constrained_sequence": matched_sequence_summary,
-              },
-              "context_diverse": {
-                  "fit": diverse_fit,
-                  "teacher_forced": diverse_teacher_summary,
-                  "grammar_constrained_sequence": diverse_sequence_summary,
-              },
-              "diverse_minus_matched": {
-                  "fit": {
-                      "train_loss_delta": subtract(
-                          diverse_fit.get("train_loss") if diverse_fit else None,
-                          matched_fit.get("train_loss") if matched_fit else None,
-                      ),
-                      "validation_loss_delta": subtract(
-                          diverse_fit.get("validation_loss") if diverse_fit else None,
-                          matched_fit.get("validation_loss") if matched_fit else None,
-                      ),
-                  },
-                  "teacher_forced": teacher_delta,
-                  "grammar_constrained_sequence": sequence_delta,
-                  "per_control_autoregressive": compare_experiments(
-                      matched_sequence, diverse_sequence
-                  ),
-              },
-          }
-          Path("build/ml-context-diversity-summary.json").write_text(
-              json.dumps(summary, indent=2, sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
-          print(json.dumps(summary, indent=2, sort_keys=True))
-          PY
       - name: Upload development ML artifacts
         if: ${{ always() && hashFiles('build/ml-checkpoint/development-inference.pt', 'build/ml-checkpoint/model.onnx', 'build/ml-checkpoint/abi.json', 'build/ml-checkpoint/conditioning-response.json', 'build/ml-checkpoint/conditioning-sequence-response.json', 'build/ml-checkpoint/conditioning-sequence-grammar-constrained.json', 'build/ml-checkpoint/conditioning-teacher-forced.json', 'build/ml-conditioning-fixture/sequence-probes.json') != '' }}
         uses: actions/upload-artifact@v7
