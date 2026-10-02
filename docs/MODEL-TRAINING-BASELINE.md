@@ -144,7 +144,7 @@ With batch size 4 and `--repeat-train-records 8`, it remains exactly 480 optimiz
 updates with seed 42. Its purpose is to test whether greater musical-context
 diversity reduces autoregressive collapse without changing the model architecture,
 conditioning schema, optimizer family, learning rate, or total update budget.
-This is an experimental diagnostic, not a production training recipe.
+This is an experimental diagnostic, not a production training recipe. The manual experiment now preserves partial artifacts when an autoregressive sub-check fails, and its summary records both the teacher-forced report and the grammar-constrained sequence report for the regular and context-diverse checkpoints. This is intentional: a failed sequence criterion is evidence worth inspecting, not a reason to discard the checkpoint and teacher-forced measurements.
 
 The first follow-up experiment is a grammar-aware training-loss A/B test. With
 `--grammar-constrained-loss`, each next-token cross-entropy term is normalized only
