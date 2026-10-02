@@ -212,10 +212,12 @@ class MozartConditioningABValidatorTests(unittest.TestCase):
 
     def test_rejects_incomplete_diverse_profile_coverage(self) -> None:
         base, diverse, matched = _dataset()
-        diverse[2]["source_path"] = "midi/control-probe-00-v0.mid"
-        diverse[2]["tokens"] = list(base[0]["tokens"])
-        diverse[2]["target_sha256"] = base[0]["target_sha256"]
-        diverse[2]["performance_controls"] = dict(base[0]["performance_controls"])
+        # Profile 1 must contain one v0 and one v1. Turn its v1 position
+        # (index 3) into a duplicate v0 while preserving profile order.
+        diverse[3]["source_path"] = "midi/control-probe-01-v0.mid"
+        diverse[3]["tokens"] = list(base[1]["tokens"])
+        diverse[3]["target_sha256"] = base[1]["target_sha256"]
+        diverse[3]["performance_controls"] = dict(base[1]["performance_controls"])
         with self.assertRaisesRegex(
             ValueError,
             r"each diverse profile must contain exactly one v0 and one v1",
