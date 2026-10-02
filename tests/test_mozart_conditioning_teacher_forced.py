@@ -66,7 +66,11 @@ class FakeTeacherForcedModel:
                 # Keep the native target as the legal top-1 and the
                 # counterfactual on the opposite token.
                 logits[row, :, :] = 1.0 if high else 0.0
-                winner = 260 + int(high)
+                low_context = int(input_ids[row, -1].item()) % 2 == 0
+                if low_context:
+                    winner = 260 if not high else 261
+                else:
+                    winner = 260 if high else 261
                 logits[row, -1, winner] = 11.0
         return logits
 
