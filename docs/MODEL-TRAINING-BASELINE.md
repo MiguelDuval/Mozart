@@ -153,9 +153,12 @@ not a production training recipe. Teacher-forced and autoregressive evaluators i
 run independently, so a failed diagnostic does not prevent the other measurements or the
 context-diverse fit from completing. Partial artifacts are preserved, and the summary records
 teacher-forced plus grammar-constrained sequence evidence for the regular baseline,
-matched-exposure baseline and context-diverse fit. This is intentional: a failed sequence
-criterion is evidence worth inspecting, not a reason to discard the checkpoint or other
-measurements.
+matched-exposure baseline and context-diverse fit. The summary also computes
+`diverse_minus_matched` deltas for fit loss, teacher-forced semantic response,
+aggregate autoregressive response and per-control sequence/TVD response. Matched
+teacher-forced probes are remapped to unique synthetic identities instead of reusing
+base fixture IDs. This is intentional: a failed sequence criterion is evidence worth
+inspecting, not a reason to discard the checkpoint or other measurements.
 
 The first follow-up experiment is a grammar-aware training-loss A/B test. With
 `--grammar-constrained-loss`, each next-token cross-entropy term is normalized only
