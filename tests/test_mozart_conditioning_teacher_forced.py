@@ -67,7 +67,10 @@ class FakeTeacherForcedModel:
                 # keeping the top-1 token control-dependent. This exercises the
                 # counterfactual window without pretending to know the target.
                 logits[row, :, :] = 1.0 if high else 0.0
-                winner = 501 + index if high else 500 + index
+                if sequence == 4:
+                    winner = 160 + index if high else 161 + index
+                else:
+                    winner = 256 + index if high else 257 + index
                 logits[row, -1, winner] = 11.0
         return logits
 
@@ -144,6 +147,15 @@ class TeacherForcedTests(unittest.TestCase):
                 for step in entry["steps"]
             ]
             self.assertTrue(all(delta != 0.0 for delta in deltas))
+            tvs = [
+                step["distribution_total_variation_native_vs_counterfactual"]
+                for step in entry["steps"]
+            ]
+            self.assertTrue(all(tv > 0.0 for tv in tvs))
+            self.assertGreater(
+                entry["max_distribution_total_variation_native_vs_counterfactual"],
+                0.0,
+            )
 
     def test_load_records_rejects_duplicate_source_ids(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
