@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import hashlib
 import re
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,14 @@ from typing import Any
 from build_conditioning_fixture_corpus import CONTROL_ORDER
 
 _SOURCE_PATTERN = re.compile(r"^midi/control-probe-(\d{2})-v([01])\.mid$")
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -370,6 +379,13 @@ def main() -> int:
         matched_records,
         json.loads(args.matched_probe_json.read_text(encoding="utf-8")),
     )
+    result["input_fingerprint"] = {
+        "base_train_sha256": sha256_file(args.base_train_jsonl),
+        "diverse_train_sha256": sha256_file(args.diverse_train_jsonl),
+        "matched_train_sha256": sha256_file(args.matched_train_jsonl),
+        "diverse_probe_sha256": sha256_file(args.probe_json),
+        "matched_probe_sha256": sha256_file(args.matched_probe_json),
+    }
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 
