@@ -140,6 +140,36 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
         self.assertEqual(summary["input_contract"]["probe_equivalence"]["status"], "PASS")
         self.assertIsNotNone(summary["diverse_minus_matched"]["fit"]["train_loss_delta"])
 
+    def test_build_summary_includes_optional_cross_context_v1_sequence_reports(self) -> None:
+        summary = build_summary(
+            input_contract={
+                "status": "PASS",
+                "probe_equivalence": {"status": "PASS"},
+            },
+            baseline_fit=None,
+            matched_fit=None,
+            diverse_fit=None,
+            baseline_teacher=None,
+            matched_teacher=teacher_report(),
+            diverse_teacher=teacher_report(),
+            baseline_sequence=None,
+            matched_sequence=sequence_report(),
+            diverse_sequence=sequence_report(),
+            matched_sequence_v1=sequence_report(first_changed=False, first_tv=0.1, second_tv=0.1),
+            diverse_sequence_v1=sequence_report(first_changed=True, first_tv=0.5, second_tv=0.4),
+        )
+        v1 = summary["diverse_minus_matched"]["cross_context_v1"]
+        self.assertIsNotNone(v1["matched"])
+        self.assertIsNotNone(v1["diverse"])
+        self.assertEqual(
+            v1["per_control_autoregressive"]["density"]["sequence_changed_delta"],
+            1,
+        )
+        self.assertAlmostEqual(
+            v1["per_control_autoregressive"]["density"]["max_total_variation_delta"],
+            0.4,
+        )
+
     def test_build_summary_reports_partial_when_required_artifact_is_missing(self) -> None:
         summary = build_summary(
             input_contract={
