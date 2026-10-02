@@ -64,6 +64,17 @@ generation: whether the model assigns the correct target token high enough in
 the learned context. The report is diagnostic-only for now; `--require-target-top1`
 is available for a future stricter fit gate after the first reproducible results.
 
+The teacher-forced diagnostic now separates raw-vocabulary target evidence from
+the grammar-legal distribution used by the control-response metric. For every
+observed target it reports legal-token target probability, the native-minus-
+counterfactual probability lift, and the fraction of total variation attributable
+to that target. It also records raw and legal-token target rank/top-1 separately.
+The additional `--require-legal-target-top1` switch is available for a future
+fit gate but is intentionally not enabled by the current CI gate. Teacher-forced
+targets are rejected when the fixture or training record contains a token that is
+not legal after its context, preventing malformed probe data from looking like
+model evidence.
+
 The greedy sequence gate validates generated output as a bounded grammar prefix.
 It does not require EOS inside the fixed 32-token observation budget, because EOS
 marks completion of a stream rather than validity of an unfinished autoregressive
