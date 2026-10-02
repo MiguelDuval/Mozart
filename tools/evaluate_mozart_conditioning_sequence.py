@@ -512,8 +512,6 @@ def compare_token_sequences(
         raise ValueError("token sequences must not be empty")
     if max_reported_diffs <= 0:
         raise ValueError("max_reported_diffs must be positive")
-    if not 0.0 <= min_distribution_total_variation <= 1.0:
-        raise ValueError("min_distribution_total_variation must be in [0, 1]")
 
     common_prefix = 0
     common_limit = min(len(low_tokens), len(high_tokens))
@@ -586,6 +584,8 @@ def evaluate_sequence_responsiveness(
         raise ValueError("prefix must leave room for generated tokens")
     if max_reported_diffs <= 0:
         raise ValueError("max_reported_diffs must be positive")
+    if not 0.0 <= min_distribution_total_variation <= 1.0:
+        raise ValueError("min_distribution_total_variation must be in [0, 1]")
     if not 0.0 <= low_value < high_value <= 1.0:
         raise ValueError("low-value and high-value must satisfy 0 <= low < high <= 1")
     if not 0.0 <= base_value <= 1.0:
