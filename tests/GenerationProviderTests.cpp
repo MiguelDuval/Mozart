@@ -1,4 +1,5 @@
 #include "generation/LocalNeuralPatternProvider.h"
+#include "generation/MidiEventGrammar.h"
 #include "generation/TokenInferenceBackend.h"
 
 #include <cassert>
@@ -58,6 +59,91 @@ public:
         return "test-backend";
     }
 };
+
+void testFrozenMidiEventGrammarTransitions() {
+    using namespace midi_event_grammar;
+
+    const std::vector<MidiEventToken> bos{midi_event_vocabulary::kBos};
+    assert(isAllowedNextToken(bos, midi_event_vocabulary::channelToken(0)));
+    assert(isAllowedNextToken(
+            bos,
+            midi_event_vocabulary::timeShiftToken(1)));
+    assert(!isAllowedNextToken(
+            bos,
+            midi_event_vocabulary::noteToken(60)));
+
+    const std::vector<MidiEventToken> channel{
+            midi_event_vocabulary::kBos,
+            midi_event_vocabulary::channelToken(0)};
+    assert(isAllowedNextToken(
+            channel,
+            midi_event_vocabulary::noteToken(60)));
+    assert(isAllowedNextToken(
+            channel,
+            midi_event_vocabulary::controllerToken(1)));
+    assert(!isAllowedNextToken(
+            channel,
+            midi_event_vocabulary::timeShiftToken(1)));
+
+    const std::vector<MidiEventToken> note{
+            midi_event_vocabulary::kBos,
+            midi_event_vocabulary::channelToken(0),
+            midi_event_vocabulary::noteToken(60)};
+    assert(isAllowedNextToken(
+            note,
+            midi_event_vocabulary::velocityToken(1)));
+    assert(isAllowedNextToken(
+            note,
+            midi_event_vocabulary::velocityToken(32)));
+    assert(!isAllowedNextToken(note, midi_event_vocabulary::kEos));
+
+    const std::vector<MidiEventToken> duration{
+            midi_event_vocabulary::kBos,
+            midi_event_vocabulary::channelToken(0),
+            midi_event_vocabulary::noteToken(60),
+            midi_event_vocabulary::velocityToken(1),
+            midi_event_vocabulary::durationToken(1)};
+    assert(isAllowedNextToken(duration, midi_event_vocabulary::kEos));
+    assert(isAllowedNextToken(
+            duration,
+            midi_event_vocabulary::timeShiftToken(1)));
+    assert(isAllowedNextToken(
+            duration,
+            midi_event_vocabulary::noteToken(61)));
+    assert(!isAllowedNextToken(
+            duration,
+            midi_event_vocabulary::velocityToken(1)));
+
+    const std::vector<MidiEventToken> shiftedNoChannel{
+            midi_event_vocabulary::kBos,
+            midi_event_vocabulary::timeShiftToken(1)};
+    assert(isAllowedNextToken(
+            shiftedNoChannel,
+            midi_event_vocabulary::channelToken(0)));
+    assert(isAllowedNextToken(
+            shiftedNoChannel,
+            midi_event_vocabulary::timeShiftToken(1)));
+    assert(!isAllowedNextToken(
+            shiftedNoChannel,
+            midi_event_vocabulary::noteToken(60)));
+
+    const std::vector<MidiEventToken> shiftedWithChannel{
+            midi_event_vocabulary::kBos,
+            midi_event_vocabulary::channelToken(0),
+            midi_event_vocabulary::timeShiftToken(1)};
+    assert(isAllowedNextToken(
+            shiftedWithChannel,
+            midi_event_vocabulary::noteToken(60)));
+    assert(isAllowedNextToken(
+            shiftedWithChannel,
+            midi_event_vocabulary::controllerToken(1)));
+
+    const std::vector<MidiEventToken> eos{
+            midi_event_vocabulary::kEos};
+    assert(!isAllowedNextToken(
+            eos,
+            midi_event_vocabulary::channelToken(0)));
+}
 
 void testInvalidRequestDoesNotCallBackend() {
     FakeBackend backend;
@@ -161,6 +247,7 @@ void testInvalidProposalNeverBypassesValidator() {
 } // namespace
 
 int main() {
+    testFrozenMidiEventGrammarTransitions();
     testInvalidRequestDoesNotCallBackend();
     testUnavailableBackendIsReported();
     testBackendFailureIsNotAccepted();
