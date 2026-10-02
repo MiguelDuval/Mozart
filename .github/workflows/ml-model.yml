@@ -897,6 +897,7 @@ jobs:
             --baseline-dir build/ml-checkpoint \
             --matched-dir build/ml-matched-checkpoint \
             --diverse-dir build/ml-diverse-checkpoint \
+            --input-contract build/ml-context-diversity-input-contract.json \
             --output build/ml-context-diversity-summary.json
 
       - name: Upload development ML artifacts
