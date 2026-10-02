@@ -198,6 +198,7 @@ def _evaluate_with_model(
     onnx_session: Any | None = None,
     window_size: int = 8,
     require_target_top1: bool = False,
+    require_legal_target_top1: bool = False,
 ) -> dict[str, Any]:
     controls = probes.get("controls")
     if not isinstance(controls, dict):
