@@ -171,6 +171,9 @@ class ConditioningFixtureTests(unittest.TestCase):
                 (root / "fixture-metadata.json")
                 .read_text(encoding="utf-8")
             )
+            probes = json.loads(
+                (root / "sequence-probes.json").read_text(encoding="utf-8")
+            )
 
         self.assertEqual(result["record_count"], 22)
         self.assertEqual(result["context_variant_count"], 10)
@@ -234,9 +237,6 @@ class ConditioningFixtureTests(unittest.TestCase):
                 "train",
             )
 
-        probes = json.loads(
-            (root / "sequence-probes.json").read_text(encoding="utf-8")
-        )
         train_ids = {
             record["source_id"]
             for record in records
