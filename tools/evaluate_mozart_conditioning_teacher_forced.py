@@ -458,6 +458,20 @@ def _evaluate_with_model(
                             "PyTorch/ONNX teacher-forced legal-rank mismatch "
                             f"for control {name} step {target_index}"
                         )
+                    if (
+                        abs(
+                            native["target_family_probability"]
+                            - native_onnx["target_family_probability"]
+                        ) > 1.0e-4
+                        or abs(
+                            opposite["target_family_probability"]
+                            - opposite_onnx["target_family_probability"]
+                        ) > 1.0e-4
+                    ):
+                        failures.append(
+                            "PyTorch/ONNX teacher-forced target-family probability mismatch "
+                            f"for control {name} step {target_index}"
+                        )
                 steps.append(step)
 
         native_top1_count = sum(
