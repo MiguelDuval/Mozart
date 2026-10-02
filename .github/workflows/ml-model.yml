@@ -718,10 +718,16 @@ jobs:
                   return None
               return json.loads(candidate.read_text(encoding="utf-8"))
 
-          baseline = load("build/ml-checkpoint/conditioning-teacher-forced.json")
-          diverse = load("build/ml-diverse-checkpoint/conditioning-teacher-forced.json")
+          baseline_teacher = load("build/ml-checkpoint/conditioning-teacher-forced.json")
+          diverse_teacher = load("build/ml-diverse-checkpoint/conditioning-teacher-forced.json")
+          baseline_sequence = load(
+              "build/ml-checkpoint/conditioning-sequence-grammar-constrained.json"
+          )
+          diverse_sequence = load(
+              "build/ml-diverse-checkpoint/conditioning-sequence-grammar-constrained.json"
+          )
 
-          def summarize(report):
+          def summarize_teacher(report):
               if report is None:
                   return None
               keys = (
@@ -740,13 +746,53 @@ jobs:
               )
               return {key: report.get(key) for key in keys}
 
+          def summarize_sequence(report):
+              if report is None:
+                  return None
+              keys = (
+                  "status",
+                  "grammar_constrained",
+                  "require_valid_grammar",
+                  "require_distribution_response",
+                  "min_distribution_total_variation",
+                  "max_generated_tokens",
+                  "failures",
+              )
+              return {key: report.get(key) for key in keys}
+
+          reports = (
+              baseline_teacher,
+              diverse_teacher,
+              baseline_sequence,
+              diverse_sequence,
+          )
+          available_statuses = [
+              report.get("status")
+              for report in reports
+              if report is not None
+          ]
+          diverse_reports = (diverse_teacher, diverse_sequence)
+
+          if not available_statuses:
+              experiment_status = "NO_REPORTS"
+          elif any(status != "PASS" for status in available_statuses):
+              experiment_status = "FAIL"
+          elif any(report is None for report in diverse_reports):
+              experiment_status = "PARTIAL"
+          else:
+              experiment_status = "PASS"
+
           summary = {
-              "status": "PASS" if diverse is not None else "NO_DIVERSE_REPORT",
-              "baseline": summarize(baseline),
-              "context_diverse": summarize(diverse),
+              "status": experiment_status,
+              "baseline": {
+                  "teacher_forced": summarize_teacher(baseline_teacher),
+                  "grammar_constrained_sequence": summarize_sequence(baseline_sequence),
+              },
+              "context_diverse": {
+                  "teacher_forced": summarize_teacher(diverse_teacher),
+                  "grammar_constrained_sequence": summarize_sequence(diverse_sequence),
+              },
           }
-          if diverse is not None and diverse.get("status") != "PASS":
-              summary["status"] = "FAIL"
           Path("build/ml-context-diversity-summary.json").write_text(
               json.dumps(summary, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
@@ -773,19 +819,16 @@ jobs:
           retention-days: 14
 
       - name: Upload context-diversity experiment artifacts
-        if: ${{ always() && hashFiles('build/ml-diverse-checkpoint/development-inference.pt', 'build/ml-diverse-checkpoint/model.onnx', 'build/ml-diverse-checkpoint/conditioning-teacher-forced.json', 'build/ml-diverse-checkpoint/conditioning-sequence-grammar-constrained.json', 'build/ml-diverse-conditioning-fixture/sequence-probes.json') != '' }}
+        if: ${{ always() && hashFiles('build/ml-diverse-checkpoint/**', 'build/ml-diverse-conditioning-fixture/**', 'build/ml-context-diversity-summary.json') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: mozart-context-diversity-ml-${{ github.sha }}
           path: |
-            build/ml-diverse-checkpoint/development-inference.pt
-            build/ml-diverse-checkpoint/model.onnx
-            build/ml-diverse-checkpoint/conditioning-teacher-forced.json
-            build/ml-diverse-checkpoint/conditioning-sequence-grammar-constrained.json
+            build/ml-diverse-checkpoint/**
+            build/ml-diverse-conditioning-fixture/**
             build/ml-context-diversity-summary.json
-            build/ml-diverse-conditioning-fixture/sequence-probes.json
           archive: true
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
       - name: Upload grammar-aware ML A/B artifacts
         if: ${{ always() && hashFiles('build/ml-grammar-checkpoint/development-inference.pt', 'build/ml-grammar-checkpoint/model.onnx', 'build/ml-grammar-checkpoint/conditioning-sequence-raw.json', 'build/ml-grammar-checkpoint/conditioning-sequence-constrained.json', 'build/ml-grammar-checkpoint/conditioning-teacher-forced.json', 'build/ml-grammar-checkpoint/ab-summary.json') != '' }}
