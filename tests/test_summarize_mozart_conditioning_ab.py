@@ -146,6 +146,36 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
             summary["missing_required_reports"],
         )
 
+    def test_build_summary_marks_failed_input_contract(self) -> None:
+        summary = build_summary(
+            input_contract={"status": "FAIL"},
+            baseline_fit=None,
+            matched_fit=None,
+            diverse_fit=None,
+            baseline_teacher=teacher_report(),
+            matched_teacher=teacher_report(),
+            diverse_teacher=teacher_report(),
+            baseline_sequence=sequence_report(),
+            matched_sequence=sequence_report(),
+            diverse_sequence=sequence_report(),
+        )
+        self.assertEqual(summary["status"], "FAIL")
+
+    def test_build_summary_is_partial_without_input_contract(self) -> None:
+        summary = build_summary(
+            input_contract=None,
+            baseline_fit=None,
+            matched_fit=None,
+            diverse_fit=None,
+            baseline_teacher=teacher_report(),
+            matched_teacher=teacher_report(),
+            diverse_teacher=teacher_report(),
+            baseline_sequence=sequence_report(),
+            matched_sequence=sequence_report(),
+            diverse_sequence=sequence_report(),
+        )
+        self.assertEqual(summary["status"], "PARTIAL")
+
     def test_build_summary_marks_failed_diagnostic_without_becoming_production_gate(self) -> None:
         summary = build_summary(
             baseline_fit=None,
