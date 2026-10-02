@@ -163,7 +163,10 @@ validated before either fit by `tools/validate_mozart_conditioning_ab.py`, with 
 coverage in `tests/test_validate_mozart_conditioning_ab.py`. That validator checks
 unique source identities, exact 10/20/20 train cardinalities, control-label alignment,
 base-target ordering, target identity of the matched baseline, and that each rendered
-v1 context actually differs from its v0 base target. Sequence probes carry explicit
+v1 context actually differs from its v0 base target. The validator also proves
+that the diverse and matched probe definitions are identical apart from their
+intentionally remapped synthetic record IDs, so A/B evaluation cannot silently
+change prefixes or probe profiles. Sequence probes carry explicit
 `probe_context="canonical-base-records"` metadata: diversity variants expand the
 training contexts, while teacher-forced/autoregressive probes remain anchored to the
 canonical base contexts so both A/B fits use the same probe definition. Matched
