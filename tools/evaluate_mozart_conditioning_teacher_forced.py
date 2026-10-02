@@ -355,9 +355,37 @@ def _evaluate_with_model(
                         native["top1_token"] != native_onnx["top1_token"]
                         or opposite["top1_token"]
                         != opposite_onnx["top1_token"]
+                        or native["target_legal_top1"]
+                        != native_onnx["target_legal_top1"]
+                        or opposite["target_legal_top1"]
+                        != opposite_onnx["target_legal_top1"]
                     ):
                         failures.append(
                             "PyTorch/ONNX teacher-forced top1 mismatch "
+                            f"for control {name} step {target_index}"
+                        )
+                    if (
+                        abs(
+                            native["target_probability"]
+                            - native_onnx["target_probability"]
+                        ) > 1.0e-4
+                        or abs(
+                            opposite["target_probability"]
+                            - opposite_onnx["target_probability"]
+                        ) > 1.0e-4
+                    ):
+                        failures.append(
+                            "PyTorch/ONNX teacher-forced target-probability mismatch "
+                            f"for control {name} step {target_index}"
+                        )
+                    if (
+                        native["target_legal_rank"]
+                        != native_onnx["target_legal_rank"]
+                        or opposite["target_legal_rank"]
+                        != opposite_onnx["target_legal_rank"]
+                    ):
+                        failures.append(
+                            "PyTorch/ONNX teacher-forced legal-rank mismatch "
                             f"for control {name} step {target_index}"
                         )
                 steps.append(step)
@@ -567,6 +595,13 @@ def _evaluate_with_model(
         )
         for entry in report_controls.values()
     )
+    controls_with_bidirectional_target_response = sum(
+        int(
+            entry["control_effect"]["low_target_directionally_correct"]
+            and entry["control_effect"]["high_target_directionally_correct"]
+        )
+        for entry in report_controls.values()
+    )
     native_legal_top1_steps = sum(
         entry["native_legal_target_top1_count"]
         for entry in report_controls.values()
@@ -607,6 +642,9 @@ def _evaluate_with_model(
             else 0.0
         ),
         "controls_with_both_targets_top1": controls_with_both_targets_top1,
+        "controls_with_bidirectional_target_response": (
+            controls_with_bidirectional_target_response
+        ),
         "target_probability_directionally_correct_steps": (
             target_probability_directionally_correct_steps
         ),
