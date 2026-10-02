@@ -21,6 +21,7 @@ def _record(
         "source_id": source_id,
         "source_path": source_path,
         "tokens": tokens,
+        "target_sha256": f"sha-{source_path}",
         "performance_controls": {
             "density": density,
             "energy": 0.5,
@@ -168,7 +169,14 @@ class MozartConditioningABValidatorTests(unittest.TestCase):
     def test_rejects_missing_variant_difference(self) -> None:
         base, diverse, matched = _dataset()
         diverse[1]["tokens"] = list(base[0]["tokens"])
+        diverse[1]["target_sha256"] = base[0]["target_sha256"]
         with self.assertRaisesRegex(ValueError, "variant target unexpectedly equals"):
+            validate_records(base, diverse, matched)
+
+    def test_rejects_matched_target_hash_mismatch(self) -> None:
+        base, diverse, matched = _dataset()
+        matched[2]["target_sha256"] = "sha-corrupt"
+        with self.assertRaisesRegex(ValueError, "matched\[2\] target_sha256"):
             validate_records(base, diverse, matched)
 
 
