@@ -155,9 +155,11 @@ context-diverse fit from completing. Partial artifacts are preserved, and the su
 teacher-forced plus grammar-constrained sequence evidence for the regular baseline,
 matched-exposure baseline and context-diverse fit. The summary also computes
 `diverse_minus_matched` deltas for fit loss, teacher-forced semantic response,
-aggregate autoregressive response and per-control sequence/TVD response. Matched
-teacher-forced probes are remapped to unique synthetic identities instead of reusing
-base fixture IDs. This is intentional: a failed sequence criterion is evidence worth
+aggregate autoregressive response and per-control sequence/TVD response. The reporting
+logic lives in `tools/summarize_mozart_conditioning_ab.py` with unit coverage in
+`tests/test_summarize_mozart_conditioning_ab.py`; a diagnostic `FAIL` is recorded as
+evidence but does not itself fail the manual CI job. Matched teacher-forced probes
+are remapped to unique synthetic identities instead of reusing base fixture IDs. This is intentional: a failed sequence criterion is evidence worth
 inspecting, not a reason to discard the checkpoint or other measurements.
 
 The first follow-up experiment is a grammar-aware training-loss A/B test. With
