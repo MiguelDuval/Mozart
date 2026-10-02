@@ -139,7 +139,12 @@ class TeacherForcedTests(unittest.TestCase):
 
         self.assertEqual(report["target_legal_rank"], 1)
         self.assertTrue(report["target_legal_top1"])
+        self.assertEqual(report["target_token_family"], "velocity")
         self.assertGreater(report["target_probability"], 0.99)
+        self.assertGreater(
+            report["target_family_probability"],
+            report["target_probability"],
+        )
 
     def test_counterfactual_window_isolates_control_effect(self) -> None:
         records = {}
@@ -218,6 +223,10 @@ class TeacherForcedTests(unittest.TestCase):
             self.assertEqual(
                 entry["target_probability_directional_response_rate"],
                 1.0,
+            )
+            self.assertGreaterEqual(
+                entry["target_family_probability_directional_response_rate"],
+                0.0,
             )
             self.assertGreater(
                 entry["mean_target_probability_tv_alignment"],
