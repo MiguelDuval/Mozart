@@ -852,6 +852,30 @@ jobs:
                   return None
               return json.loads(candidate.read_text(encoding="utf-8"))
 
+          def load_fit(path):
+              try:
+                  import torch
+                  candidate = Path(path)
+                  if not candidate.exists():
+                      return None
+                  checkpoint = torch.load(
+                      candidate,
+                      map_location="cpu",
+                      weights_only=False,
+                  )
+              except (OSError, RuntimeError, ValueError):
+                  return None
+              return {
+                  "epoch": checkpoint.get("epoch"),
+                  "train_loss": checkpoint.get("train_loss"),
+                  "validation_loss": checkpoint.get("validation_loss"),
+                  "total_optimizer_updates": checkpoint.get("total_optimizer_updates"),
+                  "repeat_train_records": checkpoint.get("repeat_train_records"),
+              }
+
+          baseline_fit = load_fit("build/ml-checkpoint/latest.pt")
+          matched_fit = load_fit("build/ml-matched-checkpoint/latest.pt")
+          diverse_fit = load_fit("build/ml-diverse-checkpoint/latest.pt")
           baseline_teacher = load("build/ml-checkpoint/conditioning-teacher-forced.json")
           matched_teacher = load("build/ml-matched-checkpoint/conditioning-teacher-forced.json")
           diverse_teacher = load("build/ml-diverse-checkpoint/conditioning-teacher-forced.json")
@@ -1046,18 +1070,31 @@ jobs:
           summary = {
               "status": experiment_status,
               "baseline_regular": {
+                  "fit": baseline_fit,
                   "teacher_forced": summarize_teacher(baseline_teacher),
                   "grammar_constrained_sequence": summarize_sequence(baseline_sequence),
               },
               "baseline_matched_exposure": {
+                  "fit": matched_fit,
                   "teacher_forced": matched_teacher_summary,
                   "grammar_constrained_sequence": matched_sequence_summary,
               },
               "context_diverse": {
+                  "fit": diverse_fit,
                   "teacher_forced": diverse_teacher_summary,
                   "grammar_constrained_sequence": diverse_sequence_summary,
               },
               "diverse_minus_matched": {
+                  "fit": {
+                      "train_loss_delta": subtract(
+                          diverse_fit.get("train_loss") if diverse_fit else None,
+                          matched_fit.get("train_loss") if matched_fit else None,
+                      ),
+                      "validation_loss_delta": subtract(
+                          diverse_fit.get("validation_loss") if diverse_fit else None,
+                          matched_fit.get("validation_loss") if matched_fit else None,
+                      ),
+                  },
                   "teacher_forced": teacher_delta,
                   "grammar_constrained_sequence": sequence_delta,
                   "per_control_autoregressive": compare_experiments(
