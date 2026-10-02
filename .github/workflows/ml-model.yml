@@ -704,6 +704,7 @@ jobs:
             --sequence-length 16 \
             --opset 18
 
+          set +e
           python3 tools/evaluate_mozart_conditioning_teacher_forced.py \
             build/ml-matched-checkpoint/development-inference.pt \
             build/ml-matched-train.jsonl \
@@ -712,6 +713,7 @@ jobs:
             --onnx build/ml-matched-checkpoint/model.onnx \
             --window-size 8 \
             --output build/ml-matched-checkpoint/conditioning-teacher-forced.json
+          matched_teacher_status=$?
 
           python3 tools/evaluate_mozart_conditioning_sequence.py \
             build/ml-matched-checkpoint/development-inference.pt \
@@ -729,6 +731,9 @@ jobs:
             --min-distribution-total-variation 0.05 \
             --seed 42 \
             --output build/ml-matched-checkpoint/conditioning-sequence-grammar-constrained.json
+          matched_sequence_status=$?
+          set -e
+          echo "matched-exposure diagnostics: teacher_forced_status=$matched_teacher_status sequence_status=$matched_sequence_status"
 
           python3 tools/train_mozart_model.py \
             build/ml-diverse-conditioning-fixture/train.jsonl \
@@ -780,6 +785,7 @@ jobs:
             --sequence-length 16 \
             --opset 18
 
+          set +e
           python3 tools/evaluate_mozart_conditioning_teacher_forced.py \
             build/ml-diverse-checkpoint/development-inference.pt \
             build/ml-diverse-conditioning-fixture/train.jsonl \
@@ -788,6 +794,7 @@ jobs:
             --onnx build/ml-diverse-checkpoint/model.onnx \
             --window-size 8 \
             --output build/ml-diverse-checkpoint/conditioning-teacher-forced.json
+          diverse_teacher_status=$?
 
           python3 tools/evaluate_mozart_conditioning_sequence.py \
             build/ml-diverse-checkpoint/development-inference.pt \
@@ -805,6 +812,9 @@ jobs:
             --min-distribution-total-variation 0.05 \
             --seed 42 \
             --output build/ml-diverse-checkpoint/conditioning-sequence-grammar-constrained.json
+          diverse_sequence_status=$?
+          set -e
+          echo "context-diverse diagnostics: teacher_forced_status=$diverse_teacher_status sequence_status=$diverse_sequence_status"
       - name: Summarize context-diversity experiment
         if: ${{ always() && inputs.run_diversity_experiment }}
         shell: bash
