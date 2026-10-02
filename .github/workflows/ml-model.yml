@@ -68,6 +68,8 @@ on:
       - "tools/evaluate_mozart_conditioning.py"
       - "tools/evaluate_mozart_conditioning_sequence.py"
       - "tools/build_conditioning_fixture_corpus.py"
+      - "tools/summarize_mozart_conditioning_ab.py"
+      - "tests/test_summarize_mozart_conditioning_ab.py"
       - "docs/MODEL-TRAINING-BASELINE.md"
       - "tools/requirements-onnx-export.txt"
   workflow_dispatch:
