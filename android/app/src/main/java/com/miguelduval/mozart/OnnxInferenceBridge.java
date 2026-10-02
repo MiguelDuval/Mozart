@@ -26,6 +26,13 @@ public final class OnnxInferenceBridge {
     private static final int MOZART_VOCABULARY_SIZE = 512;
     private static final int BOS = 1;
     private static final int EOS = 2;
+    private static final int CHANNEL_BASE = 16;
+    private static final int NOTE_BASE = 32;
+    private static final int VELOCITY_BASE = 160;
+    private static final int TIME_SHIFT_BASE = 192;
+    private static final int DURATION_BASE = 256;
+    private static final int CONTROLLER_BASE = 352;
+    private static final int CONTROL_VALUE_BASE = 480;
     private static final String INPUT_IDS = "input_ids";
     private static final String[] CONDITIONING_INPUT_NAMES = {
             "style_id",
@@ -900,30 +907,13 @@ public final class OnnxInferenceBridge {
                     isControllerToken(nextToken);
         }
         if (isTimeShiftToken(last)) {
-            return hasChannelToken(tokens, bosToken) &&
-                    (isChannelToken(nextToken) ||
-                            isTimeShiftToken(nextToken))
-                    || (!hasChannelToken(tokens, bosToken) &&
-                            (isChannelToken(nextToken) ||
-                                    isTimeShiftToken(nextToken)));
+            return isChannelToken(nextToken) || isTimeShiftToken(nextToken);
         }
         if (isChannelToken(last)) {
             return isNoteToken(nextToken) || isControllerToken(nextToken);
         }
         if (last == eosToken) {
             return false;
-        }
-        return false;
-    }
-
-    private static boolean hasChannelToken(
-            List<Integer> tokens,
-            int bosToken) {
-        for (Integer value : tokens) {
-            if (value != null && value >= CHANNEL_BASE && value < NOTE_BASE &&
-                    value != bosToken) {
-                return true;
-            }
         }
         return false;
     }
