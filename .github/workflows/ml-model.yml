@@ -886,6 +886,45 @@ jobs:
               if report is None:
                   return None
               controls = report.get("controls") or {}
+          def summarize_training(report):
+              if report is None:
+                  return None
+              return {
+                  "status": report.get("status"),
+                  "train_loss": report.get("train_loss"),
+                  "validation_loss": report.get("validation_loss"),
+              }
+
+          def subtract(left, right):
+              if left is None or right is None:
+                  return None
+              return float(left) - float(right)
+
+          def compare_experiments(matched, diverse):
+              if matched is None or diverse is None:
+                  return None
+              matched_controls = matched.get("controls") or {}
+              diverse_controls = diverse.get("controls") or {}
+              comparison = {}
+              for name in sorted(set(matched_controls) & set(diverse_controls)):
+                  matched_entry = matched_controls[name]
+                  diverse_entry = diverse_controls[name]
+                  mt = (matched_entry.get("torch") or {})
+                  dt = (diverse_entry.get("torch") or {})
+                  mdr = (mt.get("distribution_response") or {})
+                  ddr = (dt.get("distribution_response") or {})
+                  comparison[name] = {
+                      "sequence_changed_delta": int(bool(dt.get("sequence_changed"))) - int(bool(mt.get("sequence_changed"))),
+                      "max_total_variation_delta": subtract(
+                          ddr.get("max_total_variation"),
+                          mdr.get("max_total_variation"),
+                      ),
+                      "mean_total_variation_delta": subtract(
+                          ddr.get("mean_total_variation"),
+                          mdr.get("mean_total_variation"),
+                      ),
+                  }
+              return comparison
               sequence_changed = 0
               max_tvs = []
               for entry in controls.values():
@@ -947,6 +986,68 @@ jobs:
           else:
               experiment_status = "PASS"
 
+          matched_teacher_summary = summarize_teacher(matched_teacher)
+          diverse_teacher_summary = summarize_teacher(diverse_teacher)
+          matched_sequence_summary = summarize_sequence(matched_sequence)
+          diverse_sequence_summary = summarize_sequence(diverse_sequence)
+
+          teacher_delta = None
+          if matched_teacher_summary is not None and diverse_teacher_summary is not None:
+              teacher_delta = {
+                  "train_loss_delta": subtract(
+                      diverse_teacher_summary.get("train_loss"),
+                      matched_teacher_summary.get("train_loss"),
+                  ),
+                  "validation_loss_delta": subtract(
+                      diverse_teacher_summary.get("validation_loss"),
+                      matched_teacher_summary.get("validation_loss"),
+                  ),
+                  "target_probability_directional_response_rate_delta": subtract(
+                      diverse_teacher_summary.get("target_probability_directional_response_rate"),
+                      matched_teacher_summary.get("target_probability_directional_response_rate"),
+                  ),
+                  "target_family_probability_directional_response_rate_delta": subtract(
+                      diverse_teacher_summary.get("target_family_probability_directional_response_rate"),
+                      matched_teacher_summary.get("target_family_probability_directional_response_rate"),
+                  ),
+                  "mean_target_probability_delta_delta": subtract(
+                      diverse_teacher_summary.get("mean_target_probability_delta_native_minus_counterfactual"),
+                      matched_teacher_summary.get("mean_target_probability_delta_native_minus_counterfactual"),
+                  ),
+                  "mean_target_family_probability_delta_delta": subtract(
+                      diverse_teacher_summary.get("mean_target_family_probability_delta_native_minus_counterfactual"),
+                      matched_teacher_summary.get("mean_target_family_probability_delta_native_minus_counterfactual"),
+                  ),
+                  "mean_distribution_total_variation_delta": subtract(
+                      diverse_teacher_summary.get("mean_distribution_total_variation_native_vs_counterfactual"),
+                      matched_teacher_summary.get("mean_distribution_total_variation_native_vs_counterfactual"),
+                  ),
+              }
+
+          sequence_delta = None
+          if matched_sequence_summary is not None and diverse_sequence_summary is not None:
+              sequence_delta = {
+                  "controls_with_sequence_change_delta": (
+                      diverse_sequence_summary.get("controls_with_sequence_change"),
+                  ),
+                  "mean_control_max_total_variation_delta": subtract(
+                      diverse_sequence_summary.get("mean_control_max_total_variation"),
+                      matched_sequence_summary.get("mean_control_max_total_variation"),
+                  ),
+                  "min_control_max_total_variation_delta": subtract(
+                      diverse_sequence_summary.get("min_control_max_total_variation"),
+                      matched_sequence_summary.get("min_control_max_total_variation"),
+                  ),
+                  "max_control_max_total_variation_delta": subtract(
+                      diverse_sequence_summary.get("max_control_max_total_variation"),
+                      matched_sequence_summary.get("max_control_max_total_variation"),
+                  ),
+              }
+              sequence_delta["controls_with_sequence_change_delta"] = (
+                  int(diverse_sequence_summary.get("controls_with_sequence_change") or 0)
+                  - int(matched_sequence_summary.get("controls_with_sequence_change") or 0)
+              )
+
           summary = {
               "status": experiment_status,
               "baseline_regular": {
@@ -954,12 +1055,19 @@ jobs:
                   "grammar_constrained_sequence": summarize_sequence(baseline_sequence),
               },
               "baseline_matched_exposure": {
-                  "teacher_forced": summarize_teacher(matched_teacher),
-                  "grammar_constrained_sequence": summarize_sequence(matched_sequence),
+                  "teacher_forced": matched_teacher_summary,
+                  "grammar_constrained_sequence": matched_sequence_summary,
               },
               "context_diverse": {
-                  "teacher_forced": summarize_teacher(diverse_teacher),
-                  "grammar_constrained_sequence": summarize_sequence(diverse_sequence),
+                  "teacher_forced": diverse_teacher_summary,
+                  "grammar_constrained_sequence": diverse_sequence_summary,
+              },
+              "diverse_minus_matched": {
+                  "teacher_forced": teacher_delta,
+                  "grammar_constrained_sequence": sequence_delta,
+                  "per_control_autoregressive": compare_experiments(
+                      matched_sequence, diverse_sequence
+                  ),
               },
           }
           Path("build/ml-context-diversity-summary.json").write_text(
