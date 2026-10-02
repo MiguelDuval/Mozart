@@ -75,6 +75,14 @@ targets are rejected when the fixture or training record contains a token that i
 not legal after its context, preventing malformed probe data from looking like
 model evidence.
 
+The diagnostic also verifies PyTorch/ONNX parity for the legal-token target
+probability, legal-token rank/top-1, and the distribution TV measurement. A
+control is additionally summarized as having a bidirectional target response
+only when both its low-side and high-side divergence targets gain probability
+under their corresponding native controls. This distinction is deliberate:
+a large distribution shift by itself is not evidence that the model learned the
+intended semantic target.
+
 The greedy sequence gate validates generated output as a bounded grammar prefix.
 It does not require EOS inside the fixed 32-token observation budget, because EOS
 marks completion of a stream rather than validity of an unfinished autoregressive
