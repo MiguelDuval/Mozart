@@ -73,6 +73,16 @@ def source_variant(source_path: object) -> int | None:
     return None
 
 
+def source_variant(source_path: object) -> int | None:
+    if not isinstance(source_path, str):
+        return None
+    if source_path.endswith("-v0.mid"):
+        return 0
+    if source_path.endswith("-v1.mid"):
+        return 1
+    return None
+
+
 def deterministic_source_ids(count: int) -> list[str]:
     """Return exactly count-2 train, 1 validation and 1 test groups."""
     selected: dict[str, list[str]] = {
@@ -179,7 +189,14 @@ def _profile_key(controls: dict[str, float]) -> tuple[float, ...]:
     return tuple(float(controls[name]) for name in CONTROL_ORDER)
 
 
-def _build_sequence_probes(records: list[dict]) -> dict:
+def _build_sequence_probes(
+    records: list[dict],
+    *,
+    probe_variant: int = 0,
+) -> dict:
+    if probe_variant not in (0, 1):
+        raise ValueError("probe_variant must be 0 or 1")
+
     probes: dict[str, dict] = {}
     indexed: dict[tuple[float, ...], list[dict]] = {}
     for record in records:
@@ -198,6 +215,7 @@ def _build_sequence_probes(records: list[dict]) -> dict:
                 record
                 for record in indexed.get(_profile_key(low_profile), [])
                 if record.get("split") == "train"
+                and source_variant(record.get("source_path")) == probe_variant
             ),
             None,
         )
@@ -206,6 +224,7 @@ def _build_sequence_probes(records: list[dict]) -> dict:
                 record
                 for record in indexed.get(_profile_key(high_profile), [])
                 if record.get("split") == "train"
+                and source_variant(record.get("source_path")) == probe_variant
             ),
             None,
         )
@@ -238,8 +257,12 @@ def _build_sequence_probes(records: list[dict]) -> dict:
         "schema_version": 1,
         "fixture_revision": FIXTURE_REVISION,
         "status": "synthetic-conditioning-sequence-probes",
-        "probe_context": "canonical-base-records",
-        "probe_variant": 0,
+        "probe_context": (
+            "canonical-base-records"
+            if probe_variant == 0
+            else "context-variant-records"
+        ),
+        "probe_variant": probe_variant,
         "control_probe_values": {
             "low": 0.1,
             "high": 0.9,
@@ -349,11 +372,17 @@ def build_conditioning_fixture_corpus(
         encoding="utf-8",
     )
 
-    sequence_probes = _build_sequence_probes(assigned)
+    sequence_probes = _build_sequence_probes(assigned, probe_variant=0)
     (output_dir / "sequence-probes.json").write_text(
         json.dumps(sequence_probes, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    if context_variant_count:
+        variant_probes = _build_sequence_probes(assigned, probe_variant=1)
+        (output_dir / "sequence-probes-v1.json").write_text(
+            json.dumps(variant_probes, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
 
     metadata = {
         "schema_version": 1,
