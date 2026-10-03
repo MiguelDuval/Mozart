@@ -47,6 +47,33 @@ SPARSE_TRAINING_COMPOSITIONS = (
     ("substyle+rhythm", ("substyle", "rhythm")),
     ("rhythm+role", ("rhythm", "role")),
 )
+MATCHED_SINGLE_AXIS_EXTRA_RECORDS = (
+    ("style", "high", 1311),
+    ("style", "high", 2713),
+    ("substyle", "high", 1311),
+    ("substyle", "high", 2713),
+    ("mood", "high", 1311),
+    ("mood", "high", 2713),
+    ("rhythm", "high", 1311),
+    ("rhythm", "high", 2713),
+    ("role", "high", 1311),
+    ("role", "high", 2713),
+    ("base", "base", 1311),
+    ("base", "base", 2713),
+)
+PAIRWISE_TRAINING_COMPOSITIONS = (
+    ("style+substyle", ("style", "substyle")),
+    ("style+mood", ("style", "mood")),
+    ("style+rhythm", ("style", "rhythm")),
+    ("style+role", ("style", "role")),
+    ("substyle+mood", ("substyle", "mood")),
+    ("substyle+rhythm", ("substyle", "rhythm")),
+    ("substyle+role", ("substyle", "role")),
+    ("mood+rhythm", ("mood", "rhythm")),
+    ("mood+role", ("mood", "role")),
+    ("rhythm+role", ("rhythm", "role")),
+)
+
 TEST_CONTEXT = 1901
 COMPOSITIONS = (
     ("style+rhythm", ("style", "rhythm")),
