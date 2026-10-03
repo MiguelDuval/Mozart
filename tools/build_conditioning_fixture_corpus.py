@@ -106,35 +106,44 @@ def deterministic_source_ids(count: int) -> list[str]:
     return result
 
 
-def render_notes(controls: dict[str, float], seed: int) -> list[list[tuple[int, int, int, int]]]:
-    """Render four bars from controls chosen independently from the target."""
+def render_notes(
+    controls: dict[str, float],
+    seed: int,
+    *,
+    context_seed: int | None = None,
+) -> list[list[tuple[int, int, int, int]]]:
+    """Render four bars, optionally reserving bar 0 as independent shared context."""
     notes: list[list[tuple[int, int, int, int]]] = []
 
-    density = controls["density"]
-    energy = controls["energy"]
-    syncopation = controls["syncopation"]
-    swing = controls["swing"]
-    variation = controls["variation"]
-
-    notes_per_bar = max(2, min(12, 2 + round(density * 10)))
-    base_velocity = max(28, min(124, 36 + round(78 * energy)))
-
     for bar in range(4):
+        use_independent_context = context_seed is not None and bar == 0
+        bar_controls = BASE_PROFILE if use_independent_context else controls
+        bar_seed = context_seed if use_independent_context else seed
+
+        density = bar_controls["density"]
+        energy = bar_controls["energy"]
+        syncopation = bar_controls["syncopation"]
+        swing = bar_controls["swing"]
+        variation = bar_controls["variation"]
+
+        notes_per_bar = max(2, min(12, 2 + round(density * 10)))
+        base_velocity = max(28, min(124, 36 + round(78 * energy)))
+
         bar_notes: list[tuple[int, int, int, int]] = []
         for index in range(notes_per_bar):
-            phase = (index * 7 + bar * 5 + seed) % 16
+            phase = (index * 7 + bar * 5 + bar_seed) % 16
             straight_step = (index * 16) // notes_per_bar
             offbeat_step = min(15, straight_step + 1)
             start_step = (
                 offbeat_step
-                if ((index + bar + seed) % 10) / 10.0 < syncopation
+                if ((index + bar + bar_seed) % 10) / 10.0 < syncopation
                 else straight_step
             )
             start_step = (start_step + phase) % 16
 
             pitch_offset = (
-                ((index * 3 + bar * 2 + seed) % 7)
-                if ((index + seed) % 4) / 4.0 < variation
+                ((index * 3 + bar * 2 + bar_seed) % 7)
+                if ((index + bar_seed) % 4) / 4.0 < variation
                 else (index + bar) % 3
             )
             note = 36 + pitch_offset
@@ -152,7 +161,7 @@ def render_notes(controls: dict[str, float], seed: int) -> list[list[tuple[int, 
                 1,
                 min(
                     127,
-                    base_velocity + ((index + bar + seed) % 5 - 2) * 3,
+                    base_velocity + ((index + bar + bar_seed) % 5 - 2) * 3,
                 ),
             )
             max_duration = max(1, 16 - start_step)
@@ -171,7 +180,6 @@ def render_notes(controls: dict[str, float], seed: int) -> list[list[tuple[int, 
         notes.append(bar_notes)
 
     return notes
-
 
 def _longest_common_prefix(left: list[int], right: list[int]) -> tuple[int, ...]:
     limit = min(len(left), len(right))
@@ -322,6 +330,11 @@ def build_conditioning_fixture_corpus(
                 notes_by_bar=render_notes(
                     controls,
                     seed=17 + (variant * 1009) + profile_index,
+                    context_seed=(
+                        700 + (profile_index // 2)
+                        if variant == 1
+                        else None
+                    ),
                 ),
             )
         )
