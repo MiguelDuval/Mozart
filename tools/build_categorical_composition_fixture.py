@@ -144,26 +144,21 @@ def build_fixture(output_dir: Path) -> dict:
 
     records: list[dict] = []
 
-    for axis, value in (
-        ("style", "dark_techno"),
-        ("substyle", "dark_techno"),
-        ("mood", "hypnotic"),
-        ("rhythm", "syncopated"),
-        ("role", "lead"),
-    ):
-        conditioning = dict(BASE_CONDITIONING)
-        conditioning[axis] = value
-        for context_seed in TRAIN_CONTEXTS:
-            records.append(
-                _record(
-                    output_dir,
-                    source_id=f"composition-train-{axis}-{context_seed}",
-                    split="train",
-                    conditioning=conditioning,
-                    context_seed=context_seed,
-                    profile=f"single-{axis}",
+    for axis in HIGH_VALUES:
+        for value_label, value in (("base", BASE_CONDITIONING[axis]), ("high", HIGH_VALUES[axis])):
+            conditioning = dict(BASE_CONDITIONING)
+            conditioning[axis] = value
+            for context_seed in TRAIN_CONTEXTS:
+                records.append(
+                    _record(
+                        output_dir,
+                        source_id=f"composition-train-{axis}-{value_label}-{context_seed}",
+                        split="train",
+                        conditioning=conditioning,
+                        context_seed=context_seed,
+                        profile=f"single-{axis}-{value_label}",
+                    )
                 )
-            )
 
     for index, (profile, axes) in enumerate(COMPOSITIONS):
         records.append(
@@ -205,7 +200,7 @@ def build_fixture(output_dir: Path) -> dict:
         split: sum(record["split"] == split for record in records)
         for split in ("train", "validation", "test")
     }
-    if len(records) != 40 or counts != {"train": 10, "validation": 10, "test": 20}:
+    if len(records) != 50 or counts != {"train": 20, "validation": 10, "test": 20}:
         raise RuntimeError(f"unexpected composition fixture shape: records={len(records)} splits={counts}")
 
     (output_dir / "records.jsonl").write_text(
