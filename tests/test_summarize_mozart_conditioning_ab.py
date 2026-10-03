@@ -157,10 +157,22 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
             diverse_sequence=sequence_report(),
             matched_sequence_v1=sequence_report(first_changed=False, first_tv=0.1, second_tv=0.1),
             diverse_sequence_v1=sequence_report(first_changed=True, first_tv=0.5, second_tv=0.4),
+            matched_teacher_v1=teacher_report(rate=0.55, family_rate=0.65, target_delta=0.11, family_delta=0.21, tv=0.31),
+            diverse_teacher_v1=teacher_report(rate=0.7, family_rate=0.75, target_delta=0.16, family_delta=0.27, tv=0.29),
         )
         v1 = summary["diverse_minus_matched"]["cross_context_v1"]
-        self.assertIsNotNone(v1["matched"])
-        self.assertIsNotNone(v1["diverse"])
+        self.assertIsNotNone(v1["teacher_forced"]["matched"])
+        self.assertIsNotNone(v1["teacher_forced"]["diverse"])
+        self.assertAlmostEqual(
+            v1["teacher_forced"]["diverse_minus_matched"]["target_probability_directional_response_rate_delta"],
+            0.15,
+        )
+        self.assertAlmostEqual(
+            v1["teacher_forced"]["diverse_minus_matched"]["mean_distribution_total_variation_delta"],
+            -0.02,
+        )
+        self.assertIsNotNone(v1["sequence"]["matched"])
+        self.assertIsNotNone(v1["sequence"]["diverse"])
         self.assertEqual(
             v1["per_control_autoregressive"]["density"]["sequence_changed_delta"],
             1,
