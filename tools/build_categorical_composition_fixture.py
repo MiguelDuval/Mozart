@@ -261,7 +261,7 @@ def build_fixture(output_dir: Path, *, training_profile: str = "single-axis-only
 
     probes = {
         "schema_version": 1,
-        "fixture_revision": FIXTURE_REVISION,
+        "fixture_revision": fixture_revision,
         "status": "synthetic-categorical-composition-probes",
         "probe_context": "held-out-context",
         "test_context_seed": TEST_CONTEXT,
