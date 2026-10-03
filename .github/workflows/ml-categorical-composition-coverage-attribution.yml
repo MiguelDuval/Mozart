@@ -1,0 +1,502 @@
+name: Mozart ML Categorical Composition Coverage Attribution
+
+on:
+  push:
+    branches:
+      - "feature/categorical-composition-coverage-attribution"
+    paths:
+      - ".github/workflows/ml-categorical-composition-coverage-attribution.yml"
+      - "tools/build_categorical_composition_fixture.py"
+      - "tests/test_build_categorical_composition_fixture.py"
+      - "tests/test_evaluate_mozart_categorical_composition.py"
+      - "tools/evaluate_mozart_categorical_composition.py"
+      - "tools/export_mozart_onnx.py"
+      - "tools/train_mozart_model.py"
+      - "tools/mozart_model.py"
+      - "tools/mozart_conditioning.py"
+      - "tools/mozart_token_grammar.py"
+      - "docs/model-training-config.json"
+      - "tools/requirements-onnx-export.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  coverage-attribution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/requirements-onnx-export.txt
+
+      - name: Install pinned ML export toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-cache-dir -r tools/requirements-onnx-export.txt
+
+      - name: Run fixture and evaluator regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_build_categorical_composition_fixture.py'
+          python3 -m unittest discover -s tests -p 'test_evaluate_mozart_categorical_composition.py'
+          python3 -m py_compile \
+            tools/build_categorical_composition_fixture.py \
+            tools/evaluate_mozart_categorical_composition.py \
+            tools/export_mozart_onnx.py \
+            tools/train_mozart_model.py
+
+      - name: Build and run four controlled training regimes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT=build/ml-categorical-composition-coverage-attribution
+          rm -rf "$ROOT"
+          mkdir -p "$ROOT"/{fixtures,checkpoints,reports,evaluation}
+
+          run_regime() {
+            local label="$1"
+            local profile="$2"
+            local repeat="$3"
+            local min_axes="$4"
+
+            echo "::group::REGIME $label"
+            rm -rf "$ROOT/fixtures/$label" "$ROOT/checkpoints/$label" "$ROOT/reports/$label"
+
+            python3 tools/build_categorical_composition_fixture.py \
+              "$ROOT/fixtures/$label" \
+              --training-profile "$profile"
+
+            python3 - "$ROOT/fixtures/$label/fixture-metadata.json" "$label" "$repeat" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          metadata = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          label = sys.argv[2]
+          repeat = int(sys.argv[3])
+          expected_train = {
+              "baseline-20": 20,
+              "matched-32": 32,
+              "sparse-32": 32,
+              "pairwise-40": 40,
+          }[label]
+
+          if metadata["split_counts"] != {
+              "train": expected_train,
+              "validation": 10,
+              "test": 20,
+          }:
+              raise SystemExit(f"{label}: unexpected split counts {metadata['split_counts']}")
+          if repeat * expected_train % 4 != 0:
+              raise SystemExit(f"{label}: batch-4 update budget would not be integral")
+          print(
+              f"FIXTURE {label}: regime={metadata['training_regime']} "
+              f"train={expected_train} repeat={repeat}"
+          )
+          PY
+
+            python3 tools/train_mozart_model.py \
+              "$ROOT/fixtures/$label/train.jsonl" \
+              --validation-jsonl "$ROOT/fixtures/$label/validation.jsonl" \
+              --output-dir "$ROOT/checkpoints/$label" \
+              --epochs 12 \
+              --batch-size 4 \
+              --repeat-train-records "$repeat" \
+              --learning-rate 3e-4 \
+              --fit-diagnostic \
+              --seed 42 \
+              --device cpu
+
+            python3 - "$ROOT/checkpoints/$label" "$label" "$profile" "$repeat" <<'PY'
+          import json
+          import math
+          import sys
+          from pathlib import Path
+          import torch
+
+          root = Path(sys.argv[1])
+          label = sys.argv[2]
+          profile = sys.argv[3]
+          repeat = int(sys.argv[4])
+
+          latest = torch.load(root / "latest.pt", map_location="cpu", weights_only=False)
+          best = torch.load(root / "best.pt", map_location="cpu", weights_only=False)
+
+          checks = {
+              "total_optimizer_updates": latest.get("total_optimizer_updates") == 480,
+              "epoch": latest.get("epoch") == 12,
+              "fit_diagnostic": latest.get("fit_diagnostic") is True,
+              "repeat_train_records": latest.get("repeat_train_records") == repeat,
+              "seed": latest.get("seed") == 42,
+          }
+          for field in ("train_loss", "validation_loss"):
+              checks[field] = isinstance(latest.get(field), (int, float)) and math.isfinite(latest[field])
+          for name, ok in checks.items():
+              if not ok:
+                  raise SystemExit(f"{label}: failed checkpoint assertion {name}")
+
+          metadata = {
+              "experiment": "categorical-composition-coverage-attribution",
+              "regime": label,
+              "fixture_training_profile": profile,
+              "seed": 42,
+              "epochs": 12,
+              "batch_size": 4,
+              "repeat_train_records": repeat,
+              "optimizer_updates": 480,
+              "selected_epoch": int(best["epoch"]),
+              "selected_validation_loss": float(best["validation_loss"]),
+              "latest_validation_loss": float(latest["validation_loss"]),
+          }
+          (root / "run-metadata.json").write_text(
+              json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          torch.save(
+              {
+                  "model_id": best["model_id"],
+                  "config": best["config"],
+                  "epoch": best["epoch"],
+                  "seed": best["seed"],
+                  "train_loss": best["train_loss"],
+                  "validation_loss": best["validation_loss"],
+                  "model_state": best["model_state"],
+              },
+              root / "development-inference.pt",
+          )
+          print(
+              f"SELECTED {label}: epoch={best['epoch']} "
+              f"validation_loss={best['validation_loss']:.6f}"
+          )
+          PY
+
+            local test_json="$ROOT/fixtures/$label/test.jsonl"
+            local probes_json="$ROOT/fixtures/$label/composition-probes.json"
+            if [ "$min_axes" -ge 3 ]; then
+              python3 - "$ROOT/fixtures/$label/test.jsonl" \
+                "$ROOT/fixtures/$label/composition-probes.json" \
+                "$ROOT/evaluation/$label-test.jsonl" \
+                "$ROOT/evaluation/$label-probes.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          test_in, probes_in, test_out, probes_out = map(Path, sys.argv[1:])
+          probes = json.loads(probes_in.read_text(encoding="utf-8"))
+          selected = {
+              name: value
+              for name, value in probes["compositions"].items()
+              if len(value["axes"]) >= 3
+          }
+          if not selected:
+              raise SystemExit("pairwise evaluation filter selected no unseen profiles")
+
+          wanted_profiles = set(selected)
+          wanted_profiles |= {f"{name}-base" for name in selected}
+          test_records = [
+              json.loads(line)
+              for line in test_in.read_text(encoding="utf-8").splitlines()
+              if line
+          ]
+          test_out.write_text(
+              "".join(
+                  json.dumps(record, sort_keys=True) + "\n"
+                  for record in test_records
+                  if record["composition_profile"] in wanted_profiles
+              ),
+              encoding="utf-8",
+          )
+          probes["compositions"] = selected
+          probes_out.write_text(
+              json.dumps(probes, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(
+              f"FILTERED pairwise evaluation profiles={len(selected)} "
+              f"test_records={sum(1 for line in test_out.read_text(encoding='utf-8').splitlines() if line)}"
+          )
+          PY
+              test_json="$ROOT/evaluation/$label-test.jsonl"
+              probes_json="$ROOT/evaluation/$label-probes.json"
+            fi
+
+            python3 tools/export_mozart_onnx.py \
+              "$ROOT/checkpoints/$label/development-inference.pt" \
+              "$ROOT/checkpoints/$label/model.onnx" \
+              --config docs/model-training-config.json \
+              --sequence-length 64 \
+              --opset 18
+
+            mkdir -p "$ROOT/reports/$label"
+            python3 tools/evaluate_mozart_categorical_composition.py \
+              "$ROOT/checkpoints/$label/development-inference.pt" \
+              "$test_json" \
+              "$probes_json" \
+              --config docs/model-training-config.json \
+              --onnx "$ROOT/checkpoints/$label/model.onnx" \
+              --window-size 8 \
+              --max-generated-tokens 32 \
+              --output "$ROOT/reports/$label/categorical-composition-report.json"
+
+            python3 - "$ROOT/checkpoints/$label/run-metadata.json" \
+              "$ROOT/reports/$label/categorical-composition-report.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          metadata_path, report_path = map(Path, sys.argv[1:])
+          metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          report["training_regime"] = metadata["fixture_training_profile"]
+          report["experiment_regime"] = metadata["regime"]
+          report["selected_epoch"] = metadata["selected_epoch"]
+          report["selected_validation_loss"] = metadata["selected_validation_loss"]
+          report_path.write_text(
+              json.dumps(report, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          if report.get("status") != "PASS":
+              raise SystemExit(
+                  f"{metadata['regime']}: evaluator returned {report.get('status')}"
+              )
+          print(
+              f"EVALUATED {metadata['regime']}: "
+              f"selected_epoch={metadata['selected_epoch']} "
+              f"validation_loss={metadata['selected_validation_loss']:.6f}"
+          )
+          PY
+
+            rm -f \
+              "$ROOT/checkpoints/$label/latest.pt" \
+              "$ROOT/checkpoints/$label/best.pt" \
+              "$ROOT/checkpoints/$label/development-inference.pt" \
+              "$ROOT/checkpoints/$label/model.onnx"
+            echo "::endgroup::"
+          }
+
+          run_regime baseline-20 single-axis-only 8 2
+          run_regime matched-32 matched-single-axis-32 5 2
+          run_regime sparse-32 sparse-multi-axis 5 2
+          run_regime pairwise-40 pairwise-multi-axis-40 4 3
+
+      - name: Analyze coverage attribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=build/ml-categorical-composition-coverage-attribution
+
+          python3 - "$ROOT" <<'PY'
+          import json
+          import math
+          import statistics
+          import sys
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+          regimes = ("baseline-20", "matched-32", "sparse-32", "pairwise-40")
+
+          reports = {}
+          metadata = {}
+          for regime in regimes:
+              reports[regime] = json.loads(
+                  (root / "reports" / regime / "categorical-composition-report.json")
+                  .read_text(encoding="utf-8")
+              )
+              metadata[regime] = json.loads(
+                  (root / "checkpoints" / regime / "run-metadata.json")
+                  .read_text(encoding="utf-8")
+              )
+
+          # The large checkpoints were removed after each evaluation. Keep
+          # selected-run metadata as the authoritative training evidence.
+          def profile_metrics(report):
+              result = {}
+              for profile, value in report["results"].items():
+                  result[profile] = {
+                      "axes": value["axes"],
+                      "ar_mean_tv": value["autoregressive"]["mean_total_variation"],
+                      "first_divergence": value["autoregressive"]["first_divergence_generated_index"],
+                      "ar_parity": value["autoregressive"]["parity_max_abs_error"],
+                      "interaction_residual_ratio": value["logit_additivity_at_divergence"]["interaction_residual_ratio"],
+                      "actual_vs_additive_cosine": value["logit_additivity_at_divergence"]["actual_vs_additive_cosine"],
+                      "tf_mean_tv": value["teacher_forced"]["mean_base_vs_combo_total_variation"],
+                      "tf_target_delta": value["teacher_forced"]["mean_target_probability_delta"],
+                      "tf_parity": value["teacher_forced"]["parity_max_abs_error"],
+                  }
+              return result
+
+          metrics = {regime: profile_metrics(reports[regime]) for regime in regimes}
+          common_profiles = sorted(set(metrics["baseline-20"]) & set(metrics["pairwise-40"]))
+
+          def aggregate(regime, profiles):
+              values = metrics[regime]
+              selected = [values[p] for p in profiles]
+              return {
+                  "profile_count": len(selected),
+                  "ar_mean_tv": statistics.mean(v["ar_mean_tv"] for v in selected),
+                  "interaction_residual_ratio": statistics.mean(
+                      v["interaction_residual_ratio"] for v in selected
+                  ),
+                  "actual_vs_additive_cosine": statistics.mean(
+                      v["actual_vs_additive_cosine"] for v in selected
+                  ),
+                  "tf_mean_tv": statistics.mean(v["tf_mean_tv"] for v in selected),
+                  "tf_target_delta": statistics.mean(v["tf_target_delta"] for v in selected),
+                  "first_divergence_mean": statistics.mean(v["first_divergence"] for v in selected),
+                  "max_tf_parity": max(v["tf_parity"] for v in selected),
+                  "max_ar_parity": max(v["ar_parity"] for v in selected),
+              }
+
+          profiles_by_group = {}
+          for group_size in (2, 3, 5):
+              profiles_by_group[str(group_size)] = [
+                  p for p in common_profiles if len(metrics["baseline-20"][p]["axes"]) == group_size
+              ]
+
+          common_three_plus = [
+              p for p in common_profiles if len(metrics["baseline-20"][p]["axes"]) >= 3
+          ]
+
+          summary = {
+              "experiment": "categorical-composition-coverage-attribution",
+              "seed": 42,
+              "optimizer_updates": 480,
+              "batch_size": 4,
+              "epochs": 12,
+              "regimes": {},
+              "common_profiles": common_profiles,
+              "groups": {},
+              "conclusion_guards": {
+                  "pairwise_2_axis_is_omitted": True,
+                  "pairwise_unseen_profiles_have_at_least_3_axes": True,
+              },
+          }
+
+          for regime in regimes:
+              summary["regimes"][regime] = {
+                  "fixture_training_profile": metadata[regime]["fixture_training_profile"],
+                  "selected_epoch": metadata[regime]["selected_epoch"],
+                  "selected_validation_loss": metadata[regime]["selected_validation_loss"],
+                  "repeat_train_records": metadata[regime]["repeat_train_records"],
+                  "profile_count": len(metrics[regime]),
+              }
+
+          for group, profiles in profiles_by_group.items():
+              if profiles:
+                  summary["groups"][f"{group}_axis_common"] = {
+                      regime: aggregate(regime, profiles) for regime in regimes
+                      if set(profiles).issubset(metrics[regime])
+                  }
+
+          summary["groups"]["three_plus_axis_common"] = {
+              regime: aggregate(regime, common_three_plus)
+              for regime in regimes
+              if set(common_three_plus).issubset(metrics[regime])
+          }
+
+          def delta_pct(before, after):
+              if before == 0:
+                  return None
+              return (after - before) / abs(before) * 100.0
+
+          baseline = aggregate("baseline-20", common_three_plus)
+          for regime in ("matched-32", "sparse-32", "pairwise-40"):
+              current = aggregate(regime, common_three_plus)
+              summary["regimes"][regime]["delta_vs_baseline_three_plus"] = {
+                  "validation_loss_pct": delta_pct(
+                      summary["regimes"]["baseline-20"]["selected_validation_loss"],
+                      summary["regimes"][regime]["selected_validation_loss"],
+                  ),
+                  "ar_mean_tv_pct": delta_pct(
+                      baseline["ar_mean_tv"], current["ar_mean_tv"]
+                  ),
+                  "interaction_residual_pct": delta_pct(
+                      baseline["interaction_residual_ratio"],
+                      current["interaction_residual_ratio"],
+                  ),
+                  "actual_vs_additive_cosine_pct": delta_pct(
+                      baseline["actual_vs_additive_cosine"],
+                      current["actual_vs_additive_cosine"],
+                  ),
+                  "tf_mean_tv_pct": delta_pct(
+                      baseline["tf_mean_tv"], current["tf_mean_tv"]
+                  ),
+              }
+
+          # Profile-level counts are deliberately retained instead of collapsing
+          # the evidence into one scalar.
+          for regime in ("matched-32", "sparse-32", "pairwise-40"):
+              comparable = set(common_profiles) & set(metrics[regime])
+              summary["regimes"][regime]["profile_deltas"] = {}
+              for profile in sorted(comparable):
+                  b = metrics["baseline-20"][profile]
+                  c = metrics[regime][profile]
+                  summary["regimes"][regime]["profile_deltas"][profile] = {
+                      "delta_ar_mean_tv": c["ar_mean_tv"] - b["ar_mean_tv"],
+                      "delta_interaction_residual": (
+                          c["interaction_residual_ratio"]
+                          - b["interaction_residual_ratio"]
+                      ),
+                      "delta_additive_cosine": (
+                          c["actual_vs_additive_cosine"]
+                          - b["actual_vs_additive_cosine"]
+                      ),
+                      "delta_tf_mean_tv": c["tf_mean_tv"] - b["tf_mean_tv"],
+                  }
+
+          (root / "coverage-attribution-summary.json").write_text(
+              json.dumps(summary, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+
+          print(
+              "COVERAGE-ATTRIBUTION COMPLETE "
+              f"common_profiles={len(common_profiles)} "
+              f"three_plus_profiles={len(common_three_plus)}"
+          )
+          for regime in regimes:
+              m = summary["regimes"][regime]
+              print(
+                  f"{regime}: selected_epoch={m['selected_epoch']} "
+                  f"selected_validation_loss={m['selected_validation_loss']:.6f}"
+              )
+          for regime in ("matched-32", "sparse-32", "pairwise-40"):
+              d = summary["regimes"][regime]["delta_vs_baseline_three_plus"]
+              print(
+                  f"{regime} vs baseline on common 3+ axes: "
+                  f"val={d['validation_loss_pct']:+.2f}% "
+                  f"AR_TV={d['ar_mean_tv_pct']:+.2f}% "
+                  f"interaction={d['interaction_residual_pct']:+.2f}% "
+                  f"cosine={d['actual_vs_additive_cosine_pct']:+.2f}% "
+                  f"TF_TV={d['tf_mean_tv_pct']:+.2f}%"
+              )
+          PY
+
+      - name: Publish coverage attribution evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mozart-categorical-composition-coverage-attribution
+          path: |
+            build/ml-categorical-composition-coverage-attribution/coverage-attribution-summary.json
+            build/ml-categorical-composition-coverage-attribution/reports/*/categorical-composition-report.json
+            build/ml-categorical-composition-coverage-attribution/reports/*/run-metadata.json
+            build/ml-categorical-composition-coverage-attribution/fixtures/*/fixture-metadata.json
+            build/ml-categorical-composition-coverage-attribution/evaluation/*-test.jsonl
+            build/ml-categorical-composition-coverage-attribution/evaluation/*-probes.json
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 6
+          overwrite: false
