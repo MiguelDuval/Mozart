@@ -165,6 +165,7 @@ def _build_probes(records: list[dict]) -> dict:
         "status": "synthetic-categorical-conditioning-probes",
         "probe_context": "held-out-context",
         "test_context_seed": TEST_CONTEXT,
+        "validation_context_seeds": sorted({record["context_seed"] for record in records if record["split"] == "validation"}),
         "control_pairs": {
             axis: {"low": pair[0], "high": pair[1]}
             for axis, pair in CATEGORICAL_PAIRS.items()
@@ -206,23 +207,26 @@ def build_fixture(output_dir: Path) -> dict:
                 )
             )
 
-    for index, (axis, value) in enumerate((("style", "dark_techno"), ("role", "lead"))):
-        records.append(
-            _record(
-                output_dir,
-                source_id=f"categorical-validation-{index}",
-                split="validation",
-                axis=axis,
-                value=value,
-                context_seed=3001 + index,
+    validation_records = []
+    for index, (axis, (low, high)) in enumerate(CATEGORICAL_PAIRS.items()):
+        for value_offset, value in enumerate((low, high)):
+            validation_records.append(
+                _record(
+                    output_dir,
+                    source_id=f"categorical-validation-{index}-{value_offset}",
+                    split="validation",
+                    axis=axis,
+                    value=value,
+                    context_seed=3001 + index * 2 + value_offset,
+                )
             )
-        )
+    records.extend(validation_records)
 
     counts = {
         split: sum(record["split"] == split for record in records)
         for split in ("train", "validation", "test")
     }
-    if len(records) != 32 or counts != {"train": 20, "validation": 2, "test": 10}:
+    if len(records) != 40 or counts != {"train": 20, "validation": 10, "test": 10}:
         raise RuntimeError(f"unexpected categorical fixture shape: records={len(records)} splits={counts}")
 
     (output_dir / "records.jsonl").write_text(
