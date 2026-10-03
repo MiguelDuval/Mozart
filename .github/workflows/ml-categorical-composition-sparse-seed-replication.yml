@@ -100,6 +100,28 @@ jobs:
               f"SEED {seed} LATEST epoch={checkpoint['epoch']} "
               f"validation_loss={checkpoint['validation_loss']:.6f}"
           )
+
+          best_path = path.parent / "best.pt"
+          best = torch.load(best_path, map_location="cpu", weights_only=False)
+          if best.get("epoch") is None or not isinstance(best.get("validation_loss"), (int, float)):
+              raise SystemExit(f"seed {seed}: best checkpoint metadata is invalid")
+
+          torch.save(
+              {
+                  "model_id": best["model_id"],
+                  "config": best["config"],
+                  "epoch": best["epoch"],
+                  "seed": best["seed"],
+                  "train_loss": best["train_loss"],
+                  "validation_loss": best["validation_loss"],
+                  "model_state": best["model_state"],
+              },
+              path.parent / "development-inference.pt",
+          )
+          print(
+              f"SEED {seed} SELECTED epoch={best['epoch']} "
+              f"validation_loss={best['validation_loss']:.6f}"
+          )
           PY
 
             python3 tools/export_mozart_onnx.py \
