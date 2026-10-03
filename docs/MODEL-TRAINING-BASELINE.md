@@ -255,6 +255,19 @@ scientific step is therefore the manual context-diversity A/B experiment: compar
 matched-exposure and context-diverse fits under the already frozen 480-update budget,
 using the corrected v2 fixture and identical canonical probes. Do not compare its
 numbers as if they were production-model acceptance metrics.
+## Context-diversity A/B result (v2)
+
+The explicit context-diversity experiment completed successfully in GitHub Actions run 37157412404 on the corrected v2 fixture. The input contract passed: 20 diverse train records, a 20-position matched-exposure baseline, unique source identities, target-identical matched contexts, and identical canonical five-control probes.
+
+The matched-exposure baseline used the same 480 optimizer updates as the diverse fit (12 epochs, repeat factor 8, seed 42). It reproduced the regular baseline checkpoint exactly at train_loss=0.1308269174 and validation_loss=20.5812950134. Its grammar-constrained canonical probe changed the generated sequence for 3 of 5 controls, with mean per-control maximum TV=0.4695027829 and maximum=0.8021092739.
+
+The context-diverse fit also used exactly 480 optimizer updates and reached train_loss=0.4412642833 and validation_loss=13.0907974243. Its train loss is intentionally higher because it must fit distinct target contexts instead of repeated target-identical exposures. Despite that, validation loss improved by 7.4904975891 and grammar-constrained canonical probes changed the generated sequence for all 5 controls. Mean per-control maximum TV was 0.2263220105 and maximum=0.4484889095.
+
+Teacher-forced conditioning did not improve uniformly. The diverse fit increased the target-probability directional response rate from 0.5875 to 0.6625 (+0.075) and the family directional response rate from 0.425 to 0.4375 (+0.0125), but reduced mean target-probability lift from 0.0363614900 to 0.0175043867 and mean legal-distribution TV from 0.0728490066 to 0.0615715698. In the grammar-constrained sequence diagnostic, the number of controls with sequence changes increased from 3 to 5, while aggregate maximum-TV response decreased.
+
+The correct interpretation is therefore that target-context diversity changes the model's generalization/conditioning trade-off rather than simply making conditioning stronger. The lower held-out loss and broader discrete sequence response are encouraging, but the validation split still contains only one mixed control holdout and the experiment uses one random seed. These results are not sufficient to select a production checkpoint.
+
+The next scientific gate should be replication of the matched-vs-diverse comparison across multiple deterministic seeds, preserving the same v2 split, canonical probes, architecture and 480-update budget. The purpose is to estimate whether the validation-loss improvement and broader autoregressive response survive training stochasticity before changing the model architecture or production ABI.
 ## Training
 
 
