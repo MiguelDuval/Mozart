@@ -82,7 +82,9 @@ jobs:
 
           for record in records:
               if record["split"] == "test" and record["composition_profile"].endswith("-base"):
-                  selected_names.add(record["composition_profile"])
+                  base_profile = record["composition_profile"].removesuffix("-base")
+                  if base_profile in selected_names:
+                      selected_names.add(record["composition_profile"])
 
           def write_split(path, split):
               selected = [
