@@ -184,6 +184,8 @@ def build_summary(
     diverse_sequence: dict[str, Any] | None,
     matched_sequence_v1: dict[str, Any] | None = None,
     diverse_sequence_v1: dict[str, Any] | None = None,
+    matched_teacher_v1: dict[str, Any] | None = None,
+    diverse_teacher_v1: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     reports = (
         baseline_teacher,
@@ -341,12 +343,64 @@ def build_summary(
                 diverse_sequence,
             ),
             "cross_context_v1": {
-                "matched": summarize_sequence(matched_sequence_v1),
-                "diverse": summarize_sequence(diverse_sequence_v1),
-                "per_control_autoregressive": compare_experiments(
-                    matched_sequence_v1,
-                    diverse_sequence_v1,
-                ),
+                "teacher_forced": {
+                    "matched": summarize_teacher(matched_teacher_v1),
+                    "diverse": summarize_teacher(diverse_teacher_v1),
+                    "diverse_minus_matched": (
+                        {
+                            "target_probability_directional_response_rate_delta": subtract(
+                                summarize_teacher(diverse_teacher_v1).get(
+                                    "target_probability_directional_response_rate"
+                                ),
+                                summarize_teacher(matched_teacher_v1).get(
+                                    "target_probability_directional_response_rate"
+                                ),
+                            ),
+                            "target_family_probability_directional_response_rate_delta": subtract(
+                                summarize_teacher(diverse_teacher_v1).get(
+                                    "target_family_probability_directional_response_rate"
+                                ),
+                                summarize_teacher(matched_teacher_v1).get(
+                                    "target_family_probability_directional_response_rate"
+                                ),
+                            ),
+                            "mean_target_probability_delta_delta": subtract(
+                                summarize_teacher(diverse_teacher_v1).get(
+                                    "mean_target_probability_delta_native_minus_counterfactual"
+                                ),
+                                summarize_teacher(matched_teacher_v1).get(
+                                    "mean_target_probability_delta_native_minus_counterfactual"
+                                ),
+                            ),
+                            "mean_target_family_probability_delta_delta": subtract(
+                                summarize_teacher(diverse_teacher_v1).get(
+                                    "mean_target_family_probability_delta_native_minus_counterfactual"
+                                ),
+                                summarize_teacher(matched_teacher_v1).get(
+                                    "mean_target_family_probability_delta_native_minus_counterfactual"
+                                ),
+                            ),
+                            "mean_distribution_total_variation_delta": subtract(
+                                summarize_teacher(diverse_teacher_v1).get(
+                                    "mean_distribution_total_variation_native_vs_counterfactual"
+                                ),
+                                summarize_teacher(matched_teacher_v1).get(
+                                    "mean_distribution_total_variation_native_vs_counterfactual"
+                                ),
+                            ),
+                        }
+                        if matched_teacher_v1 is not None and diverse_teacher_v1 is not None
+                        else None
+                    ),
+                },
+                "sequence": {
+                    "matched": summarize_sequence(matched_sequence_v1),
+                    "diverse": summarize_sequence(diverse_sequence_v1),
+                    "per_control_autoregressive": compare_experiments(
+                        matched_sequence_v1,
+                        diverse_sequence_v1,
+                    ),
+                },
             },
         },
     }
@@ -367,6 +421,16 @@ def main() -> int:
         "--diverse-sequence-v1",
         type=Path,
         help="Optional sequence report evaluated on context-variant (v1) prefixes.",
+    )
+    parser.add_argument(
+        "--matched-teacher-v1",
+        type=Path,
+        help="Optional teacher-forced report evaluated on context-variant (v1) prefixes.",
+    )
+    parser.add_argument(
+        "--diverse-teacher-v1",
+        type=Path,
+        help="Optional teacher-forced report evaluated on context-variant (v1) prefixes.",
     )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -406,6 +470,16 @@ def main() -> int:
         diverse_sequence_v1=(
             load_json(args.diverse_sequence_v1)
             if args.diverse_sequence_v1 is not None
+            else None
+        ),
+        matched_teacher_v1=(
+            load_json(args.matched_teacher_v1)
+            if args.matched_teacher_v1 is not None
+            else None
+        ),
+        diverse_teacher_v1=(
+            load_json(args.diverse_teacher_v1)
+            if args.diverse_teacher_v1 is not None
             else None
         ),
     )
