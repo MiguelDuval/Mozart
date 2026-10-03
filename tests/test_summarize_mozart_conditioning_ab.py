@@ -80,6 +80,53 @@ def sequence_report(
     }
 
 
+def teacher_control(
+    *,
+    rate: float = 0.5,
+    family_rate: float = 0.6,
+    target_delta: float = 0.1,
+    family_delta: float = 0.2,
+    mean_tv: float = 0.3,
+    max_tv: float = 0.4,
+) -> dict:
+    return {
+        "target_probability_directional_response_rate": rate,
+        "target_family_probability_directional_response_rate": family_rate,
+        "mean_target_probability_delta_native_minus_counterfactual": target_delta,
+        "mean_target_family_probability_delta_native_minus_counterfactual": family_delta,
+        "mean_distribution_total_variation_native_vs_counterfactual": mean_tv,
+        "max_distribution_total_variation_native_vs_counterfactual": max_tv,
+        "native_target_top1_count": 3,
+        "native_legal_target_top1_count": 4,
+        "window_step_count": 8,
+        "control_effect": {
+            "low_target_probability_lift_native_minus_counterfactual": target_delta,
+            "high_target_probability_lift_native_minus_counterfactual": target_delta,
+            "low_target_directionally_correct": target_delta > 0.0,
+            "high_target_directionally_correct": target_delta > 0.0,
+            "low_target_top1": True,
+            "high_target_top1": True,
+        },
+    }
+
+
+def teacher_report_with_controls(
+    *,
+    density: dict | None = None,
+    energy: dict | None = None,
+) -> dict:
+    report = teacher_report()
+    report["controls"] = {
+        "density": density or teacher_control(),
+        "energy": energy or teacher_control(target_delta=0.2),
+        "syncopation": teacher_control(),
+        "swing": teacher_control(),
+        "variation": teacher_control(),
+    }
+    return report
+
+
+
 class MozartConditioningABSummaryTests(unittest.TestCase):
     def test_teacher_summary_keeps_semantic_metrics(self) -> None:
         report = summarize_teacher(teacher_report())
@@ -181,6 +228,65 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
             v1["sequence"]["per_control_autoregressive"]["density"]["max_total_variation_delta"],
             0.4,
         )
+
+    def test_cross_context_summary_pairs_per_control_teacher_and_autoregressive_evidence(self) -> None:
+        matched_teacher_v1 = teacher_report_with_controls(
+            density=teacher_control(rate=0.45, mean_tv=0.20, max_tv=0.30)
+        )
+        diverse_teacher_v1 = teacher_report_with_controls(
+            density=teacher_control(rate=0.70, mean_tv=0.25, max_tv=0.50)
+        )
+        matched_sequence_v1 = sequence_report(first_changed=False, first_tv=0.10)
+        diverse_sequence_v1 = sequence_report(first_changed=True, first_tv=0.35)
+
+        summary = build_summary(
+            input_contract={"status": "PASS", "probe_equivalence": {"status": "PASS"}},
+            baseline_fit=None,
+            matched_fit=None,
+            diverse_fit=None,
+            baseline_teacher=None,
+            matched_teacher=None,
+            diverse_teacher=None,
+            baseline_sequence=None,
+            matched_sequence=None,
+            diverse_sequence=None,
+            matched_sequence_v1=matched_sequence_v1,
+            diverse_sequence_v1=diverse_sequence_v1,
+            matched_teacher_v1=matched_teacher_v1,
+            diverse_teacher_v1=diverse_teacher_v1,
+        )
+
+        v1 = summary["diverse_minus_matched"]["cross_context_v1"]
+        self.assertAlmostEqual(
+            v1["teacher_forced_per_control"]["density"]["target_probability_directional_response_rate"],
+            0.45,
+        )
+        self.assertAlmostEqual(
+            v1["teacher_forced_per_control"]["diverse_minus_matched"]["density"][
+                "target_probability_directional_response_rate"
+            ],
+            0.25,
+        )
+        density = v1["conditioning_retention"]["density"]
+        self.assertEqual(
+            density["matched"]["autoregressive"]["sequence_changed"],
+            False,
+        )
+        self.assertEqual(
+            density["diverse"]["autoregressive"]["sequence_changed"],
+            True,
+        )
+        self.assertAlmostEqual(
+            density["diverse"]["autoregressive"]["max_total_variation"],
+            0.35,
+        )
+        self.assertAlmostEqual(
+            density["diverse"]["teacher_forced"][
+                "mean_distribution_total_variation_native_vs_counterfactual"
+            ],
+            0.25,
+        )
+
 
     def test_build_summary_reports_partial_when_required_artifact_is_missing(self) -> None:
         summary = build_summary(
