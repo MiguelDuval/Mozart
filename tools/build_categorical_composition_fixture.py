@@ -178,13 +178,20 @@ def build_fixture(output_dir: Path, *, training_profile: str = "single-axis-only
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "midi").mkdir()
 
-    if training_profile not in {"single-axis-only", "sparse-multi-axis"}:
+    if training_profile not in {
+        "single-axis-only",
+        "matched-single-axis-32",
+        "sparse-multi-axis",
+        "pairwise-multi-axis-40",
+    }:
         raise ValueError(f"unsupported training profile: {training_profile!r}")
-    fixture_revision = (
-        FIXTURE_REVISION
-        if training_profile == "single-axis-only"
-        else f"{FIXTURE_REVISION}-sparse-coverage"
-    )
+    fixture_revision_suffixes = {
+        "single-axis-only": "",
+        "matched-single-axis-32": "-matched-single-axis-32",
+        "sparse-multi-axis": "-sparse-coverage",
+        "pairwise-multi-axis-40": "-pairwise-40",
+    }
+    fixture_revision = f"{FIXTURE_REVISION}{fixture_revision_suffixes[training_profile]}"
 
     records: list[dict] = []
 
