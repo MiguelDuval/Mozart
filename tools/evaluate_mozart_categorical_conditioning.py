@@ -83,7 +83,7 @@ def _torch_logits(
 
 
 def _onnx_logits(session: Any, tokens: list[int], conditioning: dict[str, str], controls: dict[str, float]) -> np.ndarray:
-    ids = conditioning_ids({**conditioning, "seed": 0})
+    ids = conditioning_ids({"conditioning": {**conditioning, "seed": 0}})
     outputs = session.run(
         ["logits"],
         {
