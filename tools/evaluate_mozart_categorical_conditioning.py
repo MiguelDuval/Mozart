@@ -65,7 +65,7 @@ def _torch_logits(
     conditioning: dict[str, str],
     controls: dict[str, float],
 ) -> np.ndarray:
-    ids = conditioning_ids({**conditioning, "seed": 0})
+    ids = conditioning_ids({"conditioning": {**conditioning, "seed": 0}})
     with torch.inference_mode():
         logits = model(
             torch.tensor([tokens], dtype=torch.long),
