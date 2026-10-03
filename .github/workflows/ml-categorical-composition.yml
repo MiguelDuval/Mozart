@@ -158,7 +158,8 @@ jobs:
         with:
           name: mozart-categorical-composition-seed-${{ matrix.seed }}
           path: |
-            build/ml-categorical-composition-checkpoint/**
+            build/ml-categorical-composition-checkpoint/categorical-composition-report.json
+            build/ml-categorical-composition-checkpoint/run-metadata.json
             build/ml-categorical-composition-fixture/records.jsonl
             build/ml-categorical-composition-fixture/train.jsonl
             build/ml-categorical-composition-fixture/validation.jsonl
