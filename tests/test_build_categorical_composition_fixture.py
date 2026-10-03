@@ -14,6 +14,7 @@ from build_categorical_composition_fixture import (  # noqa: E402
     BASE_CONDITIONING,
     COMPOSITIONS,
     HIGH_VALUES,
+    PAIRWISE_TRAINING_COMPOSITIONS,
     build_fixture,
 )
 
@@ -113,6 +114,68 @@ class CategoricalCompositionFixtureTests(unittest.TestCase):
 
             held_out_profiles = {axes for _, axes in COMPOSITIONS}
             self.assertTrue(sparse_profiles.isdisjoint(held_out_profiles))
+
+    def test_matched_single_axis_32_has_no_multi_axis_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "fixture"
+            expected = {
+                "record_count": 62,
+                "split_counts": {"train": 32, "validation": 10, "test": 20},
+            }
+            self.assertEqual(
+                build_fixture(root, training_profile="matched-single-axis-32"),
+                expected,
+            )
+            records = self._records(root)
+            train = [r for r in records if r["split"] == "train"]
+            self.assertEqual(len(train), 32)
+            self.assertTrue(all(len(r["composition_axes"]) <= 1 for r in train))
+            metadata = json.loads(
+                (root / "fixture-metadata.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(metadata["training_regime"], "matched-single-axis-32")
+            self.assertEqual(metadata["matched_single_axis_extra_record_count"], 12)
+            self.assertEqual(
+                metadata["fixture_revision"],
+                "mozart-categorical-composition-fixture-v1-matched-single-axis-32",
+            )
+
+    def test_pairwise_40_has_all_pairs_and_marks_test_overlap(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "fixture"
+            expected = {
+                "record_count": 70,
+                "split_counts": {"train": 40, "validation": 10, "test": 20},
+            }
+            self.assertEqual(
+                build_fixture(root, training_profile="pairwise-multi-axis-40"),
+                expected,
+            )
+            records = self._records(root)
+            train = [r for r in records if r["split"] == "train"]
+            pair_profiles = {
+                tuple(r["composition_axes"])
+                for r in train
+                if len(r["composition_axes"]) == 2
+            }
+            self.assertEqual(len(pair_profiles), 10)
+            for axes in pair_profiles:
+                self.assertEqual(
+                    sum(tuple(r["composition_axes"]) == axes for r in train),
+                    2,
+                )
+            metadata = json.loads(
+                (root / "fixture-metadata.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(metadata["training_regime"], "pairwise-multi-axis-40")
+            self.assertEqual(
+                metadata["pairwise_training_compositions"],
+                [profile for profile, _ in PAIRWISE_TRAINING_COMPOSITIONS],
+            )
+            self.assertEqual(
+                metadata["pairwise_direct_test_overlap_profiles"],
+                ["style+rhythm", "style+mood", "substyle+role"],
+            )
 
     def test_test_pairs_have_shared_prefix_and_different_targets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
