@@ -93,17 +93,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 tools/build_conditioning_fixture_corpus.py build/ml-base-conditioning-fixture
+
           python3 - <<'PY'
           import json
           from pathlib import Path
 
-          PY
-          python3 tools/build_conditioning_fixture_corpus.py build/ml-base-conditioning-fixture
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
           root = Path("build/ml-base-conditioning-fixture")
-          records = [json.loads(line) for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+          records = [
+              json.loads(line)
+              for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines()
+              if line.strip()
+          ]
           for split in ("train", "validation"):
               selected = [record for record in records if record["split"] == split]
               if not selected:
@@ -112,6 +113,15 @@ jobs:
                   "".join(json.dumps(record, sort_keys=True) + "\n" for record in selected),
                   encoding="utf-8",
               )
+          if sum(record["split"] == "train" for record in records) != 10:
+              raise SystemExit("base fixture must contain exactly 10 train records")
+          if sum(record["split"] == "validation" for record in records) != 1:
+              raise SystemExit("base fixture must contain exactly 1 validation record")
+          metadata = json.loads((root / "fixture-metadata.json").read_text(encoding="utf-8"))
+          if metadata["fixture_revision"] != "mozart-conditioning-fixture-v2":
+              raise SystemExit("base fixture must use corrected fixture v2")
+          PY
+
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -120,7 +130,7 @@ jobs:
           diverse_root = Path("build/ml-diverse-conditioning-fixture")
           base_records = [
               json.loads(line)
-              for line in (base_root / "records.jsonl").read_text(encoding="utf-8").splitlines()
+              for line in (base_root / "train.jsonl").read_text(encoding="utf-8").splitlines()
               if line.strip()
           ]
           diverse_records = [
@@ -128,7 +138,6 @@ jobs:
               for line in (diverse_root / "train.jsonl").read_text(encoding="utf-8").splitlines()
               if line.strip()
           ]
-          base_records = [record for record in base_records if record["split"] == "train"]
           if len(base_records) != 10 or len(diverse_records) != 20:
               raise SystemExit("replication expects 10 base and 20 diverse train records")
 
