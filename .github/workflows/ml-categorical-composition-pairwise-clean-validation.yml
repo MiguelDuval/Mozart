@@ -237,7 +237,7 @@ jobs:
             --max-generated-tokens 32 \
             --output "$ROOT/pairwise-clean-report.json"
 
-          python3 - "$ROOT/run-metadata.json" "$ROOT/pairwise-clean-report.json" <<'PY'
+          python3 - "$ROOT/checkpoint/run-metadata.json" "$ROOT/pairwise-clean-report.json" <<'PY'
           import json
           import sys
           from pathlib import Path
