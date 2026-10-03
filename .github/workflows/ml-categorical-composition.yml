@@ -1,0 +1,152 @@
+name: Mozart ML Categorical Composition
+
+on:
+  push:
+    branches:
+      - "feature/categorical-composition-diagnostic"
+    paths:
+      - ".github/workflows/ml-categorical-composition.yml"
+      - "tools/build_categorical_composition_fixture.py"
+      - "tools/evaluate_mozart_categorical_composition.py"
+      - "tests/test_build_categorical_composition_fixture.py"
+      - "tests/test_evaluate_mozart_categorical_composition.py"
+      - "tools/mozart_model.py"
+      - "tools/mozart_conditioning.py"
+      - "tools/mozart_token_grammar.py"
+      - "tools/midi_to_training_example.py"
+      - "tools/build_fixture_corpus.py"
+      - "tools/export_mozart_onnx.py"
+      - "tools/train_mozart_model.py"
+      - "docs/model-training-config.json"
+      - "tools/requirements-onnx-export.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  categorical-composition:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/requirements-onnx-export.txt
+
+      - name: Install pinned ML export toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-cache-dir -r tools/requirements-onnx-export.txt
+
+      - name: Test composition fixture and evaluator
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_build_categorical_composition_fixture.py'
+          python3 -m unittest discover -s tests -p 'test_evaluate_mozart_categorical_composition.py'
+          python3 -m py_compile             tools/build_categorical_composition_fixture.py             tools/evaluate_mozart_categorical_composition.py
+
+      - name: Build categorical composition fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/ml-categorical-composition-fixture build/ml-categorical-composition-checkpoint
+          python3 tools/build_categorical_composition_fixture.py build/ml-categorical-composition-fixture
+
+      - name: Train categorical composition checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/train_mozart_model.py             build/ml-categorical-composition-fixture/train.jsonl             --validation-jsonl build/ml-categorical-composition-fixture/validation.jsonl             --output-dir build/ml-categorical-composition-checkpoint             --epochs 12             --batch-size 4             --repeat-train-records 8             --learning-rate 3e-4             --fit-diagnostic             --seed 42             --device cpu
+
+          python3 - <<'PY'
+          import math
+          import torch
+
+          latest = torch.load(
+              "build/ml-categorical-composition-checkpoint/latest.pt",
+              map_location="cpu",
+              weights_only=False,
+          )
+          best = torch.load(
+              "build/ml-categorical-composition-checkpoint/best.pt",
+              map_location="cpu",
+              weights_only=False,
+          )
+          if latest.get("total_optimizer_updates") != 480:
+              raise SystemExit("composition fit must contain exactly 480 optimizer updates")
+          if latest.get("epoch") != 12:
+              raise SystemExit("composition fit must reach epoch 12")
+          if latest.get("fit_diagnostic") is not True:
+              raise SystemExit("composition fit must use fit-diagnostic mode")
+          for name, checkpoint in (("latest", latest), ("best", best)):
+              for field in ("train_loss", "validation_loss"):
+                  value = checkpoint.get(field)
+                  if not isinstance(value, (int, float)) or not math.isfinite(value):
+                      raise SystemExit(f"{name} {field} must be finite")
+          if best.get("epoch", 0) < 1 or best.get("epoch", 0) > latest.get("epoch", 0):
+              raise SystemExit("best checkpoint epoch must be within the completed training run")
+          print(
+              "SELECTED composition checkpoint "
+              f"epoch={best['epoch']} validation_loss={best['validation_loss']:.6f}"
+          )
+
+          torch.save(
+              {
+                  "model_id": best["model_id"],
+                  "config": best["config"],
+                  "epoch": best["epoch"],
+                  "seed": best["seed"],
+                  "train_loss": best["train_loss"],
+                  "validation_loss": best["validation_loss"],
+                  "model_state": best["model_state"],
+              },
+              "build/ml-categorical-composition-checkpoint/development-inference.pt",
+          )
+          PY
+
+      - name: Export categorical composition ONNX model
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/export_mozart_onnx.py             build/ml-categorical-composition-checkpoint/development-inference.pt             build/ml-categorical-composition-checkpoint/model.onnx             --config docs/model-training-config.json             --sequence-length 64             --opset 18
+
+      - name: Evaluate categorical composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/evaluate_mozart_categorical_composition.py             build/ml-categorical-composition-checkpoint/development-inference.pt             build/ml-categorical-composition-fixture/test.jsonl             build/ml-categorical-composition-fixture/composition-probes.json             --config docs/model-training-config.json             --onnx build/ml-categorical-composition-checkpoint/model.onnx             --window-size 8             --max-generated-tokens 32             --output build/ml-categorical-composition-checkpoint/categorical-composition-report.json
+
+      - name: Remove large optimizer checkpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f             build/ml-categorical-composition-checkpoint/latest.pt             build/ml-categorical-composition-checkpoint/best.pt
+
+      - name: Publish categorical composition artifacts
+        if: success() || failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mozart-categorical-composition
+          path: |
+            build/ml-categorical-composition-checkpoint/**
+            build/ml-categorical-composition-fixture/records.jsonl
+            build/ml-categorical-composition-fixture/train.jsonl
+            build/ml-categorical-composition-fixture/validation.jsonl
+            build/ml-categorical-composition-fixture/test.jsonl
+            build/ml-categorical-composition-fixture/composition-probes.json
+            build/ml-categorical-composition-fixture/fixture-metadata.json
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 6
+          overwrite: false
+          include-hidden-files: false
+          archive: true
