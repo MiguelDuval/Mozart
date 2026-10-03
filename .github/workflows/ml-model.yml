@@ -37,6 +37,10 @@ on:
       - "tools/build_conditioning_fixture_corpus.py"
       - "tools/summarize_mozart_conditioning_ab.py"
       - "tools/validate_mozart_conditioning_ab.py"
+      - "tools/build_heldout_conditioning_probe_corpus.py"
+      - "tools/summarize_mozart_heldout_conditioning.py"
+      - "tests/test_build_heldout_conditioning_probe_corpus.py"
+      - "tests/test_summarize_mozart_heldout_conditioning.py"
       - "tests/test_summarize_mozart_conditioning_ab.py"
       - "tests/test_validate_mozart_conditioning_ab.py"
       - "docs/MODEL-TRAINING-BASELINE.md"
@@ -72,6 +76,10 @@ on:
       - "tools/build_conditioning_fixture_corpus.py"
       - "tools/summarize_mozart_conditioning_ab.py"
       - "tools/validate_mozart_conditioning_ab.py"
+      - "tools/build_heldout_conditioning_probe_corpus.py"
+      - "tools/summarize_mozart_heldout_conditioning.py"
+      - "tests/test_build_heldout_conditioning_probe_corpus.py"
+      - "tests/test_summarize_mozart_heldout_conditioning.py"
       - "tests/test_summarize_mozart_conditioning_ab.py"
       - "tests/test_validate_mozart_conditioning_ab.py"
       - "docs/MODEL-TRAINING-BASELINE.md"
@@ -159,6 +167,8 @@ jobs:
             tools/build_conditioning_fixture_corpus.py \
             tools/summarize_mozart_conditioning_ab.py \
             tools/validate_mozart_conditioning_ab.py \
+            tools/build_heldout_conditioning_probe_corpus.py \
+            tools/summarize_mozart_heldout_conditioning.py \
             tools/mozart_conditioning.py \
             tools/midi_to_training_example.py \
             tools/build_training_windows.py \
@@ -207,6 +217,13 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_summarize_mozart_conditioning_ab.py'
+
+      - name: Test held-out conditioning probe corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_build_heldout_conditioning_probe_corpus.py'
+          python3 -m unittest discover -s tests -p 'test_summarize_mozart_heldout_conditioning.py'
 
       - name: Test context-diversity A/B training contract
         shell: bash
