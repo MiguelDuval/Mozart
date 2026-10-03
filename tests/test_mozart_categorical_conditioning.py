@@ -13,6 +13,43 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 
 class CategoricalConditioningEvaluatorTests(unittest.TestCase):
+    def test_onnx_logits_accepts_flat_conditioning_fields(self) -> None:
+        from evaluate_mozart_categorical_conditioning import _onnx_logits
+
+        class FakeSession:
+            def run(self, _outputs, inputs):
+                self.inputs = inputs
+                sequence_length = inputs["input_ids"].shape[1]
+                return [__import__("numpy").zeros((1, sequence_length, 512), dtype="float32")]
+
+        session = FakeSession()
+        logits = _onnx_logits(
+            session,
+            [1, 16, 68],
+            {
+                "style": "dark_techno",
+                "substyle": "dark_techno",
+                "mood": "hypnotic",
+                "rhythm": "syncopated",
+                "role": "lead",
+            },
+            {
+                "density": 0.5,
+                "energy": 0.5,
+                "syncopation": 0.5,
+                "swing": 0.5,
+                "variation": 0.5,
+            },
+        )
+
+        self.assertEqual(logits.shape, (512,))
+        self.assertTrue(__import__("numpy").isfinite(logits).all())
+        self.assertEqual(int(session.inputs["style_id"][0]), 2)
+        self.assertEqual(int(session.inputs["substyle_id"][0]), 2)
+        self.assertEqual(int(session.inputs["mood_id"][0]), 4)
+        self.assertEqual(int(session.inputs["rhythm_id"][0]), 1)
+        self.assertEqual(int(session.inputs["role_id"][0]), 3)
+
     def test_torch_logits_accepts_flat_conditioning_fields(self) -> None:
         from evaluate_mozart_categorical_conditioning import _torch_logits
         from mozart_model import ModelConfig, MozartTransformer
