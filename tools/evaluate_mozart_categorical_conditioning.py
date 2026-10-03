@@ -12,6 +12,7 @@ import numpy as np
 import torch
 
 from mozart_model import ModelConfig, MozartTransformer, conditioning_ids
+from mozart_token_grammar import EOS, allowed_next_token_ranges
 
 
 def _load_model(checkpoint_path: Path, config_path: Path) -> tuple[MozartTransformer, ModelConfig]:
@@ -223,24 +224,6 @@ def _teacher_forced_pair(
     }
 
 
-def _greedy(
-    next_logits: Any,
-    prefix: list[int],
-    conditioning: dict[str, str],
-    controls: dict[str, float],
-    *,
-    max_tokens: int,
-) -> list[int]:
-    tokens = list(prefix)
-    for _ in range(max_tokens):
-        logits = next_logits(tokens, conditioning, controls)
-        token = int(np.argmax(logits))
-        tokens.append(token)
-        if token == 511:
-            break
-    return tokens
-
-
 def _autoregressive_pair(
     model: MozartTransformer,
     session: Any,
@@ -267,6 +250,15 @@ def _autoregressive_pair(
         low_logits = next_logits(low_tokens, low, controls)
         high_logits = next_logits(high_tokens, high, controls)
         tv_values.append(_tv(low_logits, high_logits))
+
+        def allowed_mask(tokens: list[int]) -> np.ndarray:
+            mask = np.zeros(512, dtype=bool)
+            for start, end in allowed_next_token_ranges(tokens):
+                mask[start:end] = True
+            if not np.any(mask):
+                raise ValueError("Mozart grammar has no valid next token")
+            return mask
+
         if session is not None:
             low_onnx = _onnx_logits(session, low_tokens, low, controls)
             high_onnx = _onnx_logits(session, high_tokens, high, controls)
@@ -278,13 +270,15 @@ def _autoregressive_pair(
             if parity > 5.0e-4:
                 raise RuntimeError(f"PyTorch/ONNX AR parity exceeded tolerance: {parity}")
 
-        low_token = int(np.argmax(low_logits))
-        high_token = int(np.argmax(high_logits))
+        low_allowed = allowed_mask(low_tokens)
+        high_allowed = allowed_mask(high_tokens)
+        low_token = int(np.argmax(np.where(low_allowed, low_logits, -np.inf)))
+        high_token = int(np.argmax(np.where(high_allowed, high_logits, -np.inf)))
         low_tokens.append(low_token)
         high_tokens.append(high_token)
         low_full.append(low_token)
         high_full.append(high_token)
-        if low_token != high_token or low_token == 511 or high_token == 511:
+        if low_token != high_token or low_token == EOS or high_token == EOS:
             break
 
     common = _longest_common_prefix(low_full, high_full)
