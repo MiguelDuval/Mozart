@@ -825,8 +825,18 @@ jobs:
             --seed 42 \
             --output build/ml-matched-checkpoint/conditioning-sequence-grammar-constrained-v1.json
           matched_sequence_v1_status=$?
+
+          python3 tools/evaluate_mozart_conditioning_teacher_forced.py \
+            build/ml-matched-checkpoint/development-inference.pt \
+            build/ml-diverse-conditioning-fixture/train.jsonl \
+            build/ml-diverse-conditioning-fixture/sequence-probes-v1.json \
+            --config docs/model-training-config.json \
+            --onnx build/ml-matched-checkpoint/model.onnx \
+            --window-size 8 \
+            --output build/ml-matched-checkpoint/conditioning-teacher-forced-v1.json
+          matched_teacher_v1_status=$?
           set -e
-          echo "matched-exposure diagnostics: teacher_forced_status=$matched_teacher_status sequence_v0_status=$matched_sequence_status sequence_v1_status=$matched_sequence_v1_status"
+          echo "matched-exposure diagnostics: teacher_forced_status=$matched_teacher_status teacher_forced_v1_status=$matched_teacher_v1_status sequence_v0_status=$matched_sequence_status sequence_v1_status=$matched_sequence_v1_status"
 
           python3 tools/train_mozart_model.py \
             build/ml-diverse-conditioning-fixture/train.jsonl \
@@ -925,8 +935,18 @@ jobs:
             --seed 42 \
             --output build/ml-diverse-checkpoint/conditioning-sequence-grammar-constrained-v1.json
           diverse_sequence_v1_status=$?
+
+          python3 tools/evaluate_mozart_conditioning_teacher_forced.py \
+            build/ml-diverse-checkpoint/development-inference.pt \
+            build/ml-diverse-conditioning-fixture/train.jsonl \
+            build/ml-diverse-conditioning-fixture/sequence-probes-v1.json \
+            --config docs/model-training-config.json \
+            --onnx build/ml-diverse-checkpoint/model.onnx \
+            --window-size 8 \
+            --output build/ml-diverse-checkpoint/conditioning-teacher-forced-v1.json
+          diverse_teacher_v1_status=$?
           set -e
-          echo "context-diverse diagnostics: teacher_forced_status=$diverse_teacher_status sequence_v0_status=$diverse_sequence_status sequence_v1_status=$diverse_sequence_v1_status"
+          echo "context-diverse diagnostics: teacher_forced_status=$diverse_teacher_status teacher_forced_v1_status=$diverse_teacher_v1_status sequence_v0_status=$diverse_sequence_status sequence_v1_status=$diverse_sequence_v1_status"
       - name: Summarize context-diversity experiment
         if: ${{ always() && (inputs.run_diversity_experiment || github.ref == 'refs/heads/feature/context-diversity-ab-experiment' || github.ref == 'refs/heads/feature/context-diversity-cross-context-experiment') }}
         shell: bash
@@ -939,6 +959,8 @@ jobs:
             --input-contract build/ml-context-diversity-input-contract.json \
             --matched-sequence-v1 build/ml-matched-checkpoint/conditioning-sequence-grammar-constrained-v1.json \
             --diverse-sequence-v1 build/ml-diverse-checkpoint/conditioning-sequence-grammar-constrained-v1.json \
+            --matched-teacher-v1 build/ml-matched-checkpoint/conditioning-teacher-forced-v1.json \
+            --diverse-teacher-v1 build/ml-diverse-checkpoint/conditioning-teacher-forced-v1.json \
             --output build/ml-context-diversity-summary.json
 
       - name: Upload development ML artifacts
