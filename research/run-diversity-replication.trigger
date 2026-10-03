@@ -4,4 +4,6 @@ The accompanying commit message contains [run-diversity-replication]. The resear
 
 Seeds: 7, 42, 123.
 Design: matched exposure vs context-diverse, 480 optimizer updates per fit, corrected v2 fixture, 10 train / 4 validation / 2 test base contexts, canonical five-control probes.
-Rerun marker: fixed split-count computation before the held-out-context replication.
+Next gate: evaluate conditioning on four contexts excluded from training, 20 low/high control probes, across seeds 7/42/123.
+
+Trigger revision: held-out conditional probe suite wired into replication workflow.
