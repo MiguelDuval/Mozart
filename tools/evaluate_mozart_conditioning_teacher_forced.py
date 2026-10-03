@@ -199,12 +199,15 @@ def _evaluate_with_model(
     window_size: int = 8,
     require_target_top1: bool = False,
     require_legal_target_top1: bool = False,
+    probe_split: str = "train",
 ) -> dict[str, Any]:
     controls = probes.get("controls")
     if not isinstance(controls, dict):
         raise ValueError("probe file controls must be an object")
     if window_size <= 0:
         raise ValueError("window_size must be positive")
+    if probe_split not in {"train", "validation", "test"}:
+        raise ValueError("probe_split must be one of: train, validation, test")
 
     failures: list[str] = []
     report_controls: dict[str, Any] = {}
@@ -220,14 +223,15 @@ def _evaluate_with_model(
         high_record = records.get(high_source)
         if low_record is None or high_record is None:
             raise ValueError(
-                f"probe {name} refers to an unknown train record"
+                f"probe {name} refers to an unknown {probe_split} record"
             )
         if (
-            low_record.get("split") != "train"
-            or high_record.get("split") != "train"
+            low_record.get("split") != probe_split
+            or high_record.get("split") != probe_split
         ):
             raise ValueError(
-                f"probe {name} teacher-forced records must both be in train split"
+                "probe "
+                f"{name} teacher-forced records must both be in {probe_split} split"
             )
 
         prefix = probe.get("prefix_tokens")
@@ -812,6 +816,7 @@ def evaluate_teacher_forced(
     window_size: int = 8,
     require_target_top1: bool = False,
     require_legal_target_top1: bool = False,
+    probe_split: str = "train",
 ) -> dict[str, Any]:
     records = _load_records(records_path)
     probes = load_sequence_probe_file(probes_path)
@@ -845,6 +850,7 @@ def evaluate_teacher_forced(
         window_size=window_size,
         require_target_top1=require_target_top1,
         require_legal_target_top1=require_legal_target_top1,
+        probe_split=probe_split,
     )
 
 
@@ -873,6 +879,12 @@ def main() -> int:
         default=False,
         help="Require both low/high targets to be top1 within the grammar-legal token distribution.",
     )
+    parser.add_argument(
+        "--probe-split",
+        choices=("train", "validation", "test"),
+        default="train",
+        help="Expected dataset split for the low/high probe records.",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
@@ -885,6 +897,7 @@ def main() -> int:
         window_size=args.window_size,
         require_target_top1=args.require_target_top1,
         require_legal_target_top1=args.require_legal_target_top1,
+        probe_split=args.probe_split,
     )
     encoded = json.dumps(
         report,
