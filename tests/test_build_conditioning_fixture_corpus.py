@@ -22,7 +22,7 @@ from build_conditioning_fixture_corpus import (
 
 class ConditioningFixtureTests(unittest.TestCase):
     def test_fixture_has_two_levels_for_every_control(self) -> None:
-        self.assertEqual(len(CONTROL_PROFILES), 12)
+        self.assertEqual(len(CONTROL_PROFILES), 16)
         for name in CONTROL_ORDER:
             values = {
                 profile[name]
@@ -50,8 +50,8 @@ class ConditioningFixtureTests(unittest.TestCase):
                 (root / "fixture-metadata.json").read_text(encoding="utf-8")
             )
 
-        self.assertEqual(result["record_count"], 12)
-        self.assertEqual(len(records), 12)
+        self.assertEqual(result["record_count"], 16)
+        self.assertEqual(len(records), 16)
         self.assertEqual(metadata["fixture_revision"], "mozart-conditioning-fixture-v2")
         self.assertEqual(
             probes["status"],
@@ -129,7 +129,7 @@ class ConditioningFixtureTests(unittest.TestCase):
                 split: sum(record["split"] == split for record in records)
                 for split in ("train", "validation", "test")
             },
-            {"train": 10, "validation": 1, "test": 1},
+            {"train": 10, "validation": 4, "test": 2},
         )
         self.assertTrue(
             all(
@@ -137,8 +137,18 @@ class ConditioningFixtureTests(unittest.TestCase):
                 for record in records[:10]
             )
         )
-        self.assertEqual(records[10]["split"], "validation")
-        self.assertEqual(records[11]["split"], "test")
+        self.assertTrue(
+            all(
+                record["split"] == "validation"
+                for record in records[10:14]
+            )
+        )
+        self.assertTrue(
+            all(
+                record["split"] == "test"
+                for record in records[14:16]
+            )
+        )
 
         for control in CONTROL_ORDER:
             grouped: dict[float, list[tuple[int, ...]]] = {0.1: [], 0.9: []}
@@ -197,9 +207,9 @@ class ConditioningFixtureTests(unittest.TestCase):
                 (root / "sequence-probes.json").read_text(encoding="utf-8")
             )
 
-        self.assertEqual(result["record_count"], 22)
+        self.assertEqual(result["record_count"], 26)
         self.assertEqual(result["context_variant_count"], 10)
-        self.assertEqual(len(records), 22)
+        self.assertEqual(len(records), 26)
         self.assertEqual(
             len({record["source_id"] for record in records}),
             22,
@@ -211,7 +221,7 @@ class ConditioningFixtureTests(unittest.TestCase):
         }
         self.assertEqual(
             split_counts,
-            {"train": 20, "validation": 1, "test": 1},
+            {"train": 20, "validation": 4, "test": 2},
         )
 
         variants_by_profile: dict[tuple[float, ...], list[dict]] = {}

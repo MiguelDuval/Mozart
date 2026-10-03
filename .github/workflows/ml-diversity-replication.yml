@@ -72,7 +72,7 @@ jobs:
           from pathlib import Path
           root = Path("build/ml-diverse-conditioning-fixture")
           records = [json.loads(line) for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
-          for split in ("train", "validation"):
+          for split in ("train", "validation", "test"):
               selected = [record for record in records if record["split"] == split]
               if not selected:
                   raise SystemExit(f"missing {split} records")
@@ -80,10 +80,14 @@ jobs:
                   "".join(json.dumps(record, sort_keys=True) + "\n" for record in selected),
                   encoding="utf-8",
               )
-          if len(records) != 22:
-              raise SystemExit(f"expected 22 records, got {len(records)}")
+          if len(records) != 26:
+              raise SystemExit(f"expected 26 records, got {len(records)}")
           if sum(record["split"] == "train" for record in records) != 20:
               raise SystemExit("expected exactly 20 diverse train records")
+          if sum(record["split"] == "validation" for record in records) != 4:
+              raise SystemExit("expected exactly 4 diverse validation records")
+          if sum(record["split"] == "test" for record in records) != 2:
+              raise SystemExit("expected exactly 2 diverse test records")
           metadata = json.loads((root / "fixture-metadata.json").read_text(encoding="utf-8"))
           if metadata["fixture_revision"] != "mozart-conditioning-fixture-v2":
               raise SystemExit("replication must use corrected fixture v2")
@@ -113,10 +117,14 @@ jobs:
                   "".join(json.dumps(record, sort_keys=True) + "\n" for record in selected),
                   encoding="utf-8",
               )
+          if len(records) != 16:
+              raise SystemExit("base fixture must contain exactly 16 records")
           if sum(record["split"] == "train" for record in records) != 10:
               raise SystemExit("base fixture must contain exactly 10 train records")
-          if sum(record["split"] == "validation" for record in records) != 1:
-              raise SystemExit("base fixture must contain exactly 1 validation record")
+          if sum(record["split"] == "validation" for record in records) != 4:
+              raise SystemExit("base fixture must contain exactly 4 validation records")
+          if sum(record["split"] == "test" for record in records) != 2:
+              raise SystemExit("base fixture must contain exactly 2 test records")
           metadata = json.loads((root / "fixture-metadata.json").read_text(encoding="utf-8"))
           if metadata["fixture_revision"] != "mozart-conditioning-fixture-v2":
               raise SystemExit("base fixture must use corrected fixture v2")
@@ -313,9 +321,15 @@ jobs:
           from pathlib import Path
           p = Path("build/ml-context-diversity-summary.json")
           summary = json.loads(p.read_text(encoding="utf-8"))
-          summary["replication_seed"] = int("${{ matrix.seed }}")
-          p.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-          print(json.dumps(summary, indent=2, sort_keys=True))
+          seed = int("${{ matrix.seed }}")
+          summary["replication_seed"] = seed
+          payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
+          p.write_text(payload, encoding="utf-8")
+          seed_path = Path(
+              f"build/ml-context-diversity-summary-seed-{seed}.json"
+          )
+          seed_path.write_text(payload, encoding="utf-8")
+          print(payload)
           PY
 
       - name: Upload seed metrics

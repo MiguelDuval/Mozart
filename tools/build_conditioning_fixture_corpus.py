@@ -51,6 +51,34 @@ CONTROL_PROFILES: tuple[dict[str, float], ...] = tuple(
             "swing": 0.8,
             "variation": 0.2,
         },
+        {
+            "density": 0.35,
+            "energy": 0.65,
+            "syncopation": 0.85,
+            "swing": 0.15,
+            "variation": 0.55,
+        },
+        {
+            "density": 0.65,
+            "energy": 0.35,
+            "syncopation": 0.15,
+            "swing": 0.85,
+            "variation": 0.45,
+        },
+        {
+            "density": 0.45,
+            "energy": 0.9,
+            "syncopation": 0.35,
+            "swing": 0.6,
+            "variation": 0.15,
+        },
+        {
+            "density": 0.75,
+            "energy": 0.1,
+            "syncopation": 0.65,
+            "swing": 0.4,
+            "variation": 0.9,
+        },
     ]
 )
 
@@ -62,22 +90,40 @@ CONTROL_ORDER = (
     "variation",
 )
 
+PAIRED_CONTROL_PROFILE_COUNT = 2 * len(PERFORMANCE_CONTROL_NAMES)
+VALIDATION_PROFILE_COUNT = 4
+TEST_PROFILE_COUNT = 2
+
 
 def deterministic_source_ids(count: int) -> list[str]:
-    """Return exactly count-2 train, 1 validation and 1 test groups."""
+    """Return exactly 10 train, 4 validation and 2 test source groups."""
+    expected_count = (
+        PAIRED_CONTROL_PROFILE_COUNT
+        + VALIDATION_PROFILE_COUNT
+        + TEST_PROFILE_COUNT
+    )
+    if count != expected_count:
+        raise ValueError(
+            "conditioning fixture currently requires "
+            f"exactly {expected_count} profiles; got {count}"
+        )
+
     selected: dict[str, list[str]] = {
         "train": [],
         "validation": [],
         "test": [],
     }
+    quotas = {
+        "train": PAIRED_CONTROL_PROFILE_COUNT,
+        "validation": VALIDATION_PROFILE_COUNT,
+        "test": TEST_PROFILE_COUNT,
+    }
     for index in range(500_000):
         source_id = f"mozart-conditioning-source-{index:06d}"
         split = split_for_key(f"{source_id}\0{FIXTURE_REVISION}")
-        if split == "train" and len(selected["train"]) < count - 2:
-            selected["train"].append(source_id)
-        elif split in ("validation", "test") and len(selected[split]) < 1:
+        if len(selected[split]) < quotas[split]:
             selected[split].append(source_id)
-        if sum(len(values) for values in selected.values()) >= count:
+        if all(len(selected[name]) == quotas[name] for name in selected):
             break
 
     result = selected["train"] + selected["validation"] + selected["test"]
@@ -240,7 +286,6 @@ def _build_sequence_probes(records: list[dict]) -> dict:
     }
 
 
-PAIRED_CONTROL_PROFILE_COUNT = 2 * len(PERFORMANCE_CONTROL_NAMES)
 BASE_RENDER_SEED = 17
 CONTEXT_VARIANT_RENDER_SEED_STRIDE = 1009
 BASE_CONDITIONING_SEED = 5000
@@ -381,6 +426,7 @@ def build_conditioning_fixture_corpus(
         "records_path": "records.jsonl",
         "profiles": profiles,
         "context_variant_count": context_variant_count,
+        "split_counts": split_counts,
     }
     (output_dir / "fixture-metadata.json").write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n",

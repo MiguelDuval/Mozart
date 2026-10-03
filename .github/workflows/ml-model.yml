@@ -79,7 +79,7 @@ on:
   workflow_dispatch:
     inputs:
       run_diversity_experiment:
-        description: "Run the 22-record context-diversity fit diagnostic"
+        description: "Run the 26-record context-diversity fit diagnostic"
         required: false
         default: false
         type: boolean
