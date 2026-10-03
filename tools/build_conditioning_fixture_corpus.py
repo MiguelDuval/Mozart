@@ -21,7 +21,7 @@ from midi_to_training_example import build_example
 from mozart_conditioning import PERFORMANCE_CONTROL_NAMES
 
 
-FIXTURE_REVISION = "mozart-conditioning-fixture-v1"
+FIXTURE_REVISION = "mozart-conditioning-fixture-v2"
 BASE_PROFILE = {
     "density": 0.5,
     "energy": 0.5,
@@ -240,6 +240,32 @@ def _build_sequence_probes(records: list[dict]) -> dict:
     }
 
 
+PAIRED_CONTROL_PROFILE_COUNT = 2 * len(PERFORMANCE_CONTROL_NAMES)
+BASE_RENDER_SEED = 17
+CONTEXT_VARIANT_RENDER_SEED_STRIDE = 1009
+BASE_CONDITIONING_SEED = 5000
+CONTEXT_VARIANT_CONDITIONING_SEED_STRIDE = 1000
+
+
+def _base_fixture_seed(profile_index: int, *, base_seed: int) -> int:
+    """Keep low/high probe pairs deterministic except for the intended control."""
+    if profile_index < PAIRED_CONTROL_PROFILE_COUNT:
+        return base_seed + (profile_index // 2)
+    return base_seed + profile_index
+
+
+def _fixture_render_seed(profile_index: int, variant: int) -> int:
+    return _base_fixture_seed(profile_index, base_seed=BASE_RENDER_SEED) + (
+        variant * CONTEXT_VARIANT_RENDER_SEED_STRIDE
+    )
+
+
+def _fixture_conditioning_seed(profile_index: int, variant: int) -> int:
+    return _base_fixture_seed(profile_index, base_seed=BASE_CONDITIONING_SEED) + (
+        variant * CONTEXT_VARIANT_CONDITIONING_SEED_STRIDE
+    )
+
+
 def build_conditioning_fixture_corpus(
     output_dir: Path,
     *,
@@ -288,7 +314,7 @@ def build_conditioning_fixture_corpus(
                 beats_per_bar=4,
                 notes_by_bar=render_notes(
                     controls,
-                    seed=17 + (variant * 1009) + profile_index,
+                    seed=_fixture_render_seed(profile_index, variant),
                 ),
             )
         )
@@ -303,7 +329,7 @@ def build_conditioning_fixture_corpus(
             mood="driving",
             rhythm="straight",
             role="bass",
-            seed=5000 + profile_index + (variant * 1000),
+            seed=_fixture_conditioning_seed(profile_index, variant),
             performance_controls=controls,
         )
         record["target_sha256"] = sha256_file(midi_path)
@@ -312,7 +338,7 @@ def build_conditioning_fixture_corpus(
             {
                 "index": profile_index,
                 "variant": variant,
-                "render_seed": 17 + (variant * 1009) + profile_index,
+                "render_seed": _fixture_render_seed(profile_index, variant),
                 "file": f"midi/{filename}",
                 "performance_controls": controls,
                 "target_sha256": sha256_file(midi_path),

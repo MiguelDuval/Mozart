@@ -46,9 +46,13 @@ class ConditioningFixtureTests(unittest.TestCase):
             probes = json.loads(
                 (root / "sequence-probes.json").read_text(encoding="utf-8")
             )
+            metadata = json.loads(
+                (root / "fixture-metadata.json").read_text(encoding="utf-8")
+            )
 
         self.assertEqual(result["record_count"], 12)
         self.assertEqual(len(records), 12)
+        self.assertEqual(metadata["fixture_revision"], "mozart-conditioning-fixture-v2")
         self.assertEqual(
             probes["status"],
             "synthetic-conditioning-sequence-probes",
@@ -78,6 +82,24 @@ class ConditioningFixtureTests(unittest.TestCase):
                 record
                 for record in records
                 if record["performance_controls"] == high_profile
+            )
+            low_metadata = next(
+                profile
+                for profile in metadata["profiles"]
+                if profile["performance_controls"] == low_profile
+            )
+            high_metadata = next(
+                profile
+                for profile in metadata["profiles"]
+                if profile["performance_controls"] == high_profile
+            )
+            self.assertEqual(
+                low_metadata["render_seed"],
+                high_metadata["render_seed"],
+            )
+            self.assertEqual(
+                low_record["conditioning"]["seed"],
+                high_record["conditioning"]["seed"],
             )
             prefix_length = probe["prefix_length"]
             self.assertEqual(
@@ -211,6 +233,10 @@ class ConditioningFixtureTests(unittest.TestCase):
             self.assertEqual(
                 variants[0]["performance_controls"],
                 variants[1]["performance_controls"],
+            )
+            self.assertNotEqual(
+                variants[0]["conditioning"]["seed"],
+                variants[1]["conditioning"]["seed"],
             )
             self.assertEqual(
                 variants[0]["split"],

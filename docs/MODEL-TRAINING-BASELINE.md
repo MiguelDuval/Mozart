@@ -28,7 +28,7 @@ retrospective `derive_performance_controls()` helper is reserved for QA metrics
 and is not used to construct model conditioning. This remains a development
 baseline; the production tensor ABI is not frozen.
 
-The CI development checkpoint uses a separate synthetic conditioning fixture: control profiles are declared first and a deterministic renderer creates target MIDI from them. Each of density, energy, syncopation, swing and variation is exercised at low/high values while the other controls remain at a neutral baseline. This fixture exists specifically to prove that conditioning can be learned without deriving labels from the target sequence.
+The CI development checkpoint uses a separate synthetic conditioning fixture: control profiles are declared first and a deterministic renderer creates target MIDI from them. Each of density, energy, syncopation, swing and variation is exercised at low/high values while the other controls remain at a neutral baseline. This fixture exists specifically to prove that conditioning can be learned without deriving labels from the target sequence. The current fixture revision is `mozart-conditioning-fixture-v2`.
 
 The baseline deliberately does not claim that key/scale, continuous macro controls,
 LiteRT tensor names or production sampling policy are frozen. Those remain future
@@ -110,10 +110,14 @@ times, batch size 4: exactly 40 optimizer updates per epoch and 480 updates in
 the final checkpoint. The checkpoint records this budget explicitly and CI
 verifies it before ONNX export.
 
+## Probe methodology correction
+
+The conditioning fixture was revised from v1 to v2 to remove an avoidable confound in the low/high control probes. The paired 0.1 and 0.9 profiles for each independently varied control now share the same deterministic renderer seed, and their stored conditioning seeds are aligned as well. Because seed is not a model input, this keeps the paired target difference attributable to the declared control rather than to an unobserved target-generation seed. Mixed control profiles retain distinct seeds. Bumping the fixture revision intentionally invalidates the earlier v1 measurements as direct evidence for the current probe definition; the CI experiment must be rerun before new v2 numerical claims are made.
+
 ## Latest fit-diagnostic result
 
-The reproducible 480-update fit diagnostic has now been executed successfully through
-training and ONNX export. The final checkpoint reached train_loss=0.129450 after
+The reproducible 480-update fit diagnostic was executed successfully through
+training and ONNX export for fixture revision v1. The final checkpoint reached train_loss=0.129450 after
 12 epochs, while the one-record validation split reported validation_loss=22.605654.
 The unconstrained greedy sequence gate still failed on MIDI grammar, so increasing
 repeated exposure alone does not remove autoregressive collapse on this tiny corpus.
@@ -163,7 +167,7 @@ validated before either fit by `tools/validate_mozart_conditioning_ab.py`, with 
 coverage in `tests/test_validate_mozart_conditioning_ab.py`. That validator checks
 unique source identities, exact 10/20/20 train cardinalities, control-label alignment,
 base-target ordering, target identity of the matched baseline, and that each rendered
-v1 context actually differs from its v0 base target. The validator also proves
+context-variant file (`control-probe-*-v1.mid`) actually differs from its v0 base target. The validator also proves
 that the diverse and matched probe definitions are identical apart from their
 intentionally remapped synthetic record IDs, so A/B evaluation cannot silently
 change prefixes or probe profiles. Sequence probes carry explicit
