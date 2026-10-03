@@ -174,6 +174,14 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
         self.assertIsNotNone(v1["sequence"]["matched"])
         self.assertIsNotNone(v1["sequence"]["diverse"])
         self.assertEqual(
+            v1["sequence"]["per_control_autoregressive"]["density"]["sequence_changed_delta"],
+            1,
+        )
+        self.assertAlmostEqual(
+            v1["sequence"]["per_control_autoregressive"]["density"]["max_total_variation_delta"],
+            0.4,
+        )
+        self.assertEqual(
             v1["per_control_autoregressive"]["density"]["sequence_changed_delta"],
             1,
         )
