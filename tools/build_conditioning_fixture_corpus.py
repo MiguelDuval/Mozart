@@ -401,6 +401,11 @@ def build_conditioning_fixture_corpus(
         if variant == 1:
             assigned[index]["split"] = base_split_by_profile[profile_index]
 
+    split_counts = {
+        split: sum(record["split"] == split for record in assigned)
+        for split in ("train", "validation", "test")
+    }
+
     records_path = output_dir / "records.jsonl"
     records_path.write_text(
         "".join(
