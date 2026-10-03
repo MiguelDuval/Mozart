@@ -928,7 +928,7 @@ jobs:
           set -e
           echo "context-diverse diagnostics: teacher_forced_status=$diverse_teacher_status sequence_v0_status=$diverse_sequence_status sequence_v1_status=$diverse_sequence_v1_status"
       - name: Summarize context-diversity experiment
-        if: ${{ always() && (inputs.run_diversity_experiment || github.ref == 'refs/heads/feature/context-diversity-ab-experiment') }}
+        if: ${{ always() && (inputs.run_diversity_experiment || github.ref == 'refs/heads/feature/context-diversity-ab-experiment' || github.ref == 'refs/heads/feature/context-diversity-cross-context-experiment') }}
         shell: bash
         run: |
           set -euo pipefail
