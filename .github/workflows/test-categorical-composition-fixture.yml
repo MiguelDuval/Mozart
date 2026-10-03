@@ -1,0 +1,39 @@
+name: Mozart Categorical Composition Fixture Tests
+
+on:
+  push:
+    branches:
+      - "feature/categorical-composition-sparse-coverage"
+    paths:
+      - "tools/build_categorical_composition_fixture.py"
+      - "tests/test_build_categorical_composition_fixture.py"
+      - "tools/build_fixture_corpus.py"
+      - "tools/midi_to_training_example.py"
+      - "tools/midi_normalize.py"
+      - "tools/midi_smf.py"
+      - "tools/mozart_conditioning.py"
+      - "tools/mozart_tokenizer.py"
+      - ".github/workflows/test-categorical-composition-fixture.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixture-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run fixture tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_build_categorical_composition_fixture.py'
+          python3 -m py_compile tools/build_categorical_composition_fixture.py
