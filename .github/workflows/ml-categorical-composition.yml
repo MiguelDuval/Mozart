@@ -3,7 +3,7 @@ name: Mozart ML Categorical Composition
 on:
   push:
     branches:
-      - "feature/categorical-composition-diagnostic"
+      - "feature/categorical-composition-reproducibility"
     paths:
       - ".github/workflows/ml-categorical-composition.yml"
       - "tools/build_categorical_composition_fixture.py"
@@ -26,6 +26,10 @@ permissions:
 
 jobs:
   categorical-composition:
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [42, 1337, 2027]
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -65,7 +69,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 tools/train_mozart_model.py             build/ml-categorical-composition-fixture/train.jsonl             --validation-jsonl build/ml-categorical-composition-fixture/validation.jsonl             --output-dir build/ml-categorical-composition-checkpoint             --epochs 12             --batch-size 4             --repeat-train-records 8             --learning-rate 3e-4             --fit-diagnostic             --seed 42             --device cpu
+          python3 tools/train_mozart_model.py             build/ml-categorical-composition-fixture/train.jsonl             --validation-jsonl build/ml-categorical-composition-fixture/validation.jsonl             --output-dir build/ml-categorical-composition-checkpoint             --epochs 12             --batch-size 4             --repeat-train-records 8             --learning-rate 3e-4             --fit-diagnostic             --seed ${{ matrix.seed }}             --device cpu
 
           python3 - <<'PY'
           import math
@@ -96,7 +100,24 @@ jobs:
               raise SystemExit("best checkpoint epoch must be within the completed training run")
           print(
               "SELECTED composition checkpoint "
-              f"epoch={best['epoch']} validation_loss={best['validation_loss']:.6f}"
+              f"seed=${{ matrix.seed }} epoch={best['epoch']} validation_loss={best['validation_loss']:.6f}"
+          )
+          (Path := __import__("pathlib").Path)(
+              "build/ml-categorical-composition-checkpoint/run-metadata.json"
+          ).write_text(
+              __import__("json").dumps(
+                  {
+                      "experiment": "categorical-composition-reproducibility",
+                      "fixture_revision": "mozart-categorical-composition-fixture-v1",
+                      "seed": int("${{ matrix.seed }}"),
+                      "selected_epoch": int(best["epoch"]),
+                      "selected_validation_loss": float(best["validation_loss"]),
+                      "total_optimizer_updates": int(latest["total_optimizer_updates"]),
+                  },
+                  indent=2,
+                  sort_keys=True,
+              ) + "\n",
+              encoding="utf-8",
           )
 
           torch.save(
@@ -135,7 +156,7 @@ jobs:
         if: success() || failure()
         uses: actions/upload-artifact@v7
         with:
-          name: mozart-categorical-composition
+          name: mozart-categorical-composition-seed-${{ matrix.seed }}
           path: |
             build/ml-categorical-composition-checkpoint/**
             build/ml-categorical-composition-fixture/records.jsonl
