@@ -488,6 +488,30 @@ jobs:
               "mean_distribution_total_variation_delta": ("diverse_minus_matched", "teacher_forced", "mean_distribution_total_variation_delta"),
               "controls_with_sequence_change_delta": ("diverse_minus_matched", "grammar_constrained_sequence", "controls_with_sequence_change_delta"),
               "mean_control_max_total_variation_delta": ("diverse_minus_matched", "grammar_constrained_sequence", "mean_control_max_total_variation_delta"),
+              "heldout_target_probability_directional_response_rate_delta": (
+                  "heldout_conditioning", "aggregate_diverse_minus_matched",
+                  "teacher_forced", "target_probability_directional_response_rate", "mean"
+              ),
+              "heldout_target_family_probability_directional_response_rate_delta": (
+                  "heldout_conditioning", "aggregate_diverse_minus_matched",
+                  "teacher_forced", "target_family_probability_directional_response_rate", "mean"
+              ),
+              "heldout_mean_target_probability_delta_delta": (
+                  "heldout_conditioning", "aggregate_diverse_minus_matched",
+                  "teacher_forced", "mean_target_probability_delta_native_minus_counterfactual", "mean"
+              ),
+              "heldout_mean_distribution_total_variation_delta": (
+                  "heldout_conditioning", "aggregate_diverse_minus_matched",
+                  "teacher_forced", "mean_distribution_total_variation_native_vs_counterfactual", "mean"
+              ),
+              "heldout_controls_with_sequence_change_delta": (
+                  "heldout_conditioning", "aggregate_diverse_minus_matched",
+                  "grammar_constrained_sequence", "controls_with_sequence_change", "mean"
+              ),
+              "heldout_mean_control_max_total_variation_delta": (
+                  "heldout_conditioning", "aggregate_diverse_minus_matched",
+                  "grammar_constrained_sequence", "mean_control_max_total_variation", "mean"
+              ),
           }
 
           def read_path(payload, path):
