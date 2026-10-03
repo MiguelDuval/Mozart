@@ -274,25 +274,46 @@ class ConditioningFixtureTests(unittest.TestCase):
                 for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines()
                 if line.strip()
             ]
-            probes = json.loads(
+            canonical = json.loads(
+                (root / "sequence-probes.json").read_text(encoding="utf-8")
+            )
+            variant = json.loads(
                 (root / "sequence-probes-v1.json").read_text(encoding="utf-8")
             )
 
+        by_id = {record["source_id"]: record for record in records}
         train_ids = {
             record["source_id"]
             for record in records
             if record["split"] == "train"
         }
-        self.assertEqual(probes["probe_context"], "context-variant-records")
-        self.assertEqual(probes["probe_variant"], 1)
-        for entry in probes["controls"].values():
+        self.assertEqual(variant["probe_context"], "context-variant-records")
+        self.assertEqual(variant["probe_variant"], 1)
+        for control in CONTROL_ORDER:
+            entry = variant["controls"][control]
+            canonical_entry = canonical["controls"][control]
+            self.assertGreater(
+                entry["prefix_length"],
+                canonical_entry["prefix_length"],
+                msg=f"{control} v1 probe did not add independent musical context",
+            )
+            self.assertNotEqual(
+                entry["prefix_tokens"],
+                canonical_entry["prefix_tokens"],
+                msg=f"{control} v1 probe reused canonical context",
+            )
             low_id = entry["low_record_source_id"]
             high_id = entry["high_record_source_id"]
             self.assertIn(low_id, train_ids)
             self.assertIn(high_id, train_ids)
             self.assertIn("-context-v1", low_id)
             self.assertIn("-context-v1", high_id)
-
+            prefix_length = entry["prefix_length"]
+            low = by_id[low_id]
+            high = by_id[high_id]
+            self.assertEqual(low["tokens"][:prefix_length], entry["prefix_tokens"])
+            self.assertEqual(high["tokens"][:prefix_length], entry["prefix_tokens"])
+            self.assertNotEqual(low["tokens"][prefix_length], high["tokens"][prefix_length])
     def test_record_target_hash_matches_midi_bytes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "fixture"
