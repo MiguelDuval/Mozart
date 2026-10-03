@@ -268,6 +268,19 @@ Teacher-forced conditioning did not improve uniformly. The diverse fit increased
 The correct interpretation is therefore that target-context diversity changes the model's generalization/conditioning trade-off rather than simply making conditioning stronger. The lower held-out loss and broader discrete sequence response are encouraging, but the validation split still contains only one mixed control holdout and the experiment uses one random seed. These results are not sufficient to select a production checkpoint.
 
 The next scientific gate should be replication of the matched-vs-diverse comparison across multiple deterministic seeds, preserving the same v2 split, canonical probes, architecture and 480-update budget. The purpose is to estimate whether the validation-loss improvement and broader autoregressive response survive training stochasticity before changing the model architecture or production ABI.
+## Multi-seed context-diversity replication result (v2)
+
+Three deterministic replications of the matched-exposure versus context-diverse experiment completed successfully on corrected fixture v2 with seeds 7, 42 and 123. Each seed preserved the same 480-update budget, architecture, learning rate and canonical five-control probes. The research jobs themselves all passed; the original aggregate step failed only because three identically named seed summary files were flattened into one path, which is now fixed in the replication workflow.
+
+Across seeds, context diversity consistently improved the single held-out validation loss: the diverse-minus-matched delta averaged -10.182218 with sample standard deviation 1.883987. Train loss increased by about 0.272 on each replication because the diverse fit must model distinct target contexts rather than target-identical repeated exposure.
+
+Teacher-forced target-probability directional response decreased by an average 0.054167 (sample SD 0.014434), while target-family directional response decreased by 0.029167 on average (sample SD 0.064145). Mean target-probability lift changed by -0.008125 on average (sample SD 0.014132), and mean legal-distribution TV changed by -0.004938 on average (sample SD 0.021271). These effects are much less stable than the validation-loss improvement and include mixed signs across seeds for family response, target lift and teacher-forced TV.
+
+Grammar-constrained autoregressive response was mixed in discrete sequence count but consistently lower in aggregate TV. The diverse-minus-matched delta for controls with sequence changes averaged +0.333 controls (sample SD 1.528), while mean per-control maximum TV decreased by 0.157608 (sample SD 0.137609). The strongest per-control TV reduction was swing (mean max-TV delta -0.383486); density was the only control with a slightly positive mean max-TV delta (+0.017796).
+
+The three-seed replication therefore supports a narrower conclusion than the single-seed result: context diversity is a robust generalization intervention for this tiny synthetic task, but it is not a uniformly stronger conditioning intervention. In particular, validation loss improved in all three seeds, while exact target-probability responsiveness generally weakened. Because the validation set still contains only one mixed holdout example, these results remain development evidence rather than a production model-selection rule.
+
+The next experiment should separate generalization from conditioning strength more cleanly by expanding the held-out control contexts and repeating the A/B comparison without changing the 480-update budget. Do not freeze the production model ABI or select a production checkpoint from this result alone.
 ## Training
 
 

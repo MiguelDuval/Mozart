@@ -323,7 +323,7 @@ jobs:
         with:
           name: mozart-ml-diversity-replication-seed-${{ matrix.seed }}
           path: |
-            build/ml-context-diversity-summary.json
+            build/ml-context-diversity-summary-seed-${{ matrix.seed }}.json
             build/ml-context-diversity-input-contract.json
           archive: true
           if-no-files-found: error
@@ -361,7 +361,7 @@ jobs:
           from pathlib import Path
 
           summaries = []
-          for path in sorted(Path("build/seed-metrics").glob("mozart-ml-diversity-replication-seed-*.json")):
+          for path in sorted(Path("build/seed-metrics").glob("ml-context-diversity-summary-seed-*.json")):
               payload = json.loads(path.read_text(encoding="utf-8"))
               if "diverse_minus_matched" in payload:
                   summaries.append(payload)
