@@ -212,6 +212,41 @@ def build_fixture(output_dir: Path, *, training_profile: str = "single-axis-only
                     )
                 )
 
+    if training_profile == "matched-single-axis-32":
+        for index, (axis, value_label, context_seed) in enumerate(MATCHED_SINGLE_AXIS_EXTRA_RECORDS):
+            if axis == "base":
+                conditioning = dict(BASE_CONDITIONING)
+                profile = "matched-base-extra"
+            else:
+                conditioning = dict(BASE_CONDITIONING)
+                conditioning[axis] = HIGH_VALUES[axis]
+                profile = f"matched-single-{axis}-high"
+            records.append(
+                _record(
+                    output_dir,
+                    source_id=f"composition-train-matched-extra-{index}",
+                    split="train",
+                    conditioning=conditioning,
+                    context_seed=context_seed,
+                    profile=profile,
+                    fixture_revision=fixture_revision,
+                )
+            )
+
+    if training_profile == "pairwise-multi-axis-40":
+        for profile, axes in PAIRWISE_TRAINING_COMPOSITIONS:
+            for context_seed in TRAIN_CONTEXTS:
+                records.append(
+                    _record(
+                        output_dir,
+                        source_id=f"composition-train-{profile}-{context_seed}",
+                        split="train",
+                        conditioning=_conditioning(axes),
+                        context_seed=context_seed,
+                        profile=f"train-{profile}",
+                        fixture_revision=fixture_revision,
+                    )
+                )
     if training_profile == "sparse-multi-axis":
         held_out_axis_sets = {frozenset(axes) for _, axes in COMPOSITIONS}
         for profile, axes in SPARSE_TRAINING_COMPOSITIONS:
