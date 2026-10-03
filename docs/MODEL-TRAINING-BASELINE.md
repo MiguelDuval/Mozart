@@ -166,12 +166,13 @@ base-target ordering, target identity of the matched baseline, and that each ren
 v1 context actually differs from its v0 base target. The validator also proves
 that the diverse and matched probe definitions are identical apart from their
 intentionally remapped synthetic record IDs, so A/B evaluation cannot silently
-change prefixes or probe profiles. Sequence probes carry explicit
-`probe_context="canonical-base-records"` metadata: diversity variants expand the
-training contexts, while teacher-forced/autoregressive probes remain anchored to the
-canonical base contexts so both A/B fits use the same probe definition. Matched
-teacher-forced probes are remapped to unique synthetic identities instead of reusing
-base fixture IDs. The validator also persists
+change prefixes or probe profiles. The original A/B probes carry explicit
+`probe_context="canonical-base-records"` metadata and remain identical between the
+matched-exposure and context-diverse fits. The cross-context follow-up adds a separate
+v1 probe set built from an independently rendered musical prefix; that v1 definition is
+shared by the matched and diverse models, so any difference is attributable to training
+context diversity rather than a probe mismatch. Matched teacher-forced probes are
+remapped to unique synthetic identities instead of reusing base fixture IDs. The validator also persists
 `build/ml-context-diversity-input-contract.json`, covering both the diverse and
 matched probe sets, including the shared fixture revision, so an experiment artifact
 records the exact dataset/probe integrity checks that preceded training. The final
@@ -179,6 +180,52 @@ A/B summary also embeds this contract and refuses to report `PASS` when the cont
 is missing or failed. This is intentional: a failed sequence
 criterion is evidence worth inspecting, not a reason to discard the checkpoint or
 other measurements.
+
+### Context-diversity cross-context result
+
+Run #227 on commit `86816b098a6dc441b7a5a3ec7f951cfde47b6417` completed the
+independent-context v1 experiment end to end. The input contract passed, PyTorch/ONNX
+evaluation completed for both models, and the final A/B summary reported no missing
+required artifacts. Both fits used seed 42 and exactly 480 optimizer updates.
+
+The matched-exposure fit reached train_loss=0.151701 and validation_loss=18.406799.
+The context-diverse fit reached train_loss=0.451297 and validation_loss=13.099180,
+a diverse-minus-matched validation-loss delta of -5.307619. The held-out validation
+improvement therefore persisted in this independent run; the higher diverse train loss
+is expected under the added context diversity and is not itself evidence of a failure.
+
+The v1 teacher-forced diagnostic uses the same independent prefixes for both models and
+observes 80 target positions. The matched model reached a target-probability directional
+response rate of 0.4625, target-family directional response rate of 0.4375, mean target
+probability delta of -0.001524, mean target-family probability delta of -0.002016,
+mean distribution TV of 0.069946, and 1/5 controls with bidirectional target response.
+The diverse model reached 0.5625, 0.4375, +0.018075, -0.002150, 0.066404, and 2/5
+respectively. Thus context diversity improves the exact-target directional response
+rate on the independent context (+0.100000) and the mean target probability delta
+(+0.019600), while the target-family directional rate is unchanged and mean distribution
+TV changes only slightly (-0.003542). This is evidence of better transfer to the new
+context, not evidence that all five controls became robust.
+
+The v1 grammar-constrained autoregressive diagnostic shows the remaining limitation.
+The matched model changed the generated sequence for 0/5 controls, with mean
+control-max-TV=0.102747 and a minimum of 0.048124; density and energy were below the
+0.05 diagnostic threshold. The diverse model changed 3/5 controls, with mean
+control-max-TV=0.164453 and a minimum of 0.044842; swing was below the threshold.
+The generated streams remained grammar-constrained, and the PyTorch/ONNX control
+distribution measurements were consistent.
+
+The per-control diverse-minus-matched autoregressive changes are density +0.287944
+(max-TV, sequence change +1), energy +0.222797 (+1), swing -0.113336 (0), syncopation
++0.044751 (+1), and variation -0.133629 (0). This confirms that the context-diversity
+effect is control-specific rather than a uniform gain across the five performance
+controls.
+
+Methodologically, the result supports the conclusion that context diversity improves
+generalization to an independent musical context and strengthens some teacher-forced
+control evidence, but it does not by itself solve free-running autoregressive stability.
+The next investigation should therefore remain focused on the gap between teacher-forced
+conditioning and autoregressive control retention. No architecture or conditioning-gain
+change is justified by this experiment alone.
 
 The first follow-up experiment is a grammar-aware training-loss A/B test. With
 `--grammar-constrained-loss`, each next-token cross-entropy term is normalized only
