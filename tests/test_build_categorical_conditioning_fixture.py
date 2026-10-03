@@ -32,7 +32,7 @@ class CategoricalConditioningFixtureTests(unittest.TestCase):
             second = Path(tmp) / "second"
             self.assertEqual(
                 build_fixture(first),
-                {"record_count": 32, "split_counts": {"train": 20, "validation": 2, "test": 10}},
+                {"record_count": 40, "split_counts": {"train": 20, "validation": 10, "test": 10}},
             )
             build_fixture(second)
             self.assertEqual(
@@ -40,8 +40,8 @@ class CategoricalConditioningFixtureTests(unittest.TestCase):
                 (second / "records.jsonl").read_bytes(),
             )
             records = self._records(first)
-            self.assertEqual(len(records), 32)
-            self.assertEqual(len({r["source_id"] for r in records}), 32)
+            self.assertEqual(len(records), 40)
+            self.assertEqual(len({r["source_id"] for r in records}), 40)
             self.assertEqual(
                 {r["split"] for r in records},
                 {"train", "validation", "test"},
@@ -54,6 +54,17 @@ class CategoricalConditioningFixtureTests(unittest.TestCase):
                 {TEST_CONTEXT},
                 {r["context_seed"] for r in records if r["split"] == "test"},
             )
+            self.assertEqual(
+                {r["categorical_axis"] for r in records if r["split"] == "validation"},
+                set(CATEGORICAL_PAIRS),
+            )
+            for axis, (low, high) in CATEGORICAL_PAIRS.items():
+                values = {
+                    r["categorical_value"]
+                    for r in records
+                    if r["split"] == "validation" and r["categorical_axis"] == axis
+                }
+                self.assertEqual(values, {low, high})
             for record in records:
                 self.assertEqual(record["performance_controls"], NEUTRAL_CONTROLS)
 
