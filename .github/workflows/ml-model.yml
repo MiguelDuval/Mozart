@@ -615,8 +615,11 @@ jobs:
           )
           print(json.dumps(summary, indent=2, sort_keys=True))
           PY
+      # workflow_dispatch is the preferred trigger. When the GitHub connector cannot dispatch
+      # workflows, a commit containing [run-diversity-experiment] provides the same explicit opt-in
+      # on non-main branches without making diversity training part of ordinary CI.
       - name: Run context-diversity fit diagnostic
-        if: ${{ inputs.run_diversity_experiment }}
+        if: ${{ github.ref_name != 'main' && (inputs.run_diversity_experiment || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-diversity-experiment]'))) }}
         continue-on-error: true
         shell: bash
         run: |
@@ -890,7 +893,7 @@ jobs:
           set -e
           echo "context-diverse diagnostics: teacher_forced_status=$diverse_teacher_status sequence_status=$diverse_sequence_status"
       - name: Summarize context-diversity experiment
-        if: ${{ always() && inputs.run_diversity_experiment }}
+        if: ${{ always() && github.ref_name != 'main' && (inputs.run_diversity_experiment || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-diversity-experiment]'))) }}
         shell: bash
         run: |
           set -euo pipefail

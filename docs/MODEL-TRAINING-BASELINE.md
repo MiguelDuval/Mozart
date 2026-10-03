@@ -184,7 +184,7 @@ is missing or failed. This is intentional: a failed sequence
 criterion is evidence worth inspecting, not a reason to discard the checkpoint or
 other measurements.
 
-The first follow-up experiment is a grammar-aware training-loss A/B test. With
+The context-diversity A/B experiment is available as a manual CI run via workflow_dispatch. For environments where workflow dispatch cannot be invoked through the available automation interface, an explicit push commit containing `[run-diversity-experiment]` is also supported on non-main branches; ordinary pushes remain unchanged. The first follow-up experiment is a grammar-aware training-loss A/B test. With
 `--grammar-constrained-loss`, each next-token cross-entropy term is normalized only
 over tokens valid for the current frozen MIDI grammar state; the model architecture,
 conditioning inputs, token vocabulary, optimizer budget and 480-update fit-diagnostic
