@@ -203,7 +203,9 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf build/ml-heldout-conditioning-probes
-          python3 tools/build_heldout_conditioning_probe_corpus.py             build/ml-base-conditioning-fixture/validation.jsonl             build/ml-heldout-conditioning-probes
+          python3 tools/build_heldout_conditioning_probe_corpus.py \
+            build/ml-base-conditioning-fixture/validation.jsonl \
+            build/ml-heldout-conditioning-probes
 
           python3 - <<'PY'
           import json
@@ -367,10 +369,30 @@ jobs:
             for context_dir in build/ml-heldout-conditioning-probes/context-*; do
               context_name="$(basename "$context_dir")"
               set +e
-              python3 tools/evaluate_mozart_conditioning_teacher_forced.py                 "$model_dir/development-inference.pt"                 "$context_dir/records.jsonl"                 "$context_dir/sequence-probes.json"                 --config docs/model-training-config.json                 --onnx "$model_dir/model.onnx"                 --window-size 8                 --probe-split validation                 --output "$model_dir/heldout/${context_name}-teacher.json"
+              python3 tools/evaluate_mozart_conditioning_teacher_forced.py \
+                "$model_dir/development-inference.pt" \
+                "$context_dir/records.jsonl" \
+                "$context_dir/sequence-probes.json" \
+                --config docs/model-training-config.json \
+                --onnx "$model_dir/model.onnx" \
+                --window-size 8 \
+                --probe-split validation \
+                --output "$model_dir/heldout/${context_name}-teacher.json"
               teacher_status=$?
 
-              python3 tools/evaluate_mozart_conditioning_sequence.py                 "$model_dir/development-inference.pt"                 --config docs/model-training-config.json                 --onnx "$model_dir/model.onnx"                 --max-generated-tokens 32                 --low-value 0.1                 --high-value 0.9                 --base-value 0.5                 --probe-file "$context_dir/sequence-probes.json"                 --grammar-constrained                 --no-require-divergence                 --require-valid-grammar                 --output "$model_dir/heldout/${context_name}-sequence.json"
+              python3 tools/evaluate_mozart_conditioning_sequence.py \
+                "$model_dir/development-inference.pt" \
+                --config docs/model-training-config.json \
+                --onnx "$model_dir/model.onnx" \
+                --max-generated-tokens 32 \
+                --low-value 0.1 \
+                --high-value 0.9 \
+                --base-value 0.5 \
+                --probe-file "$context_dir/sequence-probes.json" \
+                --grammar-constrained \
+                --no-require-divergence \
+                --require-valid-grammar \
+                --output "$model_dir/heldout/${context_name}-sequence.json"
               sequence_status=$?
               set -e
               echo "$kind $context_name: teacher_forced_status=$teacher_status sequence_status=$sequence_status"
@@ -380,7 +402,11 @@ jobs:
             done
           done
 
-          python3 tools/summarize_mozart_heldout_conditioning.py             build/ml-matched-checkpoint/heldout             build/ml-diverse-checkpoint/heldout             --context-count 4             --output build/ml-heldout-conditioning-summary.json
+          python3 tools/summarize_mozart_heldout_conditioning.py \
+            build/ml-matched-checkpoint/heldout \
+            build/ml-diverse-checkpoint/heldout \
+            --context-count 4 \
+            --output build/ml-heldout-conditioning-summary.json
 
           python3 - <<'PY'
           import json
