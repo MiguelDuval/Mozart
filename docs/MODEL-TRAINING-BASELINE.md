@@ -211,6 +211,50 @@ output remains diagnostic-only. This keeps structural validity and measurable co
 influence as separate checks instead of treating raw autoregressive collapse as a
 production-model signal.
 
+## Corrected v2 fit-diagnostic result
+
+The corrected mozart-conditioning-fixture-v2 experiment was executed successfully in
+GitHub Actions run 37147326682 at commit c30ef15017a714cb8bbb6d7dcda304d2bf485596.
+The fixture's low/high probe pairs now share both renderer seed and stored conditioning
+seed, so these measurements remove the v1 target-generation seed confound.
+
+The regular development checkpoint completed the full 480-update budget at epoch 12 with
+train_loss=0.130827 and validation_loss=20.581295. The final checkpoint still fails the
+unconstrained autoregressive grammar probe: all five control probes can be structurally
+invalid during free-running greedy decoding. This remains diagnostic evidence only and
+does not make the CI job fail.
+
+Teacher-forced evaluation on the corrected fixture observed 80 target positions. The
+regular checkpoint had 55 raw-vocabulary target-top1 positions and 59 grammar-legal
+target-top1 positions. All five independently varied controls showed bidirectional target
+probability response, while only one control had both low/high divergence targets at
+raw target-top1. The target-probability directional response rate was 0.5875, the target
+family directional response rate was 0.425, the mean native-minus-counterfactual target
+probability delta was 0.0363614900, and mean legal-distribution total variation was
+0.0728490066. The mean target-family probability delta was -0.0062887546, reinforcing
+that exact-token movement is a more sensitive signal here than coarse family mass.
+
+The grammar-aware checkpoint completed the same 480-update budget at epoch 12 with
+train_loss=0.144798 and validation_loss=21.311838. Its grammar-constrained autoregressive
+probe passed: all five control paths remained valid for the bounded 32-token rollout,
+and PyTorch/ONNX generated sequences matched. The constrained distribution-response
+criterion also passed with the configured minimum total-variation threshold of 0.05.
+The corresponding teacher-forced report observed 80 positions, with 2 raw target-top1
+positions and 68 grammar-legal target-top1 positions; all five controls again showed
+bidirectional target probability response. Target-probability directional response was
+0.575, target-family directional response was 0.4, mean target-probability lift was
+0.0578539339, and mean legal-distribution total variation was 0.0811333709. Only one
+control reached both legal targets at top-1, and none reached both raw targets at top-1.
+
+These v2 results materially strengthen the methodological case that the conditioning
+signals influence the model, but they do not establish robust production-quality
+conditioning. In particular, the tiny synthetic corpus remains easy to overfit,
+validation loss is unstable, and grammar-constrained validity is being measured over a
+fixed unfinished window rather than a complete generated musical phrase. The next
+scientific step is therefore the manual context-diversity A/B experiment: compare the
+matched-exposure and context-diverse fits under the already frozen 480-update budget,
+using the corrected v2 fixture and identical canonical probes. Do not compare its
+numbers as if they were production-model acceptance metrics.
 ## Training
 
 
