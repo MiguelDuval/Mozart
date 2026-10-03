@@ -70,6 +70,66 @@ def summarize_teacher(report: dict[str, Any] | None) -> dict[str, Any] | None:
     return {key: report.get(key) for key in keys}
 
 
+def summarize_teacher_controls(
+    report: dict[str, Any] | None,
+) -> dict[str, dict[str, Any]] | None:
+    """Retain per-control teacher-forced evidence for paired AR analysis."""
+    if report is None:
+        return None
+    controls = report.get("controls")
+    if not isinstance(controls, dict):
+        return None
+
+    summaries: dict[str, dict[str, Any]] = {}
+    for name in sorted(controls):
+        entry = controls[name]
+        if not isinstance(entry, dict):
+            continue
+        control_effect = entry.get("control_effect")
+        if not isinstance(control_effect, dict):
+            control_effect = {}
+        summaries[name] = {
+            "target_probability_directional_response_rate": entry.get(
+                "target_probability_directional_response_rate"
+            ),
+            "target_family_probability_directional_response_rate": entry.get(
+                "target_family_probability_directional_response_rate"
+            ),
+            "mean_target_probability_delta_native_minus_counterfactual": entry.get(
+                "mean_target_probability_delta_native_minus_counterfactual"
+            ),
+            "mean_target_family_probability_delta_native_minus_counterfactual": entry.get(
+                "mean_target_family_probability_delta_native_minus_counterfactual"
+            ),
+            "mean_distribution_total_variation_native_vs_counterfactual": entry.get(
+                "mean_distribution_total_variation_native_vs_counterfactual"
+            ),
+            "max_distribution_total_variation_native_vs_counterfactual": entry.get(
+                "max_distribution_total_variation_native_vs_counterfactual"
+            ),
+            "native_target_top1_count": entry.get("native_target_top1_count"),
+            "native_legal_target_top1_count": entry.get(
+                "native_legal_target_top1_count"
+            ),
+            "window_step_count": entry.get("window_step_count"),
+            "low_target_probability_lift_native_minus_counterfactual": control_effect.get(
+                "low_target_probability_lift_native_minus_counterfactual"
+            ),
+            "high_target_probability_lift_native_minus_counterfactual": control_effect.get(
+                "high_target_probability_lift_native_minus_counterfactual"
+            ),
+            "low_target_directionally_correct": control_effect.get(
+                "low_target_directionally_correct"
+            ),
+            "high_target_directionally_correct": control_effect.get(
+                "high_target_directionally_correct"
+            ),
+            "low_target_top1": control_effect.get("low_target_top1"),
+            "high_target_top1": control_effect.get("high_target_top1"),
+        }
+    return summaries
+
+
 def summarize_sequence(report: dict[str, Any] | None) -> dict[str, Any] | None:
     if report is None:
         return None
@@ -168,6 +228,104 @@ def compare_experiments(
             ),
         }
     return comparison
+
+
+def summarize_sequence_control(entry: Any) -> dict[str, Any] | None:
+    if not isinstance(entry, dict):
+        return None
+    torch_report = entry.get("torch")
+    if not isinstance(torch_report, dict):
+        return None
+    response = torch_report.get("distribution_response")
+    if not isinstance(response, dict):
+        response = {}
+    return {
+        "sequence_changed": torch_report.get("sequence_changed"),
+        "max_total_variation": response.get("max_total_variation"),
+        "mean_total_variation": response.get("mean_total_variation"),
+    }
+
+
+def compare_teacher_controls(
+    matched: dict[str, Any] | None,
+    diverse: dict[str, Any] | None,
+) -> dict[str, dict[str, Any]] | None:
+    matched_controls = summarize_teacher_controls(matched)
+    diverse_controls = summarize_teacher_controls(diverse)
+    if matched_controls is None or diverse_controls is None:
+        return None
+
+    numeric_keys = (
+        "target_probability_directional_response_rate",
+        "target_family_probability_directional_response_rate",
+        "mean_target_probability_delta_native_minus_counterfactual",
+        "mean_target_family_probability_delta_native_minus_counterfactual",
+        "mean_distribution_total_variation_native_vs_counterfactual",
+        "max_distribution_total_variation_native_vs_counterfactual",
+    )
+    out: dict[str, dict[str, Any]] = {}
+    for name in sorted(set(matched_controls) & set(diverse_controls)):
+        out[name] = {
+            key: subtract(
+                diverse_controls[name].get(key),
+                matched_controls[name].get(key),
+            )
+            for key in numeric_keys
+        }
+        out[name]["native_target_top1_count_delta"] = subtract(
+            diverse_controls[name].get("native_target_top1_count"),
+            matched_controls[name].get("native_target_top1_count"),
+        )
+        out[name]["native_legal_target_top1_count_delta"] = subtract(
+            diverse_controls[name].get("native_legal_target_top1_count"),
+            matched_controls[name].get("native_legal_target_top1_count"),
+        )
+    return out
+
+
+def pair_teacher_and_sequence_controls(
+    matched_teacher: dict[str, Any] | None,
+    diverse_teacher: dict[str, Any] | None,
+    matched_sequence: dict[str, Any] | None,
+    diverse_sequence: dict[str, Any] | None,
+) -> dict[str, dict[str, Any]] | None:
+    matched_teacher_controls = summarize_teacher_controls(matched_teacher)
+    diverse_teacher_controls = summarize_teacher_controls(diverse_teacher)
+    if matched_teacher_controls is None or diverse_teacher_controls is None:
+        return None
+
+    matched_sequence_controls = (
+        matched_sequence.get("controls") if isinstance(matched_sequence, dict) else None
+    )
+    diverse_sequence_controls = (
+        diverse_sequence.get("controls") if isinstance(diverse_sequence, dict) else None
+    )
+    if not isinstance(matched_sequence_controls, dict) or not isinstance(diverse_sequence_controls, dict):
+        return None
+
+    paired: dict[str, dict[str, Any]] = {}
+    names = sorted(
+        set(matched_teacher_controls)
+        & set(diverse_teacher_controls)
+        & set(matched_sequence_controls)
+        & set(diverse_sequence_controls)
+    )
+    for name in names:
+        paired[name] = {
+            "matched": {
+                "teacher_forced": matched_teacher_controls[name],
+                "autoregressive": summarize_sequence_control(
+                    matched_sequence_controls[name]
+                ),
+            },
+            "diverse": {
+                "teacher_forced": diverse_teacher_controls[name],
+                "autoregressive": summarize_sequence_control(
+                    diverse_sequence_controls[name]
+                ),
+            },
+        }
+    return paired
 
 
 def build_summary(
@@ -401,6 +559,20 @@ def build_summary(
                         diverse_sequence_v1,
                     ),
                 },
+                "teacher_forced_per_control": {
+                    "matched": summarize_teacher_controls(matched_teacher_v1),
+                    "diverse": summarize_teacher_controls(diverse_teacher_v1),
+                    "diverse_minus_matched": compare_teacher_controls(
+                        matched_teacher_v1,
+                        diverse_teacher_v1,
+                    ),
+                },
+                "conditioning_retention": pair_teacher_and_sequence_controls(
+                    matched_teacher_v1,
+                    diverse_teacher_v1,
+                    matched_sequence_v1,
+                    diverse_sequence_v1,
+                ),
             },
         },
     }
