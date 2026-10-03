@@ -1,0 +1,403 @@
+name: Mozart ML Diversity Replication
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "feature/**"
+    paths:
+      - ".github/workflows/ml-diversity-replication.yml"
+      - "research/run-diversity-replication.trigger"
+
+concurrency:
+  group: mozart-ml-diversity-replication
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  replicate:
+    if: >-
+      github.ref_name != 'main' &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'push' &&
+          contains(github.event.head_commit.message, '[run-diversity-replication]')
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [7, 42, 123]
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/requirements-onnx-export.txt
+
+      - name: Install pinned ML export toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-cache-dir -r tools/requirements-onnx-export.txt
+
+      - name: Validate research contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_build_conditioning_fixture_corpus.py'
+          python3 -m unittest discover -s tests -p 'test_summarize_mozart_conditioning_ab.py'
+          python3 -m unittest discover -s tests -p 'test_validate_mozart_conditioning_ab.py'
+
+      - name: Build corrected v2 diversity fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build
+          python3 tools/build_conditioning_fixture_corpus.py \
+            build/ml-diverse-conditioning-fixture \
+            --context-variant-count 10
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("build/ml-diverse-conditioning-fixture")
+          records = [json.loads(line) for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+          for split in ("train", "validation"):
+              selected = [record for record in records if record["split"] == split]
+              if not selected:
+                  raise SystemExit(f"missing {split} records")
+              (root / f"{split}.jsonl").write_text(
+                  "".join(json.dumps(record, sort_keys=True) + "\n" for record in selected),
+                  encoding="utf-8",
+              )
+          if len(records) != 22:
+              raise SystemExit(f"expected 22 records, got {len(records)}")
+          if sum(record["split"] == "train" for record in records) != 20:
+              raise SystemExit("expected exactly 20 diverse train records")
+          metadata = json.loads((root / "fixture-metadata.json").read_text(encoding="utf-8"))
+          if metadata["fixture_revision"] != "mozart-conditioning-fixture-v2":
+              raise SystemExit("replication must use corrected fixture v2")
+          PY
+
+      - name: Build matched-exposure baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          base_root = Path("build/ml-conditioning-fixture")
+          if not (base_root / "train.jsonl").exists():
+              base_records = json.loads("{}")
+          PY
+          python3 tools/build_conditioning_fixture_corpus.py build/ml-base-conditioning-fixture
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          base_root = Path("build/ml-base-conditioning-fixture")
+          diverse_root = Path("build/ml-diverse-conditioning-fixture")
+          base_records = [
+              json.loads(line)
+              for line in (base_root / "records.jsonl").read_text(encoding="utf-8").splitlines()
+              if line.strip()
+          ]
+          diverse_records = [
+              json.loads(line)
+              for line in (diverse_root / "train.jsonl").read_text(encoding="utf-8").splitlines()
+              if line.strip()
+          ]
+          base_records = [record for record in base_records if record["split"] == "train"]
+          if len(base_records) != 10 or len(diverse_records) != 20:
+              raise SystemExit("replication expects 10 base and 20 diverse train records")
+
+          base_by_profile = {record["source_path"]: record for record in base_records}
+          matched = []
+          matched_id_by_base_id = {}
+          for index, diverse in enumerate(diverse_records):
+              profile_path = diverse["source_path"].replace("-v1.mid", "-v0.mid")
+              base = base_by_profile.get(profile_path)
+              if base is None:
+                  raise SystemExit(f"no base target for {profile_path!r}")
+              duplicate = dict(base)
+              duplicate["source_id"] = f"{base['source_id']}-matched-{index:02d}"
+              if duplicate["performance_controls"] != diverse["performance_controls"]:
+                  raise SystemExit(f"control mismatch at position {index}")
+              matched.append(duplicate)
+              matched_id_by_base_id.setdefault(base["source_id"], duplicate["source_id"])
+
+          if len({record["source_id"] for record in matched}) != 20:
+              raise SystemExit("matched source identities must be unique")
+
+          probes = json.loads(
+              (diverse_root / "sequence-probes.json").read_text(encoding="utf-8")
+          )
+          for entry in probes["controls"].values():
+              for field in ("low_record_source_id", "high_record_source_id"):
+                  source_id = entry[field]
+                  if source_id not in matched_id_by_base_id:
+                      raise SystemExit(f"matched probe references unavailable base source {source_id!r}")
+                  entry[field] = matched_id_by_base_id[source_id]
+
+          Path("build/ml-matched-sequence-probes.json").write_text(
+              json.dumps(probes, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          Path("build/ml-matched-train.jsonl").write_text(
+              "".join(json.dumps(record, sort_keys=True) + "\n" for record in matched),
+              encoding="utf-8",
+          )
+          PY
+
+          python3 tools/validate_mozart_conditioning_ab.py \
+            --base-train-jsonl build/ml-base-conditioning-fixture/train.jsonl \
+            --diverse-train-jsonl build/ml-diverse-conditioning-fixture/train.jsonl \
+            --matched-train-jsonl build/ml-matched-train.jsonl \
+            --probe-json build/ml-diverse-conditioning-fixture/sequence-probes.json \
+            --matched-probe-json build/ml-matched-sequence-probes.json \
+            > build/ml-context-diversity-input-contract.json
+          cat build/ml-context-diversity-input-contract.json
+
+      - name: Fit matched-exposure baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/train_mozart_model.py \
+            build/ml-matched-train.jsonl \
+            --validation-jsonl build/ml-base-conditioning-fixture/validation.jsonl \
+            --output-dir build/ml-matched-checkpoint \
+            --epochs 12 \
+            --batch-size 4 \
+            --repeat-train-records 8 \
+            --learning-rate 3e-4 \
+            --fit-diagnostic \
+            --seed ${{ matrix.seed }} \
+            --device cpu
+          python3 - <<'PY'
+          import torch
+          checkpoint = torch.load("build/ml-matched-checkpoint/latest.pt", map_location="cpu", weights_only=False)
+          if checkpoint.get("total_optimizer_updates") != 480:
+              raise SystemExit("matched fit must contain exactly 480 optimizer updates")
+          if checkpoint.get("repeat_train_records") != 8:
+              raise SystemExit("matched fit must use repeat factor 8")
+          inference = {key: checkpoint[key] for key in (
+              "model_id", "config", "epoch", "seed", "train_loss",
+              "validation_loss", "grammar_constrained_loss", "model_state",
+          )}
+          torch.save(inference, "build/ml-matched-checkpoint/development-inference.pt")
+          PY
+
+      - name: Fit context-diverse model
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/train_mozart_model.py \
+            build/ml-diverse-conditioning-fixture/train.jsonl \
+            --validation-jsonl build/ml-diverse-conditioning-fixture/validation.jsonl \
+            --output-dir build/ml-diverse-checkpoint \
+            --epochs 12 \
+            --batch-size 4 \
+            --repeat-train-records 8 \
+            --learning-rate 3e-4 \
+            --fit-diagnostic \
+            --seed ${{ matrix.seed }} \
+            --device cpu
+          python3 - <<'PY'
+          import torch
+          checkpoint = torch.load("build/ml-diverse-checkpoint/latest.pt", map_location="cpu", weights_only=False)
+          if checkpoint.get("total_optimizer_updates") != 480:
+              raise SystemExit("diverse fit must contain exactly 480 optimizer updates")
+          if checkpoint.get("repeat_train_records") != 8:
+              raise SystemExit("diverse fit must use repeat factor 8")
+          inference = {key: checkpoint[key] for key in (
+              "model_id", "config", "epoch", "seed", "train_loss",
+              "validation_loss", "grammar_constrained_loss", "model_state",
+          )}
+          torch.save(inference, "build/ml-diverse-checkpoint/development-inference.pt")
+          PY
+
+      - name: Evaluate matched and diverse fits
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for kind in matched diverse; do
+            if [[ "$kind" == "matched" ]]; then
+              model_dir="build/ml-matched-checkpoint"
+              train_jsonl="build/ml-matched-train.jsonl"
+              probe_json="build/ml-matched-sequence-probes.json"
+            else
+              model_dir="build/ml-diverse-checkpoint"
+              train_jsonl="build/ml-diverse-conditioning-fixture/train.jsonl"
+              probe_json="build/ml-diverse-conditioning-fixture/sequence-probes.json"
+            fi
+
+            python3 tools/export_mozart_onnx.py \
+              "$model_dir/development-inference.pt" \
+              "$model_dir/model.onnx" \
+              --config docs/model-training-config.json \
+              --sequence-length 16 \
+              --opset 18
+
+            set +e
+            python3 tools/evaluate_mozart_conditioning_teacher_forced.py \
+              "$model_dir/development-inference.pt" \
+              "$train_jsonl" \
+              "$probe_json" \
+              --config docs/model-training-config.json \
+              --onnx "$model_dir/model.onnx" \
+              --window-size 8 \
+              --output "$model_dir/conditioning-teacher-forced.json"
+            teacher_status=$?
+
+            python3 tools/evaluate_mozart_conditioning_sequence.py \
+              "$model_dir/development-inference.pt" \
+              --config docs/model-training-config.json \
+              --onnx "$model_dir/model.onnx" \
+              --max-generated-tokens 32 \
+              --low-value 0.1 \
+              --high-value 0.9 \
+              --base-value 0.5 \
+              --probe-file "$probe_json" \
+              --grammar-constrained \
+              --no-require-divergence \
+              --require-valid-grammar \
+              --require-distribution-response \
+              --min-distribution-total-variation 0.05 \
+              --seed ${{ matrix.seed }} \
+              --output "$model_dir/conditioning-sequence-grammar-constrained.json"
+            sequence_status=$?
+            set -e
+            echo "$kind diagnostics: teacher_forced_status=$teacher_status sequence_status=$sequence_status"
+          done
+
+          python3 tools/summarize_mozart_conditioning_ab.py \
+            --baseline-dir build/ml-matched-checkpoint \
+            --matched-dir build/ml-matched-checkpoint \
+            --diverse-dir build/ml-diverse-checkpoint \
+            --input-contract build/ml-context-diversity-input-contract.json \
+            --output build/ml-context-diversity-summary.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("build/ml-context-diversity-summary.json")
+          summary = json.loads(p.read_text(encoding="utf-8"))
+          summary["replication_seed"] = int("${{ matrix.seed }}")
+          p.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(json.dumps(summary, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload seed metrics
+        uses: actions/upload-artifact@v7
+        with:
+          name: mozart-ml-diversity-replication-seed-${{ matrix.seed }}
+          path: |
+            build/ml-context-diversity-summary.json
+            build/ml-context-diversity-input-contract.json
+          archive: true
+          if-no-files-found: error
+          retention-days: 14
+
+  aggregate:
+    if: >-
+      github.ref_name != 'main' &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'push' &&
+          contains(github.event.head_commit.message, '[run-diversity-replication]')
+        )
+      )
+    needs: replicate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Download seed metrics
+        uses: actions/download-artifact@v7
+        with:
+          pattern: mozart-ml-diversity-replication-seed-*
+          merge-multiple: true
+          path: build/seed-metrics
+
+      - name: Aggregate replication statistics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import math
+          from pathlib import Path
+
+          summaries = []
+          for path in sorted(Path("build/seed-metrics").glob("mozart-ml-diversity-replication-seed-*.json")):
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              if "diverse_minus_matched" in payload:
+                  summaries.append(payload)
+
+          seeds = [entry.get("replication_seed") for entry in summaries]
+          if len(summaries) != 3 or sorted(seeds) != [7, 42, 123]:
+              raise SystemExit(f"expected all three seed summaries, got {seeds!r}")
+
+          paths = {
+              "validation_loss_delta": ("diverse_minus_matched", "fit", "validation_loss_delta"),
+              "target_probability_directional_response_rate_delta": ("diverse_minus_matched", "teacher_forced", "target_probability_directional_response_rate_delta"),
+              "target_family_probability_directional_response_rate_delta": ("diverse_minus_matched", "teacher_forced", "target_family_probability_directional_response_rate_delta"),
+              "mean_target_probability_delta_delta": ("diverse_minus_matched", "teacher_forced", "mean_target_probability_delta_delta"),
+              "mean_distribution_total_variation_delta": ("diverse_minus_matched", "teacher_forced", "mean_distribution_total_variation_delta"),
+              "controls_with_sequence_change_delta": ("diverse_minus_matched", "grammar_constrained_sequence", "controls_with_sequence_change_delta"),
+              "mean_control_max_total_variation_delta": ("diverse_minus_matched", "grammar_constrained_sequence", "mean_control_max_total_variation_delta"),
+          }
+
+          def read_path(payload, path):
+              current = payload
+              for key in path:
+                  current = current[key]
+              return float(current)
+
+          def summarize(metric_path):
+              vals = [read_path(summary, metric_path) for summary in summaries]
+              mean = sum(vals) / len(vals)
+              variance = sum((value - mean) ** 2 for value in vals) / (len(vals) - 1)
+              return {
+                  "mean": mean,
+                  "sample_stddev": math.sqrt(variance),
+                  "per_seed": dict(zip(seeds, vals)),
+              }
+
+          out = {
+              "schema_version": 1,
+              "fixture_revision": "mozart-conditioning-fixture-v2",
+              "seeds": sorted(seeds),
+              "replication_count": len(summaries),
+              "metrics": {name: summarize(path) for name, path in paths.items()},
+              "status": "PASS",
+          }
+          Path("build").mkdir(parents=True, exist_ok=True)
+          Path("build/ml-diversity-replication-summary.json").write_text(
+              json.dumps(out, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(out, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload replication summary
+        uses: actions/upload-artifact@v7
+        with:
+          name: mozart-ml-diversity-replication-summary
+          path: build/ml-diversity-replication-summary.json
+          archive: true
+          if-no-files-found: error
+          retention-days: 14
