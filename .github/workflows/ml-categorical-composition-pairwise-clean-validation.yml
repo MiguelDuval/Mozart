@@ -1,0 +1,278 @@
+name: Mozart ML Categorical Composition Pairwise Clean Validation
+
+on:
+  push:
+    branches:
+      - "feature/categorical-composition-pairwise-clean-validation"
+    paths:
+      - ".github/workflows/ml-categorical-composition-pairwise-clean-validation.yml"
+      - "tools/build_categorical_composition_fixture.py"
+      - "tests/test_build_categorical_composition_fixture.py"
+      - "tools/evaluate_mozart_categorical_composition.py"
+      - "tools/export_mozart_onnx.py"
+      - "tools/train_mozart_model.py"
+      - "tools/mozart_model.py"
+      - "tools/mozart_conditioning.py"
+      - "tools/mozart_token_grammar.py"
+      - "docs/model-training-config.json"
+      - "tools/requirements-onnx-export.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pairwise-clean-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/requirements-onnx-export.txt
+
+      - name: Install pinned ML export toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-cache-dir -r tools/requirements-onnx-export.txt
+
+      - name: Test coverage fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_build_categorical_composition_fixture.py'
+          python3 -m unittest discover -s tests -p 'test_evaluate_mozart_categorical_composition.py'
+          python3 -m py_compile tools/build_categorical_composition_fixture.py
+
+      - name: Build pairwise fixture and unseen 3+ validation/test views
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=build/ml-categorical-composition-pairwise-clean
+          rm -rf "$ROOT"
+          mkdir -p "$ROOT"
+
+          python3 tools/build_categorical_composition_fixture.py \
+            "$ROOT/fixture" \
+            --training-profile pairwise-multi-axis-40
+
+          python3 - "$ROOT/fixture" "$ROOT/validation-3plus.jsonl" "$ROOT/test-3plus.jsonl" "$ROOT/probes-3plus.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          root, validation_out, test_out, probes_out = map(Path, sys.argv[1:])
+          records = [
+              json.loads(line)
+              for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines()
+              if line
+          ]
+          selected_names = set()
+
+          for record in records:
+              if record["split"] in {"validation", "test"} and len(record["composition_axes"]) >= 3:
+                  selected_names.add(record["composition_profile"])
+
+          for record in records:
+              if record["split"] == "test" and record["composition_profile"].endswith("-base"):
+                  selected_names.add(record["composition_profile"])
+
+          def write_split(path, split):
+              selected = [
+                  record
+                  for record in records
+                  if record["split"] == split
+                  and (
+                      record["composition_profile"] in selected_names
+                      or record["composition_profile"].removesuffix("-base") in selected_names
+                  )
+              ]
+              path.write_text(
+                  "".join(json.dumps(record, sort_keys=True) + "\n" for record in selected),
+                  encoding="utf-8",
+              )
+              return len(selected)
+
+          validation_count = write_split(validation_out, "validation")
+          test_count = write_split(test_out, "test")
+
+          probes = json.loads(
+              (root / "composition-probes.json").read_text(encoding="utf-8")
+          )
+          probes["compositions"] = {
+              name: value
+              for name, value in probes["compositions"].items()
+              if len(value["axes"]) >= 3
+          }
+          probes_out.write_text(
+              json.dumps(probes, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+
+          if len(probes["compositions"]) != 7:
+              raise SystemExit("expected exactly seven unseen 3+ axis profiles")
+          if validation_count != 7 or test_count != 14:
+              raise SystemExit(
+                  f"unexpected filtered split sizes validation={validation_count} test={test_count}"
+              )
+          print(
+              f"FILTERED unseen validation/test profiles={len(probes['compositions'])} "
+              f"validation_records={validation_count} test_records={test_count}"
+          )
+          PY
+
+      - name: Train pairwise model with unseen-only validation selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=build/ml-categorical-composition-pairwise-clean
+
+          python3 tools/train_mozart_model.py \
+            "$ROOT/fixture/train.jsonl" \
+            --validation-jsonl "$ROOT/validation-3plus.jsonl" \
+            --output-dir "$ROOT/checkpoint" \
+            --epochs 12 \
+            --batch-size 4 \
+            --repeat-train-records 4 \
+            --learning-rate 3e-4 \
+            --fit-diagnostic \
+            --seed 42 \
+            --device cpu
+
+          python3 - "$ROOT/checkpoint" <<'PY'
+          import json
+          import math
+          import sys
+          from pathlib import Path
+          import torch
+
+          root = Path(sys.argv[1])
+          latest = torch.load(root / "latest.pt", map_location="cpu", weights_only=False)
+          best = torch.load(root / "best.pt", map_location="cpu", weights_only=False)
+
+          expected = {
+              "total_optimizer_updates": 480,
+              "epoch": 12,
+              "fit_diagnostic": True,
+              "repeat_train_records": 4,
+              "seed": 42,
+          }
+          for key, value in expected.items():
+              if latest.get(key) != value:
+                  raise SystemExit(
+                      f"checkpoint assertion failed {key}: {latest.get(key)!r} != {value!r}"
+                  )
+          for field in ("train_loss", "validation_loss"):
+              if not isinstance(latest.get(field), (int, float)) or not math.isfinite(latest[field]):
+                  raise SystemExit(f"latest {field} is not finite")
+          if not isinstance(best.get("validation_loss"), (int, float)) or not math.isfinite(best["validation_loss"]):
+              raise SystemExit("best validation_loss is not finite")
+
+          torch.save(
+              {
+                  "model_id": best["model_id"],
+                  "config": best["config"],
+                  "epoch": best["epoch"],
+                  "seed": best["seed"],
+                  "train_loss": best["train_loss"],
+                  "validation_loss": best["validation_loss"],
+                  "model_state": best["model_state"],
+              },
+              root / "checkpoint" / "development-inference.pt",
+          )
+          (root / "run-metadata.json").write_text(
+              json.dumps(
+                  {
+                      "training_regime": "pairwise-multi-axis-40",
+                      "seed": 42,
+                      "epochs": 12,
+                      "batch_size": 4,
+                      "repeat_train_records": 4,
+                      "optimizer_updates": 480,
+                      "validation_profiles": 7,
+                      "validation_policy": "unseen-3-plus-only",
+                      "selected_epoch": int(best["epoch"]),
+                      "selected_validation_loss": float(best["validation_loss"]),
+                  },
+                  indent=2,
+                  sort_keys=True,
+              ) + "\n",
+              encoding="utf-8",
+          )
+          print(
+              f"SELECTED pairwise-clean-validation: epoch={best['epoch']} "
+              f"validation_loss={best['validation_loss']:.6f}"
+          )
+          PY
+
+      - name: Export and evaluate pairwise model
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=build/ml-categorical-composition-pairwise-clean
+
+          python3 tools/export_mozart_onnx.py \
+            "$ROOT/checkpoint/development-inference.pt" \
+            "$ROOT/model.onnx" \
+            --config docs/model-training-config.json \
+            --sequence-length 64 \
+            --opset 18
+
+          python3 tools/evaluate_mozart_categorical_composition.py \
+            "$ROOT/checkpoint/development-inference.pt" \
+            "$ROOT/test-3plus.jsonl" \
+            "$ROOT/probes-3plus.json" \
+            --config docs/model-training-config.json \
+            --onnx "$ROOT/model.onnx" \
+            --window-size 8 \
+            --max-generated-tokens 32 \
+            --output "$ROOT/pairwise-clean-report.json"
+
+          python3 - "$ROOT/run-metadata.json" "$ROOT/pairwise-clean-report.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          metadata_path, report_path = map(Path, sys.argv[1:])
+          metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          report["training_regime"] = "pairwise-multi-axis-40"
+          report["experiment_regime"] = "pairwise-clean-validation"
+          report["selected_epoch"] = metadata["selected_epoch"]
+          report["selected_validation_loss"] = metadata["selected_validation_loss"]
+          report_path.write_text(
+              json.dumps(report, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          if report.get("status") != "PASS":
+              raise SystemExit(f"evaluator returned {report.get('status')}")
+          print(
+              f"EVALUATED pairwise-clean-validation: "
+              f"selected_epoch={metadata['selected_epoch']} "
+              f"validation_loss={metadata['selected_validation_loss']:.6f}"
+          )
+          PY
+
+      - name: Publish clean pairwise evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mozart-categorical-composition-pairwise-clean-validation
+          path: |
+            build/ml-categorical-composition-pairwise-clean/run-metadata.json
+            build/ml-categorical-composition-pairwise-clean/pairwise-clean-report.json
+            build/ml-categorical-composition-pairwise-clean/validation-3plus.jsonl
+            build/ml-categorical-composition-pairwise-clean/test-3plus.jsonl
+            build/ml-categorical-composition-pairwise-clean/probes-3plus.json
+            build/ml-categorical-composition-pairwise-clean/fixture/fixture-metadata.json
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 6
+          overwrite: false
