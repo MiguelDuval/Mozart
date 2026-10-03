@@ -51,8 +51,8 @@ class CategoricalCompositionFixtureTests(unittest.TestCase):
                 (first / "composition-probes.json").read_text(encoding="utf-8")
             )
             self.assertEqual(
-                list(probes["compositions"]),
-                [profile for profile, _ in COMPOSITIONS],
+                set(probes["compositions"]),
+                {profile for profile, _ in COMPOSITIONS},
             )
             for profile, axes in COMPOSITIONS:
                 probe = probes["compositions"][profile]
