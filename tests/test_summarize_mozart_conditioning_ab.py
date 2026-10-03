@@ -258,7 +258,9 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
 
         v1 = summary["diverse_minus_matched"]["cross_context_v1"]
         self.assertAlmostEqual(
-            v1["teacher_forced_per_control"]["density"]["target_probability_directional_response_rate"],
+            v1["teacher_forced_per_control"]["matched"]["density"][
+                "target_probability_directional_response_rate"
+            ],
             0.45,
         )
         self.assertAlmostEqual(
