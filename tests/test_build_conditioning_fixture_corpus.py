@@ -212,7 +212,7 @@ class ConditioningFixtureTests(unittest.TestCase):
         self.assertEqual(len(records), 26)
         self.assertEqual(
             len({record["source_id"] for record in records}),
-            22,
+            26,
         )
         self.assertEqual(metadata["context_variant_count"], 10)
         split_counts = {
