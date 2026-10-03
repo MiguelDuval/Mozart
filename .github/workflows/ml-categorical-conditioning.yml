@@ -1,0 +1,151 @@
+name: Mozart ML Categorical Conditioning
+
+on:
+  push:
+    branches:
+      - "feature/categorical-conditioning-diagnostic"
+    paths:
+      - ".github/workflows/ml-categorical-conditioning.yml"
+      - "tools/build_categorical_conditioning_fixture.py"
+      - "tools/evaluate_mozart_categorical_conditioning.py"
+      - "tests/test_build_categorical_conditioning_fixture.py"
+      - "tools/mozart_model.py"
+      - "tools/mozart_conditioning.py"
+      - "tools/mozart_token_grammar.py"
+      - "tools/midi_to_training_example.py"
+      - "tools/build_fixture_corpus.py"
+      - "tools/export_mozart_onnx.py"
+      - "docs/model-training-config.json"
+      - "tools/requirements-onnx-export.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  categorical-conditioning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/requirements-onnx-export.txt
+
+      - name: Install pinned ML export toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-cache-dir -r tools/requirements-onnx-export.txt
+
+      - name: Test categorical fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_build_categorical_conditioning_fixture.py'
+          python3 -m py_compile \
+            tools/build_categorical_conditioning_fixture.py \
+            tools/evaluate_mozart_categorical_conditioning.py
+
+      - name: Build categorical conditioning fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/ml-categorical-fixture build/ml-categorical-checkpoint
+          python3 tools/build_categorical_conditioning_fixture.py build/ml-categorical-fixture
+
+      - name: Train categorical conditioning checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/train_mozart_model.py \
+            build/ml-categorical-fixture/train.jsonl \
+            --validation-jsonl build/ml-categorical-fixture/validation.jsonl \
+            --output-dir build/ml-categorical-checkpoint \
+            --epochs 12 \
+            --batch-size 4 \
+            --repeat-train-records 8 \
+            --learning-rate 3e-4 \
+            --fit-diagnostic \
+            --seed 42 \
+            --device cpu
+
+          python3 - <<'PY'
+          import math
+          import torch
+
+          checkpoint = torch.load(
+              "build/ml-categorical-checkpoint/latest.pt",
+              map_location="cpu",
+              weights_only=False,
+          )
+          if checkpoint.get("total_optimizer_updates") != 480:
+              raise SystemExit("categorical fit must contain exactly 480 optimizer updates")
+          if checkpoint.get("epoch") != 12:
+              raise SystemExit("categorical fit must reach epoch 12")
+          if checkpoint.get("fit_diagnostic") is not True:
+              raise SystemExit("categorical fit must use fit-diagnostic mode")
+          loss = checkpoint.get("train_loss")
+          if not isinstance(loss, (int, float)) or not math.isfinite(loss):
+              raise SystemExit("categorical fit train_loss must be finite")
+
+          torch.save(
+              {
+                  "model_id": checkpoint["model_id"],
+                  "config": checkpoint["config"],
+                  "epoch": checkpoint["epoch"],
+                  "seed": checkpoint["seed"],
+                  "train_loss": checkpoint["train_loss"],
+                  "validation_loss": checkpoint["validation_loss"],
+                  "model_state": checkpoint["model_state"],
+              },
+              "build/ml-categorical-checkpoint/development-inference.pt",
+          )
+          PY
+
+      - name: Export categorical ONNX model
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/export_mozart_onnx.py \
+            build/ml-categorical-checkpoint/development-inference.pt \
+            build/ml-categorical-checkpoint/model.onnx \
+            --config docs/model-training-config.json \
+            --sequence-length 64 \
+            --opset 18
+
+      - name: Evaluate categorical conditioning
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/evaluate_mozart_categorical_conditioning.py \
+            build/ml-categorical-checkpoint/development-inference.pt \
+            build/ml-categorical-fixture/test.jsonl \
+            build/ml-categorical-fixture/sequence-probes.json \
+            --config docs/model-training-config.json \
+            --onnx build/ml-categorical-checkpoint/model.onnx \
+            --window-size 8 \
+            --max-generated-tokens 32 \
+            --output build/ml-categorical-checkpoint/categorical-conditioning-report.json
+
+      - name: Publish categorical diagnostic artifacts
+        if: success() || failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mozart-categorical-conditioning
+          path: |
+            build/ml-categorical-checkpoint/**
+            build/ml-categorical-fixture/records.jsonl
+            build/ml-categorical-fixture/train.jsonl
+            build/ml-categorical-fixture/validation.jsonl
+            build/ml-categorical-fixture/test.jsonl
+            build/ml-categorical-fixture/sequence-probes.json
+            build/ml-categorical-fixture/fixture-metadata.json
+          if-no-files-found: warn
+          retention-days: 14
