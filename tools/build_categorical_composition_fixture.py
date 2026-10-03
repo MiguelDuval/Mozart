@@ -308,11 +308,17 @@ def build_fixture(output_dir: Path, *, training_profile: str = "single-axis-only
         split: sum(record["split"] == split for record in records)
         for split in ("train", "validation", "test")
     }
-    expected_counts = (
-        {"train": 20, "validation": 10, "test": 20}
-        if training_profile == "single-axis-only"
-        else {"train": 32, "validation": 10, "test": 20}
-    )
+    expected_train_counts = {
+        "single-axis-only": 20,
+        "matched-single-axis-32": 32,
+        "sparse-multi-axis": 32,
+        "pairwise-multi-axis-40": 40,
+    }
+    expected_counts = {
+        "train": expected_train_counts[training_profile],
+        "validation": 10,
+        "test": 20,
+    }
     expected_total = sum(expected_counts.values())
     if len(records) != expected_total or counts != expected_counts:
         raise RuntimeError(f"unexpected composition fixture shape: records={len(records)} splits={counts}")
@@ -383,6 +389,25 @@ def build_fixture(output_dir: Path, *, training_profile: str = "single-axis-only
             if training_profile == "sparse-multi-axis"
             else []
         ),
+        "pairwise_training_compositions": (
+            [profile for profile, _ in PAIRWISE_TRAINING_COMPOSITIONS]
+            if training_profile == "pairwise-multi-axis-40"
+            else []
+        ),
+        "matched_single_axis_extra_record_count": (
+            len(MATCHED_SINGLE_AXIS_EXTRA_RECORDS)
+            if training_profile == "matched-single-axis-32"
+            else 0
+        ),
+        "pairwise_direct_test_overlap_profiles": (
+            [
+                profile
+                for profile, axes in COMPOSITIONS
+                if len(axes) == 2
+            ]
+            if training_profile == "pairwise-multi-axis-40"
+            else []
+        ),
         "split_counts": counts,
         "test_context_seed": TEST_CONTEXT,
     }
@@ -398,7 +423,7 @@ def main() -> int:
     parser.add_argument("output_dir", type=Path)
     parser.add_argument(
         "--training-profile",
-        choices=("single-axis-only", "sparse-multi-axis"),
+        choices=("single-axis-only", "matched-single-axis-32", "sparse-multi-axis", "pairwise-multi-axis-40"),
         default="single-axis-only",
     )
     args = parser.parse_args()
