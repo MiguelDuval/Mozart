@@ -39,6 +39,14 @@ HIGH_VALUES = {
 }
 TRAIN_CONTEXTS = (101, 707)
 VALIDATION_CONTEXTS = (3001, 3002)
+SPARSE_TRAINING_COMPOSITIONS = (
+    ("style+substyle", ("style", "substyle")),
+    ("style+role", ("style", "role")),
+    ("substyle+mood", ("substyle", "mood")),
+    ("mood+role", ("mood", "role")),
+    ("substyle+rhythm", ("substyle", "rhythm")),
+    ("rhythm+role", ("rhythm", "role")),
+)
 TEST_CONTEXT = 1901
 COMPOSITIONS = (
     ("style+rhythm", ("style", "rhythm")),
@@ -104,6 +112,7 @@ def _record(
     conditioning: dict[str, str],
     context_seed: int,
     profile: str,
+    fixture_revision: str = FIXTURE_REVISION,
 ) -> dict:
     validate_conditioning(**conditioning, seed=0)
     filename = f"{profile.replace('+', '-')}-context-{context_seed}.mid"
@@ -118,7 +127,7 @@ def _record(
     record = build_example(
         midi_path,
         source_id=source_id,
-        source_revision=FIXTURE_REVISION,
+        source_revision=fixture_revision,
         source_path=f"midi/{filename}",
         **conditioning,
         seed=50000 + context_seed,
@@ -136,11 +145,19 @@ def _record(
     return record
 
 
-def build_fixture(output_dir: Path) -> dict:
+def build_fixture(output_dir: Path, *, training_profile: str = "single-axis-only") -> dict:
     if output_dir.exists() and any(output_dir.iterdir()):
         raise ValueError(f"output directory must be empty: {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "midi").mkdir()
+
+    if training_profile not in {"single-axis-only", "sparse-multi-axis"}:
+        raise ValueError(f"unsupported training profile: {training_profile!r}")
+    fixture_revision = (
+        FIXTURE_REVISION
+        if training_profile == "single-axis-only"
+        else f"{FIXTURE_REVISION}-sparse-coverage"
+    )
 
     records: list[dict] = []
 
@@ -157,6 +174,25 @@ def build_fixture(output_dir: Path) -> dict:
                         conditioning=conditioning,
                         context_seed=context_seed,
                         profile=f"single-{axis}-{value_label}",
+                        fixture_revision=fixture_revision,
+                    )
+                )
+
+    if training_profile == "sparse-multi-axis":
+        held_out_axis_sets = {frozenset(axes) for _, axes in COMPOSITIONS}
+        for profile, axes in SPARSE_TRAINING_COMPOSITIONS:
+            if frozenset(axes) in held_out_axis_sets:
+                raise RuntimeError(f"sparse training composition overlaps held-out profile: {profile}")
+            for context_seed in TRAIN_CONTEXTS:
+                records.append(
+                    _record(
+                        output_dir,
+                        source_id=f"composition-train-{profile}-{context_seed}",
+                        split="train",
+                        conditioning=_conditioning(axes),
+                        context_seed=context_seed,
+                        profile=f"train-{profile}",
+                        fixture_revision=fixture_revision,
                     )
                 )
 
@@ -169,6 +205,7 @@ def build_fixture(output_dir: Path) -> dict:
                 conditioning=_conditioning(axes),
                 context_seed=VALIDATION_CONTEXTS[index % len(VALIDATION_CONTEXTS)],
                 profile=profile,
+                fixture_revision=fixture_revision,
             )
         )
 
@@ -182,6 +219,7 @@ def build_fixture(output_dir: Path) -> dict:
                 conditioning=dict(BASE_CONDITIONING),
                 context_seed=TEST_CONTEXT,
                 profile=f"{profile}-base",
+                fixture_revision=fixture_revision,
             )
         )
         test_records.append(
@@ -192,6 +230,7 @@ def build_fixture(output_dir: Path) -> dict:
                 conditioning=_conditioning(axes),
                 context_seed=TEST_CONTEXT,
                 profile=profile,
+                fixture_revision=fixture_revision,
             )
         )
     records.extend(test_records)
@@ -200,7 +239,13 @@ def build_fixture(output_dir: Path) -> dict:
         split: sum(record["split"] == split for record in records)
         for split in ("train", "validation", "test")
     }
-    if len(records) != 50 or counts != {"train": 20, "validation": 10, "test": 20}:
+    expected_counts = (
+        {"train": 20, "validation": 10, "test": 20}
+        if training_profile == "single-axis-only"
+        else {"train": 32, "validation": 10, "test": 20}
+    )
+    expected_total = sum(expected_counts.values())
+    if len(records) != expected_total or counts != expected_counts:
         raise RuntimeError(f"unexpected composition fixture shape: records={len(records)} splits={counts}")
 
     (output_dir / "records.jsonl").write_text(
@@ -260,10 +305,15 @@ def build_fixture(output_dir: Path) -> dict:
     metadata = {
         "schema_version": 1,
         "status": "synthetic-categorical-composition-fixture",
-        "fixture_revision": FIXTURE_REVISION,
+        "fixture_revision": fixture_revision,
         "production_use": False,
-        "training_regime": "single-axis-only",
+        "training_regime": training_profile,
         "composition_profiles": [profile for profile, _ in COMPOSITIONS],
+        "sparse_training_compositions": (
+            [profile for profile, _ in SPARSE_TRAINING_COMPOSITIONS]
+            if training_profile == "sparse-multi-axis"
+            else []
+        ),
         "split_counts": counts,
         "test_context_seed": TEST_CONTEXT,
     }
@@ -277,9 +327,14 @@ def build_fixture(output_dir: Path) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output_dir", type=Path)
+    parser.add_argument(
+        "--training-profile",
+        choices=("single-axis-only", "sparse-multi-axis"),
+        default="single-axis-only",
+    )
     args = parser.parse_args()
     try:
-        result = build_fixture(args.output_dir)
+        result = build_fixture(args.output_dir, training_profile=args.training_profile)
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=__import__("sys").stderr)
         return 1
