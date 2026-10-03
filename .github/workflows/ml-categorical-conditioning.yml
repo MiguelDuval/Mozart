@@ -9,6 +9,7 @@ on:
       - "tools/build_categorical_conditioning_fixture.py"
       - "tools/evaluate_mozart_categorical_conditioning.py"
       - "tests/test_build_categorical_conditioning_fixture.py"
+      - "tests/test_mozart_categorical_conditioning.py"
       - "tools/mozart_model.py"
       - "tools/mozart_conditioning.py"
       - "tools/mozart_token_grammar.py"
@@ -49,6 +50,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_build_categorical_conditioning_fixture.py'
+          python3 -m unittest discover -s tests -p 'test_mozart_categorical_conditioning.py'
           python3 -m py_compile \
             tools/build_categorical_conditioning_fixture.py \
             tools/evaluate_mozart_categorical_conditioning.py
