@@ -67,6 +67,37 @@ class CategoricalCompositionFixtureTests(unittest.TestCase):
                 )
                 self.assertGreater(probe["prefix_length"], 0)
 
+    def test_sparse_multi_axis_training_profile_is_disjoint_and_budgetable(self) -> None:
+        from build_categorical_composition_fixture import SPARSE_TRAINING_COMPOSITIONS
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "fixture"
+            expected = {
+                "record_count": 62,
+                "split_counts": {"train": 32, "validation": 10, "test": 20},
+            }
+            self.assertEqual(
+                build_fixture(root, training_profile="sparse-multi-axis"),
+                expected,
+            )
+
+            records = self._records(root)
+            train = [r for r in records if r["split"] == "train"]
+            self.assertEqual(
+                sum(len(r["composition_axes"]) > 1 for r in train),
+                12,
+            )
+
+            sparse_profiles = {
+                tuple(r["composition_axes"])
+                for r in train
+                if len(r["composition_axes"]) > 1
+            }
+            expected_profiles = {axes for _, axes in SPARSE_TRAINING_COMPOSITIONS}
+            self.assertEqual(sparse_profiles, expected_profiles)
+            held_out_profiles = {axes for _, axes in COMPOSITIONS}
+            self.assertTrue(sparse_profiles.isdisjoint(held_out_profiles))
+
     def test_test_pairs_have_shared_prefix_and_different_targets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "fixture"
