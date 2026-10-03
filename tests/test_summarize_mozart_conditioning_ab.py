@@ -181,14 +181,6 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
             v1["sequence"]["per_control_autoregressive"]["density"]["max_total_variation_delta"],
             0.4,
         )
-        self.assertEqual(
-            v1["per_control_autoregressive"]["density"]["sequence_changed_delta"],
-            1,
-        )
-        self.assertAlmostEqual(
-            v1["per_control_autoregressive"]["density"]["max_total_variation_delta"],
-            0.4,
-        )
 
     def test_build_summary_reports_partial_when_required_artifact_is_missing(self) -> None:
         summary = build_summary(
