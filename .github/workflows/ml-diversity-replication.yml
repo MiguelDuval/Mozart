@@ -97,11 +97,21 @@ jobs:
           import json
           from pathlib import Path
 
-          base_root = Path("build/ml-conditioning-fixture")
-          if not (base_root / "train.jsonl").exists():
-              base_records = json.loads("{}")
           PY
           python3 tools/build_conditioning_fixture_corpus.py build/ml-base-conditioning-fixture
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("build/ml-base-conditioning-fixture")
+          records = [json.loads(line) for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+          for split in ("train", "validation"):
+              selected = [record for record in records if record["split"] == split]
+              if not selected:
+                  raise SystemExit(f"missing base {split} records")
+              (root / f"{split}.jsonl").write_text(
+                  "".join(json.dumps(record, sort_keys=True) + "\n" for record in selected),
+                  encoding="utf-8",
+              )
           python3 - <<'PY'
           import json
           from pathlib import Path
