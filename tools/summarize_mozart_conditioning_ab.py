@@ -213,10 +213,52 @@ def compare_experiments(
         if not isinstance(matched_response, dict) or not isinstance(diverse_response, dict):
             continue
 
+        matched_sequence_summary = summarize_sequence_control(matched_entry)
+        diverse_sequence_summary = summarize_sequence_control(diverse_entry)
         comparison[name] = {
             "sequence_changed_delta": (
                 int(bool(diverse_torch.get("sequence_changed")))
                 - int(bool(matched_torch.get("sequence_changed")))
+            ),
+            "observed_context_count_delta": (
+                (
+                    diverse_sequence_summary.get("observed_context_count")
+                    if diverse_sequence_summary
+                    else None
+                )
+                or 0
+            )
+            - (
+                (
+                    matched_sequence_summary.get("observed_context_count")
+                    if matched_sequence_summary
+                    else None
+                )
+                or 0
+            ),
+            "first_shared_context_total_variation_delta": subtract(
+                (
+                    diverse_sequence_summary.get("first_shared_context_total_variation")
+                    if diverse_sequence_summary
+                    else None
+                ),
+                (
+                    matched_sequence_summary.get("first_shared_context_total_variation")
+                    if matched_sequence_summary
+                    else None
+                ),
+            ),
+            "last_shared_context_total_variation_delta": subtract(
+                (
+                    diverse_sequence_summary.get("last_shared_context_total_variation")
+                    if diverse_sequence_summary
+                    else None
+                ),
+                (
+                    matched_sequence_summary.get("last_shared_context_total_variation")
+                    if matched_sequence_summary
+                    else None
+                ),
             ),
             "max_total_variation_delta": subtract(
                 diverse_response.get("max_total_variation"),
@@ -239,8 +281,26 @@ def summarize_sequence_control(entry: Any) -> dict[str, Any] | None:
     response = torch_report.get("distribution_response")
     if not isinstance(response, dict):
         response = {}
+
+    values = response.get("values")
+    numeric_values = (
+        [float(value) for value in values if isinstance(value, (int, float))]
+        if isinstance(values, list)
+        else []
+    )
+    observed_context_count = response.get("observed_context_count")
+    if not isinstance(observed_context_count, int) and numeric_values:
+        observed_context_count = len(numeric_values)
+
     return {
         "sequence_changed": torch_report.get("sequence_changed"),
+        "observed_context_count": observed_context_count,
+        "first_shared_context_total_variation": (
+            numeric_values[0] if numeric_values else None
+        ),
+        "last_shared_context_total_variation": (
+            numeric_values[-1] if numeric_values else None
+        ),
         "max_total_variation": response.get("max_total_variation"),
         "mean_total_variation": response.get("mean_total_variation"),
     }

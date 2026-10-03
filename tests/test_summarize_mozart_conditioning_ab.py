@@ -62,6 +62,8 @@ def sequence_report(
                 "torch": {
                     "sequence_changed": first_changed,
                     "distribution_response": {
+                        "observed_context_count": 2,
+                        "values": [first_tv, second_tv],
                         "max_total_variation": first_tv,
                         "mean_total_variation": first_tv / 2.0,
                     },
@@ -156,6 +158,14 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
         self.assertAlmostEqual(
             comparison["density"]["max_total_variation_delta"],
             0.3,
+        )
+        self.assertAlmostEqual(
+            comparison["density"]["first_shared_context_total_variation_delta"],
+            0.3,
+        )
+        self.assertAlmostEqual(
+            comparison["density"]["last_shared_context_total_variation_delta"],
+            0.0,
         )
         self.assertEqual(comparison["energy"]["sequence_changed_delta"], 1)
 
@@ -281,6 +291,14 @@ class MozartConditioningABSummaryTests(unittest.TestCase):
         self.assertAlmostEqual(
             density["diverse"]["autoregressive"]["max_total_variation"],
             0.35,
+        )
+        self.assertAlmostEqual(
+            density["diverse"]["autoregressive"]["first_shared_context_total_variation"],
+            0.35,
+        )
+        self.assertAlmostEqual(
+            density["diverse"]["autoregressive"]["last_shared_context_total_variation"],
+            0.2,
         )
         self.assertAlmostEqual(
             density["diverse"]["teacher_forced"][
