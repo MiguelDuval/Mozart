@@ -95,6 +95,22 @@ class CategoricalCompositionFixtureTests(unittest.TestCase):
             }
             expected_profiles = {axes for _, axes in SPARSE_TRAINING_COMPOSITIONS}
             self.assertEqual(sparse_profiles, expected_profiles)
+            for axes in expected_profiles:
+                self.assertEqual(
+                    sum(tuple(r["composition_axes"]) == axes for r in train),
+                    2,
+                )
+
+            metadata = json.loads(
+                (root / "fixture-metadata.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(metadata["training_regime"], "sparse-multi-axis")
+            self.assertEqual(
+                metadata["sparse_training_compositions"],
+                [profile for profile, _ in SPARSE_TRAINING_COMPOSITIONS],
+            )
+            self.assertEqual(metadata["fixture_revision"], "mozart-categorical-composition-fixture-v1-sparse-coverage")
+
             held_out_profiles = {axes for _, axes in COMPOSITIONS}
             self.assertTrue(sparse_profiles.isdisjoint(held_out_profiles))
 
