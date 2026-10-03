@@ -72,7 +72,9 @@ jobs:
           python3 tools/train_mozart_model.py             build/ml-categorical-composition-fixture/train.jsonl             --validation-jsonl build/ml-categorical-composition-fixture/validation.jsonl             --output-dir build/ml-categorical-composition-checkpoint             --epochs 12             --batch-size 4             --repeat-train-records 8             --learning-rate 3e-4             --fit-diagnostic             --seed ${{ matrix.seed }}             --device cpu
 
           python3 - <<'PY'
+          import json
           import math
+          from pathlib import Path
           import torch
 
           latest = torch.load(
@@ -102,10 +104,8 @@ jobs:
               "SELECTED composition checkpoint "
               f"seed=${{ matrix.seed }} epoch={best['epoch']} validation_loss={best['validation_loss']:.6f}"
           )
-          (Path := __import__("pathlib").Path)(
-              "build/ml-categorical-composition-checkpoint/run-metadata.json"
-          ).write_text(
-              __import__("json").dumps(
+          Path("build/ml-categorical-composition-checkpoint/run-metadata.json").write_text(
+              json.dumps(
                   {
                       "experiment": "categorical-composition-reproducibility",
                       "fixture_revision": "mozart-categorical-composition-fixture-v1",
