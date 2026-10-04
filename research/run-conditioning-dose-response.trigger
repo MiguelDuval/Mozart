@@ -14,3 +14,5 @@ Retry 2: corrected remaining monotonic-fraction test call sites before dose-resp
 Rerun requested at: 2026-10-04T18:10Z
 
 Retry 3: rerun requested after the latest monotonic-fraction test-callsite repair.
+
+Retry 4: aligned matched and diverse fits to identical deterministic CPU execution before the scientific rerun.
