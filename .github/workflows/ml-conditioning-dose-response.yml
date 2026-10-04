@@ -29,6 +29,10 @@ jobs:
       )
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      PYTHONHASHSEED: "0"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
     strategy:
       fail-fast: false
       matrix:
@@ -156,6 +160,7 @@ jobs:
             --repeat-train-records 8 \
             --learning-rate 3e-4 \
             --fit-diagnostic \
+            --deterministic \
             --seed ${{ matrix.seed }} \
             --device cpu
           python3 - <<'PY'
