@@ -100,6 +100,17 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/validate_dataset_rights_audit.py docs/dataset-rights-audit-waivops-nrg-cp-v1.json
+      - name: Validate dataset authority-chain audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/validate_dataset_authority_chain.py docs/dataset-rights-authority-waivops-nrg-cp-v1.json
+
+      - name: Test dataset authority-chain validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_validate_dataset_authority_chain.py'
 
       - name: Test dataset rights-audit validator
         shell: bash
