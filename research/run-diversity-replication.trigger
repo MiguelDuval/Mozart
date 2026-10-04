@@ -9,3 +9,4 @@ Next gate: evaluate conditioning on four contexts excluded from training, 20 low
 Trigger revision: held-out conditional probe suite wired into replication workflow.
 
 Trigger revision: sequence report summarizer now derives held-out metrics from per-control evaluator output.
+Trigger revision: seed summary is rewritten after held-out aggregation so the cross-seed job receives held-out metrics.
