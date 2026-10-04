@@ -27,7 +27,9 @@ class PdmxAcquisitionWorkflowTests(unittest.TestCase):
         self.assertIn(artifact_marker, content)
         artifact_block = content.split(artifact_marker, 1)[1]
         self.assertIn("pdmx-audit-v9.json", artifact_block)
+        self.assertIn("conditioning-distribution-v2.json", artifact_block)
         self.assertIn("pdmx-artifact-sha256.txt", artifact_block)
+        self.assertNotIn("conditioning-distribution-v1.json", artifact_block)
         self.assertIn("pdmx/subset-member.txt", artifact_block)
         self.assertNotIn("archive: false", artifact_block)
 
