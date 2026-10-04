@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "audit_id": "waivops-nrg-cp-zenodo-15304989-v1-authority-chain",
+  "source_id": "waivops-nrg-cp",
+  "source_revision": "zenodo:15304989@1.0",
+  "status": "pending",
+  "publisher": {
+    "entities": [
+      "WaivOps",
+      "Patchbanks"
+    ],
+    "role": "dataset project / manager as described by the public dataset materials"
+  },
+  "rights_questions": {
+    "publisher_authority_to_license": "pending",
+    "commercial_training_permission": "asserted",
+    "redistribution_permission": "asserted",
+    "attribution_requirement": "verified",
+    "per_file_rights_coverage": "pending"
+  },
+  "evidence": [
+    {
+      "id": "zenodo-creators-and-record",
+      "evidence_ref": "https://zenodo.org/records/15304989",
+      "supports": [
+        "publisher_identity",
+        "source_revision",
+        "archive_identity"
+      ],
+      "strength": "public_record"
+    },
+    {
+      "id": "github-publisher-license-and-provenance",
+      "evidence_ref": "https://github.com/patchbanks/WaivOps-NRG-CP",
+      "supports": [
+        "publisher_identity",
+        "publisher_provenance_statement",
+        "published_license"
+      ],
+      "strength": "publisher_assertion"
+    },
+    {
+      "id": "patchbanks-commercial-use-faq",
+      "evidence_ref": "https://www.patchbanks.com/faq/",
+      "supports": [
+        "commercial_use",
+        "sharing",
+        "remixing",
+        "build_upon"
+      ],
+      "strength": "publisher_assertion"
+    },
+    {
+      "id": "patchbanks-ai-training-scope",
+      "evidence_ref": "https://www.patchbanks.com/waivops/",
+      "supports": [
+        "pretraining",
+        "fine_tuning",
+        "generative_ai_scope"
+      ],
+      "strength": "publisher_assertion"
+    }
+  ],
+  "chain": {
+    "source_material_rights_holder": {
+      "status": "unidentified",
+      "evidence_refs": []
+    },
+    "rights_grant_to_waivops_or_patchbanks": {
+      "status": "unproven",
+      "evidence_refs": []
+    },
+    "dataset_file_mapping_to_rights_grant": {
+      "status": "unproven",
+      "evidence_refs": []
+    },
+    "grant_to_end_user_under_cc_by_4_0": {
+      "status": "published",
+      "evidence_refs": [
+        "github-publisher-license-and-provenance",
+        "zenodo-creators-and-record"
+      ]
+    }
+  },
+  "known_gaps": [
+    "No public contributor/provider roster or rights-grant documents were located for the NRG-CP files.",
+    "No public per-file manifest was located that maps each MIDI file to a source rights record.",
+    "The README describes the MIDI corpus as generated from a symbolic chord-progression database and custom rhythm-generation code, while its license paragraph uses the broader term recordings; the upstream source database and transformation rights are not documented.",
+    "The public commercial-use and AI-training statements are publisher assertions and do not independently prove the underlying rights chain for every contained file."
+  ],
+  "required_for_approval": [
+    "Identify the source rights holder(s) or a documented intermediary with authority for the underlying symbolic material.",
+    "Obtain documentary evidence that the identified rights holder(s) granted the required commercial training and redistribution rights to WaivOps/Patchbanks.",
+    "Obtain an authoritative file manifest or equivalent source mapping showing coverage of all 30,943 contained MIDI files.",
+    "Preserve immutable revision identifiers and hashes for the authority evidence used in the production audit."
+  ]
+}
