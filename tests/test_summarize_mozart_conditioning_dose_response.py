@@ -38,6 +38,7 @@ class DoseResponseSummaryTests(unittest.TestCase):
                     "density", "energy", "syncopation", "swing", "variation"
                 )}
                 payload = {
+                    "schema_version": 2,
                     "status": "PASS",
                     "levels": [0.1, 0.3, 0.5, 0.7, 0.9],
                     "matched": {"controls": controls},
@@ -54,6 +55,7 @@ class DoseResponseSummaryTests(unittest.TestCase):
                 )
             result = summarize(root)
 
+        self.assertEqual(result["schema_version"], 2)
         metric = result["controls"]["density"]["target_response.slope_around_neutral"]
         self.assertAlmostEqual(metric["diverse_minus_matched"]["mean"], 2.0)
         self.assertAlmostEqual(metric["diverse_minus_matched"]["sample_stddev"], 1.0)
