@@ -199,6 +199,18 @@ jobs:
             > build/ml-context-diversity-input-contract.json
           cat build/ml-context-diversity-input-contract.json
 
+
+      - name: Build target-only sequence-diversity control
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/ml-target-only-control
+          python3 tools/build_target_context_control.py \
+            build/ml-diverse-conditioning-fixture/train.jsonl \
+            build/ml-target-only-control \
+            > build/ml-target-only-context-control-contract.json
+          cat build/ml-target-only-context-control-contract.json
+
       - name: Build held-out conditioning probe suite
         shell: bash
         run: |
@@ -433,12 +445,49 @@ jobs:
           )
           PY
 
+
+      - name: Fit target-only model
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/train_mozart_model.py \
+            build/ml-target-only-control/records.jsonl \
+            --validation-jsonl build/ml-base-conditioning-fixture/validation.jsonl \
+            --output-dir build/ml-target-only-checkpoint \
+            --epochs 12 \
+            --batch-size 4 \
+            --repeat-train-records 8 \
+            --learning-rate 3e-4 \
+            --fit-diagnostic \
+            --seed ${{ matrix.seed }} \
+            --device cpu
+          python3 - <<'PY'
+          import torch
+          checkpoint = torch.load(
+              "build/ml-target-only-checkpoint/latest.pt",
+              map_location="cpu",
+              weights_only=False,
+          )
+          if checkpoint.get("total_optimizer_updates") != 480:
+              raise SystemExit("target-only fit must contain exactly 480 optimizer updates")
+          if checkpoint.get("repeat_train_records") != 8:
+              raise SystemExit("target-only fit must use repeat factor 8")
+          inference = {key: checkpoint[key] for key in (
+              "model_id", "config", "epoch", "seed", "train_loss",
+              "validation_loss", "grammar_constrained_loss", "model_state",
+          )}
+          torch.save(
+              inference,
+              "build/ml-target-only-checkpoint/development-inference.pt",
+          )
+          PY
+
       - name: Evaluate matched and diverse fits
         shell: bash
         run: |
           set -euo pipefail
 
-          for kind in matched diverse conditioning_context; do
+          for kind in matched diverse target_only conditioning_context; do
             if [[ "$kind" == "matched" ]]; then
               model_dir="build/ml-matched-checkpoint"
               train_jsonl="build/ml-matched-train.jsonl"
@@ -446,6 +495,10 @@ jobs:
             elif [[ "$kind" == "diverse" ]]; then
               model_dir="build/ml-diverse-checkpoint"
               train_jsonl="build/ml-diverse-conditioning-fixture/train.jsonl"
+              probe_json="build/ml-diverse-conditioning-fixture/sequence-probes.json"
+            elif [[ "$kind" == "target_only" ]]; then
+              model_dir="build/ml-target-only-checkpoint"
+              train_jsonl="build/ml-target-only-control/records.jsonl"
               probe_json="build/ml-diverse-conditioning-fixture/sequence-probes.json"
             else
               model_dir="build/ml-conditioning-context-checkpoint"
@@ -545,6 +598,13 @@ jobs:
             --input-contract build/ml-context-diversity-input-contract.json \
             --output build/ml-conditioning-context-control-summary.json
 
+          python3 tools/summarize_mozart_conditioning_ab.py \
+            --baseline-dir build/ml-matched-checkpoint \
+            --matched-dir build/ml-matched-checkpoint \
+            --diverse-dir build/ml-target-only-checkpoint \
+            --input-contract build/ml-context-diversity-input-contract.json \
+            --output build/ml-target-only-context-control-summary.json
+
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -558,6 +618,13 @@ jobs:
           if control.get("status") != "PASS":
               raise SystemExit("conditioning-context control summary did not PASS")
           summary["conditioning_context_control"] = control
+          target_only = json.loads(
+              Path("build/ml-target-only-context-control-summary.json")
+              .read_text(encoding="utf-8")
+          )
+          if target_only.get("status") != "PASS":
+              raise SystemExit("target-only context control summary did not PASS")
+          summary["target_only_context_control"] = target_only
           seed = int("${{ matrix.seed }}")
           summary["replication_seed"] = seed
           payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
@@ -571,11 +638,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for kind in matched diverse conditioning_context; do
+          for kind in matched diverse target_only conditioning_context; do
             if [[ "$kind" == "matched" ]]; then
               model_dir="build/ml-matched-checkpoint"
             elif [[ "$kind" == "diverse" ]]; then
               model_dir="build/ml-diverse-checkpoint"
+            elif [[ "$kind" == "target_only" ]]; then
+              model_dir="build/ml-target-only-checkpoint"
             else
               model_dir="build/ml-conditioning-context-checkpoint"
             fi
@@ -664,6 +733,12 @@ jobs:
             --context-count 4 \
             --output build/ml-heldout-conditioning-context-control-summary.json
 
+          python3 tools/summarize_mozart_heldout_conditioning.py \
+            build/ml-matched-checkpoint/heldout \
+            build/ml-target-only-checkpoint/heldout \
+            --context-count 4 \
+            --output build/ml-heldout-target-only-context-control-summary.json
+
 
           python3 - <<'PY'
           import json
@@ -682,6 +757,13 @@ jobs:
           if heldout_control.get("status") != "PASS":
               raise SystemExit("held-out conditioning-context control summary did not PASS")
           summary["heldout_conditioning_context_control"] = heldout_control
+          heldout_target_only = json.loads(
+              Path("build/ml-heldout-target-only-context-control-summary.json")
+              .read_text(encoding="utf-8")
+          )
+          if heldout_target_only.get("status") != "PASS":
+              raise SystemExit("held-out target-only control summary did not PASS")
+          summary["heldout_target_only_context_control"] = heldout_target_only
           payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
           summary_path.write_text(payload, encoding="utf-8")
           seed = int("${{ matrix.seed }}")
@@ -699,12 +781,16 @@ jobs:
             build/ml-context-diversity-input-contract.json
             build/ml-conditioning-context-control-contract.json
             build/ml-conditioning-context-control-summary.json
+            build/ml-target-only-context-control-contract.json
+            build/ml-target-only-context-control-summary.json
             build/ml-heldout-conditioning-summary.json
             build/ml-heldout-conditioning-context-control-summary.json
+            build/ml-heldout-target-only-context-control-summary.json
             build/ml-matched-checkpoint/heldout/**
             build/ml-diverse-checkpoint/heldout/**
             build/ml-conditioning-context-checkpoint/heldout/**
             build/ml-conditioning-context-checkpoint/conditioning-sequence-grammar-constrained-strict.json
+            build/ml-target-only-checkpoint/heldout/**
           archive: true
           if-no-files-found: error
           retention-days: 14
@@ -780,6 +866,58 @@ jobs:
               ),
               "heldout_mean_control_max_total_variation_delta": (
                   "heldout_conditioning", "aggregate_diverse_minus_matched",
+                  "grammar_constrained_sequence", "mean_control_max_total_variation", "mean"
+              ),
+              "target_only_validation_loss_delta": (
+                  "target_only_context_control", "diverse_minus_matched",
+                  "fit", "validation_loss_delta"
+              ),
+              "target_only_target_probability_directional_response_rate_delta": (
+                  "target_only_context_control", "diverse_minus_matched",
+                  "teacher_forced", "target_probability_directional_response_rate_delta"
+              ),
+              "target_only_target_family_directional_response_rate_delta": (
+                  "target_only_context_control", "diverse_minus_matched",
+                  "teacher_forced", "target_family_probability_directional_response_rate_delta"
+              ),
+              "target_only_mean_target_probability_delta_delta": (
+                  "target_only_context_control", "diverse_minus_matched",
+                  "teacher_forced", "mean_target_probability_delta_delta"
+              ),
+              "target_only_mean_teacher_forced_tv_delta": (
+                  "target_only_context_control", "diverse_minus_matched",
+                  "teacher_forced", "mean_distribution_total_variation_delta"
+              ),
+              "target_only_controls_with_sequence_change_delta": (
+                  "target_only_context_control", "diverse_minus_matched",
+                  "grammar_constrained_sequence", "controls_with_sequence_change_delta"
+              ),
+              "target_only_mean_control_max_tv_delta": (
+                  "target_only_context_control", "diverse_minus_matched",
+                  "grammar_constrained_sequence", "mean_control_max_total_variation_delta"
+              ),
+              "heldout_target_only_target_probability_directional_response_rate_delta": (
+                  "heldout_target_only_context_control", "aggregate_diverse_minus_matched",
+                  "teacher_forced", "target_probability_directional_response_rate", "mean"
+              ),
+              "heldout_target_only_target_family_probability_directional_response_rate_delta": (
+                  "heldout_target_only_context_control", "aggregate_diverse_minus_matched",
+                  "teacher_forced", "target_family_probability_directional_response_rate", "mean"
+              ),
+              "heldout_target_only_mean_target_probability_delta_delta": (
+                  "heldout_target_only_context_control", "aggregate_diverse_minus_matched",
+                  "teacher_forced", "mean_target_probability_delta_native_minus_counterfactual", "mean"
+              ),
+              "heldout_target_only_mean_distribution_total_variation_delta": (
+                  "heldout_target_only_context_control", "aggregate_diverse_minus_matched",
+                  "teacher_forced", "mean_distribution_total_variation_native_vs_counterfactual", "mean"
+              ),
+              "heldout_target_only_controls_with_sequence_change_delta": (
+                  "heldout_target_only_context_control", "aggregate_diverse_minus_matched",
+                  "grammar_constrained_sequence", "controls_with_sequence_change", "mean"
+              ),
+              "heldout_target_only_mean_control_max_total_variation_delta": (
+                  "heldout_target_only_context_control", "aggregate_diverse_minus_matched",
                   "grammar_constrained_sequence", "mean_control_max_total_variation", "mean"
               ),
               "conditioning_context_validation_loss_delta": (
