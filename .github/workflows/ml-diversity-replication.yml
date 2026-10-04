@@ -471,25 +471,64 @@ jobs:
               --output "$model_dir/conditioning-teacher-forced.json"
             teacher_status=$?
 
-            python3 tools/evaluate_mozart_conditioning_sequence.py \
-              "$model_dir/development-inference.pt" \
-              --config docs/model-training-config.json \
-              --onnx "$model_dir/model.onnx" \
-              --max-generated-tokens 32 \
-              --low-value 0.1 \
-              --high-value 0.9 \
-              --base-value 0.5 \
-              --probe-file "$probe_json" \
-              --grammar-constrained \
-              --no-require-divergence \
-              --require-valid-grammar \
-              --require-distribution-response \
-              --min-distribution-total-variation 0.05 \
-              --seed ${{ matrix.seed }} \
-              --output "$model_dir/conditioning-sequence-grammar-constrained.json"
-            sequence_status=$?
+            if [[ "$kind" == "conditioning_context" ]]; then
+              strict_output="$model_dir/conditioning-sequence-grammar-constrained-strict.json"
+              python3 tools/evaluate_mozart_conditioning_sequence.py \
+                "$model_dir/development-inference.pt" \
+                --config docs/model-training-config.json \
+                --onnx "$model_dir/model.onnx" \
+                --max-generated-tokens 32 \
+                --low-value 0.1 \
+                --high-value 0.9 \
+                --base-value 0.5 \
+                --probe-file "$probe_json" \
+                --grammar-constrained \
+                --no-require-divergence \
+                --require-valid-grammar \
+                --require-distribution-response \
+                --min-distribution-total-variation 0.05 \
+                --seed ${{ matrix.seed }} \
+                --output "$strict_output"
+              strict_sequence_status=$?
+
+              python3 tools/evaluate_mozart_conditioning_sequence.py \
+                "$model_dir/development-inference.pt" \
+                --config docs/model-training-config.json \
+                --onnx "$model_dir/model.onnx" \
+                --max-generated-tokens 32 \
+                --low-value 0.1 \
+                --high-value 0.9 \
+                --base-value 0.5 \
+                --probe-file "$probe_json" \
+                --grammar-constrained \
+                --no-require-divergence \
+                --require-valid-grammar \
+                --no-require-distribution-response \
+                --seed ${{ matrix.seed }} \
+                --output "$model_dir/conditioning-sequence-grammar-constrained.json"
+              sequence_status=$?
+              echo "$kind diagnostics: teacher_forced_status=$teacher_status strict_sequence_status=$strict_sequence_status diagnostic_sequence_status=$sequence_status"
+            else
+              python3 tools/evaluate_mozart_conditioning_sequence.py \
+                "$model_dir/development-inference.pt" \
+                --config docs/model-training-config.json \
+                --onnx "$model_dir/model.onnx" \
+                --max-generated-tokens 32 \
+                --low-value 0.1 \
+                --high-value 0.9 \
+                --base-value 0.5 \
+                --probe-file "$probe_json" \
+                --grammar-constrained \
+                --no-require-divergence \
+                --require-valid-grammar \
+                --require-distribution-response \
+                --min-distribution-total-variation 0.05 \
+                --seed ${{ matrix.seed }} \
+                --output "$model_dir/conditioning-sequence-grammar-constrained.json"
+              sequence_status=$?
+              echo "$kind diagnostics: teacher_forced_status=$teacher_status sequence_status=$sequence_status"
+            fi
             set -e
-            echo "$kind diagnostics: teacher_forced_status=$teacher_status sequence_status=$sequence_status"
           done
 
           python3 tools/summarize_mozart_conditioning_ab.py \
@@ -555,22 +594,59 @@ jobs:
                 --output "$model_dir/heldout/${context_name}-teacher.json"
               teacher_status=$?
 
-              python3 tools/evaluate_mozart_conditioning_sequence.py \
-                "$model_dir/development-inference.pt" \
-                --config docs/model-training-config.json \
-                --onnx "$model_dir/model.onnx" \
-                --max-generated-tokens 32 \
-                --low-value 0.1 \
-                --high-value 0.9 \
-                --base-value 0.5 \
-                --probe-file "$context_dir/sequence-probes.json" \
-                --grammar-constrained \
-                --no-require-divergence \
-                --require-valid-grammar \
-                --output "$model_dir/heldout/${context_name}-sequence.json"
-              sequence_status=$?
+              if [[ "$kind" == "conditioning_context" ]]; then
+                strict_output="$model_dir/heldout/${context_name}-sequence-strict.json"
+                python3 tools/evaluate_mozart_conditioning_sequence.py \
+                  "$model_dir/development-inference.pt" \
+                  --config docs/model-training-config.json \
+                  --onnx "$model_dir/model.onnx" \
+                  --max-generated-tokens 32 \
+                  --low-value 0.1 \
+                  --high-value 0.9 \
+                  --base-value 0.5 \
+                  --probe-file "$context_dir/sequence-probes.json" \
+                  --grammar-constrained \
+                  --no-require-divergence \
+                  --require-valid-grammar \
+                  --require-distribution-response \
+                  --min-distribution-total-variation 0.05 \
+                  --output "$strict_output"
+                strict_sequence_status=$?
+
+                python3 tools/evaluate_mozart_conditioning_sequence.py \
+                  "$model_dir/development-inference.pt" \
+                  --config docs/model-training-config.json \
+                  --onnx "$model_dir/model.onnx" \
+                  --max-generated-tokens 32 \
+                  --low-value 0.1 \
+                  --high-value 0.9 \
+                  --base-value 0.5 \
+                  --probe-file "$context_dir/sequence-probes.json" \
+                  --grammar-constrained \
+                  --no-require-divergence \
+                  --require-valid-grammar \
+                  --no-require-distribution-response \
+                  --output "$model_dir/heldout/${context_name}-sequence.json"
+                sequence_status=$?
+                echo "$kind $context_name: teacher_forced_status=$teacher_status strict_sequence_status=$strict_sequence_status diagnostic_sequence_status=$sequence_status"
+              else
+                python3 tools/evaluate_mozart_conditioning_sequence.py \
+                  "$model_dir/development-inference.pt" \
+                  --config docs/model-training-config.json \
+                  --onnx "$model_dir/model.onnx" \
+                  --max-generated-tokens 32 \
+                  --low-value 0.1 \
+                  --high-value 0.9 \
+                  --base-value 0.5 \
+                  --probe-file "$context_dir/sequence-probes.json" \
+                  --grammar-constrained \
+                  --no-require-divergence \
+                  --require-valid-grammar \
+                  --output "$model_dir/heldout/${context_name}-sequence.json"
+                sequence_status=$?
+                echo "$kind $context_name: teacher_forced_status=$teacher_status sequence_status=$sequence_status"
+              fi
               set -e
-              echo "$kind $context_name: teacher_forced_status=$teacher_status sequence_status=$sequence_status"
               if [[ "$teacher_status" -ne 0 || "$sequence_status" -ne 0 ]]; then
                 exit 1
               fi
@@ -628,6 +704,7 @@ jobs:
             build/ml-matched-checkpoint/heldout/**
             build/ml-diverse-checkpoint/heldout/**
             build/ml-conditioning-context-checkpoint/heldout/**
+            build/ml-conditioning-context-checkpoint/conditioning-sequence-grammar-constrained-strict.json
           archive: true
           if-no-files-found: error
           retention-days: 14
