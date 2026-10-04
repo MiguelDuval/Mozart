@@ -98,7 +98,8 @@ class PdmxAuditTests(unittest.TestCase):
             self.assertEqual(result["no_license_conflict_rows"], 2)
             self.assertTrue(result["subset_csv_exact_match"])
             self.assertEqual(result["midi_inventory"]["file_count"], 1)
-            self.assertTrue(result["midi_inventory"]["expected_subset_mid_exact_match"])
+            self.assertTrue(result["midi_inventory"]["csv_mid_exact_match"])
+            self.assertTrue(result["midi_inventory"]["no_license_conflict_mid_all_present"])
 
     def test_subset_mismatch_is_reported(self) -> None:
         row = {
@@ -146,7 +147,8 @@ class PdmxAuditTests(unittest.TestCase):
                 tf.addfile(info, io.BytesIO(payload))
             result = audit(csv_path, subset, midi_source=source)
             expected = hashlib.sha256(payload).hexdigest()
-            self.assertTrue(result["midi_inventory"]["expected_subset_mid_exact_match"])
+            self.assertTrue(result["midi_inventory"]["csv_mid_exact_match"])
+            self.assertTrue(result["midi_inventory"]["no_license_conflict_mid_all_present"])
             self.assertEqual(result["midi_inventory"]["file_count"], 1)
             self.assertEqual(
                 result["midi_inventory"]["inventory_sha256"],
