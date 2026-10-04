@@ -42,6 +42,22 @@ The auditor:
 8. computes per-file SHA-256 and a deterministic canonical inventory SHA-256;
 9. reports exact missing/unexpected MIDI paths without committing the dataset itself.
 
+## Conditioning preflight status semantics
+
+The retrospective conditioning preflight is QA-only and uses MIDI-derived controls.
+It is **not** a source of training labels and it does not establish legal training rights.
+
+The report status is fail-closed:
+
+- `PASS` means every selected MIDI candidate parsed successfully and at least one successful sample was measured.
+- `PARTIAL_FAILURE` means one or more selected candidates failed MIDI validation/normalization; the CLI exits non-zero.
+- `NO_SUCCESSFUL_SAMPLES` means no selected candidate yielded a usable measurement; the CLI exits non-zero.
+
+For measured controls, the report includes range, mean, median, standard deviation, p10/p90,
+IQR, unique-count/fraction, and non-zero fraction. These statistics are descriptive only;
+there is no automatic claim that the distribution is "sufficient" for conditioning training.
+
+
 ## Legal interpretation
 
 no_license_conflict is a publisher-defined metadata consistency filter. It is stronger
