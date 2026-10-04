@@ -329,6 +329,7 @@ def evaluate_dose_response(
         results[name] = entry
 
     return {
+        "schema_version": 2,
         "status": "FAIL" if failures else "PASS",
         "levels": list(levels),
         "controls": results,
