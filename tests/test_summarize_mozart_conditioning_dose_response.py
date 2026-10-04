@@ -61,7 +61,8 @@ class DoseResponseSummaryTests(unittest.TestCase):
 
         metric = result["controls"]["density"]["target_response.slope_around_neutral"]
         self.assertAlmostEqual(metric["diverse_minus_matched"]["mean"], 2.0)
-        self.assertAlmostEqual(metric["diverse_minus_matched"]["sample_stddev"], 0.0)
+        self.assertAlmostEqual(metric["diverse_minus_matched"]["sample_stddev"], 1.0)
+        self.assertEqual(metric["diverse_minus_matched"]["per_seed"], {7: 1.0, 42: 2.0, 123: 3.0})
 
 
 if __name__ == "__main__":
