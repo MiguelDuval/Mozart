@@ -40,12 +40,20 @@ class HeldoutConditioningSummaryTests(unittest.TestCase):
         }
 
     def _sequence_payload(self, value: float) -> dict:
+        controls = {}
+        changed_controls = int(value)
+        for index in range(5):
+            controls[f"control-{index}"] = {
+                "torch": {
+                    "sequence_changed": index < changed_controls,
+                    "distribution_response": {
+                        "max_total_variation": value + 0.1,
+                    },
+                }
+            }
         return {
             "status": "PASS",
-            "controls_with_sequence_change": int(value),
-            "mean_control_max_total_variation": value + 0.1,
-            "max_control_max_total_variation": value + 0.2,
-            "min_control_max_total_variation": value + 0.3,
+            "controls": controls,
         }
 
     def test_aggregates_context_deltas(self) -> None:
@@ -90,6 +98,28 @@ class HeldoutConditioningSummaryTests(unittest.TestCase):
             0.70710678118,
             places=8,
         )
+
+    def test_rejects_sequence_report_without_control_metrics(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for arm in ("matched", "diverse"):
+                (root / arm).mkdir(parents=True, exist_ok=True)
+                teacher = self._teacher_payload(0.5)
+                sequence = {"status": "PASS", "controls": {}}
+                (root / arm / "context-00-teacher.json").write_text(
+                    json.dumps(teacher) + "\n",
+                    encoding="utf-8",
+                )
+                (root / arm / "context-00-sequence.json").write_text(
+                    json.dumps(sequence) + "\n",
+                    encoding="utf-8",
+                )
+            with self.assertRaisesRegex(ValueError, "non-empty object"):
+                summarize_heldout_contexts(
+                    root / "matched",
+                    root / "diverse",
+                    context_count=1,
+                )
 
     def test_rejects_failed_context(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
