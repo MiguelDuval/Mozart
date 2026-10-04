@@ -89,7 +89,6 @@ def build_target_context_control(
     output_records: list[dict[str, Any]] = []
     for index, source in enumerate(input_records):
         output = dict(source)
-        output["source_id"] = f"{source['source_id']}-targetonly-canonical"
         conditioning = dict(source["conditioning"])
         original_seed = conditioning.get("seed")
         for field in CONDITIONING_FIELDS:

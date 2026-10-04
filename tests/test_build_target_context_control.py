@@ -72,6 +72,7 @@ class TargetOnlyControlTests(unittest.TestCase):
         self.assertEqual(len(output_records), 20)
 
         for original, output_record in zip(source_records, output_records):
+            self.assertEqual(original["source_id"], output_record["source_id"])
             self.assertEqual(original["tokens"], output_record["tokens"])
             self.assertEqual(original["target_sha256"], output_record["target_sha256"])
             self.assertEqual(original["source_path"], output_record["source_path"])

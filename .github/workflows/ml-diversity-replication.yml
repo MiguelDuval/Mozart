@@ -60,6 +60,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_validate_mozart_conditioning_ab.py'
           python3 -m unittest discover -s tests -p 'test_build_heldout_conditioning_probe_corpus.py'
           python3 -m unittest discover -s tests -p 'test_build_conditioning_context_control.py'
+          python3 -m unittest discover -s tests -p 'test_build_target_context_control.py'
           python3 -m unittest discover -s tests -p 'test_summarize_mozart_heldout_conditioning.py'
 
       - name: Build corrected v2 diversity fixture
@@ -786,6 +787,7 @@ jobs:
             build/ml-heldout-conditioning-summary.json
             build/ml-heldout-conditioning-context-control-summary.json
             build/ml-heldout-target-only-context-control-summary.json
+            build/ml-target-only-checkpoint/conditioning-sequence-grammar-constrained.json
             build/ml-matched-checkpoint/heldout/**
             build/ml-diverse-checkpoint/heldout/**
             build/ml-conditioning-context-checkpoint/heldout/**
