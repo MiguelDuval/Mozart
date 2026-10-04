@@ -92,6 +92,8 @@ def inventory_midi(source: Path, *, expected_prefix: str = "mid") -> dict[str, d
 
     with tarfile.open(source, "r:*") as tf:
         for member in tf:
+            if member.isdir():
+                continue
             if not member.isfile():
                 raise ValueError(f"MIDI archive contains non-regular member: {member.name}")
             archive_path = normalize_relpath(member.name)
