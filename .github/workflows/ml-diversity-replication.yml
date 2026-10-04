@@ -62,6 +62,8 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_build_conditioning_context_control.py'
           python3 -m unittest discover -s tests -p 'test_build_target_context_control.py'
           python3 -m unittest discover -s tests -p 'test_summarize_mozart_heldout_conditioning.py'
+          python3 -m unittest discover -s tests -p 'test_build_joint_context_diversity.py'
+          python3 -m unittest discover -s tests -p 'test_summarize_mozart_factorial.py'
 
       - name: Build corrected v2 diversity fixture
         shell: bash
