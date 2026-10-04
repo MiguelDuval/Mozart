@@ -124,6 +124,101 @@ class PdmxConditioningDistributionTests(unittest.TestCase):
         self.assertEqual(left["selection"], right["selection"])
         self.assertEqual(left["results"], right["results"])
 
+    def test_duplicate_midi_aliases_are_collapsed_deterministically(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            csv_path = root / "PDMX.csv"
+            rows = [
+                {
+                    "path": "./data/a.json",
+                    "mid": "./mid/a.mid",
+                    "license": "CC0",
+                    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+                    "subset:no_license_conflict": "True",
+                },
+                {
+                    "path": "./data/b.json",
+                    "mid": "./mid/a.mid",
+                    "license": "CC0",
+                    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+                    "subset:no_license_conflict": "True",
+                },
+            ]
+            with csv_path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=FIELDS)
+                writer.writeheader()
+                writer.writerows(rows)
+
+            subset_path = root / "no_license_conflict.txt"
+            subset_path.write_text("./data/a.json\n./data/b.json\n", encoding="utf-8")
+            tar_path = self._write_tar(root)
+
+            result = audit(csv_path, subset_path, tar_path, sample_size=32)
+
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["selection"]["candidate_count"], 1)
+        self.assertEqual(result["selection"]["candidate_alias_rows"], 1)
+        self.assertEqual(result["selection"]["selected_count"], 1)
+
+    def test_partial_parse_failure_is_not_reported_as_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            csv_path = root / "PDMX.csv"
+            rows = [
+                {
+                    "path": "./data/a.json",
+                    "mid": "./mid/a.mid",
+                    "license": "CC0",
+                    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+                    "subset:no_license_conflict": "True",
+                },
+                {
+                    "path": "./data/b.json",
+                    "mid": "./mid/b.mid",
+                    "license": "CC0",
+                    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+                    "subset:no_license_conflict": "True",
+                },
+            ]
+            with csv_path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=FIELDS)
+                writer.writeheader()
+                writer.writerows(rows)
+
+            subset_path = root / "no_license_conflict.txt"
+            subset_path.write_text("./data/a.json\n./data/b.json\n", encoding="utf-8")
+            tar_path = root / "mid.tar.gz"
+            payload = smf_fixture()
+            with tarfile.open(tar_path, "w:gz") as archive:
+                for name, data in (("mid/a.mid", payload), ("mid/b.mid", b"not-a-midi")):
+                    info = tarfile.TarInfo(name)
+                    info.size = len(data)
+                    archive.addfile(info, io.BytesIO(data))
+
+            result = audit(csv_path, subset_path, tar_path, sample_size=32)
+
+        self.assertEqual(result["status"], "PARTIAL_FAILURE")
+        self.assertEqual(result["results"]["successful_samples"], 1)
+        self.assertEqual(result["results"]["failed_samples"], 1)
+        self.assertEqual(result["results"]["missing_from_archive"], 0)
+
+    def test_summary_reports_distribution_shape(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result = audit(
+                self._write_csv(root),
+                self._write_subset(root),
+                self._write_tar(root),
+                sample_size=1,
+            )
+
+        density = result["results"]["controls"]["density"]
+        self.assertEqual(density["count"], 1)
+        self.assertEqual(density["unique_count"], 1)
+        self.assertEqual(density["unique_fraction"], 1.0)
+        self.assertIn("median", density)
+        self.assertIn("iqr", density)
+
 
 if __name__ == "__main__":
     unittest.main()
