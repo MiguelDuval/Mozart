@@ -15,9 +15,6 @@ METRICS = (
     ("target_response", "slope_around_neutral"),
     ("target_response", "monotonic_nondecreasing_fraction"),
     ("target_response", "integrated_absolute_response"),
-    ("target_family_response", "slope_around_neutral"),
-    ("target_family_response", "monotonic_nondecreasing_fraction"),
-    ("target_family_response", "integrated_absolute_response"),
     ("distribution_response", "integrated_tv_from_neutral"),
     ("distribution_response", "max_tv_from_neutral"),
 )
@@ -56,8 +53,13 @@ def summarize(seed_dir: Path) -> dict[str, Any]:
             raise ValueError(f"missing seed report: {path}")
         payloads[seed] = _load(path)
 
+    levels = payloads[7]["levels"]
+    for seed in SEEDS:
+        if payloads[seed]["levels"] != levels:
+            raise ValueError("all seed reports must use identical dose levels")
+
     output: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "fixture_revision": "mozart-conditioning-fixture-v2",
         "seeds": list(SEEDS),
         "levels": payloads[7]["levels"],
