@@ -137,6 +137,7 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [ ] Add production LiteRT external-runtime inference adapter.
 - [ ] Bind conditioning fields to the production model's tensor representation after the model ABI is frozen.
 - [x] Record and audit public MIDI dataset candidates without approving them for production.
+- [x] Add a machine-validated rights-audit ledger for external dataset candidates.
 - [ ] Build licensed-data provenance manifest.
 - [x] Build MIDI normalization and training dataset pipeline.
 - [ ] Train first compact model.
