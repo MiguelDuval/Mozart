@@ -490,22 +490,6 @@ jobs:
             --input-contract build/ml-context-diversity-input-contract.json \
             --output build/ml-context-diversity-summary.json
 
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          p = Path("build/ml-context-diversity-summary.json")
-          summary = json.loads(p.read_text(encoding="utf-8"))
-          seed = int("${{ matrix.seed }}")
-          summary["replication_seed"] = seed
-          payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
-          p.write_text(payload, encoding="utf-8")
-          seed_path = Path(
-              f"build/ml-context-diversity-summary-seed-{seed}.json"
-          )
-          seed_path.write_text(payload, encoding="utf-8")
-          print(payload)
-
-
           python3 tools/summarize_mozart_conditioning_ab.py \
             --baseline-dir build/ml-matched-checkpoint \
             --matched-dir build/ml-matched-checkpoint \
@@ -526,14 +510,13 @@ jobs:
           if control.get("status") != "PASS":
               raise SystemExit("conditioning-context control summary did not PASS")
           summary["conditioning_context_control"] = control
+          seed = int("${{ matrix.seed }}")
+          summary["replication_seed"] = seed
           payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
           summary_path.write_text(payload, encoding="utf-8")
-          seed = int("${{ matrix.seed }}")
           seed_path = Path(f"build/ml-context-diversity-summary-seed-{seed}.json")
           seed_path.write_text(payload, encoding="utf-8")
-          print(json.dumps(control["diverse_minus_matched"], indent=2, sort_keys=True))
-          PY
-
+          print(payload)
           PY
 
       - name: Evaluate held-out conditioning probes
