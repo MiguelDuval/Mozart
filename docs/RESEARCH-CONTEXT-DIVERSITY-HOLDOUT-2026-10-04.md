@@ -185,24 +185,112 @@ Implementation commits on feature/link-clock:
 ace01a48b015119d2743a53017af3b1fbc4b63fc,
 47dea816a45d628c99c97302daac99d9bd721aa3.
 
-The full three-seed run is 37186038694; results are recorded below only after
-the run and all gates complete.
+Run 37186038694 was an intermediate implementation run. The final three-seed
+verification after the inline-Python repair is 37188595898 at commit
+256cc82b04cd049653b8e636401bfbbc1bb9cc93; all seed jobs and the aggregate job
+completed successfully.
 
-## Next scientific gate
+## Third-gate results: target-fixed conditioning-context control
 
-The current evidence separates two effects that were previously conflated: better
-held-out generalization and stronger conditional responsiveness. The next minimal
-experiment should therefore isolate the causal mechanism of the diversity gain,
-not change the model architecture.
+The final run compares three development arms against the same matched-exposure
+baseline:
 
-Use a third, matched-exposure control arm in which the conditioning metadata is
-made context-diverse while the target MIDI/token sequence exposure is held fixed.
-Keep the same four validation contexts, five controls, three seeds, 480-update
-budget, optimizer settings, and evaluation suite. Compare this arm against the
-existing matched and context-diverse arms.
+1. **Matched**: repeated target MIDI with canonical conditioning.
+2. **Target/context-diverse**: the existing diversity intervention, where the
+   added training positions change target/context together.
+3. **Conditioning-context-diverse, target-fixed**: the new causal control, where
+   the target tokens, target SHA-256, source path, performance controls and
+   conditioning seed are fixed while only the five model-visible categorical
+   fields (`style`, `substyle`, `mood`, `rhythm`, `role`) vary.
 
-The question is narrow: does the generalization/held-out response improvement
-survive when only the conditioning context coverage changes, or does it require
-additional target-sequence diversity as well? Until that is answered, no
-architecture, tensor ABI, or production-checkpoint decision should be based on
-this synthetic result.
+The target-fixed control contract passed for all three seeds. Each seed used 20
+training records, 10 deterministic conditioning profiles, the same four held-out
+contexts, five controls, three seeds, and exactly 480 optimizer updates with
+batch size 4, repeat factor 8 and learning rate 3e-4.
+
+### Overall fit result
+
+All three seeds improved validation loss under the conditioning-only intervention,
+but the gain was smaller than in the target/context-diverse arm:
+
+| Arm vs matched | Mean validation-loss delta | Sample SD | Per-seed |
+| --- | ---: | ---: | --- |
+| Target/context-diverse | -6.786039 | 1.172136 | -6.834727; -5.590318; -7.933073 |
+| Conditioning-context-diverse, target-fixed | -2.663849 | 1.765683 | -3.002584; -0.753338; -4.235624 |
+
+This is evidence that, on this synthetic fixture, changing model-visible
+conditioning coverage alone can improve held-out loss. It is **not** a valid
+additive decomposition of the full diversity gain: the target/context-diverse
+arm changes target exposure and conditioning together, so interaction remains
+possible.
+
+### Held-out conditioning result
+
+All values are diverse-arm minus matched-arm deltas over the four completely
+unseen validation contexts. The important causal comparison is between the two
+diverse arms:
+
+| Metric | Target/context-diverse mean ± SD | Conditioning-only mean ± SD |
+| --- | ---: | ---: |
+| Target-probability directional response-rate delta | +0.020833 ± 0.021949 | -0.004167 ± 0.030831 |
+| Target-family directional response-rate delta | -0.004167 ± 0.038569 | -0.031250 ± 0.026700 |
+| Mean target-probability lift delta | +0.005990 ± 0.006113 | +0.001754 ± 0.003024 |
+| Mean teacher-forced distribution TV delta | -0.000745 ± 0.020771 | -0.031505 ± 0.016379 |
+| Controls with sequence-change delta | +1.500 ± 0.661 | -0.417 ± 2.126 |
+| Mean per-control max autoregressive TV delta | -0.104390 ± 0.014551 | -0.147429 ± 0.052570 |
+
+The conditioning-only arm therefore does **not** reproduce the previously
+observed held-out directional-alignment effect. Target-probability directional
+response is positive for seed 7 but negative for seeds 42 and 123. Target-family
+directional response decreases for all three seeds. The magnitude metrics also
+move toward smaller distribution response: held-out teacher-forced TV decreases
+in all three seeds, and mean per-control autoregressive max TV decreases in all
+three seeds.
+
+The strongest safe interpretation is consequently two-part:
+
+- conditioning-context diversity alone is sufficient to produce a reproducible
+  validation-loss improvement on this fixture;
+- it is **not** sufficient to reproduce the earlier held-out directional-response
+  improvement, and the observed TV reduction is compatible with a more selective
+  or regularized response rather than uniformly stronger conditioning.
+
+The target/context-diverse arm still has the stronger validation improvement and
+better held-out target-probability directional response on average. We should not
+claim that target diversity is the sole cause either, because that arm also changes
+conditioning. The current three-arm evidence establishes that conditioning coverage
+has an independent effect on generalization, while leaving target-vs-conditioning
+main effects and their interaction unresolved.
+
+### Gate integrity
+
+The final workflow 37188595898 passed all three seed jobs and the aggregate job.
+For every seed, the target-fixed contract reported PASS, the exact 480-update fit
+contract passed, grammar-constrained validation remained valid, and PyTorch/ONNX
+consistency checks passed. The separate strict conditioning sequence diagnostic
+artifacts also remained PASS for seeds 7, 42 and 123 with no failures and the
+0.05 response threshold retained. Low-TV observations in the non-strict control
+summary were therefore reported as diagnostics rather than hidden or converted
+into false failures.
+
+No model architecture, tensor ABI, Android integration or production checkpoint
+was changed by this gate. The artifacts are synthetic development evidence only.
+
+## Next scientific gate: complete the 2x2 causal decomposition
+
+The third gate rules in conditioning-only as a sufficient explanation for the
+held-out alignment effect, but the existing target/context-diverse arm still mixes
+target-sequence diversity with conditioning diversity. The next minimal causal
+step is therefore a factorial control:
+
+- **Matched:** target fixed + conditioning fixed (already present).
+- **Target-only:** target diverse + canonical conditioning fixed (new arm).
+- **Conditioning-only:** target fixed + conditioning diverse (already present).
+- **Both:** target diverse + conditioning diverse (already present).
+
+Use the same four held-out contexts, five controls, 20 train positions, three seeds,
+optimizer settings and 480-update budget. The target-only arm should reuse the
+existing diverse target sequences while forcing all five model-visible conditioning
+fields back to the canonical fixture context. This will allow direct estimation of
+the target main effect and the target×conditioning interaction without changing the
+model, tensor ABI or Android path.
