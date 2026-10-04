@@ -213,13 +213,13 @@ jobs:
             > build/ml-joint-context-control-contract.json
           cat build/ml-joint-context-control-contract.json
 
-      - name: Build target-only sequence-diversity control
+      - name: Build target-only target-diversity factorial arm
         shell: bash
         run: |
           set -euo pipefail
           rm -rf build/ml-target-only-control
           python3 tools/build_target_context_control.py \
-            build/ml-diverse-conditioning-fixture/train.jsonl \
+            build/ml-joint-context-control/records.jsonl \
             build/ml-target-only-control \
             > build/ml-target-only-context-control-contract.json
           cat build/ml-target-only-context-control-contract.json
@@ -668,13 +668,13 @@ jobs:
           if target_only.get("status") != "PASS":
               raise SystemExit("target-only context control summary did not PASS")
           summary["target_only_context_control"] = target_only
-           joint = json.loads(
-               Path("build/ml-joint-context-control-summary.json")
-               .read_text(encoding="utf-8")
-           )
-           if joint.get("status") != "PASS":
-               raise SystemExit("joint context control summary did not PASS")
-           summary["joint_context_control"] = joint
+          joint = json.loads(
+              Path("build/ml-joint-context-control-summary.json")
+              .read_text(encoding="utf-8")
+          )
+          if joint.get("status") != "PASS":
+              raise SystemExit("joint context control summary did not PASS")
+          summary["joint_context_control"] = joint
           seed = int("${{ matrix.seed }}")
           summary["replication_seed"] = seed
           payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
@@ -822,13 +822,13 @@ jobs:
           if heldout_target_only.get("status") != "PASS":
               raise SystemExit("held-out target-only control summary did not PASS")
           summary["heldout_target_only_context_control"] = heldout_target_only
-           heldout_joint = json.loads(
-               Path("build/ml-heldout-joint-context-control-summary.json")
-               .read_text(encoding="utf-8")
-           )
-           if heldout_joint.get("status") != "PASS":
-               raise SystemExit("held-out joint context control summary did not PASS")
-           summary["heldout_joint_context_control"] = heldout_joint
+          heldout_joint = json.loads(
+              Path("build/ml-heldout-joint-context-control-summary.json")
+              .read_text(encoding="utf-8")
+          )
+          if heldout_joint.get("status") != "PASS":
+              raise SystemExit("held-out joint context control summary did not PASS")
+          summary["heldout_joint_context_control"] = heldout_joint
           payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
           summary_path.write_text(payload, encoding="utf-8")
           seed = int("${{ matrix.seed }}")
