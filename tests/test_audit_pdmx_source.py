@@ -122,6 +122,26 @@ class PdmxAuditTests(unittest.TestCase):
             self.assertFalse(result["subset_csv_exact_match"])
             self.assertEqual(result["csv_subset_rows_missing_from_subset_file"], 1)
 
+    def test_missing_recommended_license_metadata_is_reported(self) -> None:
+        row = {
+            "path": "./data/a.json",
+            "metadata": "./metadata/a.json",
+            "mxl": "N/A",
+            "pdf": "N/A",
+            "mid": "./mid/a.mid",
+            "license": "N/A",
+            "license_url": "N/A",
+            "license_conflict": "False",
+            "subset:no_license_conflict": "True",
+            "subset:all_valid": "False",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            csv_path = self.write_csv(root, [row])
+            subset = self.write_subset(root, ["./data/a.json"])
+            result = audit(csv_path, subset)
+            self.assertEqual(result["recommended_rows_missing_license_metadata"], 1)
+
     def test_tar_inventory_is_supported(self) -> None:
         row = {
             "path": "./data/a.json",
