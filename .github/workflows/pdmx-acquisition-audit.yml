@@ -103,7 +103,7 @@ jobs:
             "$RUNNER_TEMP/pdmx/no_license_conflict.txt" \
             "$RUNNER_TEMP/pdmx/mid.tar.gz" \
             --sample-size 1024 \
-            --output "$RUNNER_TEMP/pdmx/conditioning-distribution-v1.json"
+            --output "$RUNNER_TEMP/pdmx/conditioning-distribution-v2.json"
 
       - name: Save audit report only
         uses: actions/upload-artifact@v7
@@ -111,7 +111,7 @@ jobs:
           name: pdmx-v9-audit-${{ github.sha }}
           path: |
             ${{ runner.temp }}/pdmx/pdmx-audit-v9.json
-            ${{ runner.temp }}/pdmx/conditioning-distribution-v1.json
+            ${{ runner.temp }}/pdmx/conditioning-distribution-v2.json
             ${{ runner.temp }}/pdmx-artifact-sha256.txt
             ${{ runner.temp }}/pdmx/subset-member.txt
           if-no-files-found: error
