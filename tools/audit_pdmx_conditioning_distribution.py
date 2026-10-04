@@ -122,12 +122,15 @@ def select_candidates(
     if not candidates:
         raise ValueError("no recommended PDMX MIDI candidates found")
 
-    candidate_mid_paths = [mid_path for mid_path, _ in candidates]
-    if len(candidate_mid_paths) != len(set(candidate_mid_paths)):
-        raise ValueError("duplicate concrete MIDI paths in recommended PDMX candidates")
+    # A PDMX metadata row may theoretically reference the same MIDI path more
+    # than once. The preflight measures MIDI files, not metadata-row aliases,
+    # so collapse duplicate MIDI paths deterministically.
+    unique_candidates: dict[str, str] = {}
+    for mid_path, data_path in candidates:
+        unique_candidates.setdefault(mid_path, data_path)
 
     ranked = sorted(
-        candidates,
+        unique_candidates.items(),
         key=lambda item: hashlib.sha256(
             f"{sample_seed}\0{item[0]}".encode("utf-8")
         ).hexdigest(),
