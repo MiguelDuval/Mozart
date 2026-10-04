@@ -119,18 +119,12 @@ def select_candidates(
             mid_path = normalize_relpath(row["mid"], prefix="mid")
             candidates.append((mid_path, data_path))
 
-    if seen_paths and subset != {path for path, _ in candidates}:
-        # subset contains data paths, while candidate tuples contain MIDI paths;
-        # compare through the candidate data-path half.
-        candidate_data_paths = {data_path for _, data_path in candidates}
-        if subset - candidate_data_paths:
-            raise ValueError(
-                "subset manifest contains paths without a concrete, licensed MIDI candidate: "
-                f"{len(subset - candidate_data_paths)}"
-            )
-
     if not candidates:
         raise ValueError("no recommended PDMX MIDI candidates found")
+
+    candidate_mid_paths = [mid_path for mid_path, _ in candidates]
+    if len(candidate_mid_paths) != len(set(candidate_mid_paths)):
+        raise ValueError("duplicate concrete MIDI paths in recommended PDMX candidates")
 
     ranked = sorted(
         candidates,
