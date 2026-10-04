@@ -135,6 +135,18 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_verify_pdmx_artifact.py'
 
+      - name: Validate pinned PDMX acquisition manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/validate_pdmx_acquisition_manifest.py docs/pdmx-acquisition-manifest-v9.json
+
+      - name: Test PDMX acquisition manifest validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_validate_pdmx_acquisition_manifest.py'
+
 
       - name: Test manifest digest
         shell: bash
