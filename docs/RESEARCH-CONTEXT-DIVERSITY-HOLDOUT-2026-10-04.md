@@ -295,32 +295,26 @@ fields back to the canonical fixture context. This will allow direct estimation 
 the target main effect and the target×conditioning interaction without changing the
 model, tensor ABI or Android path.
 
-## Corrected 2x2 factorial gate (in progress)
+## Corrected 2x2 factorial gate — seed-level result
 
-The current branch now implements the planned four-arm causal decomposition without changing
+The corrected branch implements the planned four-arm causal decomposition without changing
 the model architecture, tensor ABI, Android integration or production checkpoint.
 
-The previous `context-diverse` fixture arm is treated as a **historical target-only arm**:
-its ten added training positions vary target MIDI/render identity while the five
-model-visible categorical conditioning fields remain canonical. It is therefore not a
-valid "both target + conditioning" arm.
-
-The corrected factorial uses:
+The four arms are:
 1. **Matched** — target fixed + conditioning fixed.
 2. **Target-only** — target diverse + canonical conditioning, constructed from the joint
    exposure and forced back to canonical conditioning.
-3. **Conditioning-only** — target fixed + conditioning diverse, the existing target-fixed
-   causal control.
-4. **Both / joint** — target diverse + conditioning diverse, a new joint arm.
+3. **Conditioning-only** — target fixed + conditioning diverse.
+4. **Both / joint** — target diverse + conditioning diverse.
 
 All arms retain 20 train positions, four completely unseen validation contexts, the same
 five control probes, seeds 7/42/123, batch size 4, repeat factor 8, learning rate 3e-4
 and exactly 480 optimizer updates.
 
 The corrected joint builder enforces unchanged target tokens, target SHA-256 values,
-source paths, performance controls and conditioning seeds, while applying only the
-five model-visible conditioning fields on the ten context-diverse variants. The
-target-only builder now refuses canonical-conditioning input, preventing the historical
+source paths, performance controls and conditioning seeds, while varying only the five
+model-visible categorical conditioning fields on the ten context-diverse variants. The
+target-only builder refuses canonical-conditioning input, preventing the historical
 no-op control from being silently accepted.
 
 Implementation commits on `feature/link-clock`:
@@ -328,9 +322,88 @@ Implementation commits on `feature/link-clock`:
 `104027ed`, `92df0732`, `cc442c88`, `2986b85d`, `4715ff29`,
 `c706e6a6`.
 
-The active corrected replication run is `37207001692` at commit
-`c706e6a59e23b059ecd5c0bfdc9681d31002795b`. Its unit/contract gates have passed
-and the three seed jobs are currently in the multi-arm training phase. No scientific
-claim from this corrected factorial is recorded here until the seed and aggregate
-results complete successfully.
+### Seed-level factorial results
 
+Workflow `37207001692` produced three successful seed jobs (7, 42, 123). The aggregate
+job in that run failed only because the aggregate runner did not check out repository
+sources before invoking `tools/summarize_mozart_factorial.py`; therefore the numerical
+values below are independently reconstructed from the three uploaded seed artifacts,
+not from a successful aggregate job.
+
+All values are arm minus matched, with the interaction computed per seed as
+`joint - target-only - conditioning-only`.
+
+| Metric | Target-only | Conditioning-only | Joint | Interaction |
+| --- | ---: | ---: | ---: | ---: |
+| Validation-loss delta | **-6.7860 ± 1.1721** | **-2.6638 ± 1.7657** | **-6.8373 ± 1.7809** | **+2.6126 ± 1.5536** |
+| Target-prob directional response | 0.0000 ± 0.0696 | +0.0125 ± 0.0217 | -0.0292 ± 0.0402 | -0.0417 ± 0.1301 |
+| Target-family directional response | +0.0250 ± 0.0451 | +0.0333 ± 0.0577 | +0.0542 ± 0.0832 | -0.0042 ± 0.0971 |
+| Mean target-probability lift | -0.0113 ± 0.0135 | -0.0050 ± 0.0175 | -0.0256 ± 0.0083 | -0.0094 ± 0.0230 |
+| Mean teacher-forced TV | -0.0190 ± 0.0086 | **-0.0343 ± 0.0160** | **-0.0526 ± 0.0096** | +0.0008 ± 0.0124 |
+| Controls with sequence change | +1.667 ± 0.577 | +0.333 ± 1.528 | -0.333 ± 1.155 | -2.333 ± 3.055 |
+| Mean per-control max TV | **-0.2076 ± 0.0399** | **-0.1850 ± 0.0832** | **-0.2992 ± 0.0584** | +0.0934 ± 0.0697 |
+
+The key fit result is clear on this fixture: both target diversity and conditioning-only
+coverage improve held-out validation loss, with target diversity producing the larger
+mean improvement. The positive interaction in validation loss means the joint effect
+is less negative than the sum of the two main effects; the two interventions are therefore
+not additive under this training budget.
+
+The conditioning-response result is different. Conditioning-only does **not** reproduce
+the earlier held-out directional-alignment effect: its target-probability directional
+response is near zero on average, and target-family directional response is negative on
+the four-context held-out comparison below. Its strongest consistent change is a
+reduction in distribution TV. Therefore TV reduction must not be translated into
+"stronger conditioning".
+
+### Held-out four-context results
+
+The four completely unseen validation contexts give the following arm differences:
+
+| Metric | Target-only | Conditioning-only | Joint | Interaction |
+| --- | ---: | ---: | ---: | ---: |
+| Target-prob directional response | **+0.0208 ± 0.0219** | -0.0042 ± 0.0308 | **+0.0146 ± 0.0018** | -0.0021 ± 0.0498 |
+| Target-family directional response | -0.0042 ± 0.0386 | **-0.0313 ± 0.0267** | -0.0240 ± 0.0266 | +0.0115 ± 0.0403 |
+| Mean target-probability lift | +0.0060 ± 0.0061 | +0.0018 ± 0.0030 | +0.0039 ± 0.0035 | -0.0039 ± 0.0055 |
+| Mean teacher-forced TV | -0.0007 ± 0.0208 | **-0.0315 ± 0.0164** | **-0.0333 ± 0.0138** | -0.0010 ± 0.0235 |
+| Controls with sequence change | +1.500 ± 0.661 | -0.417 ± 2.126 | -1.417 ± 1.181 | -2.500 ± 2.179 |
+| Mean per-control max TV | -0.1044 ± 0.0146 | **-0.1474 ± 0.0526** | **-0.1891 ± 0.0146** | +0.0627 ± 0.0435 |
+
+These are cross-seed means of the already aggregated four-context measurements; the
+`±` values are sample SD across seeds.
+
+The strongest safe conclusion is now more specific than the earlier three-arm result:
+**conditioning coverage has an independent generalization effect, but it is not sufficient
+to explain the held-out directional-response improvement.** The positive held-out
+target-probability directional signal is concentrated in the target-diverse arm and
+remains present in the joint arm, while conditioning-only reduces distribution shift
+without reliably increasing directional response.
+
+The interaction terms are exploratory because there are only three training seeds and the
+fixture is deliberately tiny. They should not be read as statistically powered causal
+effect estimates.
+
+### CI verification status
+
+A clean-checkout rerun was triggered by commit
+`e6a81522e2915695080b3318fe887e6b2559f72a` after adding the missing aggregate checkout.
+Workflow run `37211020382` is the verification run for the same scientific configuration;
+its seed jobs are still executing. Until that run completes, the seed-level results above
+are verified artifacts from `37207001692`, while aggregate CI status remains pending.
+
+### Scientific next gate
+
+The next minimal experiment should resolve the remaining ambiguity around conditioning
+*magnitude* rather than changing the model. Keep the same checkpoints, contexts and frozen
+ABI, and replace the single 0.1↔0.9 measurement with a symmetric dose-response sweep
+(e.g. 0.1, 0.3, 0.5, 0.7, 0.9) for each performance control.
+
+Measure:
+- monotonic directional consistency across levels;
+- slope around the neutral 0.5 point;
+- integrated absolute probability response;
+- change in legal-family probability;
+- legal-distribution TV relative to 0.5.
+
+This distinguishes "more selective response at similar magnitude" from genuine loss/gain of
+conditioning sensitivity without changing the training architecture.
