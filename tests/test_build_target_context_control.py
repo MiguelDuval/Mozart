@@ -114,6 +114,7 @@ class TargetOnlyControlTests(unittest.TestCase):
             for i, record in enumerate(source_records):
                 record["source_id"] = f"diverse-{i}"
                 record["source_path"] = f"midi/control-probe-{i:02d}.mid"
+                record["conditioning"]["style"] = "techno" if i % 2 else "electronic"
             source.write_text(
                 "".join(json.dumps(r, sort_keys=True) + "\n" for r in source_records),
                 encoding="utf-8",
