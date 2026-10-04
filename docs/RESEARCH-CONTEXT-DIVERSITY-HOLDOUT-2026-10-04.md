@@ -444,10 +444,55 @@ directional preference remains meaningful. The first execution is canonical-prob
 only; held-out dose-response expansion remains a follow-up if the canonical curves
 are stable.
 
-The clean execution is workflow `37219415992` at branch commit
-`ee705e57bb2d3bc6019e0dd850eb94066398d158`. An initial attempt failed only on a
-unit-test harness omission; the assertion was corrected in `f8f8620c` and the
-experiment was retriggered. The current rerun has not yet produced scientific
-measurements.
+The clean execution above was superseded by the audited rerun workflow `37235386182`
+at branch commit `a876036b70bc3333cb1b019a7f1bd0c776371322`. All three seed jobs
+(7, 42, 123) and the aggregate job completed successfully. The Android build on the
+same SHA also completed successfully.
 
-The latest rerun also aligns the matched and target/context-diverse fits to identical deterministic single-threaded CPU execution. The matched fit already used `--deterministic`; the diverse fit was corrected to use the same flag. This is a reproducibility correction only and does not change the architecture, optimizer settings, fixture, probes, tensor contract, Android integration or production checkpoint boundary.
+The rerun aligns the matched and target/context-diverse fits to identical deterministic
+single-threaded CPU execution. Each seed artifact is schema v3 and self-auditing:
+source commit, seed, both fit contracts, model id, epoch 12, exactly 480 optimizer
+updates, 20 train records, repeat=8, batch=4, learning rate 3e-4, fit-diagnostic=true,
+deterministic=true and device=CPU are checked before aggregation. The aggregate also
+rejects mixed source commits or mismatched fit contracts. PyTorch/ONNX parity and the
+grammar-constrained diagnostics passed for all three seeds.
+
+### Five-point canonical dose-response result
+
+The aggregate is a PASS on the corrected v2 fixture. The levels were exactly
+0.1/0.3/0.5/0.7/0.9 and all numbers below are means across seeds 7/42/123; SD is
+sample SD across the three seeds. Deltas are target/context-diverse minus matched.
+
+| Control | Integrated target response delta | Slope delta at 0.5 | Monotonicity delta | TV-integral delta | TV-max delta |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| density | -0.054513 | -0.315995 | -0.333333 | -0.025297 | -0.057831 |
+| energy | -0.008882 | -0.042949 | 0.000000 | +0.010617 | +0.008304 |
+| swing | **+0.172672** | **+0.903142** | 0.000000 | +0.086277 | +0.185696 |
+| syncopation | -0.010475 | -0.064885 | -0.666667 | -0.006285 | -0.015150 |
+| variation | +0.003655 | -0.232113 | -0.833333 | +0.030557 | +0.034308 |
+
+The diverse-arm absolute integrated target-response means were 0.008096 (density),
+0.031213 (energy), 0.187810 (swing), 0.011833 (syncopation) and 0.029257 (variation).
+For monotonicity, the diverse arm retained 1.0 for energy and swing, 0.666667 for
+density, 0.333333 for syncopation and 0.166667 for variation.
+
+The most important observation is not a single positive control but the pattern:
+**diversity does not produce a global increase in conditioning sensitivity**. Only
+swing shows a large and directionally stronger dose-response under this measurement.
+Density and syncopation lose response magnitude and monotonic consistency, while
+variation keeps similar integrated magnitude but loses slope and monotonic consistency.
+Energy remains monotonic but its response magnitude is slightly lower.
+
+This is consistent with the previous factorial/held-out evidence that context diversity
+acts primarily as a generalization/selectivity intervention on this tiny synthetic task.
+Lower or redistributed TV cannot be interpreted as stronger conditioning by itself.
+The canonical dose-response therefore resolves the earlier ambiguity in the negative
+direction: there is no evidence here for a uniform conditioning-gain effect from context
+diversity.
+
+The appropriate scientific disposition is to **retain context diversity as a
+generalization intervention, but not promote it as a conditioning-strength solution**.
+Do not select a production checkpoint, freeze the model ABI, or generalize this synthetic
+result to held-out musical data. The next useful experiment, if continued, should move
+from canonical synthetic controls toward genuinely held-out musical/context data rather
+than adding more model complexity to explain this mixed response pattern.
