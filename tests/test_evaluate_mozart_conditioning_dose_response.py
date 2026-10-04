@@ -40,7 +40,7 @@ class DoseResponseHelperTests(unittest.TestCase):
 
     def test_monotonic_fraction(self) -> None:
         self.assertEqual(_monotonic_fraction([-1.0, -0.5, 0.0, 0.2], nondecreasing=True), 1.0)
-        self.assertAlmostEqual(_monotonic_fraction([-1.0, -0.5, -0.6, 0.2]), 2.0 / 3.0)
+        self.assertAlmostEqual(_monotonic_fraction([-1.0, -0.5, -0.6, 0.2], nondecreasing=True), 2.0 / 3.0)
         self.assertEqual(_monotonic_fraction([1.0, 0.5, 0.0], nondecreasing=False), 1.0)
 
     def test_integrated_absolute_response(self) -> None:
