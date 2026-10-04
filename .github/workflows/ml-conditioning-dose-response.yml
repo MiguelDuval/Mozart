@@ -185,6 +185,7 @@ jobs:
             --repeat-train-records 8 \
             --learning-rate 3e-4 \
             --fit-diagnostic \
+            --deterministic \
             --seed ${{ matrix.seed }} \
             --device cpu
           python3 - <<'PY'
