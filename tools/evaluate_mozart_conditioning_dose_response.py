@@ -28,7 +28,6 @@ from evaluate_mozart_conditioning_sequence import (
     _onnx_next_logits,
     _token_distribution_total_variation,
     _torch_next_logits,
-    load_sequence_probe_file,
 )
 from mozart_conditioning import validate_performance_controls
 
@@ -78,49 +77,24 @@ def _monotonic_fraction(values: list[float], *, nondecreasing: bool) -> float:
     return correct / (len(values) - 1)
 
 
-def _family_probability(
-    logits: np.ndarray,
-    target: int,
-    context: list[int],
-) -> float:
-    allowed = _grammar_allowed_mask(context)
-    if not allowed[target]:
-        raise ValueError(
-            f"target token {target} is illegal after the declared teacher-forced context"
-        )
-    selected = logits[allowed].astype(np.float64, copy=False)
-    shifted = selected - np.max(selected)
-    probability = np.exp(shifted)
-    probability /= np.sum(probability)
-    allowed_indices = np.flatnonzero(allowed)
-
-    def family(token: int) -> str:
-        if 16 <= token < 32:
-            return "channel"
-        if 32 <= token < 160:
-            return "note"
-        if 160 <= token < 192:
-            return "velocity"
-        if 192 <= token < 256:
-            return "time_shift"
-        if 256 <= token < 352:
-            return "duration"
-        if 352 <= token < 480:
-            return "controller"
-        if 480 <= token < 512:
-            return "control_value"
-        if token == 2:
-            return "eos"
-        return "special"
-
-    target_family = family(target)
-    return float(
-        sum(
-            probability[position]
-            for position, token in enumerate(allowed_indices)
-            if family(int(token)) == target_family
-        )
-    )
+def _token_family(token: int) -> str:
+    if 16 <= token < 32:
+        return "channel"
+    if 32 <= token < 160:
+        return "note"
+    if 160 <= token < 192:
+        return "velocity"
+    if 192 <= token < 256:
+        return "time_shift"
+    if 256 <= token < 352:
+        return "duration"
+    if 352 <= token < 480:
+        return "controller"
+    if 480 <= token < 512:
+        return "control_value"
+    if token == 2:
+        return "eos"
+    return "special"
 
 
 def _target_probability(logits: np.ndarray, target: int, context: list[int]) -> float:
@@ -172,7 +146,6 @@ def evaluate_dose_response(
         base_controls = validate_performance_controls(probe["base_profile"])
         level_rows: list[dict[str, Any]] = []
         target_contrasts: list[float] = []
-        family_contrasts: list[float] = []
         tv_from_neutral: list[float] = []
         torch_by_level: dict[float, tuple[np.ndarray, np.ndarray]] = {}
 
@@ -182,8 +155,6 @@ def evaluate_dose_response(
             logits = _torch_next_logits(model, prefix, controls_at_level)
             low_probability = _target_probability(logits, low_target, prefix)
             high_probability = _target_probability(logits, high_target, prefix)
-            low_family_probability = _family_probability(logits, low_target, prefix)
-            high_family_probability = _family_probability(logits, high_target, prefix)
             torch_by_level[level] = (logits, np.asarray([low_probability, high_probability]))
 
             level_rows.append(
@@ -194,15 +165,9 @@ def evaluate_dose_response(
                     "target_probability_contrast_high_minus_low": (
                         high_probability - low_probability
                     ),
-                    "target_family_probability_low": low_family_probability,
-                    "target_family_probability_high": high_family_probability,
-                    "target_family_probability_contrast_high_minus_low": (
-                        high_family_probability - low_family_probability
-                    ),
                 }
             )
             target_contrasts.append(high_probability - low_probability)
-            family_contrasts.append(high_family_probability - low_family_probability)
 
         neutral_logits = torch_by_level[0.5][0]
         for level, (logits, _) in torch_by_level.items():
@@ -216,11 +181,62 @@ def evaluate_dose_response(
             )
 
         target_curve = dict(zip(levels, target_contrasts))
-        family_curve = dict(zip(levels, family_contrasts))
         neutral_target = target_curve[0.5]
-        neutral_family = family_curve[0.5]
         abs_target = [abs(value - neutral_target) for value in target_contrasts]
-        abs_family = [abs(value - neutral_family) for value in family_contrasts]
+
+        low_family = _token_family(low_target)
+        high_family = _token_family(high_target)
+        if low_family == high_family:
+            family_response: dict[str, Any] = {
+                "status": "NOT_APPLICABLE",
+                "reason": (
+                    "low/high target tokens belong to the same token family; "
+                    "the next-token teacher-forced probe cannot measure a signed "
+                    "family shift between them"
+                ),
+                "family": low_family,
+            }
+        else:
+            family_contrasts: list[float] = []
+            for level in levels:
+                logits = torch_by_level[level][0]
+                family_allowed = _grammar_allowed_mask(prefix)
+                selected = logits[family_allowed].astype(np.float64, copy=False)
+                shifted = selected - np.max(selected)
+                probability = np.exp(shifted)
+                probability /= np.sum(probability)
+                allowed_indices = np.flatnonzero(family_allowed)
+
+                def family_probability(family_name: str) -> float:
+                    return float(
+                        sum(
+                            probability[position]
+                            for position, token in enumerate(allowed_indices)
+                            if _token_family(int(token)) == family_name
+                        )
+                    )
+
+                family_contrasts.append(
+                    family_probability(high_family) - family_probability(low_family)
+                )
+            family_curve = dict(zip(levels, family_contrasts))
+            neutral_family = family_curve[0.5]
+            abs_family = [abs(value - neutral_family) for value in family_contrasts]
+            family_response = {
+                "status": "PASS",
+                "low_family": low_family,
+                "high_family": high_family,
+                "neutral_contrast": neutral_family,
+                "slope_around_neutral": _slope_around_neutral(family_curve, levels),
+                "monotonic_nondecreasing_fraction": _monotonic_fraction(
+                    family_contrasts,
+                    nondecreasing=True,
+                ),
+                "integrated_absolute_response": _trapz_mean_absolute(
+                    abs_family,
+                    levels,
+                ),
+            }
 
         entry: dict[str, Any] = {
             "prefix_tokens": prefix,
@@ -240,18 +256,7 @@ def evaluate_dose_response(
                     levels,
                 ),
             },
-            "target_family_response": {
-                "neutral_contrast": neutral_family,
-                "slope_around_neutral": _slope_around_neutral(family_curve, levels),
-                "monotonic_nondecreasing_fraction": _monotonic_fraction(
-                    family_contrasts,
-                    nondecreasing=True,
-                ),
-                "integrated_absolute_response": _trapz_mean_absolute(
-                    abs_family,
-                    levels,
-                ),
-            },
+            "target_family_response": family_response,
             "distribution_response": {
                 "tv_from_neutral_by_level": dict(
                     zip((str(level) for level in levels), tv_from_neutral)
@@ -278,16 +283,6 @@ def evaluate_dose_response(
                         "level": level,
                         "target_probability_low": low_probability,
                         "target_probability_high": high_probability,
-                        "target_family_probability_low": _family_probability(
-                            logits,
-                            low_target,
-                            prefix,
-                        ),
-                        "target_family_probability_high": _family_probability(
-                            logits,
-                            high_target,
-                            prefix,
-                        ),
                     }
                 )
                 if (
