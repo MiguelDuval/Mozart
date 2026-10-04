@@ -54,6 +54,45 @@ def _load_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _summarize_sequence_report(payload: dict[str, Any]) -> dict[str, float]:
+    controls = payload.get("controls")
+    if not isinstance(controls, dict) or not controls:
+        raise ValueError("sequence report controls must be a non-empty object")
+
+    sequence_changed = 0
+    max_tvs: list[float] = []
+    for control_name, entry in controls.items():
+        if not isinstance(entry, dict):
+            raise ValueError(
+                f"sequence report control {control_name!r} must be an object"
+            )
+        torch_report = entry.get("torch")
+        if not isinstance(torch_report, dict):
+            raise ValueError(
+                f"sequence report control {control_name!r} is missing torch metrics"
+            )
+        if torch_report.get("sequence_changed") is True:
+            sequence_changed += 1
+        response = torch_report.get("distribution_response")
+        if not isinstance(response, dict):
+            raise ValueError(
+                f"sequence report control {control_name!r} is missing distribution response"
+            )
+        max_total_variation = response.get("max_total_variation")
+        if not isinstance(max_total_variation, (int, float)):
+            raise ValueError(
+                f"sequence report control {control_name!r} has no numeric max_total_variation"
+            )
+        max_tvs.append(float(max_total_variation))
+
+    return {
+        "controls_with_sequence_change": float(sequence_changed),
+        "mean_control_max_total_variation": _mean(max_tvs),
+        "min_control_max_total_variation": min(max_tvs),
+        "max_control_max_total_variation": max(max_tvs),
+    }
+
+
 def summarize_heldout_contexts(
     matched_dir: Path,
     diverse_dir: Path,
@@ -99,12 +138,18 @@ def summarize_heldout_contexts(
             }
             for metric in TEACHER_METRICS
         }
+        matched_sequence_metrics = _summarize_sequence_report(
+            matched_sequence
+        )
+        diverse_sequence_metrics = _summarize_sequence_report(
+            diverse_sequence
+        )
         sequence = {
             metric: {
-                "matched": float(matched_sequence[metric]),
-                "diverse": float(diverse_sequence[metric]),
-                "delta": float(diverse_sequence[metric])
-                - float(matched_sequence[metric]),
+                "matched": matched_sequence_metrics[metric],
+                "diverse": diverse_sequence_metrics[metric],
+                "delta": diverse_sequence_metrics[metric]
+                - matched_sequence_metrics[metric],
             }
             for metric in SEQUENCE_METRICS
         }
