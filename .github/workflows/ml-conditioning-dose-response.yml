@@ -76,7 +76,7 @@ jobs:
           records = [json.loads(line) for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
           for split in ("train", "validation", "test"):
               selected = [record for record in records if record["split"] == split]
-              (root / f"{split}.jsonl").write_text("".join(json.dumps(record, sort_keys=True) + "\\n" for record in selected), encoding="utf-8")
+              (root / f"{split}.jsonl").write_text("".join(json.dumps(record, sort_keys=True) + "\n" for record in selected), encoding="utf-8")
           if len(records) != 26:
               raise SystemExit(f"expected 26 records, got {len(records)}")
           if sum(record["split"] == "train" for record in records) != 20:
@@ -96,7 +96,7 @@ jobs:
           records = [json.loads(line) for line in (root / "records.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
           for split in ("train", "validation", "test"):
               selected = [record for record in records if record["split"] == split]
-              (root / f"{split}.jsonl").write_text("".join(json.dumps(record, sort_keys=True) + "\\n" for record in selected), encoding="utf-8")
+              (root / f"{split}.jsonl").write_text("".join(json.dumps(record, sort_keys=True) + "\n" for record in selected), encoding="utf-8")
           if len(records) != 16 or sum(record["split"] == "train" for record in records) != 10:
               raise SystemExit("base fixture cardinality mismatch")
           PY
@@ -124,7 +124,7 @@ jobs:
               matched.append(duplicate)
           if len(matched) != 20:
               raise SystemExit("matched arm must contain exactly 20 train positions")
-          Path("build/ml-matched-train.jsonl").write_text("".join(json.dumps(record, sort_keys=True) + "\\n" for record in matched), encoding="utf-8")
+          Path("build/ml-matched-train.jsonl").write_text("".join(json.dumps(record, sort_keys=True) + "\n" for record in matched), encoding="utf-8")
           probes = json.loads(Path("build/ml-diverse-conditioning-fixture/sequence-probes.json").read_text(encoding="utf-8"))
           by_base_id = {}
           for record in matched:
@@ -132,7 +132,7 @@ jobs:
           for entry in probes["controls"].values():
               entry["low_record_source_id"] = by_base_id[entry["low_record_source_id"]]
               entry["high_record_source_id"] = by_base_id[entry["high_record_source_id"]]
-          Path("build/ml-matched-sequence-probes.json").write_text(json.dumps(probes, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+          Path("build/ml-matched-sequence-probes.json").write_text(json.dumps(probes, indent=2, sort_keys=True) + "\n", encoding="utf-8")
           PY
           python3 tools/validate_mozart_conditioning_ab.py \
             --base-train-jsonl build/ml-base-conditioning-fixture/train.jsonl \
@@ -229,7 +229,7 @@ jobs:
               "diverse": json.loads(Path("build/ml-diverse-dose-response.json").read_text(encoding="utf-8")),
           }
           Path(f"build/dose-response-seed-${{ matrix.seed }}.json").write_text(
-              json.dumps(payload, indent=2, sort_keys=True) + "\\n",
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
           )
           PY
