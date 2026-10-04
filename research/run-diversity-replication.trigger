@@ -15,3 +15,4 @@ Trigger revision: target-fixed conditioning-context control arm; diversify model
 Factorial revision: run corrected 2x2 target/conditioning decomposition with a true joint arm; target-only is canonicalized from that joint arm to avoid the historical no-op.
 Run seeds: 7, 42, 123.
 
+Factorial rerun after target-only guard test fix.
