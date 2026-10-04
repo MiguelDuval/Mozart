@@ -885,6 +885,9 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
       - name: Download seed metrics
         uses: actions/download-artifact@v7
         with:
