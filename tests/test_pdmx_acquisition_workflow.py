@@ -18,7 +18,7 @@ class PdmxAcquisitionWorkflowTests(unittest.TestCase):
         self.assertIn("uses: actions/checkout@v7", content)
         self.assertIn("uses: actions/upload-artifact@v7", content)
         self.assertNotIn("uses: actions/checkout@v6", content)
-        self.assertNotIn("\${{ github.sha }}", content)
+        self.assertNotRegex(content, r"\\\$\{\{")
 
     def test_multi_file_audit_artifact_uses_normal_archive(self) -> None:
         content = WORKFLOW.read_text(encoding="utf-8")
