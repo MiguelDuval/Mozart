@@ -24,6 +24,8 @@ def _load(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise ValueError(f"{path} must contain a JSON object")
+    if value.get("schema_version") != 2:
+        raise ValueError(f"{path} must have schema_version=2")
     if value.get("status") != "PASS":
         raise ValueError(f"{path} must have status=PASS")
     return value
