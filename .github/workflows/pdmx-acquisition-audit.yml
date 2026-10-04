@@ -9,6 +9,7 @@ on:
       - ".github/workflows/pdmx-acquisition-audit.yml"
       - "docs/pdmx-acquisition-manifest-v9.json"
       - "tools/audit_pdmx_source.py"
+      - "tools/audit_pdmx_conditioning_distribution.py"
       - "tools/verify_pdmx_artifact.py"
       - "tools/validate_pdmx_acquisition_manifest.py"
 
@@ -93,12 +94,24 @@ jobs:
             --midi-source "$RUNNER_TEMP/pdmx/mid.tar.gz" \
             --output "$RUNNER_TEMP/pdmx/pdmx-audit-v9.json"
 
+      - name: Audit conditioning distribution on deterministic real-data sample
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/audit_pdmx_conditioning_distribution.py \
+            "$RUNNER_TEMP/pdmx/PDMX.csv" \
+            "$RUNNER_TEMP/pdmx/no_license_conflict.txt" \
+            "$RUNNER_TEMP/pdmx/mid.tar.gz" \
+            --sample-size 1024 \
+            --output "$RUNNER_TEMP/pdmx/conditioning-distribution-v1.json"
+
       - name: Save audit report only
         uses: actions/upload-artifact@v7
         with:
           name: pdmx-v9-audit-${{ github.sha }}
           path: |
             ${{ runner.temp }}/pdmx/pdmx-audit-v9.json
+            ${{ runner.temp }}/pdmx/conditioning-distribution-v1.json
             ${{ runner.temp }}/pdmx-artifact-sha256.txt
             ${{ runner.temp }}/pdmx/subset-member.txt
           if-no-files-found: error
