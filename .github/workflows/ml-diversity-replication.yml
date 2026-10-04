@@ -59,6 +59,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_summarize_mozart_conditioning_ab.py'
           python3 -m unittest discover -s tests -p 'test_validate_mozart_conditioning_ab.py'
           python3 -m unittest discover -s tests -p 'test_build_heldout_conditioning_probe_corpus.py'
+          python3 -m unittest discover -s tests -p 'test_build_conditioning_context_control.py'
           python3 -m unittest discover -s tests -p 'test_summarize_mozart_heldout_conditioning.py'
 
       - name: Build corrected v2 diversity fixture
@@ -219,6 +220,116 @@ jobs:
               raise SystemExit("held-out probe suite must contain 20 probes and 40 records")
           PY
 
+      - name: Build target-fixed conditioning-context control
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/ml-conditioning-context-control
+          python3 tools/build_conditioning_context_control.py \
+            build/ml-base-conditioning-fixture/train.jsonl \
+            build/ml-conditioning-context-control \
+            --probe-json build/ml-diverse-conditioning-fixture/sequence-probes.json
+
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def load(path):
+              return [
+                  json.loads(line)
+                  for line in Path(path).read_text(encoding="utf-8").splitlines()
+                  if line.strip()
+              ]
+
+          base = load("build/ml-base-conditioning-fixture/train.jsonl")
+          matched = load("build/ml-matched-train.jsonl")
+          control_root = Path("build/ml-conditioning-context-control")
+          control = load(control_root / "records.jsonl")
+          metadata = json.loads((control_root / "metadata.json").read_text(encoding="utf-8"))
+
+          if len(base) != 10 or len(matched) != 20 or len(control) != 20:
+              raise SystemExit("conditioning-context control must use 10 base and 20 train records per arm")
+          if metadata.get("target_fixed") is not True:
+              raise SystemExit("target-fixed contract missing")
+          if metadata.get("performance_controls_fixed") is not True:
+              raise SystemExit("performance-controls-fixed contract missing")
+          if metadata.get("conditioning_seed_fixed") is not True:
+              raise SystemExit("conditioning-seed-fixed contract missing")
+          profiles = metadata.get("profiles")
+          if not isinstance(profiles, list) or len(profiles) != 10:
+              raise SystemExit("expected ten conditioning context profiles")
+
+          model_conditioning_fields = {"style", "substyle", "mood", "rhythm", "role"}
+          for index, base_record in enumerate(base):
+              for position in (index, 10 + index):
+                  candidate = control[position]
+                  if candidate["tokens"] != base_record["tokens"]:
+                      raise SystemExit(f"target token mismatch at control position {position}")
+                  if candidate["target_sha256"] != base_record["target_sha256"]:
+                      raise SystemExit(f"target hash mismatch at control position {position}")
+                  if candidate["source_path"] != base_record["source_path"]:
+                      raise SystemExit(f"target source path mismatch at control position {position}")
+                  if candidate["performance_controls"] != base_record["performance_controls"]:
+                      raise SystemExit(f"performance controls changed at control position {position}")
+                  if candidate["conditioning"]["seed"] != base_record["conditioning"]["seed"]:
+                      raise SystemExit(f"conditioning seed changed at control position {position}")
+
+              base_copy = control[index]
+              variant = control[10 + index]
+              if base_copy["conditioning"] != base_record["conditioning"]:
+                  raise SystemExit(f"base conditioning changed at position {index}")
+              expected = dict(base_record["conditioning"])
+              expected.update(profiles[index]["conditioning"])
+              if variant["conditioning"] != expected:
+                  raise SystemExit(f"conditioning profile mismatch at position {index}")
+              changed = {
+                  name
+                  for name in model_conditioning_fields
+                  if variant["conditioning"][name] != base_record["conditioning"][name]
+              }
+              if not changed:
+                  raise SystemExit(f"conditioning context did not change at position {index}")
+              unexpected = set(variant["conditioning"]) - (
+                  model_conditioning_fields | {"seed"}
+              )
+              if unexpected:
+                  raise SystemExit(f"unexpected conditioning fields: {sorted(unexpected)!r}")
+
+          if any(
+              control_record["tokens"] != matched_record["tokens"]
+              or control_record["target_sha256"] != matched_record["target_sha256"]
+              or control_record["performance_controls"] != matched_record["performance_controls"]
+              for control_record, matched_record in zip(control, matched)
+          ):
+              raise SystemExit("conditioning-context control target exposure differs from matched arm")
+
+          if len({json.dumps(profile["conditioning"], sort_keys=True) for profile in profiles}) != 10:
+              raise SystemExit("conditioning context profiles must be unique")
+
+          payload = {
+              "status": "PASS",
+              "fixture_revision": metadata["fixture_revision"],
+              "base_train_records": len(base),
+              "matched_train_records": len(matched),
+              "conditioning_context_control_train_records": len(control),
+              "target_tokens_fixed_against_matched": True,
+              "target_hashes_fixed_against_matched": True,
+              "performance_controls_fixed_against_matched": True,
+              "conditioning_seed_fixed": True,
+              "model_conditioning_fields_diversified": sorted(model_conditioning_fields),
+              "conditioning_profile_count": len(profiles),
+              "base_train_sha256": hashlib.sha256(Path("build/ml-base-conditioning-fixture/train.jsonl").read_bytes()).hexdigest(),
+              "matched_train_sha256": hashlib.sha256(Path("build/ml-matched-train.jsonl").read_bytes()).hexdigest(),
+              "conditioning_context_control_train_sha256": hashlib.sha256((control_root / "records.jsonl").read_bytes()).hexdigest(),
+          }
+          Path("build/ml-conditioning-context-control-contract.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(payload, indent=2, sort_keys=True))
+          PY
+
       - name: Fit matched-exposure baseline
         shell: bash
         run: |
@@ -277,20 +388,60 @@ jobs:
           torch.save(inference, "build/ml-diverse-checkpoint/development-inference.pt")
           PY
 
+      - name: Fit conditioning-context-diverse model
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/train_mozart_model.py \
+            build/ml-conditioning-context-control/records.jsonl \
+            --validation-jsonl build/ml-base-conditioning-fixture/validation.jsonl \
+            --output-dir build/ml-conditioning-context-checkpoint \
+            --epochs 12 \
+            --batch-size 4 \
+            --repeat-train-records 8 \
+            --learning-rate 3e-4 \
+            --fit-diagnostic \
+            --seed ${{ matrix.seed }} \
+            --device cpu
+          python3 - <<'PY'
+          import torch
+          checkpoint = torch.load(
+              "build/ml-conditioning-context-checkpoint/latest.pt",
+              map_location="cpu",
+              weights_only=False,
+          )
+          if checkpoint.get("total_optimizer_updates") != 480:
+              raise SystemExit("conditioning-context-diverse fit must contain exactly 480 optimizer updates")
+          if checkpoint.get("repeat_train_records") != 8:
+              raise SystemExit("conditioning-context-diverse fit must use repeat factor 8")
+          inference = {key: checkpoint[key] for key in (
+              "model_id", "config", "epoch", "seed", "train_loss",
+              "validation_loss", "grammar_constrained_loss", "model_state",
+          )}
+          torch.save(
+              inference,
+              "build/ml-conditioning-context-checkpoint/development-inference.pt",
+          )
+          PY
+
       - name: Evaluate matched and diverse fits
         shell: bash
         run: |
           set -euo pipefail
 
-          for kind in matched diverse; do
+          for kind in matched diverse conditioning_context; do
             if [[ "$kind" == "matched" ]]; then
               model_dir="build/ml-matched-checkpoint"
               train_jsonl="build/ml-matched-train.jsonl"
               probe_json="build/ml-matched-sequence-probes.json"
-            else
+            elif [[ "$kind" == "diverse" ]]; then
               model_dir="build/ml-diverse-checkpoint"
               train_jsonl="build/ml-diverse-conditioning-fixture/train.jsonl"
               probe_json="build/ml-diverse-conditioning-fixture/sequence-probes.json"
+            else
+              model_dir="build/ml-conditioning-context-checkpoint"
+              train_jsonl="build/ml-conditioning-context-control/records.jsonl"
+              probe_json="build/ml-conditioning-context-control/sequence-probes.json"
             fi
 
             python3 tools/export_mozart_onnx.py \
@@ -353,17 +504,49 @@ jobs:
           )
           seed_path.write_text(payload, encoding="utf-8")
           print(payload)
+
+
+          python3 tools/summarize_mozart_conditioning_ab.py \
+            --baseline-dir build/ml-matched-checkpoint \
+            --matched-dir build/ml-matched-checkpoint \
+            --diverse-dir build/ml-conditioning-context-checkpoint \
+            --input-contract build/ml-context-diversity-input-contract.json \
+            --output build/ml-conditioning-context-control-summary.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary_path = Path("build/ml-context-diversity-summary.json")
+          summary = json.loads(summary_path.read_text(encoding="utf-8"))
+          control = json.loads(
+              Path("build/ml-conditioning-context-control-summary.json")
+              .read_text(encoding="utf-8")
+          )
+          if control.get("status") != "PASS":
+              raise SystemExit("conditioning-context control summary did not PASS")
+          summary["conditioning_context_control"] = control
+          payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
+          summary_path.write_text(payload, encoding="utf-8")
+          seed = int("${{ matrix.seed }}")
+          seed_path = Path(f"build/ml-context-diversity-summary-seed-{seed}.json")
+          seed_path.write_text(payload, encoding="utf-8")
+          print(json.dumps(control["diverse_minus_matched"], indent=2, sort_keys=True))
+          PY
+
           PY
 
       - name: Evaluate held-out conditioning probes
         shell: bash
         run: |
           set -euo pipefail
-          for kind in matched diverse; do
+          for kind in matched diverse conditioning_context; do
             if [[ "$kind" == "matched" ]]; then
               model_dir="build/ml-matched-checkpoint"
-            else
+            elif [[ "$kind" == "diverse" ]]; then
               model_dir="build/ml-diverse-checkpoint"
+            else
+              model_dir="build/ml-conditioning-context-checkpoint"
             fi
             mkdir -p "$model_dir/heldout"
             for context_dir in build/ml-heldout-conditioning-probes/context-*; do
@@ -407,6 +590,12 @@ jobs:
             build/ml-diverse-checkpoint/heldout \
             --context-count 4 \
             --output build/ml-heldout-conditioning-summary.json
+          python3 tools/summarize_mozart_heldout_conditioning.py \
+            build/ml-matched-checkpoint/heldout \
+            build/ml-conditioning-context-checkpoint/heldout \
+            --context-count 4 \
+            --output build/ml-heldout-conditioning-context-control-summary.json
+
 
           python3 - <<'PY'
           import json
@@ -418,7 +607,14 @@ jobs:
               Path("build/ml-heldout-conditioning-summary.json").read_text(encoding="utf-8")
           )
           summary["heldout_conditioning"] = heldout
-          payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
+          heldout_control = json.loads(
+              Path("build/ml-heldout-conditioning-context-control-summary.json")
+              .read_text(encoding="utf-8")
+          )
+          if heldout_control.get("status") != "PASS":
+              raise SystemExit("held-out conditioning-context control summary did not PASS")
+          summary["heldout_conditioning_context_control"] = heldout_control
+                    payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
           summary_path.write_text(payload, encoding="utf-8")
           seed = int("${{ matrix.seed }}")
           seed_path = Path(f"build/ml-context-diversity-summary-seed-{seed}.json")
@@ -433,9 +629,13 @@ jobs:
           path: |
             build/ml-context-diversity-summary-seed-${{ matrix.seed }}.json
             build/ml-context-diversity-input-contract.json
+            build/ml-conditioning-context-control-contract.json
+            build/ml-conditioning-context-control-summary.json
             build/ml-heldout-conditioning-summary.json
+            build/ml-heldout-conditioning-context-control-summary.json
             build/ml-matched-checkpoint/heldout/**
             build/ml-diverse-checkpoint/heldout/**
+            build/ml-conditioning-context-checkpoint/heldout/**
           archive: true
           if-no-files-found: error
           retention-days: 14
@@ -511,6 +711,58 @@ jobs:
               ),
               "heldout_mean_control_max_total_variation_delta": (
                   "heldout_conditioning", "aggregate_diverse_minus_matched",
+                  "grammar_constrained_sequence", "mean_control_max_total_variation", "mean"
+              ),
+              "conditioning_context_validation_loss_delta": (
+                  "conditioning_context_control", "diverse_minus_matched",
+                  "fit", "validation_loss_delta"
+              ),
+              "conditioning_context_target_probability_directional_response_rate_delta": (
+                  "conditioning_context_control", "diverse_minus_matched",
+                  "teacher_forced", "target_probability_directional_response_rate_delta"
+              ),
+              "conditioning_context_target_family_directional_response_rate_delta": (
+                  "conditioning_context_control", "diverse_minus_matched",
+                  "teacher_forced", "target_family_probability_directional_response_rate_delta"
+              ),
+              "conditioning_context_mean_target_probability_delta_delta": (
+                  "conditioning_context_control", "diverse_minus_matched",
+                  "teacher_forced", "mean_target_probability_delta_delta"
+              ),
+              "conditioning_context_mean_teacher_forced_tv_delta": (
+                  "conditioning_context_control", "diverse_minus_matched",
+                  "teacher_forced", "mean_distribution_total_variation_delta"
+              ),
+              "conditioning_context_controls_with_sequence_change_delta": (
+                  "conditioning_context_control", "diverse_minus_matched",
+                  "grammar_constrained_sequence", "controls_with_sequence_change_delta"
+              ),
+              "conditioning_context_mean_control_max_tv_delta": (
+                  "conditioning_context_control", "diverse_minus_matched",
+                  "grammar_constrained_sequence", "mean_control_max_total_variation_delta"
+              ),
+              "heldout_conditioning_context_target_probability_directional_response_rate_delta": (
+                  "heldout_conditioning_context_control", "aggregate_diverse_minus_matched",
+                  "teacher_forced", "target_probability_directional_response_rate", "mean"
+              ),
+              "heldout_conditioning_context_target_family_probability_directional_response_rate_delta": (
+                  "heldout_conditioning_context_control", "aggregate_diverse_minus_matched",
+                  "teacher_forced", "target_family_probability_directional_response_rate", "mean"
+              ),
+              "heldout_conditioning_context_mean_target_probability_delta_delta": (
+                  "heldout_conditioning_context_control", "aggregate_diverse_minus_matched",
+                  "teacher_forced", "mean_target_probability_delta_native_minus_counterfactual", "mean"
+              ),
+              "heldout_conditioning_context_mean_distribution_total_variation_delta": (
+                  "heldout_conditioning_context_control", "aggregate_diverse_minus_matched",
+                  "teacher_forced", "mean_distribution_total_variation_native_vs_counterfactual", "mean"
+              ),
+              "heldout_conditioning_context_controls_with_sequence_change_delta": (
+                  "heldout_conditioning_context_control", "aggregate_diverse_minus_matched",
+                  "grammar_constrained_sequence", "controls_with_sequence_change", "mean"
+              ),
+              "heldout_conditioning_context_mean_control_max_total_variation_delta": (
+                  "heldout_conditioning_context_control", "aggregate_diverse_minus_matched",
                   "grammar_constrained_sequence", "mean_control_max_total_variation", "mean"
               ),
           }
