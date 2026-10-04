@@ -153,6 +153,41 @@ hard gates. All three seeds passed those gates; this is an infrastructure and
 model-consistency result, not evidence that the synthetic sequences are
 production-quality musical output.
 
+## Third-gate implementation: target-fixed conditioning-context control
+
+The third arm is implemented as a target-fixed causal control rather than a new
+model variant. Starting from the same 10 canonical train records used by the
+matched-exposure arm, it creates 20 train positions: one unchanged copy plus one
+copy whose model-visible categorical conditioning fields are replaced by a
+deterministic diverse context profile.
+
+The invariant is strict:
+
+- target MIDI bytes, token streams, target SHA-256 values and performance controls
+  are identical to the matched arm at every train position;
+- conditioning seed is unchanged;
+- only the five categorical conditioning fields actually consumed by the
+  Transformer (style, substyle, mood, rhythm, role) vary on the ten
+  context-diverse positions;
+- the same four validation contexts, five controls, three seeds, optimizer,
+  learning rate, batch size, repeat factor and 480-update budget are preserved.
+
+The experiment therefore tests a narrower causal question than the prior
+target-diversity intervention: whether broader coverage of the conditioning
+input space alone can change held-out behavior when target-sequence exposure is
+held fixed. Because some varied contexts are intentionally paired with the same
+target sequence, this arm is a context-coverage/label-consistency diagnostic,
+not a claim of realistic data augmentation.
+
+Implementation commits on feature/link-clock:
+588fb90accdc9a303988313aca42aebf473e2e87,
+6f5c883b3d807515f275311aa1f46f32f3042014,
+ace01a48b015119d2743a53017af3b1fbc4b63fc,
+47dea816a45d628c99c97302daac99d9bd721aa3.
+
+The full three-seed run is 37186038694; results are recorded below only after
+the run and all gates complete.
+
 ## Next scientific gate
 
 The current evidence separates two effects that were previously conflated: better
