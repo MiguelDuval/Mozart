@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: pdmx-acquisition-audit-\${{ github.ref }}
+  group: pdmx-acquisition-audit-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -96,10 +96,10 @@ jobs:
       - name: Save audit report only
         uses: actions/upload-artifact@v7
         with:
-          name: pdmx-v9-audit-\${{ github.sha }}
+          name: pdmx-v9-audit-${{ github.sha }}
           path: |
-            \${{ runner.temp }}/pdmx/pdmx-audit-v9.json
-            \${{ runner.temp }}/pdmx-artifact-sha256.txt
-            \${{ runner.temp }}/pdmx/subset-member.txt
+            ${{ runner.temp }}/pdmx/pdmx-audit-v9.json
+            ${{ runner.temp }}/pdmx-artifact-sha256.txt
+            ${{ runner.temp }}/pdmx/subset-member.txt
           if-no-files-found: error
           retention-days: 30
