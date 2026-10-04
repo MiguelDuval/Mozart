@@ -222,6 +222,7 @@ jobs:
           import json
           from pathlib import Path
           payload = {
+              "schema_version": 2,
               "status": "PASS",
               "seed": int("${{ matrix.seed }}"),
               "levels": [0.1, 0.3, 0.5, 0.7, 0.9],
