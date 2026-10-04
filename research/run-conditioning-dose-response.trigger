@@ -9,3 +9,5 @@ Secondary measurements: slope around neutral, monotonic consistency, integrated 
 This experiment is diagnostic-only. It does not freeze the production tensor ABI, change Android integration, or select a production checkpoint.
 
 Retry: corrected the dose-response monotonic-fraction unit assertion before rerunning the experiment.
+
+Retry 2: corrected remaining monotonic-fraction test call sites before dose-response execution.
