@@ -294,3 +294,43 @@ existing diverse target sequences while forcing all five model-visible condition
 fields back to the canonical fixture context. This will allow direct estimation of
 the target main effect and the target×conditioning interaction without changing the
 model, tensor ABI or Android path.
+
+## Corrected 2x2 factorial gate (in progress)
+
+The current branch now implements the planned four-arm causal decomposition without changing
+the model architecture, tensor ABI, Android integration or production checkpoint.
+
+The previous `context-diverse` fixture arm is treated as a **historical target-only arm**:
+its ten added training positions vary target MIDI/render identity while the five
+model-visible categorical conditioning fields remain canonical. It is therefore not a
+valid "both target + conditioning" arm.
+
+The corrected factorial uses:
+1. **Matched** — target fixed + conditioning fixed.
+2. **Target-only** — target diverse + canonical conditioning, constructed from the joint
+   exposure and forced back to canonical conditioning.
+3. **Conditioning-only** — target fixed + conditioning diverse, the existing target-fixed
+   causal control.
+4. **Both / joint** — target diverse + conditioning diverse, a new joint arm.
+
+All arms retain 20 train positions, four completely unseen validation contexts, the same
+five control probes, seeds 7/42/123, batch size 4, repeat factor 8, learning rate 3e-4
+and exactly 480 optimizer updates.
+
+The corrected joint builder enforces unchanged target tokens, target SHA-256 values,
+source paths, performance controls and conditioning seeds, while applying only the
+five model-visible conditioning fields on the ten context-diverse variants. The
+target-only builder now refuses canonical-conditioning input, preventing the historical
+no-op control from being silently accepted.
+
+Implementation commits on `feature/link-clock`:
+`f7f92991`, `87e682b4`, `e9402266`, `4fcd79af`, `750cbf2a`,
+`104027ed`, `92df0732`, `cc442c88`, `2986b85d`, `4715ff29`,
+`c706e6a6`.
+
+The active corrected replication run is `37207001692` at commit
+`c706e6a59e23b059ecd5c0bfdc9681d31002795b`. Its unit/contract gates have passed
+and the three seed jobs are currently in the multi-arm training phase. No scientific
+claim from this corrected factorial is recorded here until the seed and aggregate
+results complete successfully.
+
