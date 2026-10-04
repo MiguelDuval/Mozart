@@ -89,6 +89,23 @@ class TargetOnlyControlTests(unittest.TestCase):
                 BASE_CONTEXT,
             )
 
+    def test_rejects_canonical_conditioning_input(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "diverse.jsonl"
+            source_records = [self._record(i) for i in range(20)]
+            for i, record in enumerate(source_records):
+                record["source_id"] = f"diverse-{i}"
+                record["source_path"] = f"midi/control-probe-{i:02d}.mid"
+                for field in CONDITIONING_FIELDS:
+                    record["conditioning"][field] = BASE_CONTEXT[field]
+            source.write_text(
+                "".join(json.dumps(r, sort_keys=True) + "\n" for r in source_records),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "requires an input with diverse"):
+                build_target_context_control(source, root / "out")
+
     def test_rejects_non_diverse_target_input(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
