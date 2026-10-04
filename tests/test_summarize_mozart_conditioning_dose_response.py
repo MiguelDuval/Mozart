@@ -21,11 +21,6 @@ def _control(multiplier: float) -> dict:
             "monotonic_nondecreasing_fraction": 0.5,
             "integrated_absolute_response": multiplier * 2.0,
         },
-        "target_family_response": {
-            "slope_around_neutral": multiplier * 3.0,
-            "monotonic_nondecreasing_fraction": 1.0,
-            "integrated_absolute_response": multiplier * 4.0,
-        },
         "distribution_response": {
             "integrated_tv_from_neutral": multiplier * 5.0,
             "max_tv_from_neutral": multiplier * 6.0,
@@ -63,6 +58,10 @@ class DoseResponseSummaryTests(unittest.TestCase):
         self.assertAlmostEqual(metric["diverse_minus_matched"]["mean"], 2.0)
         self.assertAlmostEqual(metric["diverse_minus_matched"]["sample_stddev"], 1.0)
         self.assertEqual(metric["diverse_minus_matched"]["per_seed"], {7: 1.0, 42: 2.0, 123: 3.0})
+        self.assertEqual(
+            result["controls"]["density"]["level_curves"]["matched"]["7"],
+            [],
+        )
 
 
 if __name__ == "__main__":
