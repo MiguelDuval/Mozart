@@ -233,6 +233,7 @@ jobs:
           python3 - <<'PY'
           import hashlib
           import json
+          from collections import Counter
           from pathlib import Path
 
           def load(path):
@@ -262,8 +263,13 @@ jobs:
 
           model_conditioning_fields = {"style", "substyle", "mood", "rhythm", "role"}
           for index, base_record in enumerate(base):
-              for position in (index, 10 + index):
-                  candidate = control[position]
+              base_copy = control[2 * index]
+              variant = control[2 * index + 1]
+
+              for position, candidate in (
+                  (2 * index, base_copy),
+                  (2 * index + 1, variant),
+              ):
                   if candidate["tokens"] != base_record["tokens"]:
                       raise SystemExit(f"target token mismatch at control position {position}")
                   if candidate["target_sha256"] != base_record["target_sha256"]:
@@ -275,8 +281,6 @@ jobs:
                   if candidate["conditioning"]["seed"] != base_record["conditioning"]["seed"]:
                       raise SystemExit(f"conditioning seed changed at control position {position}")
 
-              base_copy = control[index]
-              variant = control[10 + index]
               if base_copy["conditioning"] != base_record["conditioning"]:
                   raise SystemExit(f"base conditioning changed at position {index}")
               expected = dict(base_record["conditioning"])
@@ -296,11 +300,16 @@ jobs:
               if unexpected:
                   raise SystemExit(f"unexpected conditioning fields: {sorted(unexpected)!r}")
 
-          if any(
-              control_record["tokens"] != matched_record["tokens"]
-              or control_record["target_sha256"] != matched_record["target_sha256"]
-              or control_record["performance_controls"] != matched_record["performance_controls"]
-              for control_record, matched_record in zip(control, matched)
+          def target_signature(record):
+              return (
+                  tuple(record["tokens"]),
+                  record["target_sha256"],
+                  record["source_path"],
+                  json.dumps(record["performance_controls"], sort_keys=True),
+              )
+
+          if Counter(target_signature(record) for record in control) != Counter(
+              target_signature(record) for record in matched
           ):
               raise SystemExit("conditioning-context control target exposure differs from matched arm")
 
