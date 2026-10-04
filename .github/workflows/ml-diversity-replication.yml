@@ -418,10 +418,11 @@ jobs:
               Path("build/ml-heldout-conditioning-summary.json").read_text(encoding="utf-8")
           )
           summary["heldout_conditioning"] = heldout
-          summary_path.write_text(
-              json.dumps(summary, indent=2, sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
+          payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
+          summary_path.write_text(payload, encoding="utf-8")
+          seed = int("${{ matrix.seed }}")
+          seed_path = Path(f"build/ml-context-diversity-summary-seed-{seed}.json")
+          seed_path.write_text(payload, encoding="utf-8")
           print(json.dumps(heldout, indent=2, sort_keys=True))
           PY
 
