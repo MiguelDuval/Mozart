@@ -226,15 +226,46 @@ jobs:
             --output build/ml-diverse-dose-response.json
           python3 - <<'PY'
           import json
+          import os
           from pathlib import Path
+          
+          seed = int("${{ matrix.seed }}")
+          fits = {}
+          for name, path in (
+              ("matched", Path("build/ml-matched-checkpoint/latest.pt")),
+              ("diverse", Path("build/ml-diverse-checkpoint/latest.pt")),
+          ):
+              import torch
+              checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+              fits[name] = {
+                  "model_id": checkpoint["model_id"],
+                  "seed": int(checkpoint["seed"]),
+                  "epoch": int(checkpoint["epoch"]),
+                  "total_optimizer_updates": int(checkpoint["total_optimizer_updates"]),
+                  "train_records": 20,
+                  "repeat_train_records": 8,
+                  "batch_size": 4,
+                  "learning_rate": 3e-4,
+                  "fit_diagnostic": bool(checkpoint["fit_diagnostic"]),
+                  "deterministic": bool(checkpoint["deterministic"]),
+                  "device": "cpu",
+              }
           payload = {
-              "schema_version": 2,
+              "schema_version": 3,
               "status": "PASS",
-              "seed": int("${{ matrix.seed }}"),
+              "source_commit": os.environ["GITHUB_SHA"],
+              "seed": seed,
               "levels": [0.1, 0.3, 0.5, 0.7, 0.9],
+              "fit_contract": fits,
               "matched": json.loads(Path("build/ml-matched-dose-response.json").read_text(encoding="utf-8")),
               "diverse": json.loads(Path("build/ml-diverse-dose-response.json").read_text(encoding="utf-8")),
           }
+          if any(fit["seed"] != seed for fit in fits.values()):
+              raise SystemExit("fit checkpoint seed does not match matrix seed")
+          if any(fit["total_optimizer_updates"] != 480 for fit in fits.values()):
+              raise SystemExit("fit checkpoint must contain exactly 480 optimizer updates")
+          if any(not fit["deterministic"] for fit in fits.values()):
+              raise SystemExit("both fits must be deterministic")
           Path(f"build/dose-response-seed-${{ matrix.seed }}.json").write_text(
               json.dumps(payload, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
