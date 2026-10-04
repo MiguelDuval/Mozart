@@ -385,11 +385,19 @@ effect estimates.
 
 ### CI verification status
 
-A clean-checkout rerun was triggered by commit
-`e6a81522e2915695080b3318fe887e6b2559f72a` after adding the missing aggregate checkout.
-Workflow run `37211020382` is the verification run for the same scientific configuration;
-its seed jobs are still executing. Until that run completes, the seed-level results above
-are verified artifacts from `37207001692`, while aggregate CI status remains pending.
+The clean-checkout rerun triggered by commit
+`e6a81522e2915695080b3318fe887e6b2559f72a` completed successfully as workflow
+`37211020382`.
+
+- seed 7: PASS
+- seed 42: PASS
+- seed 123: PASS
+- aggregate factorial: PASS
+
+The published `mozart-ml-diversity-factorial-summary` artifact was produced successfully.
+Its values match the seed-level reconstruction recorded above. The earlier
+`37207001692` failure is therefore treated strictly as an aggregate checkout defect,
+not as a failed scientific fit.
 
 ### Scientific next gate
 
