@@ -16,3 +16,6 @@ Factorial revision: run corrected 2x2 target/conditioning decomposition with a t
 Run seeds: 7, 42, 123.
 
 Factorial rerun after target-only guard test fix.
+
+Factorial rerun: isolate target-diversity unit test from conditioning guard.
+
