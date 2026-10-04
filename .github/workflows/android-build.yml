@@ -123,6 +123,12 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_inventory_dataset_archive.py'
 
+      - name: Test PDMX acquisition auditor
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_audit_pdmx_source.py'
+
 
       - name: Test manifest digest
         shell: bash
