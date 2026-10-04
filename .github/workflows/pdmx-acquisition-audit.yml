@@ -76,7 +76,8 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/pdmx"
-          member="$(tar -tzf subset_paths.tar.gz | grep -E '(^|/)no_license_conflict\.txt$' | head -n 1)"
+          tar -tzf subset_paths.tar.gz > "$RUNNER_TEMP/pdmx/subset-paths.list"
+          member="$(grep -E '(^|/)no_license_conflict\.txt$' "$RUNNER_TEMP/pdmx/subset-paths.list" | head -n 1)"
           test -n "$member"
           printf 'subset_member=%s\n' "$member" | tee "$RUNNER_TEMP/pdmx/subset-member.txt"
           tar -xOzf subset_paths.tar.gz "$member" > "$RUNNER_TEMP/pdmx/no_license_conflict.txt"
