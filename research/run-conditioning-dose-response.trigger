@@ -11,4 +11,4 @@ This experiment is diagnostic-only. It does not freeze the production tensor ABI
 Retry: corrected the dose-response monotonic-fraction unit assertion before rerunning the experiment.
 
 Retry 2: corrected remaining monotonic-fraction test call sites before dose-response execution.
-Rerun requested at: 2026-10-04T17:20Z
+Rerun requested at: 2026-10-04T17:23Z
