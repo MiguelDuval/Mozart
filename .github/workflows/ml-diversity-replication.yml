@@ -682,7 +682,7 @@ jobs:
           if heldout_control.get("status") != "PASS":
               raise SystemExit("held-out conditioning-context control summary did not PASS")
           summary["heldout_conditioning_context_control"] = heldout_control
-                    payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
+          payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
           summary_path.write_text(payload, encoding="utf-8")
           seed = int("${{ matrix.seed }}")
           seed_path = Path(f"build/ml-context-diversity-summary-seed-{seed}.json")
