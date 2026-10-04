@@ -82,6 +82,8 @@
   "file_inventory_sha256": "84829424f5427c801cac3b44791d8efd640c17e9dd6d6209b5c36e2a6705aa28",
   "blockers": [
     "Establish that the licensor had authority to grant commercial training and redistribution rights for all contained MIDI material, not merely that the dataset publisher displays CC BY 4.0 and makes commercial/AI-training use statements.",
-    "No public per-file manifest was found in the Zenodo record or publisher repository during this audit; therefore the computed 30,943-file inventory is verified as the downloaded archive's content, but an authoritative upstream inventory match is still unproven."
-  ]
+    "No public per-file manifest was found in the Zenodo record or publisher repository during this audit; therefore the computed 30,943-file inventory is verified as the downloaded archive's content, but an authoritative upstream inventory match is still unproven.",
+    "Authority-chain audit is separately tracked in docs/dataset-rights-authority-waivops-nrg-cp-v1.json and remains pending until independent documentary evidence and file-level coverage are obtained."
+  ],
+  "authority_chain_audit": "docs/dataset-rights-authority-waivops-nrg-cp-v1.json"
 }
