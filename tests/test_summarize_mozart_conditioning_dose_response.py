@@ -38,8 +38,14 @@ class DoseResponseSummaryTests(unittest.TestCase):
                     "density", "energy", "syncopation", "swing", "variation"
                 )}
                 payload = {
-                    "schema_version": 2,
+                    "schema_version": 3,
                     "status": "PASS",
+                    "source_commit": "abc123",
+                    "seed": seed,
+                    "fit_contract": {
+                        "matched": {"seed": seed, "total_optimizer_updates": 480, "train_records": 20, "repeat_train_records": 8, "batch_size": 4, "learning_rate": 3e-4, "fit_diagnostic": True, "deterministic": True, "device": "cpu"},
+                        "diverse": {"seed": seed, "total_optimizer_updates": 480, "train_records": 20, "repeat_train_records": 8, "batch_size": 4, "learning_rate": 3e-4, "fit_diagnostic": True, "deterministic": True, "device": "cpu"},
+                    },
                     "levels": [0.1, 0.3, 0.5, 0.7, 0.9],
                     "matched": {"controls": controls},
                     "diverse": {
@@ -55,7 +61,8 @@ class DoseResponseSummaryTests(unittest.TestCase):
                 )
             result = summarize(root)
 
-        self.assertEqual(result["schema_version"], 2)
+        self.assertEqual(result["schema_version"], 3)
+        self.assertEqual(result["source_commit"], "abc123")
         metric = result["controls"]["density"]["target_response.slope_around_neutral"]
         self.assertAlmostEqual(metric["diverse_minus_matched"]["mean"], 2.0)
         self.assertAlmostEqual(metric["diverse_minus_matched"]["sample_stddev"], 1.0)
