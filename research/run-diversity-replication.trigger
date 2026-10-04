@@ -19,3 +19,5 @@ Factorial rerun after target-only guard test fix.
 
 Factorial rerun: isolate target-diversity unit test from conditioning guard.
 
+
+Factorial rerun: aggregate job now checks out the feature branch sources before running the repository summarizer.
