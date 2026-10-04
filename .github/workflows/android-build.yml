@@ -106,6 +106,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_validate_dataset_rights_audit.py'
+      - name: Test archive inventory builder
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_inventory_dataset_archive.py'
+
 
       - name: Test manifest digest
         shell: bash

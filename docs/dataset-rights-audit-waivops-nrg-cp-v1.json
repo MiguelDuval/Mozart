@@ -24,7 +24,7 @@
       "kind": "archive_record",
       "locator": "https://zenodo.org/records/15304989",
       "checked_on": "2026-10-05",
-      "statement": "Zenodo publishes version 1.0 of the NRG-CP record and identifies the acquisition archive by name and MD5."
+      "statement": "Zenodo publishes version 1.0 of the NRG-CP record, identifies Patchbanks and WaivOps as creators, and identifies the acquisition archive by name and MD5."
     },
     {
       "id": "publisher-license-statement",
@@ -41,11 +41,32 @@
       "statement": "CC BY 4.0 permits sharing and adaptation for commercial purposes subject to attribution and the other license terms."
     },
     {
+      "id": "publisher-commercial-use-faq",
+      "kind": "rights_statement",
+      "locator": "https://www.patchbanks.com/faq/",
+      "checked_on": "2026-10-05",
+      "statement": "Patchbanks states that WaivOps datasets may be shared, remixed, and built upon for commercial and non-commercial projects with attribution."
+    },
+    {
+      "id": "publisher-ai-training-scope",
+      "kind": "rights_statement",
+      "locator": "https://www.patchbanks.com/waivops/",
+      "checked_on": "2026-10-05",
+      "statement": "Patchbanks describes WaivOps as open music datasets for generative AI and explicitly states that the datasets support pretraining and fine-tuning of generative AI models."
+    },
+    {
       "id": "local-archive-verification",
       "kind": "archive_record",
       "locator": "https://zenodo.org/records/15304989",
       "checked_on": "2026-10-05",
-      "statement": "Locally downloaded archive matches the published MD5; SHA-256 was computed as ceb0f0b8d808150364a1ded15a1f54f9dc3a66f6f51dc0708c8242b62ae2f382. Archive contains 30,943 .mid files; all pass basic Standard MIDI File header validation."
+      "statement": "The downloaded archive matches the published MD5. SHA-256 is ceb0f0b8d808150364a1ded15a1f54f9dc3a66f6f51dc0708c8242b62ae2f382. The archive contains exactly 30,943 regular .mid members; all pass the archive safety checks and basic Standard MIDI File header validation."
+    },
+    {
+      "id": "canonical-inventory",
+      "kind": "archive_record",
+      "locator": "https://zenodo.org/records/15304989",
+      "checked_on": "2026-10-05",
+      "statement": "Canonical inventory uses sorted UTF-8 JSON entries of path, per-file SHA-256, and size_bytes; the SHA-256 of that canonical array is 84829424f5427c801cac3b44791d8efd640c17e9dd6d6209b5c36e2a6705aa28. Total MIDI payload is 29,721,294 bytes."
     }
   ],
   "checks": {
@@ -58,9 +79,9 @@
     "archive_sha256": "verified",
     "file_inventory_sha256": "verified"
   },
-  "file_inventory_sha256": "e42a33a4e126a8c89d74e71d5bf3ad01edc4c3c465a888d1deebb550e25ff186",
+  "file_inventory_sha256": "84829424f5427c801cac3b44791d8efd640c17e9dd6d6209b5c36e2a6705aa28",
   "blockers": [
-    "Establish that the licensor had authority to grant commercial training and redistribution rights for all contained MIDI material, not merely that the dataset page displays CC BY 4.0.",
-    "Compare the computed 30,943-file inventory against an authoritative dataset manifest if one is provided; the archive itself contains 30,943 unique .mid filenames, all with MIDI format 1, 2 tracks, and division 96."
+    "Establish that the licensor had authority to grant commercial training and redistribution rights for all contained MIDI material, not merely that the dataset publisher displays CC BY 4.0 and makes commercial/AI-training use statements.",
+    "No public per-file manifest was found in the Zenodo record or publisher repository during this audit; therefore the computed 30,943-file inventory is verified as the downloaded archive's content, but an authoritative upstream inventory match is still unproven."
   ]
 }

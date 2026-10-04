@@ -22,14 +22,18 @@ file-level checksums, and an exact inventory/manifest match.
 - Published license: CC BY 4.0
 - Publisher rights statement: recordings are sourced from verified composers/providers
   for copyright clearance.
-- Audit ledger: `docs/dataset-rights-audit-waivops-nrg-cp-v1.json`
-- Current ledger status: **pending**. Public evidence establishes the Zenodo v1.0
-  acquisition record, published CC BY 4.0 terms, and the publisher's copyright-clearance
-  statement, but it does not by itself establish the missing authority, archive SHA-256,
-  or exact MIDI inventory gates required by Mozart.
-- Remaining audit: capture the exact dataset revision, download archive checksum,
-  license text, attribution wording, and evidence linking the MIDI files to the
-  entity authorized to license them.
+- Public commercial-use statement: Patchbanks says WaivOps datasets may be shared,
+  remixed, and built upon for commercial and non-commercial projects with attribution.
+- Public AI-training scope: Patchbanks describes WaivOps as open datasets for generative
+  AI and says the datasets support pretraining and fine-tuning.
+- Audit ledger: docs/dataset-rights-audit-waivops-nrg-cp-v1.json
+- Current ledger status: **pending**. The Zenodo v1.0 acquisition archive now has a
+  verified MD5/SHA-256 pair, and the downloaded bytes contain exactly 30,943 MIDI files.
+  A deterministic inventory digest is also recorded. The remaining production blockers
+  are authority-chain evidence and an authoritative upstream file-manifest match.
+- Remaining audit: obtain evidence linking every contained MIDI work to the entity
+  authorized to license it for commercial training and redistribution, and obtain or
+  construct an authoritative manifest against which the acquired inventory can be matched.
 
 Why it matters: this is directly aligned with Mozart's electronic/EDM target and
 already matches the project's preferred 4–16 bar example range.
@@ -42,7 +46,7 @@ already matches the project's preferred 4–16 bar example range.
 - Current Zenodo record: https://doi.org/10.5281/zenodo.15571083
 - Dataset type: MusicXML with associated MIDI where conversion is available
 - Published scope: over 250K public-domain scores
-- Recommended subset: `no_license_conflict`
+- Recommended subset: no_license_conflict
 - Current record reports: 222,856 songs in that subset
 - Important caveat: the authors report 31,221 songs (12.29%) with a mismatch between
   public-facing MuseScore copyright metadata and internal file copyright metadata.
@@ -66,21 +70,28 @@ keeping the rights filter explicit.
   transcribed recordings and determine whether the dataset publisher had authority
   to license the full MIDI corpus for commercial training and redistribution.
 
-Why it remains pending: an open license label on a repository is not by itself proof
-that every underlying source right was cleared for redistribution.
-
 ## Rights-audit ledger
 
-Before a candidate can become an `audited` or `release` manifest source, keep a
+Before a candidate can become an audited or release manifest source, keep a
 machine-validated ledger alongside the human-readable sourcing record. The ledger
 must distinguish published license terms from the separate question of whether the
 publisher had authority to grant those rights for the contained material.
 
-`tools/validate_dataset_rights_audit.py` enforces this distinction for candidate
-ledgers. An `approved` ledger is rejected unless every rights gate is verified, the
+tools/validate_dataset_rights_audit.py enforces this distinction for candidate
+ledgers. An approved ledger is rejected unless every rights gate is verified, the
 acquisition archive has a concrete SHA-256, and the exact MIDI inventory has a
-concrete digest. A `pending` ledger may carry explicit blockers while research
+concrete digest. A pending ledger may carry explicit blockers while research
 continues.
+
+For archive-based candidates, tools/inventory_dataset_archive.py defines the
+reproducible inventory procedure: every archive member must be a regular file with
+a safe relative POSIX path; each file is hashed with SHA-256; entries are sorted by
+path and the canonical JSON array of {path, sha256, size_bytes} entries is itself
+SHA-256 hashed.
+
+The NRG-CP acquisition has been verified against that procedure. The resulting
+inventory digest is recorded in the rights-audit ledger, but it is not being treated
+as proof of an upstream publisher manifest that has not been located.
 
 ## Release policy
 
@@ -95,4 +106,4 @@ Mozart should not place any of these candidates into the production manifest unt
 7. the resulting training corpus passes the deterministic MIDI/quality pipeline.
 
 The first real corpus should remain separate from the repository until these gates are
-complete. The example manifest in `docs/dataset-manifest.example.json` stays a template.
+complete. The example manifest in docs/dataset-manifest.example.json stays a template.
