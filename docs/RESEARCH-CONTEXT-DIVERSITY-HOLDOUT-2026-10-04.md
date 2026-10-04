@@ -449,3 +449,5 @@ The clean execution is workflow `37219415992` at branch commit
 unit-test harness omission; the assertion was corrected in `f8f8620c` and the
 experiment was retriggered. The current rerun has not yet produced scientific
 measurements.
+
+The latest rerun also aligns the matched and target/context-diverse fits to identical deterministic single-threaded CPU execution. The matched fit already used `--deterministic`; the diverse fit was corrected to use the same flag. This is a reproducibility correction only and does not change the architecture, optimizer settings, fixture, probes, tensor contract, Android integration or production checkpoint boundary.
