@@ -150,6 +150,7 @@ def audit(
         all_mid_paths_from_csv = set()
         license_conflicts = 0
         subset_flag_conflicts = 0
+        recommended_rows_missing_license_metadata = 0
         rows_with_mid = 0
         row_paths = set()
 
@@ -168,6 +169,8 @@ def audit(
                 subset_flag_conflicts += 1
             if subset_flag:
                 no_license_conflict.add(path)
+                if is_na(row["license"]) or is_na(row["license_url"]):
+                    recommended_rows_missing_license_metadata += 1
 
             mid_value = row["mid"]
             if not is_na(mid_value):
@@ -189,6 +192,7 @@ def audit(
             "rows": rows,
             "license_conflicts": license_conflicts,
             "subset_flag_conflicts": subset_flag_conflicts,
+            "recommended_rows_missing_license_metadata": recommended_rows_missing_license_metadata,
             "no_license_conflict_rows": len(no_license_conflict),
             "rows_with_mid": rows_with_mid,
             "no_license_conflict_rows_with_mid": len(no_license_conflict_with_mid),
