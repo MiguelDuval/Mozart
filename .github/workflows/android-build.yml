@@ -129,6 +129,12 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_audit_pdmx_source.py'
 
+      - name: Test PDMX artifact checksum verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_verify_pdmx_artifact.py'
+
 
       - name: Test manifest digest
         shell: bash
