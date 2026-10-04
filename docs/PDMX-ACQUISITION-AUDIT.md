@@ -68,3 +68,11 @@ python3 tools/verify_pdmx_artifact.py PDMX.csv \
 
 Repeat for `mid.tar.gz` and `subset_paths.tar.gz`. A checksum mismatch must stop the
 audit rather than being treated as a recoverable warning.
+
+
+## License boundary
+
+The upstream PDMX GitHub repository is marked MIT because it contains the PDMX software.
+That code license does **not** by itself license the dataset contents. Dataset rights must
+be evaluated from the per-row PDMX `license` / `license_url` metadata and the publisher's
+public-domain methodology. The acquisition manifest records this distinction explicitly.
