@@ -157,6 +157,21 @@ def validate(path: Path) -> None:
                 "approved authority-chain audits require all rights questions verified: "
                 + ", ".join(unresolved)
             )
+        required_chain_statuses = {
+            "source_material_rights_holder": "documented",
+            "rights_grant_to_waivops_or_patchbanks": "documented",
+            "dataset_file_mapping_to_rights_grant": "documented",
+            "grant_to_end_user_under_cc_by_4_0": "documented",
+        }
+        for key, expected_status in required_chain_statuses.items():
+            if chain[key]["status"] != expected_status:
+                fail(
+                    f"approved authority-chain audit requires chain.{key}.status="
+                    f"{expected_status}"
+                )
+            if not chain[key]["evidence_refs"]:
+                fail(f"approved authority-chain audit requires evidence for chain.{key}")
+
         authority_refs = chain["rights_grant_to_waivops_or_patchbanks"]["evidence_refs"]
         mapping_refs = chain["dataset_file_mapping_to_rights_grant"]["evidence_refs"]
         if not any(strength_by_id[ref] == "independent_document" for ref in authority_refs):
