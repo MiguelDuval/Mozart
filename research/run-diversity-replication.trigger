@@ -10,3 +10,4 @@ Trigger revision: held-out conditional probe suite wired into replication workfl
 
 Trigger revision: sequence report summarizer now derives held-out metrics from per-control evaluator output.
 Trigger revision: seed summary is rewritten after held-out aggregation so the cross-seed job receives held-out metrics.
+Trigger revision: target-fixed conditioning-context control arm; diversify model-visible categorical context while freezing target tokens and performance controls.
