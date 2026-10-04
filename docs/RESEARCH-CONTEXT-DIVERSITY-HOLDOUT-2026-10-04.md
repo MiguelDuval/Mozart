@@ -415,3 +415,37 @@ Measure:
 
 This distinguishes "more selective response at similar magnitude" from genuine loss/gain of
 conditioning sensitivity without changing the training architecture.
+
+
+## Conditioning dose-response gate — implementation
+
+The next diagnostic is implemented on `feature/link-clock` as a separate workflow,
+`.github/workflows/ml-conditioning-dose-response.yml`.
+
+It preserves the corrected v2 fixture, 20-position matched exposure, 20-position
+target/context-diverse training arm, seeds 7/42/123, batch size 4, repeat factor 8,
+learning rate 3e-4 and exactly 480 optimizer updates. The model architecture and
+runtime-neutral tensor contract are unchanged.
+
+The evaluator `tools/evaluate_mozart_conditioning_dose_response.py` replaces the
+single 0.1↔0.9 teacher-forced probe with levels 0.1/0.3/0.5/0.7/0.9. At the shared
+low/high target divergence prefix it measures:
+
+- signed high-target minus low-target legal probability contrast at every level;
+- local slope around the neutral 0.5 point;
+- monotonic consistency across the full dose curve;
+- integrated absolute target-probability and target-family response relative to neutral;
+- legal-distribution total variation relative to the neutral distribution;
+- PyTorch/ONNX parity for target probabilities and TV.
+
+The purpose is diagnostic: distinguish a genuinely weakened/strengthened conditioning
+signal from a selective response in which overall distribution TV shrinks while the
+directional preference remains meaningful. The first execution is canonical-probe
+only; held-out dose-response expansion remains a follow-up if the canonical curves
+are stable.
+
+The clean execution is workflow `37219415992` at branch commit
+`ee705e57bb2d3bc6019e0dd850eb94066398d158`. An initial attempt failed only on a
+unit-test harness omission; the assertion was corrected in `f8f8620c` and the
+experiment was retriggered. The current rerun has not yet produced scientific
+measurements.
