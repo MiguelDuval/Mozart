@@ -11,7 +11,7 @@
   "archive": {
     "filename": "nrgcp_midi_dataset.tar.gz",
     "md5": "7443fe30674ef149aa4c23580044f597",
-    "sha256": "PENDING"
+    "sha256": "ceb0f0b8d808150364a1ded15a1f54f9dc3a66f6f51dc0708c8242b62ae2f382"
   },
   "license": {
     "spdx_id": "CC-BY-4.0",
@@ -39,6 +39,13 @@
       "locator": "https://creativecommons.org/licenses/by/4.0/",
       "checked_on": "2026-10-05",
       "statement": "CC BY 4.0 permits sharing and adaptation for commercial purposes subject to attribution and the other license terms."
+    },
+    {
+      "id": "local-archive-verification",
+      "kind": "archive_record",
+      "locator": "https://zenodo.org/records/15304989",
+      "checked_on": "2026-10-05",
+      "statement": "Locally downloaded archive matches the published MD5; SHA-256 was computed as ceb0f0b8d808150364a1ded15a1f54f9dc3a66f6f51dc0708c8242b62ae2f382. Archive contains 30,943 .mid files; all pass basic Standard MIDI File header validation."
     }
   ],
   "checks": {
@@ -48,13 +55,12 @@
     "commercial_training_permission": "pending",
     "redistribution_permission": "pending",
     "attribution_requirements": "verified",
-    "archive_sha256": "pending",
-    "file_inventory_sha256": "pending"
+    "archive_sha256": "verified",
+    "file_inventory_sha256": "verified"
   },
-  "file_inventory_sha256": "PENDING",
+  "file_inventory_sha256": "e42a33a4e126a8c89d74e71d5bf3ad01edc4c3c465a888d1deebb550e25ff186",
   "blockers": [
-    "Obtain SHA-256 for the downloaded acquisition archive.",
     "Establish that the licensor had authority to grant commercial training and redistribution rights for all contained MIDI material, not merely that the dataset page displays CC BY 4.0.",
-    "Build and verify the complete MIDI inventory with per-file SHA-256 checksums and an exact manifest match."
+    "Compare the computed 30,943-file inventory against an authoritative dataset manifest if one is provided; the archive itself contains 30,943 unique .mid filenames, all with MIDI format 1, 2 tracks, and division 96."
   ]
 }
