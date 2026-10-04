@@ -49,14 +49,23 @@ already matches the project's preferred 4–16 bar example range.
 - Recommended subset: no_license_conflict
 - Current record reports: 222,856 songs in that subset
 - Important caveat: the authors report 31,221 songs (12.29%) with a mismatch between
-  public-facing MuseScore copyright metadata and internal file copyright metadata.
-- Additional caveat: some records do not have valid MIDI because conversion failed.
-- Remaining audit: use only the recommended no-conflict subset, retain the original
-  per-score license metadata, identify the exact MID file revision/archive checksum,
-  and confirm that the distributed MIDI derivative is covered by the stated rights.
+  public-facing MuseScore copyright metadata and internal copyright data.
+- Additional caveat: 42 original MuseScore files were corrupted and some records do
+  not have valid MIDI because conversion failed.
+- Provenance advantage: Zenodo v9 publishes `PDMX.csv` with per-score license,
+  `license_url`, `license_conflict`, and `mid` path fields, plus
+  `subset_paths/no_license_conflict.txt`. The same record publishes the exact MD5
+  for `mid.tar.gz`. This makes an authoritative subset/file-level inventory audit
+  materially more tractable than NRG-CP.
+- Remaining audit: acquire the exact v9 MID archive, hash the archive and every
+  selected MIDI, intersect the `no_license_conflict` subset with rows having a
+  concrete `mid` path, retain the original per-score license metadata, and confirm
+  that the public-domain classification supports the intended commercial ML-training
+  and redistribution use.
 
 Why it matters: it can provide broad public-domain symbolic material beyond EDM while
-keeping the rights filter explicit.
+keeping the rights filter explicit and giving us a much stronger provenance/manifest
+surface.
 
 ## Candidate C — GiantMIDI-Piano
 
