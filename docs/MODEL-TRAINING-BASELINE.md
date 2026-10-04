@@ -281,6 +281,48 @@ Grammar-constrained autoregressive response was mixed in discrete sequence count
 The three-seed replication therefore supports a narrower conclusion than the single-seed result: context diversity is a robust generalization intervention for this tiny synthetic task, but it is not a uniformly stronger conditioning intervention. In particular, validation loss improved in all three seeds, while exact target-probability responsiveness generally weakened. Because the validation set still contains only one mixed holdout example, these results remain development evidence rather than a production model-selection rule.
 
 The next experiment should separate generalization from conditioning strength more cleanly by expanding the held-out control contexts and repeating the A/B comparison without changing the 480-update budget. Do not freeze the production model ABI or select a production checkpoint from this result alone.
+## Corrected 2x2 diversity factorial result
+
+A corrected four-arm causal decomposition completed successfully in GitHub Actions
+run 37211020382 on fixture revision `mozart-conditioning-fixture-v2`, with seeds
+7/42/123 and exactly 480 optimizer updates per fit.
+
+The fit-level mean validation-loss deltas versus matched exposure were:
+- target-only: -6.810434 ± 0.473392;
+- conditioning-only: -2.773605 ± 0.252297;
+- joint: -7.501675 ± 0.854254;
+- target × conditioning interaction: +2.082363 ± 1.397880.
+
+Thus both target diversity and conditioning coverage improve validation loss on this
+fixture, but their effects are non-additive under the fixed training budget.
+
+On the four completely unseen validation contexts, the mean target-probability
+directional-response deltas were +0.019792 for target-only, +0.003125 for
+conditioning-only, and +0.025000 for the joint arm. Conditioning-only therefore
+does not reproduce the earlier directional-alignment effect. Its more stable signal
+is reduced distribution TV: -0.033985 mean teacher-forced TV and -0.170297 mean
+per-control maximum autoregressive TV.
+
+The target-only and joint arms retain positive held-out target-probability directional
+response, while target-family response remains noisy. The current safe interpretation
+is that conditioning coverage has an independent generalization effect but is not
+sufficient to explain the held-out directional-response improvement. Reduced TV should
+be interpreted as reduced distribution shift/selectivity, not automatically as stronger
+conditioning.
+
+The first factorial workflow attempt (37207001692) failed only because the aggregate
+runner lacked repository checkout. The clean rerun 37211020382 completed all seed and
+aggregate jobs with PASS and produced the factorial summary artifact.
+
+This remains synthetic development evidence. It does not select a production checkpoint,
+freeze the tensor ABI, or justify LiteRT integration.
+
+The next diagnostic is a five-level conditioning dose-response sweep at
+0.1/0.3/0.5/0.7/0.9, comparing matched exposure with the target/context-diverse fit.
+The new evaluator records the signed high-target-versus-low-target probability curve,
+slope around neutral, monotonic consistency, integrated absolute response, legal-family
+response, and TV relative to neutral with PyTorch/ONNX parity checking.
+
 ## Training
 
 
