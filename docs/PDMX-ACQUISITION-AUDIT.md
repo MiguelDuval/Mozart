@@ -51,3 +51,20 @@ contractual guarantee for commercial ML training or redistribution.
 Accordingly, a successful technical audit must not change the production rights status to
 approved. The authority-chain gate remains separate and still requires documentary
 evidence of the underlying rights and coverage.
+
+
+## Artifact checksum verification
+
+Before running the CSV/subset/MIDI audit, verify each downloaded artifact against the
+pinned Zenodo v9 MD5. This also records a local SHA-256 that can be copied into the
+acquisition record:
+
+~~~
+python3 tools/verify_pdmx_artifact.py PDMX.csv \
+  --manifest docs/pdmx-acquisition-manifest-v9.json \
+  --name PDMX.csv \
+  --output local-PDMX.csv.checksum.json
+~~~
+
+Repeat for `mid.tar.gz` and `subset_paths.tar.gz`. A checksum mismatch must stop the
+audit rather than being treated as a recoverable warning.
