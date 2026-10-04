@@ -165,6 +165,9 @@ class PdmxAuditTests(unittest.TestCase):
                 info = tarfile.TarInfo("mid/a.mid")
                 info.size = len(payload)
                 tf.addfile(info, io.BytesIO(payload))
+                directory = tarfile.TarInfo("mid/subdir")
+                directory.type = tarfile.DIRTYPE
+                tf.addfile(directory)
             result = audit(csv_path, subset, midi_source=source)
             expected = hashlib.sha256(payload).hexdigest()
             self.assertTrue(result["midi_inventory"]["csv_mid_exact_match"])
