@@ -147,7 +147,9 @@ def audit(
         rows = 0
         no_license_conflict = set()
         no_license_conflict_with_mid = set()
+        all_mid_paths_from_csv = set()
         license_conflicts = 0
+        subset_flag_conflicts = 0
         rows_with_mid = 0
         row_paths = set()
 
@@ -162,6 +164,8 @@ def audit(
             subset_flag = is_true(row["subset:no_license_conflict"])
             if conflict:
                 license_conflicts += 1
+            if subset_flag and conflict:
+                subset_flag_conflicts += 1
             if subset_flag:
                 no_license_conflict.add(path)
 
@@ -169,6 +173,7 @@ def audit(
             if not is_na(mid_value):
                 rows_with_mid += 1
                 mid_path = normalize_relpath(mid_value, prefix="mid")
+                all_mid_paths_from_csv.add(mid_path)
                 if subset_flag:
                     no_license_conflict_with_mid.add(mid_path)
 
@@ -183,6 +188,7 @@ def audit(
             "schema_version": 1,
             "rows": rows,
             "license_conflicts": license_conflicts,
+            "subset_flag_conflicts": subset_flag_conflicts,
             "no_license_conflict_rows": len(no_license_conflict),
             "rows_with_mid": rows_with_mid,
             "no_license_conflict_rows_with_mid": len(no_license_conflict_with_mid),
@@ -203,10 +209,13 @@ def audit(
                 "file_count": len(actual_mid),
                 "total_bytes": sum(item["size_bytes"] for item in inventory.values()),
                 "inventory_sha256": canonical_inventory_digest(inventory),
+                "csv_mid_count": len(all_mid_paths_from_csv),
+                "csv_mid_exact_match": actual_mid == all_mid_paths_from_csv,
+                "unexpected_mid_files": len(actual_mid - all_mid_paths_from_csv),
+                "missing_csv_mid_files": len(all_mid_paths_from_csv - actual_mid),
                 "expected_no_license_conflict_mid_count": len(expected_mid),
-                "expected_subset_mid_exact_match": actual_mid == expected_mid,
-                "unexpected_mid_files": len(actual_mid - expected_mid),
-                "missing_expected_mid_files": len(expected_mid - actual_mid),
+                "no_license_conflict_mid_all_present": expected_mid <= actual_mid,
+                "subset_mid_outside_inventory": len(expected_mid - actual_mid),
             }
 
     if output is not None:
@@ -250,7 +259,8 @@ def main() -> int:
             "MIDI: "
             f"files={mi['file_count']} "
             f"inventory_sha256={mi['inventory_sha256']} "
-            f"exact_subset_match={mi['expected_subset_mid_exact_match']}"
+            f"csv_mid_exact_match={mi['csv_mid_exact_match']} "
+            f"subset_mid_all_present={mi['no_license_conflict_mid_all_present']}"
         )
     return 0
 
