@@ -25,7 +25,7 @@ Approval requires the authority-critical facts to be supported by evidence stron
 
 ## NRG-CP result
 
-For Zenodo `15304989` / version `1.0`, the public evidence establishes that Patchbanks and WaivOps are the named creators/project entities, that the dataset is distributed under CC BY 4.0, and that Patchbanks publicly states commercial use, redistribution-style sharing/remixing, and generative-AI pretraining/fine-tuning are intended uses. citeturn643236search1turn643236search2turn643236search3
+For Zenodo `15304989` / version `1.0`, the public evidence establishes that Patchbanks and WaivOps are the named creators/project entities, that the dataset is distributed under CC BY 4.0, and that Patchbanks publicly states commercial use, redistribution-style sharing/remixing, and generative-AI pretraining/fine-tuning are intended uses. Sources: [Patchbanks FAQ](https://www.patchbanks.com/faq/), [WaivOps page](https://www.patchbanks.com/waivops/), [Zenodo record](https://zenodo.org/records/15304989).
 
 The unresolved part is the underlying authority chain. The NRG-CP README says the corpus is generated from a symbolic chord-progression database plus custom rhythm-generation code, while the same README says the recordings were sourced from verified composers and providers for copyright clearance. No public contributor/provider roster, rights-grant document, or per-file rights manifest was found in the sources reviewed. Sources: [WaivOps NRG-CP GitHub repository](https://github.com/patchbanks/WaivOps-NRG-CP), [Zenodo record](https://zenodo.org/records/15304989).
 
