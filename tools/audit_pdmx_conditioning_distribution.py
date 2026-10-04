@@ -139,7 +139,8 @@ def select_candidates(
     return selected, {
         "csv_rows": rows,
         "csv_no_license_conflict_rows": subset_rows,
-        "candidate_count": len(candidates),
+        "candidate_count": len(unique_candidates),
+        "candidate_alias_rows": len(candidates) - len(unique_candidates),
         "selected_count": len(selected),
     }
 
@@ -147,12 +148,35 @@ def select_candidates(
 def summarize(values: list[float]) -> dict[str, float | int]:
     if not values:
         raise ValueError("cannot summarize an empty value list")
+
+    ordered = sorted(float(value) for value in values)
+    if len(ordered) == 1:
+        p10 = p90 = ordered[0]
+        stdev = 0.0
+        q1 = q3 = ordered[0]
+    else:
+        deciles = statistics.quantiles(ordered, n=10, method="inclusive")
+        quartiles = statistics.quantiles(ordered, n=4, method="inclusive")
+        p10 = deciles[0]
+        p90 = deciles[8]
+        q1 = quartiles[0]
+        q3 = quartiles[2]
+        stdev = statistics.stdev(ordered)
+
     return {
-        "count": len(values),
-        "min": min(values),
-        "max": max(values),
-        "mean": statistics.fmean(values),
-        "non_zero_fraction": sum(value != 0.0 for value in values) / len(values),
+        "count": len(ordered),
+        "min": ordered[0],
+        "max": ordered[-1],
+        "range": ordered[-1] - ordered[0],
+        "mean": statistics.fmean(ordered),
+        "median": statistics.median(ordered),
+        "stdev": stdev,
+        "p10": p10,
+        "p90": p90,
+        "iqr": q3 - q1,
+        "unique_count": len(set(ordered)),
+        "unique_fraction": len(set(ordered)) / len(ordered),
+        "non_zero_fraction": sum(value != 0.0 for value in ordered) / len(ordered),
     }
 
 
@@ -262,9 +286,14 @@ def audit(
             else {"status": "MEASURED", **summarize(values)}
         )
 
+    if failures:
+        status = "PARTIAL_FAILURE" if successes else "NO_SUCCESSFUL_SAMPLES"
+    else:
+        status = "PASS" if successes else "NO_SUCCESSFUL_SAMPLES"
+
     return {
-        "schema_version": 1,
-        "status": "PASS" if successes else "NO_SUCCESSFUL_SAMPLES",
+        "schema_version": 2,
+        "status": status,
         "purpose": "development_qa_only",
         "source": {
             "csv": str(csv_path),
@@ -283,6 +312,7 @@ def audit(
         "quality_notes": [
             "Retrospective controls are diagnostic only and must not become training labels.",
             "MIDI normalization is run with quantize=False so timing-derived QA is not erased before measurement.",
+            "PASS requires every selected MIDI candidate to parse successfully; partial parse failures are reported as PARTIAL_FAILURE and fail the CLI gate.",
             "Swing is explicitly NOT_MEASURED by the current retrospective extractor.",
         ],
         "failures": failures[:32],
