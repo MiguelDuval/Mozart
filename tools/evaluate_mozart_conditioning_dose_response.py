@@ -341,20 +341,81 @@ def evaluate_dose_response(
     }
 
 
-def _load_probe_file(path: Path) -> dict[str, Any]:
-    probes = load_sequence_probe_file(path)
-    for name, probe in probes["controls"].items():
-        low = probe.get("low_tokens")
-        high = probe.get("high_tokens")
-        prefix = probe.get("prefix_tokens")
-        if not isinstance(low, list) or not isinstance(high, list) or not isinstance(prefix, list):
-            raise ValueError(f"probe {name} lacks low/high/prefix token arrays")
-        if len(low) <= len(prefix) or len(high) <= len(prefix):
-            raise ValueError(f"probe {name} has no divergence target")
-        probe["low_target_token"] = int(low[len(prefix)])
-        probe["high_target_token"] = int(high[len(prefix)])
-    return probes
+def _load_records(path: Path) -> dict[str, dict[str, Any]]:
+    records: dict[str, dict[str, Any]] = {}
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(),
+        start=1,
+    ):
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        source_id = record.get("source_id")
+        if not isinstance(source_id, str) or not source_id:
+            raise ValueError(f"{path}:{line_number}: missing source_id")
+        if source_id in records:
+            raise ValueError(f"{path}:{line_number}: duplicate source_id {source_id!r}")
+        tokens = record.get("tokens")
+        if not isinstance(tokens, list) or len(tokens) < 2:
+            raise ValueError(f"{path}:{line_number}: tokens must contain at least two ids")
+        records[source_id] = record
+    if not records:
+        raise ValueError(f"{path}: no records")
+    return records
 
+
+def _load_probe_file(
+    path: Path,
+    records_path: Path,
+) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("sequence probe file root must be an object")
+    if payload.get("status") != "synthetic-conditioning-sequence-probes":
+        raise ValueError("unsupported sequence probe file status")
+    controls = payload.get("controls")
+    if not isinstance(controls, dict):
+        raise ValueError("sequence probe file controls must be an object")
+
+    records = _load_records(records_path)
+    for name in PERFORMANCE_CONTROL_NAMES:
+        probe = controls.get(name)
+        if not isinstance(probe, dict):
+            raise ValueError(f"missing sequence probe for control {name}")
+        low_source = probe.get("low_record_source_id")
+        high_source = probe.get("high_record_source_id")
+        if not isinstance(low_source, str) or not isinstance(high_source, str):
+            raise ValueError(f"probe {name} must declare low/high record source ids")
+        low_record = records.get(low_source)
+        high_record = records.get(high_source)
+        if low_record is None or high_record is None:
+            raise ValueError(f"probe {name} references a missing record")
+        prefix = probe.get("prefix_tokens")
+        if not isinstance(prefix, list) or not prefix:
+            raise ValueError(f"probe {name} must contain prefix_tokens")
+        if low_record["tokens"][:len(prefix)] != prefix:
+            raise ValueError(f"probe {name} low record does not contain declared prefix")
+        if high_record["tokens"][:len(prefix)] != prefix:
+            raise ValueError(f"probe {name} high record does not contain declared prefix")
+        if len(low_record["tokens"]) <= len(prefix) or len(high_record["tokens"]) <= len(prefix):
+            raise ValueError(f"probe {name} has no divergence target")
+        probe["low_target_token"] = int(low_record["tokens"][len(prefix)])
+        probe["high_target_token"] = int(high_record["tokens"][len(prefix)])
+        if probe["low_target_token"] == probe["high_target_token"]:
+            raise ValueError(f"probe {name} low/high target tokens do not diverge")
+        # The two stored profiles differ only in this control; all other controls
+        # define the fixed baseline used for every intermediate dose.
+        low_profile = dict(probe.get("low_profile", {}))
+        high_profile = dict(probe.get("high_profile", {}))
+        if set(low_profile) != set(PERFORMANCE_CONTROL_NAMES) or set(high_profile) != set(PERFORMANCE_CONTROL_NAMES):
+            raise ValueError(f"probe {name} must expose complete low/high control profiles")
+        for other in PERFORMANCE_CONTROL_NAMES:
+            if other != name and low_profile[other] != high_profile[other]:
+                raise ValueError(f"probe {name} changes more than one performance control")
+        base_profile = dict(low_profile)
+        base_profile[name] = 0.5
+        probe["base_profile"] = base_profile
+    return payload
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -362,6 +423,7 @@ def main() -> int:
     parser.add_argument("--config", type=Path)
     parser.add_argument("--onnx", type=Path)
     parser.add_argument("--probe-file", type=Path, required=True)
+    parser.add_argument("--records-file", type=Path, required=True)
     parser.add_argument("--levels", type=str, default=",".join(str(x) for x in DEFAULT_LEVELS))
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -371,7 +433,7 @@ def main() -> int:
     onnx_session = _load_onnx_session(args.onnx) if args.onnx is not None else None
     report = evaluate_dose_response(
         model,
-        _load_probe_file(args.probe_file),
+        _load_probe_file(args.probe_file, args.records_file),
         levels=levels,
         onnx_session=onnx_session,
     )
