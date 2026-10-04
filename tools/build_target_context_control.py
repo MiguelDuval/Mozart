@@ -81,6 +81,19 @@ def build_target_context_control(
 
     input_target_signature = _target_signature(input_records)
     distinct_target_hashes = len({record["target_sha256"] for record in input_records})
+    input_conditioning_signatures = {
+        json.dumps(
+            {field: record["conditioning"][field] for field in CONDITIONING_FIELDS},
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        for record in input_records
+    }
+    if len(input_conditioning_signatures) < 2:
+        raise ValueError(
+            "target-only arm requires an input with diverse model-visible conditioning "
+            "contexts; refusing to silently reproduce the input arm"
+        )
     if distinct_target_hashes < 11:
         raise ValueError(
             "target-only arm requires at least 11 distinct target SHA-256 values"
@@ -149,6 +162,7 @@ def build_target_context_control(
         "input_target_signature_sha256": input_target_signature,
         "output_target_signature_sha256": output_target_signature,
         "distinct_target_hashes": distinct_target_hashes,
+        "input_distinct_conditioning_contexts": len(input_conditioning_signatures),
         "records_path": "records.jsonl",
     }
     (output_dir / "metadata.json").write_text(
@@ -171,6 +185,7 @@ def build_target_context_control(
         "input_target_signature_sha256": input_target_signature,
         "output_target_signature_sha256": output_target_signature,
         "distinct_target_hashes": distinct_target_hashes,
+        "input_distinct_conditioning_contexts": len(input_conditioning_signatures),
     }
     return contract
 
