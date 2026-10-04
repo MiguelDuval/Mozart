@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import random
 import sys
@@ -175,6 +176,14 @@ def build_grammar_target_mask(
     return mask
 
 
+def configure_deterministic_execution() -> None:
+    """Enable reproducible CPU/CUDA execution for controlled research fits."""
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
+    torch.use_deterministic_algorithms(True)
+
+
 def set_seed(seed: int) -> None:
     random.seed(seed)
     torch.manual_seed(seed)
@@ -281,6 +290,11 @@ def main() -> int:
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
+        "--deterministic",
+        action="store_true",
+        help="Enable deterministic PyTorch algorithms and single-threaded CPU execution.",
+    )
+    parser.add_argument(
         "--device",
         choices=("auto", "cpu", "cuda"),
         default="auto",
@@ -299,6 +313,8 @@ def main() -> int:
     if args.num_workers < 0:
         raise ValueError("num-workers must not be negative")
 
+    if args.deterministic:
+        configure_deterministic_execution()
     set_seed(args.seed)
     config = ModelConfig.from_json(args.config)
 
@@ -373,6 +389,7 @@ def main() -> int:
         f"repeat_train_records={args.repeat_train_records} "
         f"fit_diagnostic={args.fit_diagnostic} "
         f"grammar_constrained_loss={args.grammar_constrained_loss} "
+        f"deterministic={args.deterministic} "
         f"weight_decay={0.0 if args.fit_diagnostic else args.weight_decay}"
     )
 
@@ -415,6 +432,7 @@ def main() -> int:
             "validation_loss": validation_loss,
             "fit_diagnostic": args.fit_diagnostic,
             "grammar_constrained_loss": args.grammar_constrained_loss,
+            "deterministic": args.deterministic,
             "repeat_train_records": args.repeat_train_records,
             "weight_decay": 0.0 if args.fit_diagnostic else args.weight_decay,
             "updates_per_epoch": updates_per_epoch,
