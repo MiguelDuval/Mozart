@@ -92,14 +92,82 @@ artifact naming was incomplete. That historical note must not be treated as a
 verified multi-seed result. The verified multi-seed evidence in this document is
 the completed run `37162482566` at commit `e6932fbb5ecda106d06df8bd5bf5d850f1253ab0`.
 
+## Held-out conditioning gate
+
+The next gate was executed as planned on four validation contexts that are excluded
+from training. Each unseen context has five controls, each control is evaluated at
+low/high values, producing 20 paired control probes and 40 evaluation-only records.
+The probe records are generated from the shared validation split and are not added
+to either training arm.
+
+- Implementation/fix commits: `6bc212ae8309eea8946d5098c3199ac97847b5ab6`,
+  `c41452f79ce2738e98ba858d5f67b31cb8dfea07`,
+  `00ae4f09b899322ec7b390232e5d2fa8d42f7ac6`
+- Trigger commit: `e64837a05203d9659431757336f57ef96caad988`
+- Research workflow run: `37184160533`
+- Seeds: 7, 42, 123
+- Optimizer updates per fit: 480
+- Held-out contexts: 4
+- Held-out control probes: 20 pairs / 40 records
+- Seed jobs: PASS for all three seeds
+- Held-out teacher-forced scoring: PASS for all three seeds
+- Held-out grammar-constrained sequence scoring: PASS for all three seeds
+- Cross-seed aggregate: PASS
+- Android build on the same branch tip: PASS
+
+### Held-out result
+
+All values below are diverse minus matched. The per-seed values are computed over
+the four held-out validation contexts; the aggregate mean/SD is across the three
+independent seeds.
+
+| Metric | Seed 7 | Seed 42 | Seed 123 | Mean ± sample SD |
+| --- | ---: | ---: | ---: | ---: |
+| Target-probability directional response-rate delta | +0.043750 | +0.018750 | +0.028125 | +0.030208 ± 0.012630 |
+| Target-family directional response-rate delta | +0.028125 | +0.006250 | +0.009375 | +0.014583 ± 0.011831 |
+| Mean target-probability lift delta | -0.001061 | +0.009200 | +0.007690 | +0.005276 ± 0.005540 |
+| Mean teacher-forced distribution TV delta | -0.012073 | -0.013390 | -0.002130 | -0.009198 ± 0.006156 |
+| Controls with sequence-change delta | +1.000000 | +1.250000 | +1.000000 | +1.083333 ± 0.144338 |
+| Mean per-control max TV delta | -0.088282 | -0.116584 | -0.138054 | -0.114307 ± 0.024964 |
+
+The strongest reproducible signal is directional alignment on unseen contexts:
+all three seeds improve the target-probability directional response rate, and all
+three also improve target-family directional response rate. The autoregressive
+suite likewise shows more controls producing a sequence change in every seed.
+
+At the same time, the magnitude story is not a simple "stronger conditioning"
+result. Raw mean target-probability lift is positive in two seeds and negative in
+one, while teacher-forced distribution TV and mean per-control autoregressive TV
+both decrease consistently. That pattern is compatible with a more selective or
+regularized control response rather than uniformly larger sensitivity.
+
+Because this is still a tiny synthetic fixture, the defensible conclusion is:
+context diversity now has reproducible evidence of improving conditional-response
+alignment on unseen validation contexts, while its effect on response magnitude
+and overall conditioning strength remains unresolved. This does not justify
+calling diversity a production conditioning solution, selecting a production
+checkpoint, or freezing the model ABI.
+
+The held-out evaluator also keeps grammar validity and PyTorch/ONNX consistency as
+hard gates. All three seeds passed those gates; this is an infrastructure and
+model-consistency result, not evidence that the synthetic sequences are
+production-quality musical output.
+
 ## Next scientific gate
 
-The remaining ambiguity is whether conditioning responsiveness generalizes to
-contexts that were not part of the training probe set. The next useful experiment
-is therefore an evaluation-only held-out conditional probe suite: for each of the
-four validation contexts, vary each performance control while holding the other
-four controls fixed, and measure teacher-forced target response plus
-grammar-constrained distribution response. Those probes should remain outside
-training and should be scored separately from the canonical train-context probes.
+The current evidence separates two effects that were previously conflated: better
+held-out generalization and stronger conditional responsiveness. The next minimal
+experiment should therefore isolate the causal mechanism of the diversity gain,
+not change the model architecture.
 
-No production model or ONNX tensor ABI should be frozen before that gate.
+Use a third, matched-exposure control arm in which the conditioning metadata is
+made context-diverse while the target MIDI/token sequence exposure is held fixed.
+Keep the same four validation contexts, five controls, three seeds, 480-update
+budget, optimizer settings, and evaluation suite. Compare this arm against the
+existing matched and context-diverse arms.
+
+The question is narrow: does the generalization/held-out response improvement
+survive when only the conditioning context coverage changes, or does it require
+additional target-sequence diversity as well? Until that is answered, no
+architecture, tensor ABI, or production-checkpoint decision should be based on
+this synthetic result.
