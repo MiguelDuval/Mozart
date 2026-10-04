@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "audit_id": "waivops-nrg-cp-zenodo-15304989-v1",
+  "source_id": "waivops-nrg-cp",
+  "name": "WaivOps NRG-CP",
+  "status": "pending",
+  "source": {
+    "locator": "https://zenodo.org/records/15304989",
+    "revision": "zenodo:15304989@1.0"
+  },
+  "archive": {
+    "filename": "nrgcp_midi_dataset.tar.gz",
+    "md5": "7443fe30674ef149aa4c23580044f597",
+    "sha256": "PENDING"
+  },
+  "license": {
+    "spdx_id": "CC-BY-4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/",
+    "publisher": "Patchbanks / WaivOps"
+  },
+  "evidence": [
+    {
+      "id": "zenodo-record",
+      "kind": "archive_record",
+      "locator": "https://zenodo.org/records/15304989",
+      "checked_on": "2026-10-05",
+      "statement": "Zenodo publishes version 1.0 of the NRG-CP record and identifies the acquisition archive by name and MD5."
+    },
+    {
+      "id": "publisher-license-statement",
+      "kind": "rights_statement",
+      "locator": "https://github.com/patchbanks/WaivOps-NRG-CP",
+      "checked_on": "2026-10-05",
+      "statement": "Publisher states that the dataset was compiled by WaivOps, managed by Patchbanks, and that recordings were sourced from verified composers and providers for copyright clearance."
+    },
+    {
+      "id": "cc-by-terms",
+      "kind": "license_terms",
+      "locator": "https://creativecommons.org/licenses/by/4.0/",
+      "checked_on": "2026-10-05",
+      "statement": "CC BY 4.0 permits sharing and adaptation for commercial purposes subject to attribution and the other license terms."
+    }
+  ],
+  "checks": {
+    "immutable_source_revision": "verified",
+    "license_scope": "verified",
+    "rights_holder_authority": "pending",
+    "commercial_training_permission": "pending",
+    "redistribution_permission": "pending",
+    "attribution_requirements": "verified",
+    "archive_sha256": "pending",
+    "file_inventory_sha256": "pending"
+  },
+  "file_inventory_sha256": "PENDING",
+  "blockers": [
+    "Obtain SHA-256 for the downloaded acquisition archive.",
+    "Establish that the licensor had authority to grant commercial training and redistribution rights for all contained MIDI material, not merely that the dataset page displays CC BY 4.0.",
+    "Build and verify the complete MIDI inventory with per-file SHA-256 checksums and an exact manifest match."
+  ]
+}

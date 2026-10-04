@@ -22,6 +22,11 @@ file-level checksums, and an exact inventory/manifest match.
 - Published license: CC BY 4.0
 - Publisher rights statement: recordings are sourced from verified composers/providers
   for copyright clearance.
+- Audit ledger: `docs/dataset-rights-audit-waivops-nrg-cp-v1.json`
+- Current ledger status: **pending**. Public evidence establishes the Zenodo v1.0
+  acquisition record, published CC BY 4.0 terms, and the publisher's copyright-clearance
+  statement, but it does not by itself establish the missing authority, archive SHA-256,
+  or exact MIDI inventory gates required by Mozart.
 - Remaining audit: capture the exact dataset revision, download archive checksum,
   license text, attribution wording, and evidence linking the MIDI files to the
   entity authorized to license them.
@@ -63,6 +68,19 @@ keeping the rights filter explicit.
 
 Why it remains pending: an open license label on a repository is not by itself proof
 that every underlying source right was cleared for redistribution.
+
+## Rights-audit ledger
+
+Before a candidate can become an `audited` or `release` manifest source, keep a
+machine-validated ledger alongside the human-readable sourcing record. The ledger
+must distinguish published license terms from the separate question of whether the
+publisher had authority to grant those rights for the contained material.
+
+`tools/validate_dataset_rights_audit.py` enforces this distinction for candidate
+ledgers. An `approved` ledger is rejected unless every rights gate is verified, the
+acquisition archive has a concrete SHA-256, and the exact MIDI inventory has a
+concrete digest. A `pending` ledger may carry explicit blockers while research
+continues.
 
 ## Release policy
 

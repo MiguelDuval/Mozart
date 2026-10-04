@@ -95,6 +95,18 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_validate_dataset_manifest.py'
 
+      - name: Validate dataset rights-audit ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/validate_dataset_rights_audit.py docs/dataset-rights-audit-waivops-nrg-cp-v1.json
+
+      - name: Test dataset rights-audit validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_validate_dataset_rights_audit.py'
+
       - name: Test manifest digest
         shell: bash
         run: |
