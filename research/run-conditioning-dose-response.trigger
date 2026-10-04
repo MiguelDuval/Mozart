@@ -7,3 +7,5 @@ Primary measurement: shared-prefix low-target vs high-target legal-token probabi
 Secondary measurements: slope around neutral, monotonic consistency, integrated absolute target/family response, and legal-distribution TV from neutral.
 
 This experiment is diagnostic-only. It does not freeze the production tensor ABI, change Android integration, or select a production checkpoint.
+
+Retry: corrected the dose-response monotonic-fraction unit assertion before rerunning the experiment.
