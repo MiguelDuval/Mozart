@@ -141,6 +141,14 @@ def validate(path: Path) -> None:
     ):
         fail("blockers must be a list of non-empty strings")
 
+    authority_chain_audit = data.get("authority_chain_audit")
+    if authority_chain_audit is not None:
+        if not isinstance(authority_chain_audit, str) or not authority_chain_audit.strip():
+            fail("authority_chain_audit must be a non-empty relative path when present")
+        authority_path = Path(authority_chain_audit)
+        if authority_path.is_absolute() or ".." in authority_path.parts:
+            fail("authority_chain_audit must be a safe relative path")
+
     file_inventory_sha = data.get("file_inventory_sha256")
     if not isinstance(file_inventory_sha, str):
         fail("file_inventory_sha256 must be a string")
@@ -157,6 +165,17 @@ def validate(path: Path) -> None:
             )
         _require_sha256(archive_sha, "archive.sha256")
         _require_sha256(file_inventory_sha, "file_inventory_sha256")
+        if not authority_chain_audit:
+            fail("approved audits require authority_chain_audit")
+        authority_file = (path.parent / authority_chain_audit).resolve()
+        if not authority_file.is_file():
+            fail(f"authority-chain audit file does not exist: {authority_chain_audit}")
+        try:
+            authority_data = json.loads(authority_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            fail(f"cannot read authority-chain audit {authority_file}: {exc}")
+        if not isinstance(authority_data, dict) or authority_data.get("status") != "approved":
+            fail("approved rights audits require an approved authority-chain audit")
 
     print(
         f"PASS: {path} is a valid Mozart rights audit "
