@@ -117,15 +117,31 @@ class RightsAuditTests(unittest.TestCase):
         audit = pending_audit()
         audit["status"] = "approved"
         audit["blockers"] = []
+        audit["authority_chain_audit"] = "authority-chain.json"
         digest = "a" * 64
         audit["archive"]["sha256"] = digest
         audit["file_inventory_sha256"] = digest
         for key in validate_dataset_rights_audit.REQUIRED_CHECKS:
             audit["checks"][key] = "verified"
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "audit.json"
+            root = Path(directory)
+            path = root / "audit.json"
             path.write_text(json.dumps(audit), encoding="utf-8")
+            (root / "authority-chain.json").write_text(
+                json.dumps({"status": "approved"}), encoding="utf-8"
+            )
             validate_dataset_rights_audit.validate(path)
+
+    def test_approved_requires_authority_chain_audit(self) -> None:
+        audit = pending_audit()
+        audit["status"] = "approved"
+        audit["blockers"] = []
+        digest = "a" * 64
+        audit["archive"]["sha256"] = digest
+        audit["file_inventory_sha256"] = digest
+        for key in validate_dataset_rights_audit.REQUIRED_CHECKS:
+            audit["checks"][key] = "verified"
+        self._validate_expect_failure(audit)
 
     def test_pending_sha_is_not_accepted_as_verified_check(self) -> None:
         audit = pending_audit()
