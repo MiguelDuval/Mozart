@@ -201,6 +201,18 @@ jobs:
           cat build/ml-context-diversity-input-contract.json
 
 
+      - name: Build joint target+conditioning-diverse factorial arm
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/ml-joint-context-control
+          python3 tools/build_joint_context_diversity.py \
+            build/ml-diverse-conditioning-fixture/train.jsonl \
+            build/ml-joint-context-control \
+            --probe-json build/ml-diverse-conditioning-fixture/sequence-probes.json \
+            > build/ml-joint-context-control-contract.json
+          cat build/ml-joint-context-control-contract.json
+
       - name: Build target-only sequence-diversity control
         shell: bash
         run: |
@@ -447,6 +459,42 @@ jobs:
           PY
 
 
+      - name: Fit joint target+conditioning-diverse model
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/train_mozart_model.py \
+            build/ml-joint-context-control/records.jsonl \
+            --validation-jsonl build/ml-base-conditioning-fixture/validation.jsonl \
+            --output-dir build/ml-joint-context-checkpoint \
+            --epochs 12 \
+            --batch-size 4 \
+            --repeat-train-records 8 \
+            --learning-rate 3e-4 \
+            --fit-diagnostic \
+            --seed ${{ matrix.seed }} \
+            --device cpu
+          python3 - <<'PY'
+          import torch
+          checkpoint = torch.load(
+              "build/ml-joint-context-checkpoint/latest.pt",
+              map_location="cpu",
+              weights_only=False,
+          )
+          if checkpoint.get("total_optimizer_updates") != 480:
+              raise SystemExit("joint fit must contain exactly 480 optimizer updates")
+          if checkpoint.get("repeat_train_records") != 8:
+              raise SystemExit("joint fit must use repeat factor 8")
+          inference = {key: checkpoint[key] for key in (
+              "model_id", "config", "epoch", "seed", "train_loss",
+              "validation_loss", "grammar_constrained_loss", "model_state",
+          )}
+          torch.save(
+              inference,
+              "build/ml-joint-context-checkpoint/development-inference.pt",
+          )
+          PY
+
       - name: Fit target-only model
         shell: bash
         run: |
@@ -488,7 +536,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          for kind in matched diverse target_only conditioning_context; do
+          for kind in matched diverse joint target_only conditioning_context; do
             if [[ "$kind" == "matched" ]]; then
               model_dir="build/ml-matched-checkpoint"
               train_jsonl="build/ml-matched-train.jsonl"
@@ -496,6 +544,10 @@ jobs:
             elif [[ "$kind" == "diverse" ]]; then
               model_dir="build/ml-diverse-checkpoint"
               train_jsonl="build/ml-diverse-conditioning-fixture/train.jsonl"
+              probe_json="build/ml-diverse-conditioning-fixture/sequence-probes.json"
+            elif [[ "$kind" == "joint" ]]; then
+              model_dir="build/ml-joint-context-checkpoint"
+              train_jsonl="build/ml-joint-context-control/records.jsonl"
               probe_json="build/ml-diverse-conditioning-fixture/sequence-probes.json"
             elif [[ "$kind" == "target_only" ]]; then
               model_dir="build/ml-target-only-checkpoint"
@@ -585,6 +637,13 @@ jobs:
           python3 tools/summarize_mozart_conditioning_ab.py \
             --baseline-dir build/ml-matched-checkpoint \
             --matched-dir build/ml-matched-checkpoint \
+            --diverse-dir build/ml-joint-context-checkpoint \
+            --input-contract build/ml-context-diversity-input-contract.json \
+            --output build/ml-joint-context-control-summary.json
+
+          python3 tools/summarize_mozart_conditioning_ab.py \
+            --baseline-dir build/ml-matched-checkpoint \
+            --matched-dir build/ml-matched-checkpoint \
             --diverse-dir build/ml-target-only-checkpoint \
             --input-contract build/ml-context-diversity-input-contract.json \
             --output build/ml-target-only-context-control-summary.json
@@ -609,6 +668,13 @@ jobs:
           if target_only.get("status") != "PASS":
               raise SystemExit("target-only context control summary did not PASS")
           summary["target_only_context_control"] = target_only
+           joint = json.loads(
+               Path("build/ml-joint-context-control-summary.json")
+               .read_text(encoding="utf-8")
+           )
+           if joint.get("status") != "PASS":
+               raise SystemExit("joint context control summary did not PASS")
+           summary["joint_context_control"] = joint
           seed = int("${{ matrix.seed }}")
           summary["replication_seed"] = seed
           payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
@@ -622,11 +688,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for kind in matched diverse target_only conditioning_context; do
+          for kind in matched diverse joint target_only conditioning_context; do
             if [[ "$kind" == "matched" ]]; then
               model_dir="build/ml-matched-checkpoint"
             elif [[ "$kind" == "diverse" ]]; then
               model_dir="build/ml-diverse-checkpoint"
+            elif [[ "$kind" == "joint" ]]; then
+              model_dir="build/ml-joint-context-checkpoint"
             elif [[ "$kind" == "target_only" ]]; then
               model_dir="build/ml-target-only-checkpoint"
             else
@@ -719,6 +787,12 @@ jobs:
 
           python3 tools/summarize_mozart_heldout_conditioning.py \
             build/ml-matched-checkpoint/heldout \
+            build/ml-joint-context-checkpoint/heldout \
+            --context-count 4 \
+            --output build/ml-heldout-joint-context-control-summary.json
+
+          python3 tools/summarize_mozart_heldout_conditioning.py \
+            build/ml-matched-checkpoint/heldout \
             build/ml-target-only-checkpoint/heldout \
             --context-count 4 \
             --output build/ml-heldout-target-only-context-control-summary.json
@@ -748,6 +822,13 @@ jobs:
           if heldout_target_only.get("status") != "PASS":
               raise SystemExit("held-out target-only control summary did not PASS")
           summary["heldout_target_only_context_control"] = heldout_target_only
+           heldout_joint = json.loads(
+               Path("build/ml-heldout-joint-context-control-summary.json")
+               .read_text(encoding="utf-8")
+           )
+           if heldout_joint.get("status") != "PASS":
+               raise SystemExit("held-out joint context control summary did not PASS")
+           summary["heldout_joint_context_control"] = heldout_joint
           payload = json.dumps(summary, indent=2, sort_keys=True) + "\n"
           summary_path.write_text(payload, encoding="utf-8")
           seed = int("${{ matrix.seed }}")
@@ -808,6 +889,14 @@ jobs:
           pattern: mozart-ml-diversity-replication-seed-*
           merge-multiple: true
           path: build/seed-metrics
+
+      - name: Aggregate factorial decomposition
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/summarize_mozart_factorial.py \
+            build/seed-metrics \
+            --output build/ml-factorial-summary.json
 
       - name: Aggregate replication statistics
         shell: bash
@@ -997,6 +1086,15 @@ jobs:
           )
           print(json.dumps(out, indent=2, sort_keys=True))
           PY
+
+      - name: Upload factorial decomposition
+        uses: actions/upload-artifact@v7
+        with:
+          name: mozart-ml-diversity-factorial-summary
+          path: build/ml-factorial-summary.json
+          archive: true
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload replication summary
         uses: actions/upload-artifact@v7
