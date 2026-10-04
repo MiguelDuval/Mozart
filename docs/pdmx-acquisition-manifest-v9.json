@@ -6,7 +6,9 @@
     "name": "PDMX",
     "doi": "10.5281/zenodo.15571083",
     "record": "https://zenodo.org/records/15571083",
-    "revision": "v9"
+    "revision": "v9",
+    "upstream_code_repository": "https://github.com/pnlong/PDMX",
+    "upstream_code_license": "MIT"
   },
   "published_artifacts": [
     {
@@ -51,6 +53,13 @@
     "technical_provenance": "pending_local_acquisition",
     "commercial_training_rights": "requires_separate_rights_review",
     "redistribution_rights": "requires_separate_rights_review",
-    "note": "The no_license_conflict filter is a publisher-defined metadata consistency condition and is not treated as an independent contractual grant."
+    "note": "The no_license_conflict filter is a publisher-defined metadata consistency condition and is not treated as an independent contractual grant.",
+    "dataset_content_license_signal": "publisher_claims_public_domain_per_source_metadata",
+    "code_license_must_not_be_interpreted_as_dataset_content_license": true,
+    "required_independent_review": [
+      "Confirm the intended legal basis for each selected row from the PDMX per-row license/license_url metadata.",
+      "Confirm that the public-facing MuseScore license is sufficient for the intended commercial ML-training and redistribution use of the resulting MIDI derivative.",
+      "Preserve the exact selected-row manifest and source revision used for the production corpus."
+    ]
   }
 }
