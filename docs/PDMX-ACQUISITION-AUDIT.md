@@ -36,10 +36,11 @@ The auditor:
 2. validates the required metadata/subset columns;
 3. verifies the no_license_conflict subset file is exactly the same set as the CSV subset flag;
 4. intersects that subset with rows having a concrete mid path;
-5. audits the actual MIDI source as a directory or TAR/TAR.GZ;
-6. rejects path traversal, duplicates, non-regular members, symlinks, and non-MIDI files;
-7. computes per-file SHA-256 and a deterministic canonical inventory SHA-256;
-8. reports exact missing/unexpected MIDI paths without committing the dataset itself.
+5. audits the actual MIDI source as a directory or TAR/TAR.GZ and compares the complete archive inventory against every concrete MIDI path declared by PDMX.csv;
+6. verifies that every MIDI belonging to no_license_conflict is present in the full MIDI inventory;
+7. rejects path traversal, duplicates, non-regular members, symlinks, and non-MIDI files;
+8. computes per-file SHA-256 and a deterministic canonical inventory SHA-256;
+9. reports exact missing/unexpected MIDI paths without committing the dataset itself.
 
 ## Legal interpretation
 
