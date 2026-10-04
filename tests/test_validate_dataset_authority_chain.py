@@ -112,8 +112,14 @@ class AuthorityChainTests(unittest.TestCase):
                 "strength": "file_mapping",
             },
         ])
+        audit["chain"]["source_material_rights_holder"]["status"] = "documented"
+        audit["chain"]["source_material_rights_holder"]["evidence_refs"] = ["authority-doc"]
+        audit["chain"]["rights_grant_to_waivops_or_patchbanks"]["status"] = "documented"
         audit["chain"]["rights_grant_to_waivops_or_patchbanks"]["evidence_refs"] = ["authority-doc"]
+        audit["chain"]["dataset_file_mapping_to_rights_grant"]["status"] = "documented"
         audit["chain"]["dataset_file_mapping_to_rights_grant"]["evidence_refs"] = ["file-manifest"]
+        audit["chain"]["grant_to_end_user_under_cc_by_4_0"]["status"] = "documented"
+        audit["chain"]["grant_to_end_user_under_cc_by_4_0"]["evidence_refs"] = ["authority-doc"]
         self.validate(audit)
 
 
