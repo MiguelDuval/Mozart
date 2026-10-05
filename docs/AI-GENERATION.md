@@ -161,18 +161,19 @@ Never call local or remote AI from:
 - scheduler send loops;
 - Link timing callbacks.
 
-Generation must be cancellable/bounded where practical and must never block transport progress.
+Generation requests are bounded by the worker queue. Individual backend inference is currently non-cancellable: `stop()` marks the service stopped, invalidates the current lifecycle session, drains queued jobs, and waits for any active inference to return before joining the worker. Backend implementations must therefore return without depending on transport teardown or the generation service itself. This shutdown wait remains off the realtime transport path.
 
 ### Scheduler handoff
 
 `GenerationService` returns an asynchronous `GenerationResult` tagged with the
-model-selection generation captured at submission time. A result produced for an
-older selection is stale and must not be applied to the live musical state.
+model-selection generation and generation-service lifecycle session captured at
+submission time. A result produced for an older model selection or an older service
+session is stale and must not be applied to the live musical state.
 
 `MozartRuntime::queueGeneratedResult()` is the guarded application boundary:
 it requires a successful result whose `GenerationRequestTicket` still matches the
-currently selected model and selection generation, then hands the already
-validated `PatternProposal` to the scheduler. This check is outside the realtime
+currently selected model, selection generation, and generation-service lifecycle
+session, then hands the already validated `PatternProposal` to the scheduler. This check is outside the realtime
 scheduler loop; the scheduler never waits for inference and never performs
 network/model work.
 

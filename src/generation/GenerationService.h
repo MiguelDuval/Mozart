@@ -27,7 +27,9 @@ public:
     GenerationService& operator=(const GenerationService&) = delete;
 
     void start();
-    void stop();
+    // Stops accepting new requests, drains queued jobs, and waits for any
+    // active backend inference to return. Backend inference is currently
+    // non-cancellable, so stop() may block until the backend completes.
 
     [[nodiscard]] bool running() const noexcept;
 
