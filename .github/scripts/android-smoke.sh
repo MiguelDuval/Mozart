@@ -361,6 +361,10 @@ if [[ "$stale_runtime_smoke_rc" -eq 0 ]]; then
 fi
 
 if [[ "$stale_runtime_smoke_rc" -eq 0 ]]; then
+  exercise_activity_background_resume_guard || runtime_smoke_rc=$?
+fi
+
+if [[ "$runtime_smoke_rc" -eq 0 ]]; then
   wait_for_runtime_smoke || runtime_smoke_rc=$?
 else
   runtime_smoke_rc=1
