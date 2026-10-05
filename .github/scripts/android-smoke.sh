@@ -120,28 +120,35 @@ wait_for_runtime_smoke() {
 }
 
 
+activity_is_resumed() {
+  adb shell dumpsys activity activities 2>/dev/null |
+    grep -F "mResumedActivity" |
+    grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"
+}
+
+wait_for_activity_to_stop() {
+  for _ in $(seq 1 20); do
+    if ! activity_is_resumed; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  return 1
+}
+
 exercise_runtime_smoke_recreate_guard() {
   echo "=== Runtime smoke stale-callback recreate guard ==="
 
   adb shell input keyevent 4 >/dev/null 2>&1 || true
 
-  for _ in $(seq 1 20); do
-    if ! adb shell dumpsys activity activities 2>/dev/null |
-        grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"; then
-      break
-    fi
-    sleep 0.25
-  done
-
-  if adb shell dumpsys activity activities 2>/dev/null |
-      grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"; then
-    echo "MainActivity did not leave the activity manager after BACK." >&2
+  if ! wait_for_activity_to_stop; then
+    echo "MainActivity remained resumed after BACK." >&2
     return 1
   fi
 
   # The previous Activity deliberately had runtime smoke enabled. Clear logs
-  # after BACK so any late callback from that destroyed Activity is observable
-  # without being confused with the recreated Activity.
+  # after BACK once the Activity is no longer resumed, so late callbacks from
+  # that stopped instance are observable without a task-manager assumption.
   adb logcat -c
   start_app false
 
@@ -226,17 +233,8 @@ exercise_activity_recreate_cycle() {
   echo "=== Activity lifecycle recreate cycle ${cycle} ==="
   adb shell input keyevent 4 >/dev/null 2>&1 || true
 
-  for _ in $(seq 1 20); do
-    if ! adb shell dumpsys activity activities 2>/dev/null |
-        grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"; then
-      break
-    fi
-    sleep 0.25
-  done
-
-  if adb shell dumpsys activity activities 2>/dev/null |
-      grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"; then
-    echo "MainActivity did not leave the activity manager after BACK." >&2
+  if ! wait_for_activity_to_stop; then
+    echo "MainActivity remained resumed after BACK during recreate cycle ${cycle}." >&2
     return 1
   fi
 
