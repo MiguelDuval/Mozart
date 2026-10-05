@@ -24,6 +24,16 @@ public final class AndroidAudioKeyInput {
                 return true;
             }
 
+            final Thread previousWorker = worker;
+            if (previousWorker != null && previousWorker != Thread.currentThread()) {
+                joinWorker(previousWorker);
+                if (recorder != null) {
+                    recorder.release();
+                }
+                recorder = null;
+                worker = null;
+            }
+
             final int minimumBuffer =
                     AudioRecord.getMinBufferSize(
                             SAMPLE_RATE,
@@ -102,13 +112,7 @@ public final class AndroidAudioKeyInput {
             }
 
             final Thread localWorker = worker;
-            if (localWorker != null && localWorker != Thread.currentThread()) {
-                try {
-                    localWorker.join();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
+            joinWorker(localWorker);
 
             if (localRecorder != null) {
                 localRecorder.release();
@@ -116,6 +120,26 @@ public final class AndroidAudioKeyInput {
 
             recorder = null;
             worker = null;
+        }
+    }
+
+    private static void joinWorker(Thread worker) {
+        if (worker == null || worker == Thread.currentThread()) {
+            return;
+        }
+
+        boolean interrupted = false;
+        for (;;) {
+            try {
+                worker.join();
+                break;
+            } catch (InterruptedException e) {
+                interrupted = true;
+            }
+        }
+
+        if (interrupted) {
+            Thread.currentThread().interrupt();
         }
     }
 
