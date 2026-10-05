@@ -312,7 +312,7 @@ def _prepare_training_provenance(
     manifest_path: Path,
     inventory_path: Path,
     explicit_manifest_sha256: str | None,
-) -> tuple[dict, str]:
+) -> tuple[dict, str, str]:
     manifest = _read_manifest(manifest_path)
     _validate_training_manifest_metadata(manifest)
 
@@ -325,7 +325,11 @@ def _prepare_training_provenance(
         explicit_manifest_sha256,
     )
     _validate_training_record_provenance(records, manifest)
-    return manifest, effective_manifest_sha256
+    return (
+        manifest,
+        effective_manifest_sha256,
+        str(inventory_result["inventory_digest"]),
+    )
 
 
 def _read_manifest(path: Path) -> dict:
@@ -380,6 +384,7 @@ def _stats(
     records: list[dict],
     manifest_sha256: str | None,
     manifest: dict | None = None,
+    inventory_sha256: str | None = None,
 ) -> dict:
     split_counts = Counter(str(record["split"]) for record in records)
     style_counts = Counter(
@@ -462,6 +467,7 @@ def _stats(
         },
         "reproducibility": {
             "manifest_sha256": manifest_sha256 or "NOT_SUPPLIED",
+            "inventory_sha256": inventory_sha256 or "NOT_SUPPLIED",
             "split_algorithm": "sha256(seed\\0source_id\\0source_revision) mod 10000",
             "vocabulary_id": VOCABULARY_ID,
         },
@@ -542,7 +548,7 @@ def main() -> int:
     try:
         records = read_jsonl(args.input_jsonl)
         validate_records(records)
-        manifest, effective_manifest_sha256 = _prepare_training_provenance(
+        manifest, effective_manifest_sha256, inventory_sha256 = _prepare_training_provenance(
             records,
             args.manifest,
             args.inventory,
@@ -554,7 +560,12 @@ def main() -> int:
         stats_path = args.output_dir / "dataset-statistics.json"
         stats_path.write_text(
             json.dumps(
-                _stats(records, effective_manifest_sha256, manifest),
+                _stats(
+                    records,
+                    effective_manifest_sha256,
+                    manifest,
+                    inventory_sha256,
+                ),
                 ensure_ascii=False,
                 indent=2,
                 sort_keys=True,
