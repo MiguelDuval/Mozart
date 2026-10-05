@@ -2484,6 +2484,7 @@ int main() {
         public:
             std::thread::id workerThread{};
             int calls = 0;
+            std::string backendId = "runtime-generation-backend";
 
             [[nodiscard]] mozart::generation::TokenInferenceResult generateTokens(
                     const mozart::generation::GenerationRequest&,
@@ -2524,12 +2525,14 @@ int main() {
             }
 
             [[nodiscard]] std::string id() const override {
-                return "runtime-generation-backend";
+                return backendId;
             }
         };
 
         RuntimeGenerationOutput output;
         RuntimeGenerationBackend backend;
+        RuntimeGenerationBackend backendB;
+        backendB.backendId = "runtime-generation-backend-b";
         mozart::runtime::MozartRuntime runtime(output);
 
         assert(runtime.registerModelBackend(backend));
@@ -2539,6 +2542,15 @@ int main() {
                 "runtime-generation-backend",
                 "/private/runtime-generation/model",
                 "/private/runtime-generation/manifest",
+                mozart::generation::ModelDistributionClass::PrivateExperimental,
+                true
+        }));
+        assert(runtime.registerModel({
+                "runtime-generation-model-b",
+                "Runtime Generation Model B",
+                "runtime-generation-backend-b",
+                "/private/runtime-generation/model-b",
+                "/private/runtime-generation/manifest-b",
                 mozart::generation::ModelDistributionClass::PrivateExperimental,
                 true
         }));
@@ -2564,10 +2576,9 @@ int main() {
                 "runtime-generation-model",
                 1));
 
-        // Re-selecting the same model creates a new selection generation.
-        // A result produced before that boundary is stale and must not reach
-        // the scheduler.
-        assert(runtime.selectModel("runtime-generation-model"));
+        // Switching to a different model invalidates the in-flight result
+        // by both model identity and selection generation.
+        assert(runtime.selectModel("runtime-generation-model-b"));
         assert(!runtime.queueGeneratedResult(result));
 
         auto freshFuture = runtime.requestGeneration(
@@ -2578,8 +2589,11 @@ int main() {
         auto freshResult = freshFuture.get();
         assert(freshResult.ok());
         assert(freshResult.ticket.matches(
-                "runtime-generation-model",
+                "runtime-generation-model-b",
                 2));
+        assert(freshResult.proposal.metadata.generatorId ==
+               "runtime-generation-backend-b");
+        assert(backendB.calls == 1);
         assert(runtime.queueGeneratedResult(std::move(freshResult)));
 
         runtime.stop();
