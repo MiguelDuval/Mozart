@@ -51,7 +51,7 @@ A local model provider and future remote providers use the same boundary.
 
 Mozart also has a permanent Experimental Model Lab boundary. External or non-redistributable checkpoints may be selected for private development through the model catalog, but their artifacts remain outside Git and outside distributed APK/AAB packages. Experimental models use exactly the same token detokenization and PatternProposalValidator gates as production models.
 
-The universal selection path is `modelId -> ModelCatalog -> TokenInferenceBackend`. The backend may use LiteRT, ONNX or another runtime, while the musical engine sees only Mozart's token contract.
+The universal selection path is `modelId -> ModelCatalog -> TokenInferenceBackend`. Model selection resolves only a registered backend pointer; it does not probe runtime availability on the caller thread. Backend runtime/availability calls remain worker-thread-only. The backend may use LiteRT, ONNX or another runtime, while the musical engine sees only Mozart's token contract.
 
 The neural provider is split into two responsibilities: a generic `TokenInferenceBackend` owns model-runtime interaction, while `LocalNeuralPatternProvider` owns detokenization and the common Mozart validation gate. LiteRT will implement the backend interface; it must not be embedded into the musical-domain classes.
 
@@ -161,7 +161,7 @@ Never call local or remote AI from:
 - scheduler send loops;
 - Link timing callbacks.
 
-Generation requests are bounded by the worker queue. Individual backend inference is currently non-cancellable: `stop()` marks the service stopped, invalidates the current lifecycle session, drains queued jobs, and waits for any active inference to return before joining the worker. Backend implementations must therefore return without depending on transport teardown or the generation service itself. This shutdown wait remains off the realtime transport path.
+Generation requests are bounded by the worker queue. Model selection does not call backend availability synchronously; `GenerationService` probes backend availability on its dedicated worker. Individual backend inference is currently non-cancellable: `stop()` marks the service stopped, invalidates the current lifecycle session, drains queued jobs, and waits for any active inference to return before joining the worker. Backend implementations must therefore return without depending on transport teardown or the generation service itself. This shutdown wait remains off the realtime transport path.
 
 ### Scheduler handoff
 
