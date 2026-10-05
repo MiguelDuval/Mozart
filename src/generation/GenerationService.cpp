@@ -20,7 +20,12 @@ void GenerationService::start() {
 
     ++lifecycleGeneration_;
     running_ = true;
-    worker_ = std::thread(&GenerationService::run, this);
+    try {
+        worker_ = std::thread(&GenerationService::run, this);
+    } catch (...) {
+        running_ = false;
+        throw;
+    }
 }
 
 void GenerationService::stop() {
