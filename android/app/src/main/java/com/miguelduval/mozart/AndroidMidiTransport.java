@@ -444,8 +444,13 @@ public final class AndroidMidiTransport {
             String connectionStatus) {
         final List<MidiEndpoint> stableEndpoints =
                 Collections.unmodifiableList(new ArrayList<>(endpoints));
+        final long deliveryGeneration = connectionGeneration.get();
 
         mainHandler.post(() -> {
+            if (connectionGeneration.get() != deliveryGeneration) {
+                return;
+            }
+
             final Listener currentListener = listener;
             if (currentListener != null) {
                 currentListener.onMidiInventoryChanged(
