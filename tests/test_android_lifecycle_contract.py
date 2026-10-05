@@ -176,6 +176,15 @@ class AndroidLifecycleContractTest(unittest.TestCase):
             input,
         )
 
+    def test_android_smoke_exercises_sleep_resume_power_state(self):
+        smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
+        self.assertIn("power_is_interactive()", smoke)
+        self.assertIn("wait_for_power_sleep()", smoke)
+        self.assertIn("wait_for_power_interactive()", smoke)
+        self.assertIn("exercise_android_sleep_resume_guard()", smoke)
+        self.assertIn("adb shell input keyevent 26", smoke)
+        self.assertIn("exercise_android_sleep_resume_guard || runtime_smoke_rc=$?", smoke)
+
     def test_activity_permission_and_debug_lab_shutdown_contract(self):
         self.assertIn("onRequestPermissionsResult", self.activity)
         self.assertIn("RECORD_AUDIO_REQUEST", self.activity)
