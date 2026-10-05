@@ -154,12 +154,14 @@ void testStoppedServiceRejectsRequestWithoutBackendCall() {
     assert(catalog.selectModel("experimental-worker"));
 
     GenerationService service(catalog);
+    const auto selectionGeneration = catalog.selectionGeneration();
     auto future = service.submit(GenerationRequest{});
 
     assert(future.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
     const auto result = future.get();
 
     assert(result.status == GenerationStatus::Unavailable);
+    assert(result.ticket.matches("experimental-worker", selectionGeneration));
     assert(backend.calls == 0);
 }
 
