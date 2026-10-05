@@ -11,7 +11,14 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
-from build_training_shards import _stats, read_jsonl, validate_records, write_shards
+from build_training_shards import (
+    _resolve_manifest_sha256,
+    _stats,
+    read_jsonl,
+    validate_records,
+    write_shards,
+)
+from manifest_digest import digest as manifest_digest
 
 
 def record(
@@ -223,6 +230,59 @@ class BuildTrainingShardsTests(unittest.TestCase):
         del item["conditioning_vocabulary_id"]
         with self.assertRaises(ValueError):
             validate_records([item])
+
+    def test_manifest_path_produces_canonical_digest(self) -> None:
+        manifest = {
+            "manifest_id": "dataset-v1",
+            "status": "audited",
+            "sources": [{"source_id": "source-a"}],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "manifest.json"
+            path.write_text(
+                json.dumps(manifest, sort_keys=True),
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                _resolve_manifest_sha256(path, None),
+                manifest_digest(path),
+            )
+
+    def test_matching_explicit_manifest_digest_is_accepted(self) -> None:
+        manifest = {
+            "manifest_id": "dataset-v1",
+            "status": "audited",
+            "sources": [{"source_id": "source-a"}],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "manifest.json"
+            path.write_text(
+                json.dumps(manifest, sort_keys=True),
+                encoding="utf-8",
+            )
+            expected = manifest_digest(path)
+            self.assertEqual(
+                _resolve_manifest_sha256(path, expected.upper()),
+                expected,
+            )
+
+    def test_mismatching_explicit_manifest_digest_is_rejected(self) -> None:
+        manifest = {
+            "manifest_id": "dataset-v1",
+            "status": "audited",
+            "sources": [{"source_id": "source-a"}],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "manifest.json"
+            path.write_text(
+                json.dumps(manifest, sort_keys=True),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                ValueError,
+                "manifest SHA-256 does not match --manifest-sha256",
+            ):
+                _resolve_manifest_sha256(path, "0" * 64)
 
     def test_jsonl_round_trip(self) -> None:
         records = [record("song-a", "rev-1", "train", "a.mid")]
