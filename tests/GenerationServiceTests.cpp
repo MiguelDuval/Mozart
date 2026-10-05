@@ -10,6 +10,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 using namespace mozart::generation;
 
@@ -297,6 +298,183 @@ void testUnselectedModelIsUnavailable() {
     assert(backend.calls == 0);
 }
 
+void testBoundedQueueWithConcurrentSubmit() {
+    ModelCatalog catalog;
+    BlockingBackend backend;
+
+    assert(catalog.registerBackend(backend));
+    ModelCatalogEntry entry = experimentalEntry();
+    entry.backendId = backend.id();
+    entry.modelId = "experimental-bounded";
+    entry.displayName = "Experimental Bounded";
+    assert(catalog.registerModel(entry));
+    assert(catalog.selectModel(entry.modelId));
+
+    GenerationService service(catalog);
+    service.start();
+
+    auto activeFuture = service.submit(GenerationRequest{});
+    backend.waitUntilEntered();
+
+    constexpr std::size_t kConcurrentSubmits = 5;
+    std::vector<std::future<GenerationResult>> futures(kConcurrentSubmits);
+    std::vector<std::thread> submitters;
+    submitters.reserve(kConcurrentSubmits);
+
+    for (std::size_t index = 0; index < kConcurrentSubmits; ++index) {
+        submitters.emplace_back([&, index] {
+            futures[index] = service.submit(GenerationRequest{});
+        });
+    }
+
+    for (auto& submitter : submitters) {
+        submitter.join();
+    }
+
+    std::size_t immediatelyReady = 0;
+    for (auto& future : futures) {
+        if (future.wait_for(std::chrono::milliseconds(0)) ==
+                std::future_status::ready) {
+            ++immediatelyReady;
+        }
+    }
+
+    assert(immediatelyReady ==
+            kConcurrentSubmits - GenerationService::kMaxPendingRequests);
+
+    backend.release();
+
+    std::size_t accepted = 0;
+    std::size_t rejected = 0;
+    for (auto& future : futures) {
+        assert(
+                future.wait_for(std::chrono::seconds(1)) ==
+                std::future_status::ready);
+        const auto result = future.get();
+        if (result.status == GenerationStatus::Failed) {
+            ++accepted;
+            assert(result.message == "blocking-test");
+        } else {
+            assert(result.status == GenerationStatus::Unavailable);
+            assert(result.message == "generation service queue is full");
+            ++rejected;
+        }
+    }
+
+    assert(accepted == GenerationService::kMaxPendingRequests);
+    assert(rejected ==
+            kConcurrentSubmits - GenerationService::kMaxPendingRequests);
+
+    assert(
+            activeFuture.wait_for(std::chrono::seconds(1)) ==
+            std::future_status::ready);
+    assert(activeFuture.get().status == GenerationStatus::Failed);
+    service.stop();
+}
+
+void testStopDrainsQueuedJobsButWaitsForActiveInference() {
+    ModelCatalog catalog;
+    BlockingBackend backend;
+
+    assert(catalog.registerBackend(backend));
+    ModelCatalogEntry entry = experimentalEntry();
+    entry.backendId = backend.id();
+    entry.modelId = "experimental-stop-queue";
+    entry.displayName = "Experimental Stop Queue";
+    assert(catalog.registerModel(entry));
+    assert(catalog.selectModel(entry.modelId));
+
+    GenerationService service(catalog);
+    service.start();
+
+    auto activeFuture = service.submit(GenerationRequest{});
+    backend.waitUntilEntered();
+    auto queuedFutureA = service.submit(GenerationRequest{});
+    auto queuedFutureB = service.submit(GenerationRequest{});
+
+    std::thread stopper([&] { service.stop(); });
+
+    const auto deadline =
+            std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (service.running() &&
+            std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::yield();
+    }
+
+    assert(!service.running());
+
+    assert(
+            queuedFutureA.wait_for(std::chrono::milliseconds(0)) ==
+            std::future_status::ready);
+    assert(
+            queuedFutureB.wait_for(std::chrono::milliseconds(0)) ==
+            std::future_status::ready);
+    const auto queuedResultA = queuedFutureA.get();
+    const auto queuedResultB = queuedFutureB.get();
+    assert(queuedResultA.status == GenerationStatus::Unavailable);
+    assert(queuedResultA.message == "generation service stopped");
+    assert(queuedResultB.status == GenerationStatus::Unavailable);
+    assert(queuedResultB.message == "generation service stopped");
+
+    assert(
+            activeFuture.wait_for(std::chrono::milliseconds(0)) !=
+            std::future_status::ready);
+
+    backend.release();
+    stopper.join();
+
+    assert(
+            activeFuture.wait_for(std::chrono::seconds(1)) ==
+            std::future_status::ready);
+    assert(activeFuture.get().status == GenerationStatus::Failed);
+}
+
+void testSelectionSwitchInvalidatesPendingAndInFlightTickets() {
+    ModelCatalog catalog;
+    BlockingBackend backend;
+
+    assert(catalog.registerBackend(backend));
+    ModelCatalogEntry entry = experimentalEntry();
+    entry.backendId = backend.id();
+    entry.modelId = "experimental-switch";
+    entry.displayName = "Experimental Switch";
+    assert(catalog.registerModel(entry));
+    assert(catalog.selectModel(entry.modelId));
+
+    GenerationService service(catalog);
+    service.start();
+
+    const auto firstSelectionGeneration = catalog.selectionGeneration();
+    auto activeFuture = service.submit(GenerationRequest{});
+    backend.waitUntilEntered();
+
+    assert(catalog.selectModel(entry.modelId));
+    const auto secondSelectionGeneration = catalog.selectionGeneration();
+    assert(secondSelectionGeneration == firstSelectionGeneration + 1);
+
+    auto queuedFuture = service.submit(GenerationRequest{});
+
+    backend.release();
+
+    assert(
+            activeFuture.wait_for(std::chrono::seconds(1)) ==
+            std::future_status::ready);
+    const auto activeResult = activeFuture.get();
+    assert(activeResult.ticket.modelId == entry.modelId);
+    assert(activeResult.ticket.selectionGeneration ==
+            firstSelectionGeneration);
+
+    assert(
+            queuedFuture.wait_for(std::chrono::seconds(1)) ==
+            std::future_status::ready);
+    const auto queuedResult = queuedFuture.get();
+    assert(queuedResult.ticket.modelId == entry.modelId);
+    assert(queuedResult.ticket.selectionGeneration ==
+            secondSelectionGeneration);
+
+    service.stop();
+}
+
 void testStoppedServiceRejectsRequestWithoutBackendCall() {
     ModelCatalog catalog;
     WorkerBackend backend;
@@ -328,5 +506,8 @@ int main() {
     testUnavailableSelectionDoesNotEnterWorker();
     testUnselectedModelIsUnavailable();
     testStoppedServiceRejectsRequestWithoutBackendCall();
+    testBoundedQueueWithConcurrentSubmit();
+    testStopDrainsQueuedJobsButWaitsForActiveInference();
+    testSelectionSwitchInvalidatesPendingAndInFlightTickets();
     return 0;
 }
