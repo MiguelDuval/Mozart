@@ -51,6 +51,13 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         self.assertIn("!started", self.midi_transport)
         self.assertIn("listener = null", self.midi_transport)
 
+    def test_midi_device_removal_invalidates_output_session(self):
+        removal = self.midi_transport[
+            self.midi_transport.index("public void onDeviceRemoved")
+        :]
+        self.assertIn("closeOutputInternal()", removal)
+        self.assertIn("requestRefresh()", removal)
+
     def test_runtime_smoke_callbacks_are_lifecycle_scoped(self):
         tick = self.activity.index("private final Runnable runtimeSmokeTick")
         stop = self.activity.index("private final Runnable runtimeSmokeStop")
