@@ -260,7 +260,13 @@ public final class AndroidMidiInput {
     }
 
     private void publishStatus(String status) {
+        final long deliveryGeneration = connectionGeneration.get();
+
         mainHandler.post(() -> {
+            if (connectionGeneration.get() != deliveryGeneration) {
+                return;
+            }
+
             final Listener currentListener = listener;
             if (currentListener != null) {
                 currentListener.onMidiInputStatus(status);
