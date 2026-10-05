@@ -79,6 +79,8 @@ public:
     [[nodiscard]] bool selectModel(std::string_view modelId);
     void clearSelectedModel() noexcept;
     [[nodiscard]] std::string selectedModelId() const;
+    [[nodiscard]] generation::ModelSelectionSnapshot
+    captureModelSelectionSnapshot() const;
     [[nodiscard]] bool selectedModelIsPrivateExperimental() const noexcept;
     [[nodiscard]] bool selectedModelBackendRegistered() const noexcept;
 
