@@ -105,6 +105,33 @@ void testBackendAvailabilityRunsOnWorkerThread() {
     service.stop();
 }
 
+
+void testInvalidRequestIsRejectedBeforeWorkerQueue() {
+    ModelCatalog catalog;
+    WorkerBackend backend;
+
+    assert(catalog.registerBackend(backend));
+    assert(catalog.registerModel(experimentalEntry()));
+    assert(catalog.selectModel("experimental-worker"));
+
+    GenerationService service(catalog);
+    service.start();
+
+    GenerationRequest invalid;
+    invalid.tempoBpm = 10.0;
+
+    auto future = service.submit(invalid);
+    assert(future.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
+    const auto result = future.get();
+
+    assert(result.status == GenerationStatus::InvalidRequest);
+    assert(result.message == "invalid generation request");
+    assert(backend.calls == 0);
+    assert(result.ticket.modelId.empty());
+
+    service.stop();
+}
+
 void testUnavailableSelectionDoesNotEnterWorker() {
     ModelCatalog catalog;
     WorkerBackend backend;
@@ -169,6 +196,7 @@ void testStoppedServiceRejectsRequestWithoutBackendCall() {
 
 int main() {
     testGenerationRunsOffCallerThread();
+    testInvalidRequestIsRejectedBeforeWorkerQueue();
     testBackendAvailabilityRunsOnWorkerThread();
     testUnavailableSelectionDoesNotEnterWorker();
     testUnselectedModelIsUnavailable();
