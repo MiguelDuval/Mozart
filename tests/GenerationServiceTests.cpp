@@ -570,18 +570,6 @@ void testStoppedServiceRejectsRequestWithoutBackendCall() {
     assert(backend.calls == 0);
 }
 
-} // namespace
-
-int main() {
-    testLifecycleGenerationChangesAtSessionBoundaries();
-    testStopWaitsForActiveInference();
-    testGenerationRunsOffCallerThread();
-    testInvalidRequestIsRejectedBeforeWorkerQueue();
-    testBackendAvailabilityRunsOnWorkerThread();
-    testUnavailableSelectionDoesNotEnterWorker();
-    testUnselectedModelIsUnavailable();
-    testStoppedServiceRejectsRequestWithoutBackendCall();
-    testStartWaitsForConcurrentStop();
 void testBackendExceptionResolvesFutureAndKeepsWorkerAlive() {
     ModelCatalog catalog;
     ThrowingBackend backend;
@@ -619,6 +607,21 @@ void testBackendExceptionResolvesFutureAndKeepsWorkerAlive() {
     assert(service.running());
     service.stop();
 }
+
+} // namespace
+
+int main() {
+    testLifecycleGenerationChangesAtSessionBoundaries();
+    testStopWaitsForActiveInference();
+    testGenerationRunsOffCallerThread();
+    testInvalidRequestIsRejectedBeforeWorkerQueue();
+    testBackendAvailabilityRunsOnWorkerThread();
+    testUnavailableSelectionDoesNotEnterWorker();
+    testUnselectedModelIsUnavailable();
+    testStoppedServiceRejectsRequestWithoutBackendCall();
+    testStartWaitsForConcurrentStop();
+    testBackendExceptionResolvesFutureAndKeepsWorkerAlive();
+
 
     testBoundedQueueWithConcurrentSubmit();
     testStopDrainsQueuedJobsButWaitsForActiveInference();
