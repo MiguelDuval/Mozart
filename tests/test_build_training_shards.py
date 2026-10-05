@@ -139,6 +139,10 @@ class BuildTrainingShardsTests(unittest.TestCase):
             stats["reproducibility"]["manifest_sha256"],
             "abc123",
         )
+        self.assertEqual(
+            stats["reproducibility"]["inventory_sha256"],
+            "NOT_SUPPLIED",
+        )
 
     def test_statistics_include_manifest_provenance(self) -> None:
         records = [
@@ -306,7 +310,7 @@ class BuildTrainingShardsTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            returned_manifest, returned_digest = _prepare_training_provenance(
+            returned_manifest, returned_digest, inventory_digest = _prepare_training_provenance(
                 records,
                 manifest_path,
                 inventory_path,
@@ -315,6 +319,7 @@ class BuildTrainingShardsTests(unittest.TestCase):
 
             self.assertEqual(returned_manifest["manifest_id"], "dataset-v1")
             self.assertEqual(returned_digest, manifest_digest(manifest_path))
+            self.assertEqual(len(inventory_digest), 64)
 
     def test_provenance_gate_rejects_template_manifest(self) -> None:
         records = [record("song-a", "rev-1", "train", "source/a.mid")]
