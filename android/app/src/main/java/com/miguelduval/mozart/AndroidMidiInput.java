@@ -86,8 +86,9 @@ public final class AndroidMidiInput {
 
     private void openInternal(AndroidMidiTransport.MidiEndpoint endpoint) {
         if (opening &&
-                openedEndpoint != null &&
-                sameEndpoint(openedEndpoint, endpoint)) {
+                ((openedEndpoint != null &&
+                  sameEndpoint(openedEndpoint, endpoint)) ||
+                 sameEndpoint(pendingEndpoint, endpoint))) {
             return;
         }
 
