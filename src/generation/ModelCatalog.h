@@ -37,7 +37,8 @@ struct ModelSelectionSnapshot final {
 class ModelCatalog final {
 public:
     // The catalog does not own backends. Their lifetime must exceed the catalog.
-    // Backend calls remain worker-thread-only and must never reach realtime code.
+    // Runtime inference/availability calls remain worker-thread-only and must
+    // never reach realtime code. Registration captures the backend ID once.
     [[nodiscard]] bool registerBackend(
             TokenInferenceBackend& backend) {
         const auto backendId = backend.id();
