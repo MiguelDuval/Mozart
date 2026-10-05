@@ -35,7 +35,7 @@ public final class AndroidMidiInput {
     private final HandlerThread midiThread =
             new HandlerThread("Mozart-MIDI-IN");
     private final Handler midiHandler;
-    private final Listener listener;
+    private volatile Listener listener;
     private final AtomicLong connectionGeneration = new AtomicLong(0L);
     private final Object receiverLock = new Object();
 
@@ -77,6 +77,7 @@ public final class AndroidMidiInput {
     }
 
     public void shutdown() {
+        listener = null;
         midiHandler.post(() -> {
             closeInternal();
             midiThread.quitSafely();
@@ -260,8 +261,9 @@ public final class AndroidMidiInput {
 
     private void publishStatus(String status) {
         mainHandler.post(() -> {
-            if (listener != null) {
-                listener.onMidiInputStatus(status);
+            final Listener currentListener = listener;
+            if (currentListener != null) {
+                currentListener.onMidiInputStatus(status);
             }
         });
     }

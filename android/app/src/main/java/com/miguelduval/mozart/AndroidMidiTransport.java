@@ -86,7 +86,7 @@ public final class AndroidMidiTransport {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final HandlerThread midiThread = new HandlerThread("Mozart-MIDI");
     private final Handler midiHandler;
-    private final Listener listener;
+    private volatile Listener listener;
     private final AtomicLong connectionGeneration = new AtomicLong(0L);
 
     private MidiDevice openedDevice;
@@ -166,6 +166,7 @@ public final class AndroidMidiTransport {
      * posted the normal transport shutdown.
      */
     public void shutdown() {
+        listener = null;
         midiHandler.post(() -> {
             started = false;
             if (midiManager != null) {
@@ -445,8 +446,9 @@ public final class AndroidMidiTransport {
                 Collections.unmodifiableList(new ArrayList<>(endpoints));
 
         mainHandler.post(() -> {
-            if (listener != null) {
-                listener.onMidiInventoryChanged(
+            final Listener currentListener = listener;
+            if (currentListener != null) {
+                currentListener.onMidiInventoryChanged(
                         stableEndpoints,
                         selectedOutput,
                         connectionStatus);
