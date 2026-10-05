@@ -2554,12 +2554,33 @@ int main() {
                 future.wait_for(std::chrono::seconds(1)) ==
                 std::future_status::ready);
 
-        const auto result = future.get();
+        auto result = future.get();
         assert(result.ok());
         assert(backend.calls == 1);
         assert(backend.workerThread != callerThread);
         assert(result.proposal.metadata.generatorId ==
                "runtime-generation-backend");
+        assert(result.ticket.matches(
+                "runtime-generation-model",
+                1));
+
+        // Re-selecting the same model creates a new selection generation.
+        // A result produced before that boundary is stale and must not reach
+        // the scheduler.
+        assert(runtime.selectModel("runtime-generation-model"));
+        assert(!runtime.queueGeneratedResult(result));
+
+        auto freshFuture = runtime.requestGeneration(
+                mozart::generation::GenerationRequest{});
+        assert(
+                freshFuture.wait_for(std::chrono::seconds(1)) ==
+                std::future_status::ready);
+        auto freshResult = freshFuture.get();
+        assert(freshResult.ok());
+        assert(freshResult.ticket.matches(
+                "runtime-generation-model",
+                2));
+        assert(runtime.queueGeneratedResult(std::move(freshResult)));
 
         runtime.stop();
     }
