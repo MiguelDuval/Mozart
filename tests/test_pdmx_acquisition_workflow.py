@@ -32,8 +32,8 @@ class PdmxAcquisitionWorkflowTests(unittest.TestCase):
         self.assertNotIn("conditioning-distribution-v1.json", artifact_block)
         self.assertIn("pdmx/subset-member.txt", artifact_block)
         self.assertNotIn("archive: false", artifact_block)
-        self.assertNotIn('"PASS: " 
-        f"selected=', content)
+        self.assertNotIn('"PASS: " ', content)
+        self.assertIn('f"{result[\'status\']}: "', content)
 
     def test_workflow_pins_the_three_official_v9_artifacts(self) -> None:
         content = WORKFLOW.read_text(encoding="utf-8")
