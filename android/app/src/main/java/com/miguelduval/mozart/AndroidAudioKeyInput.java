@@ -128,35 +128,39 @@ public final class AndroidAudioKeyInput {
         final short[] readBuffer = new short[READ_CHUNK_SAMPLES];
         int frameOffset = 0;
 
-        while (running.get()) {
-            final int requested =
-                    Math.min(READ_CHUNK_SAMPLES, FRAME_SAMPLES - frameOffset);
-            final int read = localRecorder.read(
-                    readBuffer,
-                    0,
-                    requested,
-                    AudioRecord.READ_BLOCKING);
-            if (read < 0) {
-                Log.e(TAG, "AudioRecord.read failed: " + read);
-                break;
-            }
-            if (!running.get()) {
-                break;
-            }
-            if (read == 0) {
-                continue;
-            }
-
-            System.arraycopy(readBuffer, 0, frame, frameOffset, read);
-            frameOffset += read;
-
-            if (frameOffset == FRAME_SAMPLES) {
+        try {
+            while (running.get()) {
+                final int requested =
+                        Math.min(READ_CHUNK_SAMPLES, FRAME_SAMPLES - frameOffset);
+                final int read = localRecorder.read(
+                        readBuffer,
+                        0,
+                        requested,
+                        AudioRecord.READ_BLOCKING);
+                if (read < 0) {
+                    Log.e(TAG, "AudioRecord.read failed: " + read);
+                    break;
+                }
                 if (!running.get()) {
                     break;
                 }
-                nativeProcessAudioFrame(frame, SAMPLE_RATE);
-                frameOffset = 0;
+                if (read == 0) {
+                    continue;
+                }
+
+                System.arraycopy(readBuffer, 0, frame, frameOffset, read);
+                frameOffset += read;
+
+                if (frameOffset == FRAME_SAMPLES) {
+                    if (!running.get()) {
+                        break;
+                    }
+                    nativeProcessAudioFrame(frame, SAMPLE_RATE);
+                    frameOffset = 0;
+                }
             }
+        } finally {
+            running.set(false);
         }
     }
 
