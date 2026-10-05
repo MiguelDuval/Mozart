@@ -5,6 +5,9 @@
 #include <cassert>
 #include <chrono>
 #include <future>
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
 #include <string>
 #include <thread>
 
@@ -44,6 +47,62 @@ public:
     }
 };
 
+class BlockingBackend final : public TokenInferenceBackend {
+public:
+    std::string backendId = "blocking-test-backend";
+
+    [[nodiscard]] TokenInferenceResult generateTokens(
+            const GenerationRequest&,
+            std::size_t) override {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            entered_ = true;
+        }
+        condition_.notify_all();
+
+        std::unique_lock<std::mutex> lock(mutex_);
+        condition_.wait(lock, [this] { return release_; });
+
+        return {
+                TokenInferenceStatus::Failed,
+                {},
+                0.0,
+                0,
+                "blocking-test"
+        };
+    }
+
+    [[nodiscard]] bool isAvailable() const noexcept override {
+        return true;
+    }
+
+    [[nodiscard]] std::string id() const override {
+        return backendId;
+    }
+
+    void waitUntilEntered() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        assert(condition_.wait_for(
+                lock,
+                std::chrono::seconds(1),
+                [this] { return entered_; }));
+    }
+
+    void release() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            release_ = true;
+        }
+        condition_.notify_all();
+    }
+
+private:
+    mutable std::mutex mutex_;
+    std::condition_variable condition_;
+    bool entered_ = false;
+    bool release_ = false;
+};
+
 ModelCatalogEntry experimentalEntry() {
     ModelCatalogEntry entry;
     entry.modelId = "experimental-worker";
@@ -78,6 +137,46 @@ void testLifecycleGenerationChangesAtSessionBoundaries() {
     assert(service.lifecycleGeneration() == stoppedGeneration + 1);
 
     service.stop();
+}
+
+void testStopWaitsForActiveInference() {
+    ModelCatalog catalog;
+    BlockingBackend backend;
+
+    assert(catalog.registerBackend(backend));
+    ModelCatalogEntry entry = experimentalEntry();
+    entry.backendId = backend.id();
+    entry.modelId = "experimental-blocking";
+    entry.displayName = "Experimental Blocking";
+    assert(catalog.registerModel(entry));
+    assert(catalog.selectModel(entry.modelId));
+
+    GenerationService service(catalog);
+    service.start();
+    const auto sessionGeneration = service.lifecycleGeneration();
+
+    auto future = service.submit(GenerationRequest{});
+    backend.waitUntilEntered();
+
+    std::atomic_bool stopFinished{false};
+    std::thread stopper([&] {
+        service.stop();
+        stopFinished.store(true);
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    assert(!stopFinished.load());
+
+    backend.release();
+    stopper.join();
+
+    assert(stopFinished.load());
+    assert(future.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
+    const auto result = future.get();
+    assert(result.status == GenerationStatus::Failed);
+    assert(result.message == "blocking-test");
+    assert(result.ticket.lifecycleGeneration == sessionGeneration);
+    assert(service.lifecycleGeneration() == sessionGeneration + 1);
 }
 
 void testGenerationRunsOffCallerThread() {
@@ -222,6 +321,7 @@ void testStoppedServiceRejectsRequestWithoutBackendCall() {
 
 int main() {
     testLifecycleGenerationChangesAtSessionBoundaries();
+    testStopWaitsForActiveInference();
     testGenerationRunsOffCallerThread();
     testInvalidRequestIsRejectedBeforeWorkerQueue();
     testBackendAvailabilityRunsOnWorkerThread();
