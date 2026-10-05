@@ -81,6 +81,9 @@ public:
     [[nodiscard]] std::string selectedModelId() const;
     [[nodiscard]] generation::ModelSelectionSnapshot
     captureModelSelectionSnapshot() const;
+    [[nodiscard]] std::uint64_t generationLifecycleGeneration() const noexcept {
+        return generationService_.lifecycleGeneration();
+    }
     [[nodiscard]] bool selectedModelIsPrivateExperimental() const noexcept;
     [[nodiscard]] bool selectedModelBackendRegistered() const noexcept;
 
