@@ -92,12 +92,13 @@ class PdmxAuditTests(unittest.TestCase):
             midi = root / "mid"
             midi.mkdir()
             (midi / "a.mid").write_bytes(b"MThd\x00\x00")
+            (midi / "c.mid").write_bytes(b"MThd\x00\x01")
             result = audit(csv_path, subset, midi_source=midi)
             self.assertEqual(result["rows"], 3)
             self.assertEqual(result["license_conflicts"], 1)
             self.assertEqual(result["no_license_conflict_rows"], 2)
             self.assertTrue(result["subset_csv_exact_match"])
-            self.assertEqual(result["midi_inventory"]["file_count"], 1)
+            self.assertEqual(result["midi_inventory"]["file_count"], 2)
             self.assertTrue(result["midi_inventory"]["csv_mid_exact_match"])
             self.assertTrue(result["midi_inventory"]["no_license_conflict_mid_all_present"])
 
