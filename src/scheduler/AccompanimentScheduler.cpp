@@ -44,6 +44,7 @@ AccompanimentScheduler::~AccompanimentScheduler() {
 }
 
 void AccompanimentScheduler::start() {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
     if (running_.exchange(true)) {
         return;
     }
@@ -52,6 +53,7 @@ void AccompanimentScheduler::start() {
 }
 
 void AccompanimentScheduler::stop() {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
     if (!running_.exchange(false)) {
         return;
     }
