@@ -37,6 +37,7 @@ public final class AndroidMidiInput {
     private final Handler midiHandler;
     private final Listener listener;
     private final AtomicLong connectionGeneration = new AtomicLong(0L);
+    private final Object receiverLock = new Object();
 
     private MidiDevice openedDevice;
     private MidiOutputPort openedPort;
@@ -172,18 +173,20 @@ public final class AndroidMidiInput {
                     int offset,
                     int count,
                     long timestamp) throws IOException {
-                if (connectionGeneration.get() != generation ||
-                        msg == null ||
-                        count <= 0) {
-                    return;
-                }
+                synchronized (receiverLock) {
+                    if (connectionGeneration.get() != generation ||
+                            msg == null ||
+                            count <= 0) {
+                        return;
+                    }
 
-                nativeReceiveMidiBytes(
-                        msg,
-                        offset,
-                        count,
-                        timestamp,
-                        portId);
+                    nativeReceiveMidiBytes(
+                            msg,
+                            offset,
+                            count,
+                            timestamp,
+                            portId);
+                }
             }
         };
     }
@@ -229,23 +232,30 @@ public final class AndroidMidiInput {
     }
 
     private void closeInternal() {
-        connectionGeneration.incrementAndGet();
-        opening = false;
-        pendingEndpoint = null;
-        activeReceiver = null;
-        nativeResetMidiInput();
+        final MidiOutputPort localPort;
+        final MidiDevice localDevice;
 
-        if (openedPort != null) {
-            safeClose(openedPort);
+        synchronized (receiverLock) {
+            connectionGeneration.incrementAndGet();
+            opening = false;
+            pendingEndpoint = null;
+            activeReceiver = null;
+            nativeResetMidiInput();
+
+            localPort = openedPort;
+            localDevice = openedDevice;
             openedPort = null;
-        }
-
-        if (openedDevice != null) {
-            safeClose(openedDevice);
             openedDevice = null;
+            openedEndpoint = null;
         }
 
-        openedEndpoint = null;
+        if (localPort != null) {
+            safeClose(localPort);
+        }
+
+        if (localDevice != null) {
+            safeClose(localDevice);
+        }
     }
 
     private void publishStatus(String status) {
