@@ -45,6 +45,9 @@ private:
     midi::MidiOutputTransport& transport_;
     const std::size_t capacity_;
 
+    // Serialize lifecycle transitions so start() cannot publish a new worker
+    // while stop() is still joining the previous one.
+    mutable std::mutex lifecycleMutex_;
     std::mutex mutex_;
     std::condition_variable condition_;
     std::priority_queue<Item, std::vector<Item>, EarlierFirst> queue_;
