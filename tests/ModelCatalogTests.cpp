@@ -2,6 +2,7 @@
 #include "generation/TokenInferenceBackend.h"
 
 #include <cassert>
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -21,7 +22,12 @@ public:
     }
 
     [[nodiscard]] bool isAvailable() const noexcept override {
+        ++availabilityCalls_;
         return available_;
+    }
+
+    [[nodiscard]] int availabilityCalls() const noexcept {
+        return availabilityCalls_.load();
     }
 
     [[nodiscard]] std::string id() const override {
@@ -30,9 +36,10 @@ public:
 
 private:
     bool available_ = true;
+    mutable std::atomic_int availabilityCalls_{0};
 };
 
-void testSelectionRequiresReadyBackend() {
+void testSelectionDefersRuntimeAvailabilityToWorker() {
     ModelCatalog catalog;
     TestBackend unavailableBackend(false);
 
@@ -45,8 +52,9 @@ void testSelectionRequiresReadyBackend() {
 
     assert(catalog.registerBackend(unavailableBackend));
     assert(catalog.registerModel(entry));
-    assert(!catalog.selectModel(entry.modelId));
-    assert(catalog.selectedModelId().empty());
+    assert(catalog.selectModel(entry.modelId));
+    assert(catalog.selectedModelId() == entry.modelId);
+    assert(unavailableBackend.availabilityCalls() == 0);
 
     ModelCatalogEntry missingBackendEntry = entry;
     missingBackendEntry.modelId = "experimental-missing-backend";
@@ -54,7 +62,7 @@ void testSelectionRequiresReadyBackend() {
     missingBackendEntry.backendId = "missing-backend";
     assert(catalog.registerModel(missingBackendEntry));
     assert(!catalog.selectModel(missingBackendEntry.modelId));
-    assert(catalog.selectedModelId().empty());
+    assert(catalog.selectedModelId() == entry.modelId);
 }
 
 
@@ -128,7 +136,7 @@ void testDisablingSelectedModelClearsSelection() {
 } // namespace
 
 int main() {
-    testSelectionRequiresReadyBackend();
+    testSelectionDefersRuntimeAvailabilityToWorker();
     testSelectionGenerationInvalidatesPriorResults();
     testDisablingSelectedModelClearsSelection();
     return 0;
