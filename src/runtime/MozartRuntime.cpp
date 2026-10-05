@@ -319,10 +319,11 @@ bool MozartRuntime::queueGeneratedPattern(
 
 bool MozartRuntime::queueGeneratedResult(
         generation::GenerationResult result) {
+    const auto selection = modelCatalog_.selectionSnapshot();
     if (!result.ok() ||
         !result.ticket.matches(
-                modelCatalog_.selectedModelId(),
-                modelCatalog_.selectionGeneration())) {
+                selection.modelId,
+                selection.selectionGeneration)) {
         return false;
     }
 
