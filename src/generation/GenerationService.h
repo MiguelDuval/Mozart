@@ -59,6 +59,9 @@ private:
 
     ModelCatalog& catalog_;
 
+    // Serialize lifecycle transitions so start() cannot race stop() while
+    // stop() is joining the previous worker thread.
+    mutable std::mutex lifecycleMutex_;
     mutable std::mutex queueMutex_;
     std::condition_variable wakeCondition_;
     std::deque<Job> queue_;
