@@ -53,27 +53,31 @@ bool GenerationService::running() const noexcept {
 }
 
 std::future<GenerationResult> GenerationService::unavailableFuture(
-        const char* message) {
+        const char* message,
+        GenerationRequestTicket ticket) {
     std::promise<GenerationResult> promise;
     auto future = promise.get_future();
     promise.set_value({
             GenerationStatus::Unavailable,
             {},
-            message
+            message,
+            std::move(ticket)
     });
     return future;
 }
 
 std::future<GenerationResult> GenerationService::submit(
         GenerationRequest request) {
+    const auto modelId = catalog_.selectedModelId();
     TokenInferenceBackend* backend = catalog_.resolveSelectedBackend();
-    if (backend == nullptr) {
+    if (backend == nullptr || modelId.empty()) {
         return unavailableFuture("selected model backend is unavailable");
     }
 
     Job job;
     job.backend = backend;
     job.request = std::move(request);
+    job.ticket = {modelId, catalog_.selectionGeneration()};
     auto future = job.promise.get_future();
 
     {
@@ -82,7 +86,8 @@ std::future<GenerationResult> GenerationService::submit(
             job.promise.set_value({
                     GenerationStatus::Unavailable,
                     {},
-                    "generation service is stopped"
+                    "generation service is stopped",
+                    job.ticket
             });
             return future;
         }
@@ -91,7 +96,8 @@ std::future<GenerationResult> GenerationService::submit(
             job.promise.set_value({
                     GenerationStatus::Unavailable,
                     {},
-                    "generation service queue is full"
+                    "generation service queue is full",
+                    job.ticket
             });
             return future;
         }
@@ -133,7 +139,9 @@ void GenerationService::run() {
         }
 
         LocalNeuralPatternProvider provider(*job.backend);
-        job.promise.set_value(provider.generate(job.request));
+        auto result = provider.generate(job.request);
+        result.ticket = job.ticket;
+        job.promise.set_value(std::move(result));
     }
 }
 
