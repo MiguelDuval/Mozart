@@ -2,6 +2,7 @@
 
 #include "generation/LocalPatternProvider.h"
 #include "generation/ModelCatalog.h"
+#include "generation/GenerationRequestTicket.h"
 
 #include <condition_variable>
 #include <cstddef>
@@ -39,11 +40,13 @@ private:
     struct Job final {
         TokenInferenceBackend* backend = nullptr;
         GenerationRequest request{};
+        GenerationRequestTicket ticket{};
         std::promise<GenerationResult> promise{};
     };
 
     [[nodiscard]] static std::future<GenerationResult> unavailableFuture(
-            const char* message);
+            const char* message,
+            GenerationRequestTicket ticket = {});
 
     void run();
 
