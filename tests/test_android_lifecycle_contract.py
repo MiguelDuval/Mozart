@@ -78,6 +78,17 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         self.assertIn("removeCallbacks(runtimeSmokeTick)", self.activity[on_destroy:])
         self.assertIn("removeCallbacks(runtimeSmokeStop)", self.activity[on_destroy:])
 
+    def test_midi_ui_status_callbacks_are_session_scoped(self):
+        transport_publish = self.midi_transport.index("private void publishOnMain")
+        transport_publish_body = self.midi_transport[transport_publish:]
+        self.assertIn("final long deliveryGeneration = connectionGeneration.get()", transport_publish_body)
+        self.assertIn("if (connectionGeneration.get() != deliveryGeneration)", transport_publish_body)
+
+        input_publish = self.midi_input.index("private void publishStatus")
+        input_publish_body = self.midi_input[input_publish:]
+        self.assertIn("final long deliveryGeneration = connectionGeneration.get()", input_publish_body)
+        self.assertIn("if (connectionGeneration.get() != deliveryGeneration)", input_publish_body)
+
     def test_activity_permission_and_debug_lab_shutdown_contract(self):
         self.assertIn("onRequestPermissionsResult", self.activity)
         self.assertIn("RECORD_AUDIO_REQUEST", self.activity)
