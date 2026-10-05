@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -25,6 +26,12 @@ struct ModelCatalogEntry final {
     ModelDistributionClass distributionClass =
             ModelDistributionClass::PrivateExperimental;
     bool enabled = true;
+};
+
+struct ModelSelectionSnapshot final {
+    std::string modelId{};
+    TokenInferenceBackend* backend = nullptr;
+    std::uint64_t selectionGeneration = 0;
 };
 
 class ModelCatalog final {
@@ -74,6 +81,7 @@ public:
 
     [[nodiscard]] bool selectModel(
             const std::string_view modelId) {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
         for (const auto& model : models_) {
             if (model.modelId != modelId || !model.enabled) {
                 continue;
@@ -92,6 +100,7 @@ public:
     }
 
     void clearSelection() noexcept {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
         if (!selectedModelId_.empty()) {
             selectedModelId_.clear();
             ++selectionGeneration_;
@@ -99,10 +108,12 @@ public:
     }
 
     [[nodiscard]] std::uint64_t selectionGeneration() const noexcept {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
         return selectionGeneration_;
     }
 
     [[nodiscard]] const ModelCatalogEntry* selectedModel() const noexcept {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
         return findModel(selectedModelId_);
     }
 
@@ -112,12 +123,23 @@ public:
     }
 
     [[nodiscard]] std::string selectedModelId() const {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
         return selectedModelId_;
+    }
+
+    [[nodiscard]] ModelSelectionSnapshot selectionSnapshot() const {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
+        return {
+                selectedModelId_,
+                resolveBackend(selectedModelId_),
+                selectionGeneration_
+        };
     }
 
     [[nodiscard]] bool setEnabled(
             const std::string_view modelId,
             const bool enabled) noexcept {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
         for (auto& model : models_) {
             if (model.modelId == modelId) {
                 model.enabled = enabled;
@@ -132,11 +154,13 @@ public:
     }
 
     [[nodiscard]] TokenInferenceBackend* resolveSelectedBackend() const noexcept {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
         return resolveBackend(selectedModelId_);
     }
 
     [[nodiscard]] bool selectedBackendAvailable() const noexcept {
-        const auto* backend = resolveSelectedBackend();
+        std::lock_guard<std::mutex> lock(selectionMutex_);
+        const auto* backend = resolveBackend(selectedModelId_);
         return backend != nullptr && backend->isAvailable();
     }
 
@@ -172,6 +196,7 @@ public:
     }
 
     void clear() noexcept {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
         models_.clear();
         backends_.clear();
         if (!selectedModelId_.empty()) {
@@ -183,6 +208,7 @@ public:
     }
 
 private:
+    mutable std::mutex selectionMutex_;
     std::vector<ModelCatalogEntry> models_{};
     std::vector<TokenInferenceBackend*> backends_{};
     std::string selectedModelId_{};
