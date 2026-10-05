@@ -128,7 +128,7 @@ void testDisablingSelectedModelClearsSelection() {
     assert(catalog.setEnabled(entry.modelId, false));
 
     assert(catalog.selectedModelId().empty());
-    assert(catalog.selectedModel() == nullptr);
+    assert(!catalog.selectedModelSnapshot().has_value());
     assert(catalog.resolveSelectedBackend() == nullptr);
     assert(!catalog.selectedBackendRegistered());
     assert(catalog.selectionGeneration() == 2);
@@ -174,7 +174,10 @@ void testConcurrentRegistrationAndSelectionSnapshotIsSafe() {
             const auto snapshot = catalog.selectionSnapshot();
             assert(snapshot.modelId == "seed");
             assert(snapshot.backend == &backend);
-            assert(catalog.findModel("seed") != nullptr);
+            const auto modelSnapshot = catalog.findModelSnapshot("seed");
+            assert(modelSnapshot.has_value());
+            assert(modelSnapshot->modelId == "seed");
+            assert(modelSnapshot->backendId == backend.id());
             assert(catalog.selectedBackendRegistered());
             (void) catalog.modelCount();
             (void) catalog.backendCount();
