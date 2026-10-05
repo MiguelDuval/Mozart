@@ -758,6 +758,43 @@ public final class MainActivity extends Activity {
     }
 
     @Override
+    public void onRequestPermissionsResult(
+            int requestCode,
+            String[] permissions,
+            int[] grantResults) {
+        super.onRequestPermissionsResult(
+                requestCode,
+                permissions,
+                grantResults);
+
+        if (requestCode != RECORD_AUDIO_REQUEST ||
+                !activityStarted ||
+                audioKeyInput == null) {
+            return;
+        }
+
+        final boolean granted =
+                grantResults.length > 0 &&
+                grantResults[0] == PackageManager.PERMISSION_GRANTED;
+
+        if (!granted) {
+            appendStatus("MIC PERMISSION  DENIED");
+            return;
+        }
+
+        if (audioKeyInput.start()) {
+            nativeResetAudioKeyContext();
+            nativeSetKeyContextSource(1);
+            if (keySourceButton != null) {
+                keySourceButton.setText("KEY SOURCE  AUDIO");
+            }
+            appendStatus("AUDIO KEY  ON • waiting for stable result");
+        } else {
+            appendStatus("AUDIO KEY  could not start");
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         mainHandler.removeCallbacks(linkStatusPoll);
         mainHandler.removeCallbacks(midiInputStatusPoll);
