@@ -49,7 +49,12 @@ void AccompanimentScheduler::start() {
         return;
     }
 
-    worker_ = std::thread(&AccompanimentScheduler::run, this);
+    try {
+        worker_ = std::thread(&AccompanimentScheduler::run, this);
+    } catch (...) {
+        running_.store(false);
+        throw;
+    }
 }
 
 void AccompanimentScheduler::stop() {
