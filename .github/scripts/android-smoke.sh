@@ -166,6 +166,61 @@ exercise_runtime_smoke_recreate_guard() {
   echo "Runtime smoke stale-callback recreate guard passed."
 }
 
+exercise_activity_background_resume_guard() {
+  echo "=== Activity background/resume lifecycle guard ==="
+
+  adb logcat -c
+  start_app true
+
+  local startup_rc=0
+  wait_for_startup || startup_rc=$?
+  if [[ "$startup_rc" -ne 0 ]]; then
+    echo "Runtime-smoke Activity failed to start before background/resume test." >&2
+    return 1
+  fi
+
+  adb shell input keyevent 3 >/dev/null 2>&1 || true
+
+  for _ in $(seq 1 20); do
+    if ! adb shell dumpsys activity activities 2>/dev/null |
+        grep -Fq "mResumedActivity: ActivityRecord" ||
+       ! adb shell dumpsys activity activities 2>/dev/null |
+        grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"; then
+      break
+    fi
+    sleep 0.25
+  done
+
+  if adb shell dumpsys activity activities 2>/dev/null |
+      grep -Fq "mResumedActivity: ActivityRecord.*com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"; then
+    echo "MainActivity remained resumed after HOME; background transition was not observed." >&2
+    return 1
+  fi
+
+  # Clear pre-background logs so only a callback escaping onStop can appear
+  # alongside the resumed Activity's fresh startup markers.
+  adb logcat -c
+  start_app false
+
+  local resume_rc=0
+  wait_for_startup || resume_rc=$?
+  if [[ "$resume_rc" -ne 0 ]]; then
+    echo "Activity resume launch failed after HOME." >&2
+    return 1
+  fi
+
+  sleep 3.5
+  write_logcat
+
+  if grep -Fq "RUNTIME: Link snapshot tick " "$LOGCAT_FILE" ||
+     grep -Fq "RUNTIME: Link snapshot stopped " "$LOGCAT_FILE"; then
+    echo "A delayed runtime-smoke callback escaped background lifecycle shutdown." >&2
+    return 1
+  fi
+
+  echo "Activity background/resume lifecycle guard passed."
+}
+
 exercise_activity_recreate_cycle() {
   local cycle="$1"
 
