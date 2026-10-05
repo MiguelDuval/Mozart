@@ -74,6 +74,10 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         self.assertIn("if (!activityStarted)", self.activity[tick:stop])
         self.assertIn("if (!activityStarted)", self.activity[stop:start])
 
+        on_destroy = self.activity.index("protected void onDestroy()")
+        self.assertIn("removeCallbacks(runtimeSmokeTick)", self.activity[on_destroy:])
+        self.assertIn("removeCallbacks(runtimeSmokeStop)", self.activity[on_destroy:])
+
     def test_activity_permission_and_debug_lab_shutdown_contract(self):
         self.assertIn("onRequestPermissionsResult", self.activity)
         self.assertIn("RECORD_AUDIO_REQUEST", self.activity)
