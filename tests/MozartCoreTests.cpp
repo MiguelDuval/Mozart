@@ -2505,7 +2505,7 @@ int main() {
             }
 
             [[nodiscard]] bool isAvailable() const noexcept override {
-                if (!blockAvailability.load()) {
+                if (!availabilityBlocked_.load()) {
                     return true;
                 }
 
@@ -2521,7 +2521,7 @@ int main() {
             }
 
             void blockAvailability() noexcept {
-                blockAvailability.store(true);
+                availabilityBlocked_.store(true);
             }
 
             void waitUntilAvailabilityEntered() {
@@ -2541,7 +2541,7 @@ int main() {
             }
 
         private:
-            std::atomic_bool blockAvailability{false};
+            std::atomic_bool availabilityBlocked_{false};
             mutable std::mutex mutex_;
             std::condition_variable condition_;
             bool availabilityEntered_ = false;
