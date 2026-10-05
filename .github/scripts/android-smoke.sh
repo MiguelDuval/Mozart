@@ -136,6 +136,32 @@ wait_for_activity_to_stop() {
   return 1
 }
 
+power_is_interactive() {
+  adb shell dumpsys power 2>/dev/null |
+    grep -Eq 'mInteractive=true|mWakefulness=Awake'
+}
+
+wait_for_power_interactive() {
+  for _ in $(seq 1 20); do
+    if power_is_interactive; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  return 1
+}
+
+wait_for_power_sleep() {
+  for _ in $(seq 1 20); do
+    if adb shell dumpsys power 2>/dev/null |
+      grep -Eq 'mInteractive=false|mWakefulness=(Asleep|Dozing)'; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  return 1
+}
+
 exercise_runtime_smoke_recreate_guard() {
   echo "=== Runtime smoke stale-callback recreate guard ==="
 
@@ -225,6 +251,57 @@ exercise_activity_background_resume_guard() {
   fi
 
   echo "Activity background/resume lifecycle guard passed."
+}
+
+exercise_android_sleep_resume_guard() {
+  echo "=== Android sleep/resume power-state guard ==="
+
+  adb logcat -c
+  start_app false
+
+  local startup_rc=0
+  wait_for_startup || startup_rc=$?
+  if [[ "$startup_rc" -ne 0 ]]; then
+    echo "Activity failed to start before sleep/resume power-state test." >&2
+    return 1
+  fi
+
+  if ! power_is_interactive; then
+    echo "Emulator was not interactive before sleep transition." >&2
+    return 1
+  fi
+
+  # KEYCODE_POWER is used as a screen sleep/wake toggle. Unlike HOME/BACK,
+  # this exercises the emulator's actual interactive power state.
+  adb shell input keyevent 26 >/dev/null 2>&1 || true
+
+  if ! wait_for_power_sleep; then
+    echo "Emulator did not enter a non-interactive sleep state after POWER." >&2
+    return 1
+  fi
+
+  sleep 1.5
+  write_logcat
+
+  if fatal_mozart_exception; then
+    echo "Fatal Mozart Android exception appeared while the emulator was asleep." >&2
+    return 1
+  fi
+
+  adb shell input keyevent 26 >/dev/null 2>&1 || true
+
+  if ! wait_for_power_interactive; then
+    echo "Emulator did not return to an interactive state after POWER wake." >&2
+    return 1
+  fi
+
+  write_logcat
+  if fatal_mozart_exception; then
+    echo "Fatal Mozart Android exception appeared after sleep/resume." >&2
+    return 1
+  fi
+
+  echo "Android sleep/resume power-state guard passed."
 }
 
 exercise_activity_recreate_cycle() {
@@ -360,6 +437,10 @@ fi
 
 if [[ "$stale_runtime_smoke_rc" -eq 0 ]]; then
   exercise_activity_background_resume_guard || runtime_smoke_rc=$?
+fi
+
+if [[ "$stale_runtime_smoke_rc" -eq 0 ]]; then
+  exercise_android_sleep_resume_guard || runtime_smoke_rc=$?
 fi
 
 if [[ "$runtime_smoke_rc" -eq 0 ]]; then
