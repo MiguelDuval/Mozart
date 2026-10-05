@@ -1,0 +1,28 @@
+{
+  "model_id": "mozart-symbolic-transformer-v0",
+  "status": "development-baseline",
+  "vocabulary_id": "mozart-midi-events-v1",
+  "vocabulary_size": 512,
+  "max_sequence_length": 1024,
+  "d_model": 576,
+  "nhead": 8,
+  "num_layers": 8,
+  "dim_feedforward": 2304,
+  "dropout": 0.1,
+  "tie_token_embeddings": true,
+  "conditioning": {
+    "style": 6,
+    "substyle": 7,
+    "mood": 8,
+    "rhythm": 7,
+    "role": 8
+  },
+  "performance_control_names": [
+    "density",
+    "energy",
+    "syncopation",
+    "swing",
+    "variation"
+  ],
+  "parameter_count_target": 32820480
+}

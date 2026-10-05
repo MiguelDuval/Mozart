@@ -1,0 +1,82 @@
+{
+  "manifest_schema_version": 1,
+  "manifest_status": "template",
+  "model_id": "<FROZEN>",
+  "model_revision": "<FROZEN>",
+  "model_file": "<FROZEN>",
+  "model_format": "<FROZEN>",
+  "model_sha256": "<FROZEN>",
+  "distribution_class": "private_experimental",
+  "vocabulary_id": "mozart-midi-events-v1",
+  "vocabulary_size": 512,
+  "context_length_tokens": 1024,
+  "max_generated_tokens": 512,
+  "inputs": [
+    {
+      "name": "<FROZEN>",
+      "dtype": "<FROZEN>",
+      "shape": [
+        -1,
+        1024
+      ],
+      "layout": "<FROZEN>",
+      "role": "token_ids"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "<FROZEN>",
+      "dtype": "<FROZEN>",
+      "shape": [
+        -1,
+        512
+      ],
+      "layout": "<FROZEN>",
+      "role": "token_scores"
+    }
+  ],
+  "kv_cache": {
+    "enabled": false,
+    "tensors": []
+  },
+  "quantization": {
+    "scheme": "<FROZEN>",
+    "activations": "<FROZEN>",
+    "weights": "<FROZEN>",
+    "scales": "<FROZEN>",
+    "zero_points": "<FROZEN>"
+  },
+  "conditioning": {
+    "style_family": "<FROZEN>",
+    "substyle": "<FROZEN>",
+    "mood": "<FROZEN>",
+    "rhythm": "<FROZEN>",
+    "role": "<FROZEN>",
+    "key_scale": "<FROZEN>",
+    "chords": "<FROZEN>",
+    "density": "<FROZEN>",
+    "energy": "<FROZEN>",
+    "syncopation": "<FROZEN>",
+    "swing": "<FROZEN>",
+    "variation": "<FROZEN>",
+    "seed": "<FROZEN>"
+  },
+  "decoding": {
+    "strategy": "<FROZEN>",
+    "temperature": "<FROZEN>",
+    "top_k": "<FROZEN>",
+    "top_p": "<FROZEN>",
+    "seed_policy": "<FROZEN>"
+  },
+  "provenance": {
+    "training_source": "<FROZEN>",
+    "dataset_manifest": "<FROZEN>",
+    "preprocessing_revision": "<FROZEN>"
+  },
+  "licenses": {
+    "implementation": "<FROZEN>",
+    "model_weights": "<FROZEN>",
+    "training_data": "<FROZEN>",
+    "redistribution": "<FROZEN>"
+  }
+}

@@ -1,0 +1,37 @@
+# Gradle
+.gradle/
+build/
+android/.gradle/
+android/app/build/
+
+# Android / IDE
+.idea/
+*.iml
+local.properties
+
+# Native
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+CTestTestfile.cmake
+
+# External dependency worktrees / extracted SDKs
+third_party/litert/
+
+# Training outputs / model artifacts
+artifacts/
+checkpoints/
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.safetensors
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+*.keystore
+*.jks

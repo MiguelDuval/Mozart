@@ -1,0 +1,112 @@
+#include "generation/DeterministicPatternProvider.h"
+
+#include "generation/ArpeggioGenerator.h"
+#include "generation/BassGenerator.h"
+#include "generation/DrumPatternGenerator.h"
+#include "generation/PatternVariation.h"
+#include "musical/MusicalNote.h"
+
+#include <utility>
+
+namespace mozart::generation {
+
+GenerationResult DeterministicPatternProvider::generate(
+        const GenerationRequest& request) {
+    if (!request.isValid()) {
+        return {
+                GenerationStatus::InvalidRequest,
+                {},
+                "invalid generation request"
+        };
+    }
+
+    if (request.role != GenerationRole::Bass &&
+        request.role != GenerationRole::Arpeggio &&
+        request.role != GenerationRole::Drums) {
+        return {
+                GenerationStatus::Unavailable,
+                {},
+                "deterministic provider does not support the requested role"
+        };
+    }
+
+    PatternProposal proposal;
+    proposal.metadata.seed = request.seed;
+    proposal.metadata.generatorId = "deterministic-local-v1";
+
+    for (std::uint8_t bar = 0; bar < request.bars; ++bar) {
+        const auto seed = request.seed ^
+                (0x9E3779B9u * (static_cast<std::uint32_t>(bar) + 1U));
+        const auto density =
+                request.density < 0.34
+                        ? PatternDensity::Sparse
+                        : (request.density < 0.67
+                                   ? PatternDensity::Normal
+                                   : PatternDensity::Full);
+
+        const auto events =
+                request.role == GenerationRole::Arpeggio
+                        ? ArpeggioGenerator::generateBar(
+                                request.keyScale,
+                                4,
+                                seed,
+                                0,
+                                density)
+                        : (request.role == GenerationRole::Drums
+                                   ? DrumPatternGenerator::generateBar(seed, density)
+                                   : BassGenerator::generateBar(
+                                           request.keyScale,
+                                           2,
+                                           seed,
+                                           0,
+                                           density));
+
+        for (auto event : events) {
+            if (request.role != GenerationRole::Drums &&
+                (event.note < request.minNote ||
+                 event.note > request.maxNote)) {
+                return {
+                        GenerationStatus::Failed,
+                        {},
+                        "deterministic provider generated a note outside the requested range"
+                };
+            }
+            event.startBeat += static_cast<double>(bar) * 4.0;
+            proposal.noteEvents.push_back(event);
+        }
+    }
+
+    proposal.noteEvents = PatternVariation::apply(
+            proposal.noteEvents,
+            request.probability,
+            request.ratchet,
+            request.seed);
+
+    proposal.metadata.confidence = proposal.noteEvents.empty() ? 0.0 : 1.0;
+    if (proposal.noteEvents.size() > PatternProposal::kMaxNoteEvents) {
+        return {
+                GenerationStatus::Failed,
+                {},
+                "deterministic provider exceeded proposal event limit"
+        };
+    }
+
+    const auto validation = PatternProposalValidator::validate(
+            request,
+            proposal);
+    if (!validation.ok()) {
+        return {
+                GenerationStatus::Failed,
+                {},
+                validation.message
+        };
+    }
+
+    return {
+            GenerationStatus::Ok,
+            std::move(validation.proposal),
+            {}
+    };
+}
+
+} // namespace mozart::generation

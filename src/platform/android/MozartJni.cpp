@@ -1,0 +1,925 @@
+#include <jni.h>
+
+#include <cstdint>
+#include <chrono>
+#include <memory>
+#include <future>
+#include <optional>
+#include <mutex>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "core/MidiEndpoint.h"
+#include "core/MidiTypes.h"
+#include "core/MozartEngine.h"
+#include "musical/AudioChromaEstimator.h"
+#include "musical/AudioKeyDetector.h"
+#include "musical/KeyScale.h"
+#include "midi/MidiReceiveQueue.h"
+#include "platform/android/AndroidMidiOutput.h"
+#include "platform/android/OnnxRuntimeBridge.h"
+#include "generation/OnnxTokenInferenceBackend.h"
+#include "generation/GenerationRequestFactory.h"
+#include "generation/GenerationRequestTicket.h"
+#include "generation/PatternDensity.h"
+#include "generation/PatternSwing.h"
+#include "scheduler/AccompanimentRole.h"
+#include "runtime/MozartRuntime.h"
+#include "scheduler/PerformanceScene.h"
+
+namespace {
+
+mozart::platform::android::AndroidMidiOutput g_midiOutput;
+std::unique_ptr<mozart::platform::android::OnnxRuntimeBridge> g_onnxBridge;
+std::vector<std::unique_ptr<mozart::generation::OnnxTokenInferenceBackend>> g_onnxBackends;
+std::unique_ptr<mozart::runtime::MozartRuntime> g_runtime;
+std::mutex g_runtimeMutex;
+std::mutex g_generationMutex;
+std::optional<std::future<mozart::generation::GenerationResult>> g_generationFuture;
+mozart::midi::MidiReceiveQueue g_midiReceiveQueue;
+mozart::midi::MidiInputParser g_midiInputParser;
+mozart::midi::MidiReceiveQueue g_controllerQueue(64);
+mozart::midi::MidiInputParser g_controllerParser;
+std::mutex g_midiInputMutex;
+
+mozart::runtime::MozartRuntime* runtime() {
+    std::lock_guard<std::mutex> lock(g_runtimeMutex);
+    if (!g_runtime) {
+        g_runtime = std::make_unique<mozart::runtime::MozartRuntime>(g_midiOutput);
+    }
+    return g_runtime.get();
+}
+
+[[nodiscard]] std::string jstringToUtf8(
+        JNIEnv* env,
+        jstring value) {
+    if (value == nullptr) {
+        return {};
+    }
+
+    const char* utf = env->GetStringUTFChars(value, nullptr);
+    if (utf == nullptr) {
+        return {};
+    }
+
+    const std::string result(utf);
+    env->ReleaseStringUTFChars(value, utf);
+    return result;
+}
+
+[[nodiscard]] std::string javaStringToUtf8(
+        JNIEnv* env,
+        jobjectArray values,
+        jsize index) {
+    if (values == nullptr) {
+        return {};
+    }
+
+    const auto value =
+            static_cast<jstring>(env->GetObjectArrayElement(values, index));
+    if (value == nullptr) {
+        return {};
+    }
+
+    const char* utf = env->GetStringUTFChars(value, nullptr);
+    if (utf == nullptr) {
+        env->DeleteLocalRef(value);
+        return {};
+    }
+
+    const std::string result(utf);
+    env->ReleaseStringUTFChars(value, utf);
+    env->DeleteLocalRef(value);
+    return result;
+}
+
+[[nodiscard]] const char* accompanimentRoleName(
+        mozart::scheduler::AccompanimentRole role) noexcept {
+    switch (role) {
+        case mozart::scheduler::AccompanimentRole::Arpeggio:
+            return "arpeggio";
+        case mozart::scheduler::AccompanimentRole::Drums:
+            return "drums";
+        case mozart::scheduler::AccompanimentRole::Bass:
+        default:
+            return "bass";
+    }
+}
+
+[[nodiscard]] std::int32_t intAt(
+        JNIEnv* env,
+        jintArray values,
+        jsize index) {
+    jint value = 0;
+    env->GetIntArrayRegion(values, index, 1, &value);
+    return static_cast<std::int32_t>(value);
+}
+
+[[nodiscard]] mozart::midi::PortDirection portDirectionFromAndroid(
+        std::int32_t value) noexcept {
+    return value == 1
+            ? mozart::midi::PortDirection::Input
+            : mozart::midi::PortDirection::Output;
+}
+
+[[nodiscard]] mozart::midi::TransportKind transportKindFromAndroid(
+        std::int32_t value) noexcept {
+    switch (value) {
+        case 1:
+            return mozart::midi::TransportKind::Usb;
+        case 2:
+            return mozart::midi::TransportKind::Bluetooth;
+        case 3:
+            return mozart::midi::TransportKind::Virtual;
+        default:
+            return mozart::midi::TransportKind::Unknown;
+    }
+}
+
+} // namespace
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeMidiInputSnapshot(
+        JNIEnv* env,
+        jobject) {
+    const auto snapshot = g_midiReceiveQueue.snapshot();
+
+    std::string text =
+            "pending=" + std::to_string(snapshot.pending) +
+            " received=" + std::to_string(snapshot.accepted) +
+            " dropped=" + std::to_string(snapshot.dropped);
+
+    if (snapshot.hasLast) {
+        text +=
+                " lastStatus=" + std::to_string(snapshot.last.status) +
+                " note=" + std::to_string(snapshot.last.data1) +
+                " velocity=" + std::to_string(snapshot.last.data2) +
+                " timeNs=" + std::to_string(snapshot.last.timestampNanos) +
+                " port=" + std::to_string(snapshot.last.portId);
+    } else {
+        text += " last=none";
+    }
+
+    return env->NewStringUTF(text.c_str());
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeEngineInfo(
+        JNIEnv* env,
+        jobject) {
+    const mozart::MozartEngine engine;
+    const auto info = engine.info();
+
+    return env->NewStringUTF(info.c_str());
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeLinkSnapshot(
+        JNIEnv* env,
+        jobject) {
+    const auto snapshot = runtime()->captureLinkSnapshot();
+
+    const std::string text =
+            std::string("enabled=") + (snapshot.enabled ? "true" : "false") +
+            " playing=" + (snapshot.playing ? "true" : "false") +
+            " inSession=" + (snapshot.inSession ? "true" : "false") +
+            " startStopSync=" +
+                    (snapshot.startStopSyncEnabled ? "true" : "false") +
+            " peers=" + std::to_string(snapshot.peers) +
+            " tempo=" + std::to_string(snapshot.tempoBpm) +
+            " beat=" + std::to_string(snapshot.beat) +
+            " phase=" + std::to_string(snapshot.phase) +
+            " quantum=" + std::to_string(snapshot.quantum);
+
+    return env->NewStringUTF(text.c_str());
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeStartAccompaniment(
+        JNIEnv*,
+        jobject) {
+    auto* app = runtime();
+    app->start();
+    app->setKeyScale(
+            mozart::musical::KeyScale{
+                    6, mozart::musical::Scale::NaturalMinor});
+    app->setLinkEnabled(true);
+    app->setAccompanimentEnabled(true);
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeTestMidiNote(
+        JNIEnv*,
+        jobject) {
+    return runtime()->sendDiagnosticNote() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeRegisterExperimentalModel(
+        JNIEnv* env,
+        jobject,
+        jstring modelId,
+        jstring displayName,
+        jstring backendId,
+        jstring artifactPath,
+        jstring manifestPath) {
+    mozart::generation::ModelCatalogEntry entry;
+    entry.modelId = jstringToUtf8(env, modelId);
+    entry.displayName = jstringToUtf8(env, displayName);
+    entry.backendId = jstringToUtf8(env, backendId);
+    entry.artifactPath = jstringToUtf8(env, artifactPath);
+    entry.manifestPath = jstringToUtf8(env, manifestPath);
+    entry.distributionClass =
+            mozart::generation::ModelDistributionClass::PrivateExperimental;
+    entry.enabled = true;
+
+    if (entry.modelId.empty() ||
+        entry.backendId.empty() ||
+        entry.artifactPath.empty() ||
+        entry.manifestPath.empty()) {
+        return JNI_FALSE;
+    }
+
+    if (entry.backendId == "onnxruntime-android") {
+        if (!g_onnxBridge) {
+            g_onnxBridge =
+                    std::make_unique<mozart::platform::android::OnnxRuntimeBridge>(
+                            env);
+        }
+
+        const std::string concreteBackendId =
+                "onnxruntime-android:" + entry.modelId;
+
+        auto backend =
+                std::make_unique<mozart::generation::OnnxTokenInferenceBackend>(
+                        concreteBackendId,
+                        entry.artifactPath,
+                        entry.manifestPath,
+                        *g_onnxBridge);
+
+        if (runtime()->registerModelBackend(*backend)) {
+            entry.backendId = concreteBackendId;
+            g_onnxBackends.push_back(std::move(backend));
+        } else {
+            // Re-opening the lab for an already registered model is harmless;
+            // the original backend remains owned by g_onnxBackends.
+        }
+    }
+
+    return runtime()->registerModel(std::move(entry))
+            ? JNI_TRUE
+            : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSelectExperimentalModel(
+        JNIEnv* env,
+        jobject,
+        jstring modelId) {
+    const auto value = jstringToUtf8(env, modelId);
+    if (!runtime()->selectModel(value)) {
+        return JNI_FALSE;
+    }
+
+    return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeClearSelectedModel(
+        JNIEnv*,
+        jobject) {
+    std::lock_guard<std::mutex> lock(g_generationMutex);
+    if (g_generationFuture.has_value() &&
+        g_generationFuture->valid() &&
+        g_generationFuture->wait_for(std::chrono::milliseconds(0)) ==
+                std::future_status::ready) {
+        (void) g_generationFuture->get();
+        g_generationFuture.reset();
+    }
+    runtime()->clearSelectedModel();
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeQueueExperimentalGeneration(
+        JNIEnv*,
+        jobject) {
+    std::lock_guard<std::mutex> lock(g_generationMutex);
+
+    if (g_generationFuture.has_value()) {
+        if (!g_generationFuture->valid()) {
+            g_generationFuture.reset();
+        } else if (g_generationFuture->wait_for(
+                           std::chrono::milliseconds(0)) !=
+                std::future_status::ready) {
+            return JNI_FALSE;
+        } else {
+            (void) g_generationFuture->get();
+            g_generationFuture.reset();
+        }
+    }
+
+    if (runtime()->selectedModelId().empty()) {
+        return JNI_FALSE;
+    }
+
+    const auto context = runtime()->captureKeyContextSnapshot();
+    const auto link = runtime()->captureLinkSnapshot();
+
+    mozart::generation::GenerationRole role =
+            mozart::generation::GenerationRole::Bass;
+    switch (runtime()->accompanimentRole()) {
+        case mozart::scheduler::AccompanimentRole::Arpeggio:
+            role = mozart::generation::GenerationRole::Arpeggio;
+            break;
+        case mozart::scheduler::AccompanimentRole::Drums:
+            role = mozart::generation::GenerationRole::Drums;
+            break;
+        case mozart::scheduler::AccompanimentRole::Bass:
+        default:
+            break;
+    }
+
+    const auto request =
+            mozart::generation::GenerationRequestFactory::fromPerformanceContext(
+                    context.resolvedKeyScale,
+                    link.tempoBpm,
+                    role,
+                    runtime()->patternDensity(),
+                    runtime()->patternSwing(),
+                    runtime()->macroEnergy(),
+                    runtime()->macroMotion());
+
+    if (!request.isValid()) {
+        return JNI_FALSE;
+    }
+
+    runtime()->start();
+    g_generationFuture.emplace(runtime()->requestGeneration(
+            std::move(request)));
+    return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeExperimentalGenerationSnapshot(
+        JNIEnv* env,
+        jobject) {
+    std::lock_guard<std::mutex> lock(g_generationMutex);
+
+    if (!g_generationFuture.has_value()) {
+        return env->NewStringUTF("state=idle");
+    }
+
+    if (!g_generationFuture->valid()) {
+        g_generationFuture.reset();
+        return env->NewStringUTF("state=idle");
+    }
+
+    if (g_generationFuture->wait_for(std::chrono::milliseconds(0)) !=
+            std::future_status::ready) {
+        return env->NewStringUTF("state=queued");
+    }
+
+    const auto result = g_generationFuture->get();
+    g_generationFuture.reset();
+
+    bool queuedForPlayback = false;
+    bool discardedAsStale = false;
+    if (result.ok()) {
+        queuedForPlayback = runtime()->queueGeneratedResult(result);
+        if (!queuedForPlayback) {
+            const auto currentSelection =
+                    runtime()->captureModelSelectionSnapshot();
+            discardedAsStale =
+                    !result.ticket.matchesLifecycle(
+                            currentSelection.modelId,
+                            currentSelection.selectionGeneration,
+                            runtime()->generationLifecycleGeneration());
+        }
+    }
+
+    const char* status = "failed";
+    if (discardedAsStale) {
+        status = "stale_model";
+    } else {
+        switch (result.status) {
+            case mozart::generation::GenerationStatus::Ok:
+                status = "ok";
+                break;
+            case mozart::generation::GenerationStatus::InvalidRequest:
+                status = "invalid_request";
+                break;
+            case mozart::generation::GenerationStatus::Unavailable:
+                status = "unavailable";
+                break;
+            case mozart::generation::GenerationStatus::Failed:
+            default:
+                status = "failed";
+                break;
+        }
+    }
+
+    const std::string message =
+            discardedAsStale
+                    ? "generation completed for an obsolete selection or lifecycle session"
+                    : (result.message.empty() ? "none" : result.message);
+
+    const auto context = runtime()->captureKeyContextSnapshot();
+    const auto link = runtime()->captureLinkSnapshot();
+
+    const std::string text =
+            std::string("state=ready status=") + status +
+            " notes=" +
+                    std::to_string(result.proposal.noteEvents.size()) +
+            " controls=" +
+                    std::to_string(result.proposal.controlEvents.size()) +
+            " key=" +
+                    std::to_string(context.resolvedKeyScale.rootPitchClass()) +
+                    ":" +
+                    std::to_string(
+                            static_cast<int>(context.resolvedKeyScale.scale())) +
+            " tempo=" +
+                    std::to_string(link.tempoBpm) +
+            " role=" +
+                    accompanimentRoleName(runtime()->accompanimentRole()) +
+            " queued_for_next_cycle=" +
+                    (queuedForPlayback ? "true" : "false") +
+            " message=" + message;
+
+    return env->NewStringUTF(text.c_str());
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSelectedModelSnapshot(
+        JNIEnv* env,
+        jobject) {
+    const auto modelId = runtime()->selectedModelId();
+    const bool privateExperimental =
+            runtime()->selectedModelIsPrivateExperimental();
+
+    const std::string text =
+            std::string("selected=") +
+            (modelId.empty() ? "none" : modelId) +
+            " class=" +
+            (privateExperimental ? "private_experimental" : "none") +
+            " backend=" +
+            (runtime()->selectedModelBackendRegistered()
+                    ? "registered"
+                    : "unregistered");
+
+    return env->NewStringUTF(text.c_str());
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetPatternSwing(
+        JNIEnv*,
+        jobject,
+        jint swing) {
+    switch (swing) {
+        case 0:
+            runtime()->setPatternSwing(
+                    mozart::generation::PatternSwing::Off);
+            break;
+        case 1:
+            runtime()->setPatternSwing(
+                    mozart::generation::PatternSwing::Light);
+            break;
+        case 2:
+            runtime()->setPatternSwing(
+                    mozart::generation::PatternSwing::Full);
+            break;
+        default:
+            return;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetPatternAccent(
+        JNIEnv*,
+        jobject,
+        jint accent) {
+    switch (accent) {
+        case 0:
+            runtime()->setPatternAccent(
+                    mozart::generation::PatternAccent::Off);
+            break;
+        case 1:
+            runtime()->setPatternAccent(
+                    mozart::generation::PatternAccent::Mild);
+            break;
+        case 2:
+            runtime()->setPatternAccent(
+                    mozart::generation::PatternAccent::Strong);
+            break;
+        default:
+            return;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetPatternDensity(
+        JNIEnv*,
+        jobject,
+        jint density) {
+    switch (density) {
+        case 0:
+            runtime()->setPatternDensity(
+                    mozart::generation::PatternDensity::Sparse);
+            break;
+        case 1:
+            runtime()->setPatternDensity(
+                    mozart::generation::PatternDensity::Normal);
+            break;
+        case 2:
+            runtime()->setPatternDensity(
+                    mozart::generation::PatternDensity::Full);
+            break;
+        default:
+            return;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetPerformanceScene(
+        JNIEnv*,
+        jobject,
+        jint sceneIndex) {
+    if (sceneIndex < 0 ||
+        sceneIndex >= static_cast<jint>(
+                mozart::scheduler::PerformanceScene::kSceneCount)) {
+        return;
+    }
+
+    runtime()->setPerformanceScene(
+            static_cast<std::uint8_t>(sceneIndex));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeRequestPatternMutation(
+        JNIEnv*,
+        jobject) {
+    runtime()->requestPatternMutation();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetNoteRepeat(
+        JNIEnv*,
+        jobject,
+        jint rate) {
+    switch (rate) {
+        case 1:
+            runtime()->setNoteRepeat(
+                    mozart::generation::NoteRepeatRate::Off);
+            break;
+        case 2:
+            runtime()->setNoteRepeat(
+                    mozart::generation::NoteRepeatRate::Double);
+            break;
+        case 3:
+            runtime()->setNoteRepeat(
+                    mozart::generation::NoteRepeatRate::Triple);
+            break;
+        case 4:
+            runtime()->setNoteRepeat(
+                    mozart::generation::NoteRepeatRate::Quadruple);
+            break;
+        default:
+            return;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetMacro(
+        JNIEnv*,
+        jobject,
+        jint control,
+        jint value) {
+    if (control < 0 || control > 1 || value < 0 || value > 127) {
+        return;
+    }
+
+    runtime()->setMacro(
+            static_cast<mozart::scheduler::MacroControl>(control),
+            static_cast<std::uint8_t>(value));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetAccompanimentRole(
+        JNIEnv*,
+        jobject,
+        jint role) {
+    switch (role) {
+        case 0:
+            runtime()->setAccompanimentRole(
+                    mozart::scheduler::AccompanimentRole::Bass);
+            break;
+        case 1:
+            runtime()->setAccompanimentRole(
+                    mozart::scheduler::AccompanimentRole::Arpeggio);
+            break;
+        case 2:
+            runtime()->setAccompanimentRole(
+                    mozart::scheduler::AccompanimentRole::Drums);
+            break;
+        default:
+            return;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetKeyContextSource(
+        JNIEnv*,
+        jobject,
+        jint source) {
+    if (source < 0 || source > 1) {
+        return;
+    }
+
+    runtime()->setKeyContextSource(
+            static_cast<mozart::musical::KeyContextSource>(source));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeResetAudioKeyContext(
+        JNIEnv*,
+        jobject) {
+    runtime()->resetAudioKeyContext();
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeKeyContextSnapshot(
+        JNIEnv* env,
+        jobject) {
+    const auto snapshot = runtime()->captureKeyContextSnapshot();
+    const char* source =
+            snapshot.source == mozart::musical::KeyContextSource::Audio
+                    ? "AUDIO"
+                    : "MANUAL";
+
+    const std::string text =
+            std::string("source=") + source +
+            " resolved=" +
+                    std::to_string(snapshot.resolvedKeyScale.rootPitchClass()) +
+                    ":" +
+                    std::to_string(
+                            static_cast<int>(snapshot.resolvedKeyScale.scale())) +
+            " manual=" +
+                    std::to_string(snapshot.manualKeyScale.rootPitchClass()) +
+                    ":" +
+                    std::to_string(
+                            static_cast<int>(snapshot.manualKeyScale.scale())) +
+            " stable=" +
+                    (snapshot.audio.hasStableKey ? "true" : "false") +
+            " confidence=" +
+                    std::to_string(snapshot.audio.confidence) +
+            " observations=" +
+                    std::to_string(snapshot.audio.consecutiveObservations);
+
+    return env->NewStringUTF(text.c_str());
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeStopAccompaniment(
+        JNIEnv*,
+        jobject) {
+    auto* app = runtime();
+    app->setAccompanimentEnabled(false);
+    app->setLinkEnabled(false);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeSetManualKeyScale(
+        JNIEnv*,
+        jobject,
+        jint rootPitchClass,
+        jint scaleId) {
+    if (rootPitchClass < 0 || rootPitchClass > 11 ||
+        scaleId < 0 || scaleId > 2) {
+        return;
+    }
+
+    runtime()->setKeyScale(
+            mozart::musical::KeyScale{
+                    static_cast<std::uint8_t>(rootPitchClass),
+                    static_cast<mozart::musical::Scale>(scaleId)});
+}
+
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_AndroidAudioKeyInput_nativeProcessAudioFrame(
+        JNIEnv* env,
+        jclass,
+        jshortArray samples,
+        jint sampleRate) {
+    if (samples == nullptr || sampleRate < 4000) {
+        return;
+    }
+
+    const jsize count = env->GetArrayLength(samples);
+    if (count < 32) {
+        return;
+    }
+
+    std::vector<std::int16_t> pcm(static_cast<std::size_t>(count));
+    env->GetShortArrayRegion(
+            samples,
+            0,
+            count,
+            reinterpret_cast<jshort*>(pcm.data()));
+
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    const auto chroma = mozart::musical::AudioChromaEstimator::estimate(
+            pcm.data(),
+            pcm.size(),
+            static_cast<std::uint32_t>(sampleRate));
+    const auto detection = mozart::musical::AudioKeyDetector::estimate(chroma);
+
+    runtime()->updateAudioKeyDetection(detection);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_AndroidMidiInput_nativeReceiveMidiBytes(
+        JNIEnv* env,
+        jclass,
+        jbyteArray data,
+        jint offset,
+        jint count,
+        jlong timestampNanos,
+        jint portId) {
+    if (data == nullptr ||
+        offset < 0 ||
+        count <= 0 ||
+        timestampNanos < 0 ||
+        portId < 0) {
+        return;
+    }
+
+    const jsize length = env->GetArrayLength(data);
+    if (offset > length || count > length - offset) {
+        return;
+    }
+
+    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(count));
+    env->GetByteArrayRegion(
+            data,
+            offset,
+            count,
+            reinterpret_cast<jbyte*>(bytes.data()));
+
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(g_midiInputMutex);
+    const auto timestamp = static_cast<std::uint64_t>(timestampNanos);
+    const auto port = static_cast<std::uint32_t>(portId);
+
+    g_midiInputParser.feed(
+            bytes.data(),
+            bytes.size(),
+            timestamp,
+            port,
+            g_midiReceiveQueue);
+
+    // Keep controller consumption separate from the observable MIDI-IN queue.
+    // The queue above remains available for future harmony/key consumers.
+    g_controllerParser.feed(
+            bytes.data(),
+            bytes.size(),
+            timestamp,
+            port,
+            g_controllerQueue);
+
+    mozart::midi::MidiShortMessage controllerMessage{};
+    while (g_controllerQueue.tryPop(controllerMessage)) {
+        runtime()->handleMidiController(controllerMessage);
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_AndroidMidiInput_nativeResetMidiInput(
+        JNIEnv*,
+        jclass) {
+    std::lock_guard<std::mutex> lock(g_midiInputMutex);
+    g_midiInputParser.reset();
+    g_midiReceiveQueue.reset();
+    g_controllerParser.reset();
+    g_controllerQueue.reset();
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_miguelduval_mozart_AndroidMidiTransport_nativeSelectPreferredMidiOutput(
+        JNIEnv* env,
+        jclass,
+        jintArray deviceIds,
+        jintArray portNumbers,
+        jintArray portTypes,
+        jintArray transportTypes,
+        jobjectArray names,
+        jobjectArray manufacturers,
+        jobjectArray products) {
+    if (deviceIds == nullptr ||
+        portNumbers == nullptr ||
+        portTypes == nullptr ||
+        transportTypes == nullptr ||
+        names == nullptr ||
+        manufacturers == nullptr ||
+        products == nullptr) {
+        return -1;
+    }
+
+    const jsize count = env->GetArrayLength(deviceIds);
+    if (env->GetArrayLength(portNumbers) != count ||
+        env->GetArrayLength(portTypes) != count ||
+        env->GetArrayLength(transportTypes) != count ||
+        env->GetArrayLength(names) != count ||
+        env->GetArrayLength(manufacturers) != count ||
+        env->GetArrayLength(products) != count) {
+        return -1;
+    }
+
+    std::vector<mozart::midi::MidiEndpointDescriptor> candidates;
+    candidates.reserve(static_cast<std::size_t>(count));
+
+    for (jsize i = 0; i < count; ++i) {
+        mozart::midi::MidiEndpointDescriptor candidate;
+        candidate.deviceId =
+                static_cast<std::uint32_t>(intAt(env, deviceIds, i));
+        candidate.portNumber =
+                static_cast<std::uint32_t>(intAt(env, portNumbers, i));
+        candidate.direction =
+                portDirectionFromAndroid(intAt(env, portTypes, i));
+        candidate.transport =
+                transportKindFromAndroid(intAt(env, transportTypes, i));
+        candidate.name = javaStringToUtf8(env, names, i);
+        candidate.manufacturer = javaStringToUtf8(env, manufacturers, i);
+        candidate.product = javaStringToUtf8(env, products, i);
+        candidates.push_back(std::move(candidate));
+    }
+
+    const auto selection =
+            mozart::midi::MidiEndpointSelector::selectPreferredOutput(
+                    candidates, "Arturia", "MicroFreak");
+
+    return selection.selected()
+            ? static_cast<jint>(*selection.candidateIndex)
+            : static_cast<jint>(-1);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_miguelduval_mozart_AndroidMidiTransport_nativeOpenMidiOutputDevice(
+        JNIEnv* env,
+        jclass,
+        jobject midiDevice,
+        jint portNumber) {
+    return static_cast<jint>(
+            g_midiOutput.open(env, midiDevice, static_cast<std::int32_t>(portNumber)));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_miguelduval_mozart_AndroidMidiTransport_nativeCloseMidiOutputDevice(
+        JNIEnv*,
+        jclass) {
+    g_midiOutput.close();
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_miguelduval_mozart_AndroidMidiTransport_nativeSendShortMessage(
+        JNIEnv*,
+        jclass,
+        jint status,
+        jint data1,
+        jint data2,
+        jint size,
+        jlong timestampNanos) {
+    if (status < 0 || status > 255 ||
+        data1 < 0 || data1 > 255 ||
+        data2 < 0 || data2 > 255 ||
+        size < 0 || size > 3 ||
+        timestampNanos < 0) {
+        return static_cast<jint>(
+                mozart::midi::MidiTransportStatus::InvalidMessage);
+    }
+
+    const mozart::midi::MidiShortMessage message{
+        static_cast<std::uint8_t>(status),
+        static_cast<std::uint8_t>(data1),
+        static_cast<std::uint8_t>(data2),
+        static_cast<std::uint8_t>(size),
+        static_cast<std::uint64_t>(timestampNanos),
+        0
+    };
+
+    const auto result = g_midiOutput.send(message);
+    return static_cast<jint>(result.status);
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_miguelduval_mozart_AndroidMidiTransport_nativeIsMidiOutputOpenInternal(
+        JNIEnv*,
+        jclass) {
+    return g_midiOutput.isOpen() ? JNI_TRUE : JNI_FALSE;
+}

@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "audit_id": "waivops-nrg-cp-zenodo-15304989-v1",
+  "source_id": "waivops-nrg-cp",
+  "name": "WaivOps NRG-CP",
+  "status": "pending",
+  "source": {
+    "locator": "https://zenodo.org/records/15304989",
+    "revision": "zenodo:15304989@1.0"
+  },
+  "archive": {
+    "filename": "nrgcp_midi_dataset.tar.gz",
+    "md5": "7443fe30674ef149aa4c23580044f597",
+    "sha256": "ceb0f0b8d808150364a1ded15a1f54f9dc3a66f6f51dc0708c8242b62ae2f382"
+  },
+  "license": {
+    "spdx_id": "CC-BY-4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/",
+    "publisher": "Patchbanks / WaivOps"
+  },
+  "evidence": [
+    {
+      "id": "zenodo-record",
+      "kind": "archive_record",
+      "locator": "https://zenodo.org/records/15304989",
+      "checked_on": "2026-10-05",
+      "statement": "Zenodo publishes version 1.0 of the NRG-CP record, identifies Patchbanks and WaivOps as creators, and identifies the acquisition archive by name and MD5."
+    },
+    {
+      "id": "publisher-license-statement",
+      "kind": "rights_statement",
+      "locator": "https://github.com/patchbanks/WaivOps-NRG-CP",
+      "checked_on": "2026-10-05",
+      "statement": "Publisher states that the dataset was compiled by WaivOps, managed by Patchbanks, and that recordings were sourced from verified composers and providers for copyright clearance."
+    },
+    {
+      "id": "cc-by-terms",
+      "kind": "license_terms",
+      "locator": "https://creativecommons.org/licenses/by/4.0/",
+      "checked_on": "2026-10-05",
+      "statement": "CC BY 4.0 permits sharing and adaptation for commercial purposes subject to attribution and the other license terms."
+    },
+    {
+      "id": "publisher-commercial-use-faq",
+      "kind": "rights_statement",
+      "locator": "https://www.patchbanks.com/faq/",
+      "checked_on": "2026-10-05",
+      "statement": "Patchbanks states that WaivOps datasets may be shared, remixed, and built upon for commercial and non-commercial projects with attribution."
+    },
+    {
+      "id": "publisher-ai-training-scope",
+      "kind": "rights_statement",
+      "locator": "https://www.patchbanks.com/waivops/",
+      "checked_on": "2026-10-05",
+      "statement": "Patchbanks describes WaivOps as open music datasets for generative AI and explicitly states that the datasets support pretraining and fine-tuning of generative AI models."
+    },
+    {
+      "id": "local-archive-verification",
+      "kind": "archive_record",
+      "locator": "https://zenodo.org/records/15304989",
+      "checked_on": "2026-10-05",
+      "statement": "The downloaded archive matches the published MD5. SHA-256 is ceb0f0b8d808150364a1ded15a1f54f9dc3a66f6f51dc0708c8242b62ae2f382. The archive contains exactly 30,943 regular .mid members; all pass the archive safety checks and basic Standard MIDI File header validation."
+    },
+    {
+      "id": "canonical-inventory",
+      "kind": "archive_record",
+      "locator": "https://zenodo.org/records/15304989",
+      "checked_on": "2026-10-05",
+      "statement": "Canonical inventory uses sorted UTF-8 JSON entries of path, per-file SHA-256, and size_bytes; the SHA-256 of that canonical array is 84829424f5427c801cac3b44791d8efd640c17e9dd6d6209b5c36e2a6705aa28. Total MIDI payload is 29,721,294 bytes."
+    }
+  ],
+  "checks": {
+    "immutable_source_revision": "verified",
+    "license_scope": "verified",
+    "rights_holder_authority": "pending",
+    "commercial_training_permission": "pending",
+    "redistribution_permission": "pending",
+    "attribution_requirements": "verified",
+    "archive_sha256": "verified",
+    "file_inventory_sha256": "verified"
+  },
+  "file_inventory_sha256": "84829424f5427c801cac3b44791d8efd640c17e9dd6d6209b5c36e2a6705aa28",
+  "blockers": [
+    "Establish that the licensor had authority to grant commercial training and redistribution rights for all contained MIDI material, not merely that the dataset publisher displays CC BY 4.0 and makes commercial/AI-training use statements.",
+    "No public per-file manifest was found in the Zenodo record or publisher repository during this audit; therefore the computed 30,943-file inventory is verified as the downloaded archive's content, but an authoritative upstream inventory match is still unproven.",
+    "Authority-chain audit is separately tracked in docs/dataset-rights-authority-waivops-nrg-cp-v1.json and remains pending until independent documentary evidence and file-level coverage are obtained."
+  ],
+  "authority_chain_audit": "docs/dataset-rights-authority-waivops-nrg-cp-v1.json"
+}

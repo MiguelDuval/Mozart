@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "manifest_id": "pdmx-zenodo-15571083-v9-acquisition",
+  "status": "pending_local_acquisition",
+  "source": {
+    "name": "PDMX",
+    "doi": "10.5281/zenodo.15571083",
+    "record": "https://zenodo.org/records/15571083",
+    "revision": "v9",
+    "upstream_code_repository": "https://github.com/pnlong/PDMX",
+    "upstream_code_license": "MIT"
+  },
+  "published_artifacts": [
+    {
+      "name": "mid.tar.gz",
+      "role": "MIDI corpus",
+      "md5": "d920a21b2fcd99a56d9c381b39debbb2",
+      "size_bytes_decimal": 214395208,
+      "local_sha256": "PENDING"
+    },
+    {
+      "name": "PDMX.csv",
+      "role": "authoritative metadata and subset manifest",
+      "md5": "30392ccf38bb63ce70e7afae70f9c88c",
+      "size_display": "225.4 MB",
+      "local_sha256": "PENDING"
+    },
+    {
+      "name": "subset_paths.tar.gz",
+      "role": "published subset path lists",
+      "md5": "092eee416ece8060f77d08575b94a43d",
+      "size_bytes_decimal": 29258714,
+      "local_sha256": "PENDING"
+    }
+  ],
+  "published_scope": {
+    "recommended_subset": "no_license_conflict",
+    "recommended_subset_rows": 222856,
+    "reported_license_conflict_rows": 31221,
+    "reported_license_conflict_percentage": 12.29,
+    "known_corrupt_original_files": 42
+  },
+  "local_audit_requirements": {
+    "archive_md5_must_match_published": true,
+    "archive_sha256_must_be_recorded": true,
+    "csv_subset_file_must_match_exactly": true,
+    "csv_mid_paths_must_match_full_mid_inventory": true,
+    "all_recommended_subset_mid_paths_must_be_present": true,
+    "per_file_sha256_inventory_must_be_recorded": true,
+    "canonical_inventory_sha256_must_be_recorded": true
+  },
+  "legal_status": {
+    "technical_provenance": "pending_local_acquisition",
+    "commercial_training_rights": "requires_separate_rights_review",
+    "redistribution_rights": "requires_separate_rights_review",
+    "note": "The no_license_conflict filter is a publisher-defined metadata consistency condition and is not treated as an independent contractual grant.",
+    "dataset_content_license_signal": "publisher_claims_public_domain_per_source_metadata",
+    "code_license_must_not_be_interpreted_as_dataset_content_license": true,
+    "required_independent_review": [
+      "Confirm the intended legal basis for each selected row from the PDMX per-row license/license_url metadata.",
+      "Confirm that the public-facing MuseScore license is sufficient for the intended commercial ML-training and redistribution use of the resulting MIDI derivative.",
+      "Preserve the exact selected-row manifest and source revision used for the production corpus."
+    ]
+  }
+}
