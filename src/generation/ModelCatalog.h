@@ -41,11 +41,14 @@ public:
     // never reach realtime code. Registration captures the backend ID once.
     [[nodiscard]] bool registerBackend(
             TokenInferenceBackend& backend) {
+        // Capture immutable registration metadata before taking the catalog
+        // lock; runtime backend calls remain outside the selection/worker path.
         const auto backendId = backend.id();
         if (backendId.empty()) {
             return false;
         }
 
+        std::lock_guard<std::mutex> lock(selectionMutex_);
         for (const auto& existing : backends_) {
             if (existing.backend != nullptr && existing.backendId == backendId) {
                 return false;
@@ -66,7 +69,8 @@ public:
             return false;
         }
 
-        if (findModel(entry.modelId) != nullptr) {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
+        if (findModelUnlocked(entry.modelId) != nullptr) {
             return false;
         }
 
@@ -76,12 +80,8 @@ public:
 
     [[nodiscard]] const ModelCatalogEntry* findModel(
             const std::string_view modelId) const noexcept {
-        for (const auto& model : models_) {
-            if (model.modelId == modelId) {
-                return &model;
-            }
-        }
-        return nullptr;
+        std::lock_guard<std::mutex> lock(selectionMutex_);
+        return findModelUnlocked(modelId);
     }
 
     [[nodiscard]] bool selectModel(
@@ -92,7 +92,7 @@ public:
                 continue;
             }
 
-            if (resolveBackend(model.modelId) == nullptr) {
+            if (resolveBackendUnlocked(model.modelId) == nullptr) {
                 return false;
             }
 
@@ -118,11 +118,12 @@ public:
 
     [[nodiscard]] const ModelCatalogEntry* selectedModel() const noexcept {
         std::lock_guard<std::mutex> lock(selectionMutex_);
-        return findModel(selectedModelId_);
+        return findModelUnlocked(selectedModelId_);
     }
 
     [[nodiscard]] const ModelCatalogEntry* modelAt(
             const std::size_t index) const noexcept {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
         return index < models_.size() ? &models_[index] : nullptr;
     }
 
@@ -135,7 +136,7 @@ public:
         std::lock_guard<std::mutex> lock(selectionMutex_);
         return {
                 selectedModelId_,
-                resolveBackend(selectedModelId_),
+                resolveBackendUnlocked(selectedModelId_),
                 selectionGeneration_
         };
     }
@@ -159,45 +160,38 @@ public:
 
     [[nodiscard]] TokenInferenceBackend* resolveSelectedBackend() const noexcept {
         std::lock_guard<std::mutex> lock(selectionMutex_);
-        return resolveBackend(selectedModelId_);
+        return resolveBackendUnlocked(selectedModelId_);
     }
 
     // Reports whether a backend is registered for the current selection.
     // Runtime availability is probed only by the worker thread.
     [[nodiscard]] bool selectedBackendRegistered() const noexcept {
         std::lock_guard<std::mutex> lock(selectionMutex_);
-        return resolveBackend(selectedModelId_) != nullptr;
+        return resolveBackendUnlocked(selectedModelId_) != nullptr;
     }
 
     [[nodiscard]] TokenInferenceBackend* resolveBackend(
             const std::string_view modelId) const noexcept {
-        const auto* model = findModel(modelId);
-        if (model == nullptr || !model->enabled) {
-            return nullptr;
-        }
-
-        for (const auto& registered : backends_) {
-            if (registered.backend != nullptr &&
-                    registered.backendId == model->backendId) {
-                return registered.backend;
-            }
-        }
-        return nullptr;
+        std::lock_guard<std::mutex> lock(selectionMutex_);
+        return resolveBackendUnlocked(modelId);
     }
 
     [[nodiscard]] bool isPrivateExperimental(
             const std::string_view modelId) const noexcept {
-        const auto* model = findModel(modelId);
+        std::lock_guard<std::mutex> lock(selectionMutex_);
+        const auto* model = findModelUnlocked(modelId);
         return model != nullptr &&
                 model->distributionClass ==
                         ModelDistributionClass::PrivateExperimental;
     }
 
     [[nodiscard]] std::size_t modelCount() const noexcept {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
         return models_.size();
     }
 
     [[nodiscard]] std::size_t backendCount() const noexcept {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
         return backends_.size();
     }
 
@@ -214,6 +208,32 @@ public:
     }
 
 private:
+    [[nodiscard]] const ModelCatalogEntry* findModelUnlocked(
+            const std::string_view modelId) const noexcept {
+        for (const auto& model : models_) {
+            if (model.modelId == modelId) {
+                return &model;
+            }
+        }
+        return nullptr;
+    }
+
+    [[nodiscard]] TokenInferenceBackend* resolveBackendUnlocked(
+            const std::string_view modelId) const noexcept {
+        const auto* model = findModelUnlocked(modelId);
+        if (model == nullptr || !model->enabled) {
+            return nullptr;
+        }
+
+        for (const auto& registered : backends_) {
+            if (registered.backend != nullptr &&
+                    registered.backendId == model->backendId) {
+                return registered.backend;
+            }
+        }
+        return nullptr;
+    }
+
     mutable std::mutex selectionMutex_;
     struct RegisteredBackend final {
         TokenInferenceBackend* backend = nullptr;
