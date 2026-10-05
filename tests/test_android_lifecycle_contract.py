@@ -95,6 +95,13 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         :]
         self.assertIn("if (device == null)", input_cleanup)
 
+    def test_midi_input_open_is_idempotent_for_same_pending_endpoint(self):
+        open_internal = self.midi_input[
+            self.midi_input.index("private void openInternal")
+        :]
+        self.assertIn("sameEndpoint(pendingEndpoint, endpoint)", open_internal)
+        self.assertIn("if (opening &&", open_internal)
+
     def test_activity_permission_and_debug_lab_shutdown_contract(self):
         self.assertIn("onRequestPermissionsResult", self.activity)
         self.assertIn("RECORD_AUDIO_REQUEST", self.activity)
