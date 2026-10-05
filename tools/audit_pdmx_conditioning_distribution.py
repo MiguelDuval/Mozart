@@ -136,12 +136,19 @@ def select_candidates(
         ).hexdigest(),
     )
     selected = ranked[: min(sample_size, len(ranked))]
+    selection_digest = hashlib.sha256(
+        b"".join(
+            f"{mid_path}\0{data_path}\n".encode("utf-8")
+            for mid_path, data_path in selected
+        )
+    ).hexdigest()
     return selected, {
         "csv_rows": rows,
         "csv_no_license_conflict_rows": subset_rows,
         "candidate_count": len(unique_candidates),
         "candidate_alias_rows": len(candidates) - len(unique_candidates),
         "selected_count": len(selected),
+        "selection_digest_sha256": selection_digest,
     }
 
 
@@ -306,6 +313,11 @@ def audit(
         "results": {
             "successful_samples": len(successes),
             "failed_samples": len(failures),
+            "parse_success_fraction": (
+                len(successes) / len(selected_by_mid)
+                if selected_by_mid
+                else 0.0
+            ),
             "missing_from_archive": len(missing),
             "controls": distribution,
         },
