@@ -352,6 +352,11 @@ std::string MozartRuntime::selectedModelId() const {
     return modelCatalog_.selectedModelId();
 }
 
+generation::ModelSelectionSnapshot
+MozartRuntime::captureModelSelectionSnapshot() const {
+    return modelCatalog_.selectionSnapshot();
+}
+
 bool MozartRuntime::selectedModelIsPrivateExperimental() const noexcept {
     const auto modelId = modelCatalog_.selectedModelId();
     return !modelId.empty() && modelCatalog_.isPrivateExperimental(modelId);
