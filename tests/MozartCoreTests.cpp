@@ -722,10 +722,10 @@ int main() {
                 ModelDistributionClass::PrivateExperimental,
                 true
         }));
-        assert(!unavailableCatalog.selectModel("unavailable-model"));
-        assert(unavailableCatalog.selectedModelId().empty());
-        assert(unavailableCatalog.resolveSelectedBackend() == nullptr);
-        assert(!unavailableCatalog.selectedBackendRegistered());
+        assert(unavailableCatalog.selectModel("unavailable-model"));
+        assert(unavailableCatalog.selectedModelId() == "unavailable-model");
+        assert(unavailableCatalog.resolveSelectedBackend() == &unavailableBackend);
+        assert(unavailableCatalog.selectedBackendRegistered());
 
         assert(catalog.modelCount() == 1);
         assert(catalog.backendCount() == 1);
