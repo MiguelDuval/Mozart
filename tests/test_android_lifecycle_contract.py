@@ -51,6 +51,29 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         self.assertIn("!started", self.midi_transport)
         self.assertIn("listener = null", self.midi_transport)
 
+    def test_runtime_smoke_callbacks_are_lifecycle_scoped(self):
+        tick = self.activity.index("private final Runnable runtimeSmokeTick")
+        stop = self.activity.index("private final Runnable runtimeSmokeStop")
+        self.assertLess(tick, stop)
+
+        start = self.activity.index("private void startRuntimeSmoke()")
+        self.assertIn("removeCallbacks(runtimeSmokeTick)", self.activity[start:])
+        self.assertIn("removeCallbacks(runtimeSmokeStop)", self.activity[start:])
+        self.assertIn("postDelayed(runtimeSmokeTick, 1000L)", self.activity[start:])
+        self.assertIn("postDelayed(runtimeSmokeStop, 3000L)", self.activity[start:])
+
+        on_stop = self.activity.index("protected void onStop()")
+        self.assertIn("activityStarted = false;", self.activity[on_stop:])
+        self.assertIn("removeCallbacks(runtimeSmokeTick)", self.activity[on_stop:])
+        self.assertIn("removeCallbacks(runtimeSmokeStop)", self.activity[on_stop:])
+        self.assertLess(
+            self.activity.index("activityStarted = false;", on_stop),
+            self.activity.index("removeCallbacks(runtimeSmokeTick)", on_stop),
+        )
+
+        self.assertIn("if (!activityStarted)", self.activity[tick:stop])
+        self.assertIn("if (!activityStarted)", self.activity[stop:start])
+
     def test_activity_permission_and_debug_lab_shutdown_contract(self):
         self.assertIn("onRequestPermissionsResult", self.activity)
         self.assertIn("RECORD_AUDIO_REQUEST", self.activity)

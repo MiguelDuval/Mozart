@@ -145,6 +145,28 @@ public final class MainActivity extends Activity {
         }
     };
 
+    private final Runnable runtimeSmokeTick = new Runnable() {
+        @Override
+        public void run() {
+            if (!activityStarted) {
+                return;
+            }
+            Log.i(TAG, "RUNTIME: Link snapshot tick " + nativeLinkSnapshot());
+        }
+    };
+
+    private final Runnable runtimeSmokeStop = new Runnable() {
+        @Override
+        public void run() {
+            if (!activityStarted) {
+                return;
+            }
+            nativeStopAccompaniment();
+            Log.i(TAG, "RUNTIME: Link snapshot stopped " + nativeLinkSnapshot());
+            Log.i(TAG, "RUNTIME: Android smoke stop complete");
+        }
+    };
+
     private final AndroidMidiTransport.Listener midiListener =
             new AndroidMidiTransport.Listener() {
                 @Override
@@ -694,17 +716,10 @@ public final class MainActivity extends Activity {
         Log.i(TAG, "RUNTIME: Android smoke start complete");
         Log.i(TAG, "RUNTIME: Link snapshot initial " + nativeLinkSnapshot());
 
-        mainHandler.postDelayed(
-                () -> Log.i(
-                        TAG,
-                        "RUNTIME: Link snapshot tick " + nativeLinkSnapshot()),
-                1000L);
-
-        mainHandler.postDelayed(() -> {
-            nativeStopAccompaniment();
-            Log.i(TAG, "RUNTIME: Link snapshot stopped " + nativeLinkSnapshot());
-            Log.i(TAG, "RUNTIME: Android smoke stop complete");
-        }, 3000L);
+        mainHandler.removeCallbacks(runtimeSmokeTick);
+        mainHandler.removeCallbacks(runtimeSmokeStop);
+        mainHandler.postDelayed(runtimeSmokeTick, 1000L);
+        mainHandler.postDelayed(runtimeSmokeStop, 3000L);
     }
 
     @Override
@@ -741,6 +756,8 @@ public final class MainActivity extends Activity {
         mainHandler.removeCallbacks(midiInputStatusPoll);
         mainHandler.removeCallbacks(keyContextStatusPoll);
         mainHandler.removeCallbacks(generationPoll);
+        mainHandler.removeCallbacks(runtimeSmokeTick);
+        mainHandler.removeCallbacks(runtimeSmokeStop);
         nativeStopAccompaniment();
         if (audioKeyInput != null) {
             audioKeyInput.stop();
@@ -800,6 +817,8 @@ public final class MainActivity extends Activity {
         mainHandler.removeCallbacks(midiInputStatusPoll);
         mainHandler.removeCallbacks(keyContextStatusPoll);
         mainHandler.removeCallbacks(generationPoll);
+        mainHandler.removeCallbacks(runtimeSmokeTick);
+        mainHandler.removeCallbacks(runtimeSmokeStop);
         if (audioKeyInput != null) {
             audioKeyInput.stop();
         }
