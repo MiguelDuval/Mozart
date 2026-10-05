@@ -17,6 +17,7 @@ MozartRuntime::~MozartRuntime() {
 }
 
 void MozartRuntime::start() {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
     if (started_) {
         return;
     }
@@ -28,6 +29,7 @@ void MozartRuntime::start() {
 }
 
 void MozartRuntime::stop() {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
     if (!started_) {
         return;
     }
@@ -319,11 +321,17 @@ bool MozartRuntime::queueGeneratedPattern(
 
 bool MozartRuntime::queueGeneratedResult(
         generation::GenerationResult result) {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
+    if (!generationService_.running()) {
+        return false;
+    }
+
     const auto selection = modelCatalog_.selectionSnapshot();
     if (!result.ok() ||
-        !result.ticket.matches(
+        !result.ticket.matchesLifecycle(
                 selection.modelId,
-                selection.selectionGeneration)) {
+                selection.selectionGeneration,
+                generationService_.lifecycleGeneration())) {
         return false;
     }
 

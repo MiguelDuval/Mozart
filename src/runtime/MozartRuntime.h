@@ -13,6 +13,7 @@
 #include "scheduler/AccompanimentScheduler.h"
 #include <cstdint>
 #include <future>
+#include <mutex>
 #include <string_view>
 #include "scheduler/MidiSendQueue.h"
 
@@ -89,6 +90,7 @@ private:
     midi::ControllerMapping controllerMapping_{};
     generation::ModelCatalog modelCatalog_{};
     generation::GenerationService generationService_;
+    mutable std::mutex lifecycleMutex_;
     bool started_ = false;
 };
 

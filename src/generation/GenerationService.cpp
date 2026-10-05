@@ -16,6 +16,7 @@ void GenerationService::start() {
         return;
     }
 
+    ++lifecycleGeneration_;
     running_ = true;
     worker_ = std::thread(&GenerationService::run, this);
 }
@@ -28,6 +29,7 @@ void GenerationService::stop() {
         }
 
         running_ = false;
+        ++lifecycleGeneration_;
 
         while (!queue_.empty()) {
             auto job = std::move(queue_.front());
@@ -51,6 +53,11 @@ void GenerationService::stop() {
 bool GenerationService::running() const noexcept {
     std::lock_guard<std::mutex> lock(queueMutex_);
     return running_;
+}
+
+std::uint64_t GenerationService::lifecycleGeneration() const noexcept {
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    return lifecycleGeneration_;
 }
 
 std::future<GenerationResult> GenerationService::completedFuture(
@@ -86,14 +93,15 @@ std::future<GenerationResult> GenerationService::submit(
     Job job;
     job.backend = selection.backend;
     job.request = std::move(request);
-    job.ticket = {
-            selection.modelId,
-            selection.selectionGeneration
-    };
     auto future = job.promise.get_future();
 
     {
         std::lock_guard<std::mutex> lock(queueMutex_);
+        job.ticket = {
+                selection.modelId,
+                selection.selectionGeneration,
+                lifecycleGeneration_
+        };
         if (!running_) {
             job.promise.set_value({
                     GenerationStatus::Unavailable,

@@ -55,6 +55,31 @@ ModelCatalogEntry experimentalEntry() {
     return entry;
 }
 
+void testLifecycleGenerationChangesAtSessionBoundaries() {
+    ModelCatalog catalog;
+    WorkerBackend backend;
+
+    assert(catalog.registerBackend(backend));
+    assert(catalog.registerModel(experimentalEntry()));
+    assert(catalog.selectModel("experimental-worker"));
+
+    GenerationService service(catalog);
+    assert(service.lifecycleGeneration() == 0);
+
+    service.start();
+    const auto firstGeneration = service.lifecycleGeneration();
+    assert(firstGeneration == 1);
+
+    service.stop();
+    const auto stoppedGeneration = service.lifecycleGeneration();
+    assert(stoppedGeneration == firstGeneration + 1);
+
+    service.start();
+    assert(service.lifecycleGeneration() == stoppedGeneration + 1);
+
+    service.stop();
+}
+
 void testGenerationRunsOffCallerThread() {
     ModelCatalog catalog;
     WorkerBackend backend;
@@ -76,6 +101,7 @@ void testGenerationRunsOffCallerThread() {
     assert(result.status == GenerationStatus::Failed);
     assert(result.message == "worker-test");
     assert(result.ticket.matches("experimental-worker", selectionGeneration));
+    assert(result.ticket.lifecycleGeneration == service.lifecycleGeneration());
     assert(backend.calls == 1);
     assert(backend.executionThread != callerThread);
 
@@ -195,6 +221,7 @@ void testStoppedServiceRejectsRequestWithoutBackendCall() {
 } // namespace
 
 int main() {
+    testLifecycleGenerationChangesAtSessionBoundaries();
     testGenerationRunsOffCallerThread();
     testInvalidRequestIsRejectedBeforeWorkerQueue();
     testBackendAvailabilityRunsOnWorkerThread();

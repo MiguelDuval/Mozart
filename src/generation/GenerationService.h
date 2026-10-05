@@ -6,6 +6,7 @@
 
 #include <condition_variable>
 #include <cstddef>
+#include <cstdint>
 #include <deque>
 #include <future>
 #include <mutex>
@@ -29,6 +30,8 @@ public:
     void stop();
 
     [[nodiscard]] bool running() const noexcept;
+
+    [[nodiscard]] std::uint64_t lifecycleGeneration() const noexcept;
 
     // Resolves the selected backend on the caller thread, then queues the
     // request for the dedicated worker. The backend itself is never invoked
@@ -57,6 +60,7 @@ private:
     std::condition_variable wakeCondition_;
     std::deque<Job> queue_;
     bool running_ = false;
+    std::uint64_t lifecycleGeneration_ = 0;
     std::thread worker_;
 };
 

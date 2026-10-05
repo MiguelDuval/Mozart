@@ -7,12 +7,14 @@ using namespace mozart::generation;
 namespace {
 
 void testTicketMatchesOnlyCurrentModel() {
-    const GenerationRequestTicket ticket{"model-a", 7};
+    const GenerationRequestTicket ticket{"model-a", 7, 3};
 
     assert(ticket.matches("model-a", 7));
+    assert(ticket.matchesLifecycle("model-a", 7, 3));
     assert(!ticket.matches("model-a", 8));
     assert(!ticket.matches("model-b", 7));
     assert(!ticket.matches("", 7));
+    assert(!ticket.matchesLifecycle("model-a", 7, 4));
 }
 
 void testEmptyTicketNeverMatches() {
@@ -20,6 +22,7 @@ void testEmptyTicketNeverMatches() {
 
     assert(!ticket.matches("model-a", 1));
     assert(!ticket.matches("", 0));
+    assert(!ticket.matchesLifecycle("model-a", 1, 1));
 }
 
 } // namespace

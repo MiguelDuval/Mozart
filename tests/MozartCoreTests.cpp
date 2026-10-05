@@ -2595,7 +2595,13 @@ int main() {
         assert(freshResult.proposal.metadata.generatorId ==
                "runtime-generation-backend-b");
         assert(backendB.calls == 1);
-        assert(runtime.queueGeneratedResult(std::move(freshResult)));
+        assert(runtime.queueGeneratedResult(freshResult));
+
+        runtime.stop();
+        assert(!runtime.queueGeneratedResult(freshResult));
+
+        runtime.start();
+        assert(!runtime.queueGeneratedResult(freshResult));
 
         runtime.stop();
     }
