@@ -163,6 +163,24 @@ Never call local or remote AI from:
 
 Generation must be cancellable/bounded where practical and must never block transport progress.
 
+### Scheduler handoff
+
+`GenerationService` returns an asynchronous `GenerationResult` tagged with the
+model-selection generation captured at submission time. A result produced for an
+older selection is stale and must not be applied to the live musical state.
+
+`MozartRuntime::queueGeneratedResult()` is the guarded application boundary:
+it requires a successful result whose `GenerationRequestTicket` still matches the
+currently selected model and selection generation, then hands the already
+validated `PatternProposal` to the scheduler. This check is outside the realtime
+scheduler loop; the scheduler never waits for inference and never performs
+network/model work.
+
+The scheduler accepts at most one pending generated proposal and activates it at
+a musical boundary. If the pending slot is occupied, a new proposal is rejected
+rather than replacing an already scheduled musical decision.
+
+
 ## Android runtime packaging
 
 Keep the LiteRT C++ SDK headers/CMake integration separate from the Android runtime library packaging.
