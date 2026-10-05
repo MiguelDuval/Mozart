@@ -774,8 +774,8 @@ int main() {
                 true
         }));
 
-        const auto* model = catalog.findModel("private-test-model");
-        assert(model != nullptr);
+        const auto model = catalog.findModelSnapshot("private-test-model");
+        assert(model.has_value());
         assert(model->displayName == "Private Test Model");
         assert(model->distributionClass == ModelDistributionClass::PrivateExperimental);
         assert(catalog.isPrivateExperimental("private-test-model"));
@@ -783,13 +783,16 @@ int main() {
         assert(catalog.resolveBackend("private-test-model") == &backend);
         assert(catalog.resolveBackend("missing-model") == nullptr);
         assert(catalog.resolveBackend("private-test-model") == &backend);
-        assert(catalog.modelAt(0) == model);
-        assert(catalog.modelAt(1) == nullptr);
+        const auto modelAtZero = catalog.modelAtSnapshot(0);
+        assert(modelAtZero.has_value());
+        assert(modelAtZero->modelId == "private-test-model");
+        assert(!catalog.modelAtSnapshot(1).has_value());
         assert(!catalog.selectModel("missing-model"));
         assert(catalog.selectModel("private-test-model"));
         assert(catalog.selectedModelId() == "private-test-model");
-        assert(catalog.selectedModel() != nullptr);
-        assert(catalog.selectedModel()->modelId == "private-test-model");
+        const auto selectedModel = catalog.selectedModelSnapshot();
+        assert(selectedModel.has_value());
+        assert(selectedModel->modelId == "private-test-model");
         assert(catalog.resolveSelectedBackend() == &backend);
         assert(catalog.selectedBackendRegistered());
         assert(catalog.modelCount() == 1);
@@ -843,9 +846,7 @@ int main() {
         assert(catalog.resolveBackend("private-test-model") == &backend);
         catalog.clearSelection();
         assert(catalog.selectedModelId().empty());
-        assert(catalog.selectedModel() == nullptr);
-
-        model = nullptr;
+        assert(!catalog.selectedModelSnapshot().has_value());
         catalog.clear();
         assert(catalog.modelCount() == 0);
         assert(catalog.backendCount() == 0);
