@@ -88,6 +88,9 @@ public final class MainActivity extends Activity {
     private String selectedExperimentalModelId = "";
     private List<AndroidMidiTransport.MidiEndpoint> midiInputCandidates = Collections.emptyList();
     private int midiInputSelection = -1;
+    // Preserve the performer's explicit source choice across a transient
+    // disconnect so the same endpoint is reopened automatically on reconnect.
+    private AndroidMidiTransport.MidiEndpoint midiInputSelectionIntent;
     private boolean activityStarted = false;
     private int selectedRootPitchClass = 6;
     private int selectedScaleId = 1;
@@ -877,13 +880,17 @@ public final class MainActivity extends Activity {
                 midiInputSelection < midiInputCandidates.size()
                         ? midiInputCandidates.get(midiInputSelection)
                         : null;
+        final AndroidMidiTransport.MidiEndpoint selectionIntent =
+                midiInputSelectionIntent != null
+                        ? midiInputSelectionIntent
+                        : previousSelection;
 
         midiInputCandidates = Collections.unmodifiableList(candidates);
 
-        if (previousSelection != null) {
+        if (selectionIntent != null) {
             int preservedIndex = -1;
             for (int i = 0; i < midiInputCandidates.size(); ++i) {
-                if (sameEndpoint(previousSelection, midiInputCandidates.get(i))) {
+                if (sameEndpoint(selectionIntent, midiInputCandidates.get(i))) {
                     preservedIndex = i;
                     break;
                 }
@@ -935,6 +942,7 @@ public final class MainActivity extends Activity {
         midiInputSelection++;
         if (midiInputSelection >= midiInputCandidates.size()) {
             midiInputSelection = -1;
+            midiInputSelectionIntent = null;
             midiInput.close();
             midiInputButton.setText("MIDI IN: OFF");
             appendStatus("\n\nMIDI IN disabled.");
@@ -943,6 +951,7 @@ public final class MainActivity extends Activity {
 
         final AndroidMidiTransport.MidiEndpoint endpoint =
                 midiInputCandidates.get(midiInputSelection);
+        midiInputSelectionIntent = endpoint;
         midiInputButton.setText("MIDI IN: " + endpoint.displayName());
         midiInput.open(endpoint);
         appendStatus("\n\nMIDI IN source selected: " + endpoint.displayName());
