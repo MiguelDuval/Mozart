@@ -684,7 +684,7 @@ int main() {
         assert(catalog.selectedModel() != nullptr);
         assert(catalog.selectedModel()->modelId == "private-test-model");
         assert(catalog.resolveSelectedBackend() == &backend);
-        assert(catalog.selectedBackendAvailable());
+        assert(catalog.selectedBackendRegistered());
         assert(catalog.modelCount() == 1);
 
         class UnavailableCatalogBackend final : public TokenInferenceBackend {
@@ -725,7 +725,7 @@ int main() {
         assert(!unavailableCatalog.selectModel("unavailable-model"));
         assert(unavailableCatalog.selectedModelId().empty());
         assert(unavailableCatalog.resolveSelectedBackend() == nullptr);
-        assert(!unavailableCatalog.selectedBackendAvailable());
+        assert(!unavailableCatalog.selectedBackendRegistered());
 
         assert(catalog.modelCount() == 1);
         assert(catalog.backendCount() == 1);
