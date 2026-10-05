@@ -570,6 +570,63 @@ void testStoppedServiceRejectsRequestWithoutBackendCall() {
     assert(backend.calls == 0);
 }
 
+void testSubmitDuringStopIsRejectedBeforeRestart() {
+    ModelCatalog catalog;
+    BlockingBackend backend;
+
+    assert(catalog.registerBackend(backend));
+    ModelCatalogEntry entry = experimentalEntry();
+    entry.backendId = backend.id();
+    entry.modelId = "experimental-submit-stop";
+    entry.displayName = "Experimental Submit Stop";
+    assert(catalog.registerModel(entry));
+    assert(catalog.selectModel(entry.modelId));
+
+    GenerationService service(catalog);
+    service.start();
+    const firstGeneration = service.lifecycleGeneration();
+
+    auto activeFuture = service.submit(GenerationRequest{});
+    backend.waitUntilEntered();
+
+    std::thread stopper([&] { service.stop(); });
+
+    const auto stopDeadline =
+            std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (service.running() &&
+            std::chrono::steady_clock::now() < stopDeadline) {
+        std::this_thread::yield();
+    }
+    assert(!service.running());
+
+    auto rejectedDuringStop = service.submit(GenerationRequest{});
+    assert(
+            rejectedDuringStop.wait_for(std::chrono::milliseconds(0)) ==
+            std::future_status::ready);
+    const auto rejectedResult = rejectedDuringStop.get();
+    assert(rejectedResult.status == GenerationStatus::Unavailable);
+    assert(rejectedResult.message == "generation service is stopped");
+
+    std::thread restarter([&] { service.start(); });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    assert(service.lifecycleGeneration() == firstGeneration + 1);
+
+    backend.release();
+    stopper.join();
+    restarter.join();
+
+    assert(service.running());
+    assert(service.lifecycleGeneration() == firstGeneration + 2);
+
+    assert(
+            activeFuture.wait_for(std::chrono::seconds(1)) ==
+            std::future_status::ready);
+    assert(activeFuture.get().status == GenerationStatus::Failed);
+
+    service.stop();
+}
+
 void testBackendExceptionResolvesFutureAndKeepsWorkerAlive() {
     ModelCatalog catalog;
     ThrowingBackend backend;
@@ -621,6 +678,8 @@ int main() {
     testStoppedServiceRejectsRequestWithoutBackendCall();
     testStartWaitsForConcurrentStop();
     testBackendExceptionResolvesFutureAndKeepsWorkerAlive();
+
+    testSubmitDuringStopIsRejectedBeforeRestart();
 
 
     testBoundedQueueWithConcurrentSubmit();
