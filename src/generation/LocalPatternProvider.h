@@ -2,6 +2,7 @@
 
 #include "generation/GenerationRequest.h"
 #include "generation/PatternProposal.h"
+#include "generation/GenerationRequestTicket.h"
 
 #include <cstdint>
 #include <string>
@@ -19,6 +20,7 @@ struct GenerationResult final {
     GenerationStatus status = GenerationStatus::Failed;
     PatternProposal proposal{};
     std::string message{};
+    GenerationRequestTicket ticket{};
 
     [[nodiscard]] bool ok() const noexcept {
         return status == GenerationStatus::Ok && proposal.isWellFormed();
