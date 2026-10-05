@@ -123,6 +123,74 @@ void testConcurrentMidiSendQueueLifecycleIsSafe() {
     queue.stop();
 }
 
+
+#ifdef LINK_PLATFORM_LINUX
+void testConcurrentMozartRuntimeLifecycleIsSafe() {
+    class SilentOutput final : public mozart::midi::MidiOutputTransport {
+    public:
+        mozart::midi::MidiSendResult send(
+                const mozart::midi::MidiShortMessage& message) noexcept override {
+            return {
+                    mozart::midi::MidiTransportStatus::Ok,
+                    message.size
+            };
+        }
+
+        void close() noexcept override {}
+    };
+
+    SilentOutput output;
+    mozart::runtime::MozartRuntime runtime(output);
+
+    for (int iteration = 0; iteration < 64; ++iteration) {
+        std::atomic_bool readyA{false};
+        std::atomic_bool readyB{false};
+        std::atomic_bool fire{false};
+
+        std::thread lifecycleA([&] {
+            readyA.store(true, std::memory_order_release);
+            while (!fire.load(std::memory_order_acquire)) {
+                std::this_thread::yield();
+            }
+
+            runtime.start();
+            runtime.setLinkEnabled(true);
+            runtime.setAccompanimentEnabled(true);
+            runtime.setAccompanimentEnabled(false);
+        });
+
+        std::thread lifecycleB([&] {
+            readyB.store(true, std::memory_order_release);
+            while (!fire.load(std::memory_order_acquire)) {
+                std::this_thread::yield();
+            }
+
+            runtime.stop();
+        });
+
+        while (!readyA.load(std::memory_order_acquire) ||
+                !readyB.load(std::memory_order_acquire)) {
+            std::this_thread::yield();
+        }
+        fire.store(true, std::memory_order_release);
+
+        lifecycleA.join();
+        lifecycleB.join();
+
+        // A final stop makes the next iteration independent of which
+        // lifecycle transition won the concurrent race.
+        runtime.stop();
+        assert(!runtime.accompanimentEnabled());
+
+        runtime.start();
+        assert(!runtime.accompanimentEnabled());
+        runtime.stop();
+    }
+
+    runtime.stop();
+}
+#endif
+
 void testConcurrentAccompanimentSchedulerLifecycleIsSafe() {
     class SilentOutput final : public mozart::midi::MidiOutputTransport {
     public:
@@ -2714,6 +2782,12 @@ int main() {
 
         runtime.stop();
     }
+#endif
+
+    testConcurrentMidiSendQueueLifecycleIsSafe();
+    testConcurrentAccompanimentSchedulerLifecycleIsSafe();
+#ifdef LINK_PLATFORM_LINUX
+    testConcurrentMozartRuntimeLifecycleIsSafe();
 #endif
 
     return 0;
