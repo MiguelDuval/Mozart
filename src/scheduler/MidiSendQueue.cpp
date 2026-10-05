@@ -23,6 +23,7 @@ bool MidiSendQueue::EarlierFirst::operator()(
 }
 
 void MidiSendQueue::start() {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
     std::lock_guard<std::mutex> lock(mutex_);
 
     if (running_) {
@@ -34,6 +35,7 @@ void MidiSendQueue::start() {
 }
 
 void MidiSendQueue::stop() {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
