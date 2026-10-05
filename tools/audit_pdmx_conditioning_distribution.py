@@ -350,7 +350,7 @@ def main() -> int:
         encoding="utf-8",
     )
     print(
-        "PASS: "
+        f"{result['status']}: "
         f"selected={result['selection']['selected_count']} "
         f"successful={result['results']['successful_samples']} "
         f"failed={result['results']['failed_samples']}"
