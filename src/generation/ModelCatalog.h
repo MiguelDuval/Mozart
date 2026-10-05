@@ -40,17 +40,21 @@ public:
     // Backend calls remain worker-thread-only and must never reach realtime code.
     [[nodiscard]] bool registerBackend(
             TokenInferenceBackend& backend) {
-        if (backend.id().empty()) {
+        const auto backendId = backend.id();
+        if (backendId.empty()) {
             return false;
         }
 
-        for (auto* existing : backends_) {
-            if (existing != nullptr && existing->id() == backend.id()) {
+        for (const auto& existing : backends_) {
+            if (existing.backend != nullptr && existing.backendId == backendId) {
                 return false;
             }
         }
 
-        backends_.push_back(&backend);
+        backends_.push_back({
+                &backend,
+                backendId
+        });
         return true;
     }
 
@@ -87,8 +91,7 @@ public:
                 continue;
             }
 
-            auto* backend = resolveBackend(model.modelId);
-            if (backend == nullptr || !backend->isAvailable()) {
+            if (resolveBackend(model.modelId) == nullptr) {
                 return false;
             }
 
@@ -158,10 +161,11 @@ public:
         return resolveBackend(selectedModelId_);
     }
 
-    [[nodiscard]] bool selectedBackendAvailable() const noexcept {
+    // Reports whether a backend is registered for the current selection.
+    // Runtime availability is probed only by the worker thread.
+    [[nodiscard]] bool selectedBackendRegistered() const noexcept {
         std::lock_guard<std::mutex> lock(selectionMutex_);
-        const auto* backend = resolveBackend(selectedModelId_);
-        return backend != nullptr && backend->isAvailable();
+        return resolveBackend(selectedModelId_) != nullptr;
     }
 
     [[nodiscard]] TokenInferenceBackend* resolveBackend(
@@ -171,9 +175,10 @@ public:
             return nullptr;
         }
 
-        for (auto* backend : backends_) {
-            if (backend != nullptr && backend->id() == model->backendId) {
-                return backend;
+        for (const auto& registered : backends_) {
+            if (registered.backend != nullptr &&
+                    registered.backendId == model->backendId) {
+                return registered.backend;
             }
         }
         return nullptr;
@@ -209,8 +214,13 @@ public:
 
 private:
     mutable std::mutex selectionMutex_;
+    struct RegisteredBackend final {
+        TokenInferenceBackend* backend = nullptr;
+        std::string backendId{};
+    };
+
     std::vector<ModelCatalogEntry> models_{};
-    std::vector<TokenInferenceBackend*> backends_{};
+    std::vector<RegisteredBackend> backends_{};
     std::string selectedModelId_{};
     std::uint64_t selectionGeneration_ = 0;
 };
