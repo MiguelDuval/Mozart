@@ -89,6 +89,12 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         self.assertIn("final long deliveryGeneration = connectionGeneration.get()", input_publish_body)
         self.assertIn("if (connectionGeneration.get() != deliveryGeneration)", input_publish_body)
 
+    def test_midi_async_device_cleanup_is_null_safe(self):
+        input_cleanup = self.midi_input[
+            self.midi_input.index("private static void safeClose(MidiDevice device)")
+        :]
+        self.assertIn("if (device == null)", input_cleanup)
+
     def test_activity_permission_and_debug_lab_shutdown_contract(self):
         self.assertIn("onRequestPermissionsResult", self.activity)
         self.assertIn("RECORD_AUDIO_REQUEST", self.activity)
