@@ -76,18 +76,20 @@ std::future<GenerationResult> GenerationService::submit(
                 "invalid generation request");
     }
 
-    const auto modelId = catalog_.selectedModelId();
-    TokenInferenceBackend* backend = catalog_.resolveSelectedBackend();
-    if (backend == nullptr || modelId.empty()) {
+    const auto selection = catalog_.selectionSnapshot();
+    if (selection.backend == nullptr || selection.modelId.empty()) {
         return completedFuture(
                 GenerationStatus::Unavailable,
                 "selected model backend is unavailable");
     }
 
     Job job;
-    job.backend = backend;
+    job.backend = selection.backend;
     job.request = std::move(request);
-    job.ticket = {modelId, catalog_.selectionGeneration()};
+    job.ticket = {
+            selection.modelId,
+            selection.selectionGeneration
+    };
     auto future = job.promise.get_future();
 
     {
