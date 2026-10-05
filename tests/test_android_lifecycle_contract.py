@@ -109,6 +109,73 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         self.assertIn("sameEndpoint(pendingEndpoint, endpoint)", open_internal)
         self.assertIn("if (opening &&", open_internal)
 
+    def test_midi_output_reconnect_contract(self):
+        removal_start = self.midi_transport.index("public void onDeviceRemoved")
+        removal = self.midi_transport[
+            removal_start:self.midi_transport.index("public void onDeviceStatusChanged", removal_start)
+        ]
+        self.assertIn("closeOutputInternal()", removal)
+        self.assertIn("requestRefresh()", removal)
+
+        added_start = self.midi_transport.index("public void onDeviceAdded")
+        added = self.midi_transport[
+            added_start:self.midi_transport.index("public void onDeviceRemoved", added_start)
+        ]
+        self.assertIn("requestRefresh()", added)
+
+        status_start = self.midi_transport.index("public void onDeviceStatusChanged")
+        status = self.midi_transport[
+            status_start:self.midi_transport.index(
+                "public AndroidMidiTransport", status_start
+            )
+        ]
+        self.assertIn("requestRefresh()", status)
+
+        sync_start = self.midi_transport.index("private void synchronizeOutput")
+        sync = self.midi_transport[sync_start:]
+        self.assertIn("closeOutputInternal()", sync)
+        self.assertIn("midiManager.openDevice(", sync)
+        self.assertIn("samePendingEndpoint(selected)", sync)
+
+    def test_midi_input_reconnect_preserves_explicit_selection_intent(self):
+        self.assertIn("midiInputSelectionIntent", self.activity)
+        update_start = self.activity.index("private void updateMidiInputCandidates")
+        update = self.activity[
+            update_start:self.activity.index(
+                "private static boolean sameEndpoint", update_start
+            )
+        ]
+        self.assertIn(
+            "midiInputSelectionIntent != null",
+            update,
+        )
+        self.assertIn("sameEndpoint(selectionIntent, midiInputCandidates.get(i))", update)
+        self.assertIn("midiInput.open(midiInputCandidates.get(midiInputSelection))", update)
+
+        cycle_start = self.activity.index("private void cycleMidiInputSource")
+        cycle = self.activity[cycle_start:]
+        self.assertIn("midiInputSelectionIntent = endpoint", cycle)
+        self.assertIn("midiInputSelectionIntent = null", cycle)
+
+    def test_midi_reconnect_callbacks_remain_session_guarded(self):
+        sync_start = self.midi_transport.index("private void synchronizeOutput")
+        sync = self.midi_transport[sync_start:]
+        self.assertIn("final long generation = connectionGeneration.get()", sync)
+        self.assertIn(
+            "connectionGeneration.get() != generation ||",
+            sync,
+        )
+        self.assertIn("!samePendingEndpoint(selected)", sync)
+        self.assertIn("!started", sync)
+
+        input_start = self.midi_input.index("private void openInternal")
+        input = self.midi_input[input_start:]
+        self.assertIn("final long generation = connectionGeneration.get()", input)
+        self.assertIn(
+            "connectionGeneration.get() != generation ||",
+            input,
+        )
+
     def test_activity_permission_and_debug_lab_shutdown_contract(self):
         self.assertIn("onRequestPermissionsResult", self.activity)
         self.assertIn("RECORD_AUDIO_REQUEST", self.activity)
