@@ -298,6 +298,60 @@ void testUnselectedModelIsUnavailable() {
     assert(backend.calls == 0);
 }
 
+void testStartWaitsForConcurrentStop() {
+    ModelCatalog catalog;
+    BlockingBackend backend;
+
+    assert(catalog.registerBackend(backend));
+    ModelCatalogEntry entry = experimentalEntry();
+    entry.backendId = backend.id();
+    entry.modelId = "experimental-restart-race";
+    entry.displayName = "Experimental Restart Race";
+    assert(catalog.registerModel(entry));
+    assert(catalog.selectModel(entry.modelId));
+
+    GenerationService service(catalog);
+    service.start();
+    const auto firstGeneration = service.lifecycleGeneration();
+
+    auto future = service.submit(GenerationRequest{});
+    backend.waitUntilEntered();
+
+    std::thread stopper([&] { service.stop(); });
+
+    const auto stopDeadline =
+            std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (service.running() &&
+            std::chrono::steady_clock::now() < stopDeadline) {
+        std::this_thread::yield();
+    }
+    assert(!service.running());
+
+    std::atomic_bool restartFinished{false};
+    std::thread restarter([&] {
+        service.start();
+        restartFinished.store(true);
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    assert(!restartFinished.load());
+
+    backend.release();
+    stopper.join();
+    restarter.join();
+
+    assert(restartFinished.load());
+    assert(service.running());
+    assert(service.lifecycleGeneration() == firstGeneration + 2);
+
+    assert(
+            future.wait_for(std::chrono::seconds(1)) ==
+            std::future_status::ready);
+    assert(future.get().status == GenerationStatus::Failed);
+
+    service.stop();
+}
+
 void testBoundedQueueWithConcurrentSubmit() {
     ModelCatalog catalog;
     BlockingBackend backend;
@@ -506,6 +560,7 @@ int main() {
     testUnavailableSelectionDoesNotEnterWorker();
     testUnselectedModelIsUnavailable();
     testStoppedServiceRejectsRequestWithoutBackendCall();
+    testStartWaitsForConcurrentStop();
     testBoundedQueueWithConcurrentSubmit();
     testStopDrainsQueuedJobsButWaitsForActiveInference();
     testSelectionSwitchInvalidatesPendingAndInFlightTickets();
