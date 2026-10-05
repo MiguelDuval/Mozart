@@ -317,6 +317,18 @@ bool MozartRuntime::queueGeneratedPattern(
     return scheduler_.queueGeneratedPattern(std::move(proposal));
 }
 
+bool MozartRuntime::queueGeneratedResult(
+        generation::GenerationResult result) {
+    if (!result.ok() ||
+        !result.ticket.matches(
+                modelCatalog_.selectedModelId(),
+                modelCatalog_.selectionGeneration())) {
+        return false;
+    }
+
+    return scheduler_.queueGeneratedPattern(std::move(result.proposal));
+}
+
 bool MozartRuntime::selectModel(const std::string_view modelId) {
     return modelCatalog_.selectModel(modelId);
 }
