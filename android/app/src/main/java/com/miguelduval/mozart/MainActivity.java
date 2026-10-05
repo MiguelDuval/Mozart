@@ -805,6 +805,9 @@ public final class MainActivity extends Activity {
         }
         nativeResetAudioKeyContext();
         nativeSetKeyContextSource(0);
+        if (experimentalModelLab != null) {
+            experimentalModelLab.shutdown();
+        }
         if (midiInput != null) {
             midiInput.shutdown();
         }

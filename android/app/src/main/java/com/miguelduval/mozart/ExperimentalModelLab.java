@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import android.os.Handler;
 import android.os.Looper;
@@ -43,12 +44,18 @@ public final class ExperimentalModelLab {
     }
 
     private final Context context;
-    private final Listener listener;
+    private volatile Listener listener;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final AtomicBoolean active = new AtomicBoolean(true);
 
     public ExperimentalModelLab(Context context, Listener listener) {
         this.context = context;
         this.listener = listener;
+    }
+
+    public void shutdown() {
+        active.set(false);
+        listener = null;
     }
 
     public File modelRoot() {
@@ -134,17 +141,31 @@ public final class ExperimentalModelLab {
 
     private void inspectOnnx(ModelCandidate model) {
         new Thread(() -> {
+            if (!active.get()) {
+                return;
+            }
+
             final String inspection =
                     OnnxModelInspector.inspect(new File(model.artifactPath));
-            mainHandler.post(() -> new AlertDialog.Builder(context)
-                    .setTitle("ONNX MODEL ABI")
-                    .setMessage(inspection)
-                    .setPositiveButton("OK", null)
-                    .show());
+            mainHandler.post(() -> {
+                if (!active.get()) {
+                    return;
+                }
+
+                new AlertDialog.Builder(context)
+                        .setTitle("ONNX MODEL ABI")
+                        .setMessage(inspection)
+                        .setPositiveButton("OK", null)
+                        .show();
+            });
         }, "mozart-onnx-inspector").start();
     }
 
     public void show() {
+        if (!active.get()) {
+            return;
+        }
+
         final List<ModelCandidate> models = discover();
         if (models.isEmpty()) {
             final TextView message = new TextView(context);
@@ -210,8 +231,9 @@ public final class ExperimentalModelLab {
                             .show();
                     return;
                 }
-                if (listener != null) {
-                    listener.onModelSelected(model);
+                final Listener currentListener = listener;
+                if (active.get() && currentListener != null) {
+                    currentListener.onModelSelected(model);
                 }
                 if (model.artifactPath.toLowerCase().endsWith(".onnx")) {
                     inspectOnnx(model);
