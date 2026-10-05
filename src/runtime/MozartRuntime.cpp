@@ -339,10 +339,12 @@ bool MozartRuntime::queueGeneratedResult(
 }
 
 bool MozartRuntime::selectModel(const std::string_view modelId) {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
     return modelCatalog_.selectModel(modelId);
 }
 
 void MozartRuntime::clearSelectedModel() noexcept {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
     modelCatalog_.clearSelection();
 }
 
