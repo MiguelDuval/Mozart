@@ -391,9 +391,10 @@ Java_com_miguelduval_mozart_MainActivity_nativeExperimentalGenerationSnapshot(
             const auto currentSelection =
                     runtime()->captureModelSelectionSnapshot();
             discardedAsStale =
-                    !result.ticket.matches(
+                    !result.ticket.matchesLifecycle(
                             currentSelection.modelId,
-                            currentSelection.selectionGeneration);
+                            currentSelection.selectionGeneration,
+                            runtime()->generationLifecycleGeneration());
         }
     }
 
@@ -420,7 +421,7 @@ Java_com_miguelduval_mozart_MainActivity_nativeExperimentalGenerationSnapshot(
 
     const std::string message =
             discardedAsStale
-                    ? "generation completed for an obsolete model selection"
+                    ? "generation completed for an obsolete selection or lifecycle session"
                     : (result.message.empty() ? "none" : result.message);
 
     const auto context = runtime()->captureKeyContextSnapshot();
