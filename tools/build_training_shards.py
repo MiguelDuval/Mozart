@@ -13,6 +13,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from dataset_split import source_key
+from manifest_digest import digest as manifest_digest
 from mozart_conditioning import (
     CONDITIONING_VOCABULARY_ID,
     PERFORMANCE_CONTROL_NAMES,
@@ -159,6 +160,22 @@ def _stable_record_key(record: dict) -> tuple[str, str, str, str]:
         str(record.get("source_path", "")),
         digest,
     )
+
+
+def _resolve_manifest_sha256(
+    manifest_path: Path | None,
+    explicit_sha256: str | None,
+) -> str:
+    if manifest_path is None:
+        return explicit_sha256 or "NOT_SUPPLIED"
+
+    computed = manifest_digest(manifest_path)
+    if explicit_sha256 is not None and explicit_sha256.lower() != computed.lower():
+        raise ValueError(
+            "manifest SHA-256 does not match --manifest-sha256: "
+            f"expected={computed} provided={explicit_sha256}"
+        )
+    return computed
 
 
 def _read_manifest(path: Path) -> dict:
@@ -375,13 +392,17 @@ def main() -> int:
         records = read_jsonl(args.input_jsonl)
         validate_records(records)
         manifest = _read_manifest(args.manifest) if args.manifest else None
+        effective_manifest_sha256 = _resolve_manifest_sha256(
+            args.manifest,
+            args.manifest_sha256,
+        )
         paths = write_shards(
             records, args.output_dir, args.max_records_per_shard
         )
         stats_path = args.output_dir / "dataset-statistics.json"
         stats_path.write_text(
             json.dumps(
-                _stats(records, args.manifest_sha256, manifest),
+                _stats(records, effective_manifest_sha256, manifest),
                 ensure_ascii=False,
                 indent=2,
                 sort_keys=True,
