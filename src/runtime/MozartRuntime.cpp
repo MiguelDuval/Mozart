@@ -22,10 +22,30 @@ void MozartRuntime::start() {
         return;
     }
 
-    sendQueue_.start();
-    scheduler_.start();
-    generationService_.start();
-    started_ = true;
+    bool sendQueueStarted = false;
+    bool schedulerStarted = false;
+    bool generationStarted = false;
+    try {
+        sendQueue_.start();
+        sendQueueStarted = true;
+        scheduler_.start();
+        schedulerStarted = true;
+        generationService_.start();
+        generationStarted = true;
+        started_ = true;
+    } catch (...) {
+        if (generationStarted) {
+            generationService_.stop();
+        }
+        if (schedulerStarted) {
+            scheduler_.setArmed(false);
+            scheduler_.stop();
+        }
+        if (sendQueueStarted) {
+            sendQueue_.stop();
+        }
+        throw;
+    }
 }
 
 void MozartRuntime::stop() {
