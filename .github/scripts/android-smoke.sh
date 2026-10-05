@@ -58,10 +58,11 @@ link_clock_advanced() {
 }
 
 start_app() {
+  local runtime_smoke="${1:-true}"
   rm -f "$START_FILE" "$START_STATUS_FILE" "$START_HOST_PID_FILE"
   (
     set +e
-    timeout "${START_TIMEOUT}s" adb shell am start -n "$ACTIVITY" --ez mozart.runtime_smoke true > "$START_FILE" 2>&1
+    timeout "${START_TIMEOUT}s" adb shell am start -n "$ACTIVITY" --ez mozart.runtime_smoke "$runtime_smoke" > "$START_FILE" 2>&1
     rc=$?
     printf '%s\n' "$rc" > "$START_STATUS_FILE"
   ) &
@@ -126,7 +127,7 @@ exercise_activity_recreate_cycle() {
   fi
 
   adb logcat -c
-  start_app
+  start_app false
 
   local startup_rc=0
   wait_for_startup || startup_rc=$?
@@ -201,11 +202,7 @@ wait_for_startup || startup_rc=$?
 
 if [[ "$startup_rc" -eq 2 ]]; then
   echo "Fatal Mozart Android exception detected during startup."
-  for lifecycle_cycle in 1 2; do
-  exercise_activity_recreate_cycle "$lifecycle_cycle"
-done
-
-collect_diagnostics
+  collect_diagnostics
   exit 1
 fi
 
@@ -226,6 +223,12 @@ fi
 
 runtime_smoke_rc=0
 wait_for_runtime_smoke || runtime_smoke_rc=$?
+
+if [[ "$runtime_smoke_rc" -eq 0 ]]; then
+  for lifecycle_cycle in 1 2; do
+    exercise_activity_recreate_cycle "$lifecycle_cycle"
+  done
+fi
 
 collect_diagnostics
 
