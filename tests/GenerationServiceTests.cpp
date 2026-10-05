@@ -584,7 +584,7 @@ void testSubmitDuringStopIsRejectedBeforeRestart() {
 
     GenerationService service(catalog);
     service.start();
-    const firstGeneration = service.lifecycleGeneration();
+    const auto firstGeneration = service.lifecycleGeneration();
 
     auto activeFuture = service.submit(GenerationRequest{});
     backend.waitUntilEntered();
