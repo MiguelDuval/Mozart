@@ -275,6 +275,10 @@ public final class AndroidMidiInput {
     }
 
     private static void safeClose(MidiOutputPort outputPort) {
+        if (outputPort == null) {
+            return;
+        }
+
         try {
             outputPort.close();
         } catch (IOException ignored) {
@@ -283,6 +287,10 @@ public final class AndroidMidiInput {
     }
 
     private static void safeClose(MidiDevice device) {
+        if (device == null) {
+            return;
+        }
+
         try {
             device.close();
         } catch (IOException ignored) {
