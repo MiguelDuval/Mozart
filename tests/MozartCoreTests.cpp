@@ -2543,8 +2543,8 @@ int main() {
         private:
             std::atomic_bool availabilityBlocked_{false};
             mutable std::mutex mutex_;
-            std::condition_variable condition_;
-            bool availabilityEntered_ = false;
+            mutable std::condition_variable condition_;
+            mutable bool availabilityEntered_ = false;
             bool releaseAvailability_ = false;
         };
 
