@@ -67,6 +67,7 @@ void testGenerationRunsOffCallerThread() {
     service.start();
 
     const auto callerThread = std::this_thread::get_id();
+    const auto selectionGeneration = catalog.selectionGeneration();
     auto future = service.submit(GenerationRequest{});
 
     assert(future.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
@@ -74,6 +75,7 @@ void testGenerationRunsOffCallerThread() {
 
     assert(result.status == GenerationStatus::Failed);
     assert(result.message == "worker-test");
+    assert(result.ticket.matches("experimental-worker", selectionGeneration));
     assert(backend.calls == 1);
     assert(backend.executionThread != callerThread);
 
