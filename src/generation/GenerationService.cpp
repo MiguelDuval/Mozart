@@ -53,13 +53,14 @@ bool GenerationService::running() const noexcept {
     return running_;
 }
 
-std::future<GenerationResult> GenerationService::unavailableFuture(
+std::future<GenerationResult> GenerationService::completedFuture(
+        const GenerationStatus status,
         const char* message,
         GenerationRequestTicket ticket) {
     std::promise<GenerationResult> promise;
     auto future = promise.get_future();
     promise.set_value({
-            GenerationStatus::Unavailable,
+            status,
             {},
             message,
             std::move(ticket)
@@ -69,10 +70,18 @@ std::future<GenerationResult> GenerationService::unavailableFuture(
 
 std::future<GenerationResult> GenerationService::submit(
         GenerationRequest request) {
+    if (!request.isValid()) {
+        return completedFuture(
+                GenerationStatus::InvalidRequest,
+                "invalid generation request");
+    }
+
     const auto modelId = catalog_.selectedModelId();
     TokenInferenceBackend* backend = catalog_.resolveSelectedBackend();
     if (backend == nullptr || modelId.empty()) {
-        return unavailableFuture("selected model backend is unavailable");
+        return completedFuture(
+                GenerationStatus::Unavailable,
+                "selected model backend is unavailable");
     }
 
     Job job;
