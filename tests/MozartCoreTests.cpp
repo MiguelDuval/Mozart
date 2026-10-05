@@ -191,6 +191,70 @@ void testConcurrentMozartRuntimeLifecycleIsSafe() {
 }
 #endif
 
+void testBoundedSchedulerMidiSoak() {
+    class SoakOutput final : public mozart::midi::MidiOutputTransport {
+    public:
+        mozart::midi::MidiSendResult send(
+                const mozart::midi::MidiShortMessage& message) noexcept override {
+            if (message.size == 3) {
+                sendCount.fetch_add(1, std::memory_order_relaxed);
+            }
+            return {
+                    mozart::midi::MidiTransportStatus::Ok,
+                    message.size
+            };
+        }
+
+        void close() noexcept override {}
+
+        std::atomic<std::size_t> sendCount{0};
+    };
+
+    SoakOutput output;
+    mozart::clock::LinkClock clock(240.0, 1.0);
+    mozart::scheduler::MidiSendQueue queue(output);
+    mozart::scheduler::AccompanimentScheduler scheduler(clock, queue);
+
+    constexpr int kIterations = 12;
+    constexpr int kMaxWaitAttempts = 80;
+
+    for (int iteration = 0; iteration < kIterations; ++iteration) {
+        const auto baseline =
+                output.sendCount.load(std::memory_order_relaxed);
+
+        clock.setEnabled(true);
+        queue.start();
+        scheduler.start();
+        scheduler.setArmed(true);
+
+        bool sent = false;
+        for (int attempt = 0;
+             attempt < kMaxWaitAttempts;
+             ++attempt) {
+            if (output.sendCount.load(std::memory_order_relaxed) > baseline) {
+                sent = true;
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+
+        scheduler.setArmed(false);
+        scheduler.stop();
+        queue.stop();
+        clock.setEnabled(false);
+
+        assert(sent);
+        assert(
+                output.sendCount.load(std::memory_order_relaxed) >
+                baseline);
+        assert(!scheduler.isArmed());
+    }
+
+    scheduler.stop();
+    queue.stop();
+    clock.setEnabled(false);
+}
+
 void testConcurrentAccompanimentSchedulerLifecycleIsSafe() {
     class SilentOutput final : public mozart::midi::MidiOutputTransport {
     public:
