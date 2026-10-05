@@ -23,6 +23,7 @@ void GenerationService::start() {
 }
 
 void GenerationService::stop() {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
     {
         std::lock_guard<std::mutex> lock(queueMutex_);
         if (!running_ && !worker_.joinable()) {
