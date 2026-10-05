@@ -45,6 +45,18 @@ Controls that affect musical continuity should communicate their quantized natur
 - Detailed diagnostic information belongs in dedicated status labels or debug tools, not in a growing TextView.
 - Connection state should be visible without pushing primary controls off-screen.
 
+
+## Lifecycle and permission contract
+
+- Audio key capture is explicitly foreground lifecycle-bound: Activity stop/destroy must stop the capture worker before releasing its `AudioRecord`.
+- Audio capture uses bounded blocking reads and must never publish a frame after shutdown has been requested.
+- A capture worker that exits unexpectedly must clear its running state so a later foreground lifecycle can restart audio capture.
+- `RECORD_AUDIO` permission is requested lazily when Audio Key mode is selected; a successful permission result resumes Audio Key automatically, while denial leaves the UI in Manual mode.
+- MIDI IN and MIDI OUT callbacks are session-scoped. A callback from an obsolete open/close cycle must be rejected even when it refers to the same physical endpoint.
+- MIDI receiver teardown invalidates the session before native parser reset and resource release, so an already-entered receiver callback cannot cross into a new MIDI session.
+- MIDI UI listeners are detached during shutdown so queued main-thread callbacks cannot update a destroyed Activity.
+- Dedicated MIDI `HandlerThread` instances are used only for Android MIDI service work; realtime musical scheduling remains in the native scheduler/send pipeline.
+
 ## Regression gate
 
 Before declaring an Android UI build usable, verify on a real landscape phone that:
