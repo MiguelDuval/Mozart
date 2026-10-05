@@ -2849,6 +2849,9 @@ int main() {
 #endif
 
     testConcurrentMidiSendQueueLifecycleIsSafe();
+#ifdef LINK_PLATFORM_LINUX
+    testBoundedSchedulerMidiSoak();
+#endif
     testConcurrentAccompanimentSchedulerLifecycleIsSafe();
 #ifdef LINK_PLATFORM_LINUX
     testConcurrentMozartRuntimeLifecycleIsSafe();
