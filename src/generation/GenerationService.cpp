@@ -2,6 +2,7 @@
 
 #include "generation/LocalNeuralPatternProvider.h"
 
+#include <exception>
 #include <utility>
 
 namespace mozart::generation {
@@ -161,8 +162,26 @@ void GenerationService::run() {
             continue;
         }
 
-        LocalNeuralPatternProvider provider(*job.backend);
-        auto result = provider.generate(job.request);
+        GenerationResult result;
+        try {
+            LocalNeuralPatternProvider provider(*job.backend);
+            result = provider.generate(job.request);
+        } catch (const std::exception&) {
+            result = {
+                    GenerationStatus::Failed,
+                    {},
+                    "generation backend threw an exception",
+                    job.ticket
+            };
+        } catch (...) {
+            result = {
+                    GenerationStatus::Failed,
+                    {},
+                    "generation backend threw an unknown exception",
+                    job.ticket
+            };
+        }
+
         result.ticket = job.ticket;
         job.promise.set_value(std::move(result));
     }
