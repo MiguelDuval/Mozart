@@ -104,6 +104,40 @@ wait_for_runtime_smoke() {
   return 1
 }
 
+
+exercise_activity_recreate_cycle() {
+  local cycle="$1"
+
+  echo "=== Activity lifecycle recreate cycle ${cycle} ==="
+  adb shell input keyevent 4 >/dev/null 2>&1 || true
+
+  for _ in $(seq 1 20); do
+    if ! adb shell dumpsys activity activities 2>/dev/null |
+        grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"; then
+      break
+    fi
+    sleep 0.25
+  done
+
+  if adb shell dumpsys activity activities 2>/dev/null |
+      grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"; then
+    echo "MainActivity did not leave the activity manager after BACK." >&2
+    return 1
+  fi
+
+  adb logcat -c
+  start_app
+
+  local startup_rc=0
+  wait_for_startup || startup_rc=$?
+  if [[ "$startup_rc" -ne 0 ]]; then
+    echo "MainActivity recreate cycle ${cycle} failed to complete startup." >&2
+    return 1
+  fi
+
+  echo "MainActivity recreate cycle ${cycle} passed."
+}
+
 collect_diagnostics() {
   timeout 10s adb shell pidof "$PACKAGE" > "$PID_FILE" 2>/dev/null || true
   timeout 15s adb shell ps -A > "$PS_FILE" 2>/dev/null || true
@@ -167,7 +201,11 @@ wait_for_startup || startup_rc=$?
 
 if [[ "$startup_rc" -eq 2 ]]; then
   echo "Fatal Mozart Android exception detected during startup."
-  collect_diagnostics
+  for lifecycle_cycle in 1 2; do
+  exercise_activity_recreate_cycle "$lifecycle_cycle"
+done
+
+collect_diagnostics
   exit 1
 fi
 
