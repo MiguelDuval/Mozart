@@ -35,7 +35,8 @@ void GenerationService::stop() {
             job.promise.set_value({
                     GenerationStatus::Unavailable,
                     {},
-                    "generation service stopped"
+                    "generation service stopped",
+                    job.ticket
             });
         }
     }
@@ -133,7 +134,8 @@ void GenerationService::run() {
             job.promise.set_value({
                     GenerationStatus::Unavailable,
                     {},
-                    "selected model backend is unavailable"
+                    "selected model backend is unavailable",
+                    job.ticket
             });
             continue;
         }
