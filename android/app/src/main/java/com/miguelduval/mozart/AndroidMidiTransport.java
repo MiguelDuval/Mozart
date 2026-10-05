@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Android-only MIDI discovery and device lifecycle adapter.
@@ -86,6 +87,7 @@ public final class AndroidMidiTransport {
     private final HandlerThread midiThread = new HandlerThread("Mozart-MIDI");
     private final Handler midiHandler;
     private final Listener listener;
+    private final AtomicLong connectionGeneration = new AtomicLong(0L);
 
     private MidiDevice openedDevice;
     private int openedDeviceId = -1;
@@ -339,12 +341,20 @@ public final class AndroidMidiTransport {
         }
 
         closeOutputInternal();
+        final long generation = connectionGeneration.get();
         pendingEndpoint = selected;
         opening = true;
 
         midiManager.openDevice(
                 target,
                 device -> {
+                    if (connectionGeneration.get() != generation ||
+                            !samePendingEndpoint(selected) ||
+                            !started) {
+                        safeClose(device);
+                        return;
+                    }
+
                     opening = false;
 
                     if (device == null) {
@@ -356,22 +366,25 @@ public final class AndroidMidiTransport {
                         return;
                     }
 
-                    if (!samePendingEndpoint(selected)) {
-                        safeClose(device);
-                        return;
-                    }
+                    pendingEndpoint = null;
 
                     final int nativeStatus =
                             nativeOpenMidiOutputDevice(device, selected.portNumber);
 
                     if (nativeStatus != 0) {
                         safeClose(device);
-                        pendingEndpoint = null;
+                        closeOutputInternal();
                         publishOnMain(
                                 Collections.emptyList(),
                                 selected,
                                 "MIDI OUT: AMidi open failed, status=" +
                                         nativeStatus);
+                        return;
+                    }
+
+                    if (connectionGeneration.get() != generation || !started) {
+                        safeClose(device);
+                        nativeCloseMidiOutputDevice();
                         return;
                     }
 
@@ -410,6 +423,7 @@ public final class AndroidMidiTransport {
     }
 
     private void closeOutputInternal() {
+        connectionGeneration.incrementAndGet();
         opening = false;
         pendingEndpoint = null;
         nativeCloseMidiOutputDevice();
@@ -441,6 +455,9 @@ public final class AndroidMidiTransport {
     }
 
     private static void safeClose(MidiDevice device) {
+        if (device == null) {
+            return;
+        }
         try {
             device.close();
         } catch (IOException ignored) {
