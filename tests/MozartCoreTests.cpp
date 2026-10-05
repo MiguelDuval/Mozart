@@ -2479,6 +2479,75 @@ int main() {
             void close() noexcept override {}
         };
 
+        class BlockingSelectionBackend final
+                : public mozart::generation::TokenInferenceBackend {
+        public:
+            std::string backendId = "blocking-selection-backend";
+
+            [[nodiscard]] mozart::generation::TokenInferenceResult generateTokens(
+                    const mozart::generation::GenerationRequest&,
+                    const std::size_t) override {
+                const std::vector<mozart::generation::MidiEventToken> tokens{
+                        mozart::generation::midi_event_vocabulary::kBos,
+                        mozart::generation::midi_event_vocabulary::channelToken(0),
+                        mozart::generation::midi_event_vocabulary::noteToken(54),
+                        mozart::generation::midi_event_vocabulary::velocityToken(10),
+                        mozart::generation::midi_event_vocabulary::durationToken(16),
+                        mozart::generation::midi_event_vocabulary::kEos
+                };
+                return {
+                        mozart::generation::TokenInferenceStatus::Ok,
+                        tokens,
+                        0.8,
+                        4,
+                        {}
+                };
+            }
+
+            [[nodiscard]] bool isAvailable() const noexcept override {
+                if (!blockAvailability.load()) {
+                    return true;
+                }
+
+                std::unique_lock<std::mutex> lock(mutex_);
+                availabilityEntered_ = true;
+                condition_.notify_all();
+                condition_.wait(lock, [this] { return releaseAvailability_; });
+                return true;
+            }
+
+            [[nodiscard]] std::string id() const override {
+                return backendId;
+            }
+
+            void blockAvailability() noexcept {
+                blockAvailability.store(true);
+            }
+
+            void waitUntilAvailabilityEntered() {
+                std::unique_lock<std::mutex> lock(mutex_);
+                assert(condition_.wait_for(
+                        lock,
+                        std::chrono::seconds(1),
+                        [this] { return availabilityEntered_; }));
+            }
+
+            void releaseAvailability() {
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    releaseAvailability_ = true;
+                }
+                condition_.notify_all();
+            }
+
+        private:
+            std::atomic_bool blockAvailability{false};
+            mutable std::mutex mutex_;
+            std::condition_variable condition_;
+            bool availabilityEntered_ = false;
+            bool releaseAvailability_ = false;
+        };
+
         class RuntimeGenerationBackend final
                 : public mozart::generation::TokenInferenceBackend {
         public:
@@ -2602,6 +2671,80 @@ int main() {
 
         runtime.start();
         assert(!runtime.queueGeneratedResult(freshResult));
+
+        // Selection changes and validated generation handoff must share
+        // one runtime transaction boundary. Hold selectModel() inside
+        // backend availability and verify queueGeneratedResult() cannot
+        // slip through against the old selection.
+        {
+            BlockingSelectionBackend blockingBackend;
+            RuntimeGenerationOutput guardedOutput;
+            mozart::runtime::MozartRuntime guardedRuntime(guardedOutput);
+
+            assert(guardedRuntime.registerModelBackend(backend));
+            assert(guardedRuntime.registerModelBackend(blockingBackend));
+            assert(guardedRuntime.registerModel({
+                    "guarded-model-a",
+                    "Guarded Model A",
+                    "runtime-generation-backend",
+                    "/private/guarded-a/model",
+                    "/private/guarded-a/manifest",
+                    mozart::generation::ModelDistributionClass::PrivateExperimental,
+                    true
+            }));
+            assert(guardedRuntime.registerModel({
+                    "guarded-model-b",
+                    "Guarded Model B",
+                    "blocking-selection-backend",
+                    "/private/guarded-b/model",
+                    "/private/guarded-b/manifest",
+                    mozart::generation::ModelDistributionClass::PrivateExperimental,
+                    true
+            }));
+            assert(guardedRuntime.selectModel("guarded-model-a"));
+            guardedRuntime.start();
+
+            auto guardedFuture = guardedRuntime.requestGeneration(
+                    mozart::generation::GenerationRequest{});
+            assert(
+                    guardedFuture.wait_for(std::chrono::seconds(1)) ==
+                    std::future_status::ready);
+            auto guardedResult = guardedFuture.get();
+            assert(guardedResult.ok());
+            assert(guardedResult.ticket.matches("guarded-model-a", 1));
+
+            blockingBackend.blockAvailability();
+
+            std::atomic_bool selectionFinished{false};
+            std::thread selector([&] {
+                assert(guardedRuntime.selectModel("guarded-model-b"));
+                selectionFinished.store(true);
+            });
+            blockingBackend.waitUntilAvailabilityEntered();
+
+            std::atomic_bool queueFinished{false};
+            std::atomic_bool queueAccepted{false};
+            std::thread handoff([&] {
+                queueAccepted.store(
+                        guardedRuntime.queueGeneratedResult(guardedResult));
+                queueFinished.store(true);
+            });
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            assert(!selectionFinished.load());
+            assert(!queueFinished.load());
+
+            blockingBackend.releaseAvailability();
+            selector.join();
+            handoff.join();
+
+            assert(selectionFinished.load());
+            assert(queueFinished.load());
+            assert(!queueAccepted.load());
+            assert(guardedRuntime.selectedModelId() == "guarded-model-b");
+
+            guardedRuntime.stop();
+        }
 
         runtime.stop();
     }
