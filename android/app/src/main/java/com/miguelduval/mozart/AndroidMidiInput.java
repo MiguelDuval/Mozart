@@ -11,6 +11,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Android MIDI IN adapter.
@@ -35,6 +36,7 @@ public final class AndroidMidiInput {
             new HandlerThread("Mozart-MIDI-IN");
     private final Handler midiHandler;
     private final Listener listener;
+    private final AtomicLong connectionGeneration = new AtomicLong(0L);
 
     private MidiDevice openedDevice;
     private MidiOutputPort openedPort;
@@ -94,6 +96,7 @@ public final class AndroidMidiInput {
         }
 
         closeInternal();
+        final long generation = connectionGeneration.get();
         opening = true;
         pendingEndpoint = endpoint;
         publishStatus("MIDI IN: opening " + endpoint.displayName() + "...");
@@ -103,6 +106,7 @@ public final class AndroidMidiInput {
         if (target == null ||
                 target.getOutputPortCount() <= endpoint.portNumber) {
             opening = false;
+            pendingEndpoint = null;
             publishStatus("MIDI IN: source endpoint is no longer available");
             return;
         }
@@ -112,17 +116,22 @@ public final class AndroidMidiInput {
         midiManager.openDevice(
                 target,
                 device -> {
+                    if (connectionGeneration.get() != generation ||
+                            !sameRequestedEndpoint(endpoint)) {
+                        if (device != null) {
+                            safeClose(device);
+                        }
+                        return;
+                    }
+
                     opening = false;
 
                     if (device == null) {
+                        pendingEndpoint = null;
                         publishStatus("MIDI IN: Android failed to open source device");
                         return;
                     }
 
-                    if (!sameRequestedEndpoint(endpoint)) {
-                        safeClose(device);
-                        return;
-                    }
                     pendingEndpoint = null;
 
                     final MidiOutputPort outputPort =
@@ -134,7 +143,7 @@ public final class AndroidMidiInput {
                     }
 
                     final MidiReceiver connectionReceiver =
-                            createReceiver(portIdFor(endpoint));
+                            createReceiver(generation, portIdFor(endpoint));
                     openedDevice = device;
                     openedPort = outputPort;
                     openedEndpoint = endpoint;
@@ -153,7 +162,9 @@ public final class AndroidMidiInput {
                 midiHandler);
     }
 
-    private static MidiReceiver createReceiver(final int portId) {
+    private MidiReceiver createReceiver(
+            final long generation,
+            final int portId) {
         return new MidiReceiver() {
             @Override
             public void onSend(
@@ -161,7 +172,9 @@ public final class AndroidMidiInput {
                     int offset,
                     int count,
                     long timestamp) throws IOException {
-                if (msg == null || count <= 0) {
+                if (connectionGeneration.get() != generation ||
+                        msg == null ||
+                        count <= 0) {
                     return;
                 }
 
@@ -216,6 +229,7 @@ public final class AndroidMidiInput {
     }
 
     private void closeInternal() {
+        connectionGeneration.incrementAndGet();
         opening = false;
         pendingEndpoint = null;
         activeReceiver = null;
