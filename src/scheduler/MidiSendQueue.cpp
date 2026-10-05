@@ -31,7 +31,12 @@ void MidiSendQueue::start() {
     }
 
     running_ = true;
-    worker_ = std::thread(&MidiSendQueue::run, this);
+    try {
+        worker_ = std::thread(&MidiSendQueue::run, this);
+    } catch (...) {
+        running_ = false;
+        throw;
+    }
 }
 
 void MidiSendQueue::stop() {
