@@ -8,6 +8,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -102,6 +103,26 @@ private:
     std::condition_variable condition_;
     bool entered_ = false;
     bool release_ = false;
+};
+
+class ThrowingBackend final : public TokenInferenceBackend {
+public:
+    int calls = 0;
+
+    [[nodiscard]] TokenInferenceResult generateTokens(
+            const GenerationRequest&,
+            std::size_t) override {
+        ++calls;
+        throw std::runtime_error("backend boom");
+    }
+
+    [[nodiscard]] bool isAvailable() const noexcept override {
+        return true;
+    }
+
+    [[nodiscard]] std::string id() const override {
+        return "throwing-test-backend";
+    }
 };
 
 ModelCatalogEntry experimentalEntry() {
@@ -561,6 +582,44 @@ int main() {
     testUnselectedModelIsUnavailable();
     testStoppedServiceRejectsRequestWithoutBackendCall();
     testStartWaitsForConcurrentStop();
+void testBackendExceptionResolvesFutureAndKeepsWorkerAlive() {
+    ModelCatalog catalog;
+    ThrowingBackend backend;
+
+    assert(catalog.registerBackend(backend));
+    ModelCatalogEntry entry = experimentalEntry();
+    entry.backendId = backend.id();
+    entry.modelId = "experimental-throwing";
+    entry.displayName = "Experimental Throwing";
+    assert(catalog.registerModel(entry));
+    assert(catalog.selectModel(entry.modelId));
+
+    GenerationService service(catalog);
+    service.start();
+
+    auto firstFuture = service.submit(GenerationRequest{});
+    assert(
+            firstFuture.wait_for(std::chrono::seconds(1)) ==
+            std::future_status::ready);
+    const auto firstResult = firstFuture.get();
+    assert(firstResult.status == GenerationStatus::Failed);
+    assert(firstResult.message ==
+            "generation backend threw an exception");
+
+    auto secondFuture = service.submit(GenerationRequest{});
+    assert(
+            secondFuture.wait_for(std::chrono::seconds(1)) ==
+            std::future_status::ready);
+    const auto secondResult = secondFuture.get();
+    assert(secondResult.status == GenerationStatus::Failed);
+    assert(secondResult.message ==
+            "generation backend threw an exception");
+
+    assert(backend.calls == 2);
+    assert(service.running());
+    service.stop();
+}
+
     testBoundedQueueWithConcurrentSubmit();
     testStopDrainsQueuedJobsButWaitsForActiveInference();
     testSelectionSwitchInvalidatesPendingAndInFlightTickets();
