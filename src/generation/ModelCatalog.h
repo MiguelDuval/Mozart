@@ -85,13 +85,21 @@ public:
             }
 
             selectedModelId_ = model.modelId;
+            ++selectionGeneration_;
             return true;
         }
         return false;
     }
 
     void clearSelection() noexcept {
-        selectedModelId_.clear();
+        if (!selectedModelId_.empty()) {
+            selectedModelId_.clear();
+            ++selectionGeneration_;
+        }
+    }
+
+    [[nodiscard]] std::uint64_t selectionGeneration() const noexcept {
+        return selectionGeneration_;
     }
 
     [[nodiscard]] const ModelCatalogEntry* selectedModel() const noexcept {
@@ -115,6 +123,7 @@ public:
                 model.enabled = enabled;
                 if (!enabled && selectedModelId_ == model.modelId) {
                     selectedModelId_.clear();
+                    ++selectionGeneration_;
                 }
                 return true;
             }
