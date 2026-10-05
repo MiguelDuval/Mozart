@@ -121,7 +121,7 @@ void testDisablingSelectedModelClearsSelection() {
     assert(catalog.selectModel(entry.modelId));
     assert(catalog.selectedModelId() == entry.modelId);
     assert(catalog.resolveSelectedBackend() == &backend);
-    assert(catalog.selectedBackendAvailable());
+    assert(catalog.selectedBackendRegistered());
     assert(catalog.selectionGeneration() == 1);
 
     assert(catalog.setEnabled(entry.modelId, false));
@@ -129,7 +129,7 @@ void testDisablingSelectedModelClearsSelection() {
     assert(catalog.selectedModelId().empty());
     assert(catalog.selectedModel() == nullptr);
     assert(catalog.resolveSelectedBackend() == nullptr);
-    assert(!catalog.selectedBackendAvailable());
+    assert(!catalog.selectedBackendRegistered());
     assert(catalog.selectionGeneration() == 2);
 }
 
