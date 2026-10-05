@@ -57,6 +57,34 @@ void testSelectionRequiresReadyBackend() {
     assert(catalog.selectedModelId().empty());
 }
 
+
+void testSelectionGenerationInvalidatesPriorResults() {
+    ModelCatalog catalog;
+    TestBackend backend;
+
+    assert(catalog.selectionGeneration() == 0);
+    assert(catalog.registerBackend(backend));
+
+    ModelCatalogEntry first;
+    first.modelId = "experimental-a";
+    first.displayName = "Experimental A";
+    first.backendId = backend.id();
+    first.artifactPath = "/private/experimental-a/model.onnx";
+    first.manifestPath = "/private/experimental-a/manifest";
+    assert(catalog.registerModel(first));
+
+    assert(catalog.selectModel(first.modelId));
+    const auto firstGeneration = catalog.selectionGeneration();
+    assert(firstGeneration == 1);
+
+    assert(catalog.selectModel(first.modelId));
+    assert(catalog.selectionGeneration() == firstGeneration + 1);
+
+    catalog.clearSelection();
+    assert(catalog.selectedModelId().empty());
+    assert(catalog.selectionGeneration() == firstGeneration + 2);
+}
+
 void testDisablingSelectedModelClearsSelection() {
     ModelCatalog catalog;
     TestBackend backend;
@@ -76,6 +104,7 @@ void testDisablingSelectedModelClearsSelection() {
     assert(catalog.selectedModelId() == entry.modelId);
     assert(catalog.resolveSelectedBackend() == &backend);
     assert(catalog.selectedBackendAvailable());
+    assert(catalog.selectionGeneration() == 1);
 
     assert(catalog.setEnabled(entry.modelId, false));
 
@@ -83,12 +112,14 @@ void testDisablingSelectedModelClearsSelection() {
     assert(catalog.selectedModel() == nullptr);
     assert(catalog.resolveSelectedBackend() == nullptr);
     assert(!catalog.selectedBackendAvailable());
+    assert(catalog.selectionGeneration() == 2);
 }
 
 } // namespace
 
 int main() {
     testSelectionRequiresReadyBackend();
+    testSelectionGenerationInvalidatesPriorResults();
     testDisablingSelectedModelClearsSelection();
     return 0;
 }
