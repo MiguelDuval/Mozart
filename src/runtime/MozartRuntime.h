@@ -85,6 +85,9 @@ public:
     [[nodiscard]] bool selectedModelBackendRegistered() const noexcept;
 
 private:
+    void setLinkEnabledUnlocked(bool enabled) noexcept;
+    void setAccompanimentEnabledUnlocked(bool enabled) noexcept;
+
     clock::LinkClock linkClock_{120.0, 4.0};
     musical::KeyContext keyContext_{};
     scheduler::MidiSendQueue sendQueue_;
