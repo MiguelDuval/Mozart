@@ -106,6 +106,12 @@ public final class AndroidMidiTransport {
 
                 @Override
                 public void onDeviceRemoved(MidiDeviceInfo device) {
+                    if (device != null &&
+                            (device.getId() == openedDeviceId ||
+                             (pendingEndpoint != null &&
+                              pendingEndpoint.deviceId == device.getId()))) {
+                        closeOutputInternal();
+                    }
                     requestRefresh();
                 }
 
