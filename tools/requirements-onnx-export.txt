@@ -1,8 +1,0 @@
-# Development-only ML export toolchain.
-# Production Android runtime does not depend on these packages.
-numpy==2.3.3
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.14.0+cpu
-onnx==1.23.0
-onnxscript==0.7.2
-onnxruntime==1.30.0

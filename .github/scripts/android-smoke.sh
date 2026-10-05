@@ -86,6 +86,20 @@ wait_for_startup() {
   return 1
 }
 
+wait_for_runtime_smoke_started() {
+  for _ in $(seq 1 20); do
+    write_logcat
+    if fatal_mozart_exception; then
+      return 2
+    fi
+    if grep -Fq "RUNTIME: Link snapshot initial enabled=true" "$LOGCAT_FILE"; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  return 1
+}
+
 wait_for_runtime_smoke() {
   for _ in $(seq 1 40); do
     write_logcat
@@ -105,6 +119,52 @@ wait_for_runtime_smoke() {
   return 1
 }
 
+
+exercise_runtime_smoke_recreate_guard() {
+  echo "=== Runtime smoke stale-callback recreate guard ==="
+
+  adb shell input keyevent 4 >/dev/null 2>&1 || true
+
+  for _ in $(seq 1 20); do
+    if ! adb shell dumpsys activity activities 2>/dev/null |
+        grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"; then
+      break
+    fi
+    sleep 0.25
+  done
+
+  if adb shell dumpsys activity activities 2>/dev/null |
+      grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"; then
+    echo "MainActivity did not leave the activity manager after BACK." >&2
+    return 1
+  fi
+
+  # The previous Activity deliberately had runtime smoke enabled. Clear logs
+  # after BACK so any late callback from that destroyed Activity is observable
+  # without being confused with the recreated Activity.
+  adb logcat -c
+  start_app false
+
+  local startup_rc=0
+  wait_for_startup || startup_rc=$?
+  if [[ "$startup_rc" -ne 0 ]]; then
+    echo "Activity recreate failed during stale-callback guard startup." >&2
+    return 1
+  fi
+
+  # The old Activity's callbacks were scheduled at +1s/+3s. They must have
+  # been removed on lifecycle stop and therefore must never appear now.
+  sleep 3.5
+  write_logcat
+
+  if grep -Fq "RUNTIME: Link snapshot tick " "$LOGCAT_FILE" ||
+     grep -Fq "RUNTIME: Link snapshot stopped " "$LOGCAT_FILE"; then
+    echo "Stale runtime smoke callback escaped Activity lifecycle shutdown." >&2
+    return 1
+  fi
+
+  echo "Runtime smoke stale-callback recreate guard passed."
+}
 
 exercise_activity_recreate_cycle() {
   local cycle="$1"
@@ -222,7 +282,35 @@ if [[ "$startup_rc" -eq 3 ]]; then
 fi
 
 runtime_smoke_rc=0
-wait_for_runtime_smoke || runtime_smoke_rc=$?
+stale_runtime_smoke_rc=0
+
+# First prove the delayed runtime-smoke callbacks are lifecycle-scoped by
+# recreating the Activity before their +1s/+3s callbacks can fire.
+wait_for_runtime_smoke_started || stale_runtime_smoke_rc=$?
+if [[ "$stale_runtime_smoke_rc" -eq 0 ]]; then
+  exercise_runtime_smoke_recreate_guard || stale_runtime_smoke_rc=$?
+fi
+
+# The recreated Activity intentionally starts without runtime smoke so the
+# stale-callback check is isolated. Start a fresh instance for the normal
+# Link start/tick/stop evidence afterward.
+if [[ "$stale_runtime_smoke_rc" -eq 0 ]]; then
+  adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
+  adb logcat -c
+  start_app true
+  fresh_startup_rc=0
+  wait_for_startup || fresh_startup_rc=$?
+  if [[ "$fresh_startup_rc" -ne 0 ]]; then
+    stale_runtime_smoke_rc=1
+    echo "Fresh runtime-smoke Activity failed to complete startup." >&2
+  fi
+fi
+
+if [[ "$stale_runtime_smoke_rc" -eq 0 ]]; then
+  wait_for_runtime_smoke || runtime_smoke_rc=$?
+else
+  runtime_smoke_rc=1
+fi
 
 if [[ "$runtime_smoke_rc" -eq 0 ]]; then
   for lifecycle_cycle in 1 2; do
