@@ -400,21 +400,22 @@ Java_com_miguelduval_mozart_MainActivity_nativeExperimentalGenerationSnapshot(
     const char* status = "failed";
     if (discardedAsStale) {
         status = "stale_model";
-    }
-    switch (result.status) {
-        case mozart::generation::GenerationStatus::Ok:
-            status = "ok";
-            break;
-        case mozart::generation::GenerationStatus::InvalidRequest:
-            status = "invalid_request";
-            break;
-        case mozart::generation::GenerationStatus::Unavailable:
-            status = "unavailable";
-            break;
-        case mozart::generation::GenerationStatus::Failed:
-        default:
-            status = "failed";
-            break;
+    } else {
+        switch (result.status) {
+            case mozart::generation::GenerationStatus::Ok:
+                status = "ok";
+                break;
+            case mozart::generation::GenerationStatus::InvalidRequest:
+                status = "invalid_request";
+                break;
+            case mozart::generation::GenerationStatus::Unavailable:
+                status = "unavailable";
+                break;
+            case mozart::generation::GenerationStatus::Failed:
+            default:
+                status = "failed";
+                break;
+        }
     }
 
     const std::string message =
