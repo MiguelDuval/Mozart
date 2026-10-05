@@ -12,6 +12,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
 from build_training_shards import (
+    _prepare_training_provenance,
     _resolve_manifest_sha256,
     _stats,
     read_jsonl,
@@ -230,6 +231,200 @@ class BuildTrainingShardsTests(unittest.TestCase):
         del item["conditioning_vocabulary_id"]
         with self.assertRaises(ValueError):
             validate_records([item])
+
+    def _production_manifest(self) -> dict:
+        return {
+            "schema_version": 1,
+            "manifest_id": "dataset-v1",
+            "status": "audited",
+            "license_policy": "commercial-compatible-only",
+            "project_vocabulary_id": "mozart-midi-events-v1",
+            "sources": [
+                {
+                    "source_id": "song-a",
+                    "name": "Song A",
+                    "locator": "fixture://song-a",
+                    "revision": "rev-1",
+                    "license": {
+                        "spdx_id": "CC0-1.0",
+                        "commercial_use": "allowed",
+                        "redistribution": "allowed",
+                        "attribution": "not-required",
+                    },
+                    "files": [
+                        {
+                            "path": "source/a.mid",
+                            "sha256": "1" * 64,
+                            "size_bytes": 7,
+                        }
+                    ],
+                    "provenance": {
+                        "provider": "fixture",
+                        "acquisition_date": "2026-09-29",
+                        "rights_evidence": "fixture-rights-v1",
+                    },
+                }
+            ],
+            "splits": {
+                "train": "train.jsonl",
+                "validation": "validation.jsonl",
+                "test": "test.jsonl",
+            },
+            "normalization": {
+                "revision": "mozart-midi-normalization-v1",
+                "max_events_per_example": 4096,
+            },
+            "examples": {
+                "min_bars": 4,
+                "max_bars": 16,
+                "context_length_tokens": "fixture",
+                "max_generated_tokens": "fixture",
+            },
+        }
+
+    def test_provenance_gate_accepts_exact_manifest_inventory_and_records(self) -> None:
+        records = [record("song-a", "rev-1", "train", "source/a.mid")]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = root / "manifest.json"
+            inventory_path = root / "inventory.jsonl"
+            manifest = self._production_manifest()
+            manifest_path.write_text(
+                json.dumps(manifest, sort_keys=True),
+                encoding="utf-8",
+            )
+            inventory_path.write_text(
+                json.dumps(
+                    {
+                        "path": "source/a.mid",
+                        "sha256": "1" * 64,
+                        "size_bytes": 7,
+                    },
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            returned_manifest, returned_digest = _prepare_training_provenance(
+                records,
+                manifest_path,
+                inventory_path,
+                None,
+            )
+
+            self.assertEqual(returned_manifest["manifest_id"], "dataset-v1")
+            self.assertEqual(returned_digest, manifest_digest(manifest_path))
+
+    def test_provenance_gate_rejects_template_manifest(self) -> None:
+        records = [record("song-a", "rev-1", "train", "source/a.mid")]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = root / "manifest.json"
+            inventory_path = root / "inventory.jsonl"
+            manifest = self._production_manifest()
+            manifest["status"] = "template"
+            manifest_path.write_text(
+                json.dumps(manifest, sort_keys=True),
+                encoding="utf-8",
+            )
+            inventory_path.write_text(
+                json.dumps(
+                    {
+                        "path": "source/a.mid",
+                        "sha256": "1" * 64,
+                        "size_bytes": 7,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "audited or release"):
+                _prepare_training_provenance(
+                    records, manifest_path, inventory_path, None
+                )
+
+    def test_provenance_gate_rejects_record_outside_inventory(self) -> None:
+        records = [record("song-a", "rev-1", "train", "source/missing.mid")]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = root / "manifest.json"
+            inventory_path = root / "inventory.jsonl"
+            manifest_path.write_text(
+                json.dumps(self._production_manifest(), sort_keys=True),
+                encoding="utf-8",
+            )
+            inventory_path.write_text(
+                json.dumps(
+                    {
+                        "path": "source/a.mid",
+                        "sha256": "1" * 64,
+                        "size_bytes": 7,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "source_path .* absent"):
+                _prepare_training_provenance(
+                    records, manifest_path, inventory_path, None
+                )
+
+    def test_provenance_gate_rejects_source_revision_mismatch(self) -> None:
+        records = [record("song-a", "rev-2", "train", "source/a.mid")]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = root / "manifest.json"
+            inventory_path = root / "inventory.jsonl"
+            manifest_path.write_text(
+                json.dumps(self._production_manifest(), sort_keys=True),
+                encoding="utf-8",
+            )
+            inventory_path.write_text(
+                json.dumps(
+                    {
+                        "path": "source/a.mid",
+                        "sha256": "1" * 64,
+                        "size_bytes": 7,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "source_revision"):
+                _prepare_training_provenance(
+                    records, manifest_path, inventory_path, None
+                )
+
+    def test_provenance_gate_rejects_inventory_mismatch(self) -> None:
+        records = [record("song-a", "rev-1", "train", "source/a.mid")]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = root / "manifest.json"
+            inventory_path = root / "inventory.jsonl"
+            manifest_path.write_text(
+                json.dumps(self._production_manifest(), sort_keys=True),
+                encoding="utf-8",
+            )
+            inventory_path.write_text(
+                json.dumps(
+                    {
+                        "path": "source/a.mid",
+                        "sha256": "2" * 64,
+                        "size_bytes": 7,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
+                _prepare_training_provenance(
+                    records, manifest_path, inventory_path, None
+                )
 
     def test_manifest_path_produces_canonical_digest(self) -> None:
         manifest = {
