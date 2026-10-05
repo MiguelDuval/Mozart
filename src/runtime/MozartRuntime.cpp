@@ -36,8 +36,8 @@ void MozartRuntime::stop() {
 
     // Reuse the normal accompaniment shutdown path while the MIDI send queue
     // is still alive, so an in-flight Note On cannot leave a stuck note.
-    setAccompanimentEnabled(false);
-    setLinkEnabled(false);
+    setAccompanimentEnabledUnlocked(false);
+    setLinkEnabledUnlocked(false);
 
     sendQueue_.stop();
     generationService_.stop();
@@ -45,16 +45,27 @@ void MozartRuntime::stop() {
 }
 
 void MozartRuntime::setLinkEnabled(const bool enabled) noexcept {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
+    setLinkEnabledUnlocked(enabled);
+}
+
+void MozartRuntime::setLinkEnabledUnlocked(const bool enabled) noexcept {
     linkClock_.setEnabled(enabled);
 
     // Disabling Link should stop an armed accompanist, but must not invoke the
     // shutdown path twice when callers already stopped accompaniment first.
     if (!enabled && accompanimentEnabled()) {
-        setAccompanimentEnabled(false);
+        setAccompanimentEnabledUnlocked(false);
     }
 }
 
 void MozartRuntime::setAccompanimentEnabled(const bool enabled) noexcept {
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
+    setAccompanimentEnabledUnlocked(enabled);
+}
+
+void MozartRuntime::setAccompanimentEnabledUnlocked(
+        const bool enabled) noexcept {
     if (enabled) {
         if (started_) {
             scheduler_.start();
