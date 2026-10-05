@@ -37,8 +37,6 @@ std::unique_ptr<mozart::runtime::MozartRuntime> g_runtime;
 std::mutex g_runtimeMutex;
 std::mutex g_generationMutex;
 std::optional<std::future<mozart::generation::GenerationResult>> g_generationFuture;
-mozart::generation::GenerationRequestTicket g_generationTicket;
-std::uint64_t g_modelSelectionGeneration = 0;
 mozart::midi::MidiReceiveQueue g_midiReceiveQueue;
 mozart::midi::MidiInputParser g_midiInputParser;
 mozart::midi::MidiReceiveQueue g_controllerQueue(64);
@@ -284,8 +282,6 @@ Java_com_miguelduval_mozart_MainActivity_nativeSelectExperimentalModel(
         return JNI_FALSE;
     }
 
-    std::lock_guard<std::mutex> lock(g_generationMutex);
-    ++g_modelSelectionGeneration;
     return JNI_TRUE;
 }
 
@@ -302,8 +298,6 @@ Java_com_miguelduval_mozart_MainActivity_nativeClearSelectedModel(
         g_generationFuture.reset();
     }
     runtime()->clearSelectedModel();
-    ++g_modelSelectionGeneration;
-    g_generationTicket = {};
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
@@ -325,8 +319,7 @@ Java_com_miguelduval_mozart_MainActivity_nativeQueueExperimentalGeneration(
         }
     }
 
-    const auto selectedModelId = runtime()->selectedModelId();
-    if (selectedModelId.empty()) {
+    if (runtime()->selectedModelId().empty()) {
         return JNI_FALSE;
     }
 
@@ -362,10 +355,6 @@ Java_com_miguelduval_mozart_MainActivity_nativeQueueExperimentalGeneration(
     }
 
     runtime()->start();
-    g_generationTicket = {
-            selectedModelId,
-            g_modelSelectionGeneration
-    };
     g_generationFuture.emplace(runtime()->requestGeneration(
             std::move(request)));
     return JNI_TRUE;
@@ -394,19 +383,18 @@ Java_com_miguelduval_mozart_MainActivity_nativeExperimentalGenerationSnapshot(
     const auto result = g_generationFuture->get();
     g_generationFuture.reset();
 
-    const bool staleModelSelection =
-            !g_generationTicket.matches(
-                    runtime()->selectedModelId(),
-                    g_modelSelectionGeneration);
-    g_generationTicket = {};
-
     bool queuedForPlayback = false;
     bool discardedAsStale = false;
-    if (result.ok() && !staleModelSelection) {
-        queuedForPlayback =
-                runtime()->queueGeneratedPattern(result.proposal);
-    } else if (result.ok() && staleModelSelection) {
-        discardedAsStale = true;
+    if (result.ok()) {
+        queuedForPlayback = runtime()->queueGeneratedResult(result);
+        if (!queuedForPlayback) {
+            const auto currentSelection =
+                    runtime()->captureModelSelectionSnapshot();
+            discardedAsStale =
+                    !result.ticket.matches(
+                            currentSelection.modelId,
+                            currentSelection.selectionGeneration);
+        }
     }
 
     const char* status = "failed";
