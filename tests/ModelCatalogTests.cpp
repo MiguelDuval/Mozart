@@ -4,6 +4,7 @@
 #include <cassert>
 #include <atomic>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace mozart::generation;
@@ -133,11 +134,69 @@ void testDisablingSelectedModelClearsSelection() {
     assert(catalog.selectionGeneration() == 2);
 }
 
+
+void testConcurrentRegistrationAndSelectionSnapshotIsSafe() {
+    ModelCatalog catalog;
+    TestBackend backend;
+
+    assert(catalog.registerBackend(backend));
+
+    ModelCatalogEntry seed;
+    seed.modelId = "seed";
+    seed.displayName = "Seed";
+    seed.backendId = backend.id();
+    seed.artifactPath = "/private/seed/model.onnx";
+    seed.manifestPath = "/private/seed/manifest";
+    assert(catalog.registerModel(seed));
+    assert(catalog.selectModel(seed.modelId));
+
+    constexpr int kModelsToRegister = 256;
+    std::atomic_bool registrationDone{false};
+    std::atomic_int registrationFailures{0};
+
+    std::thread registrar([&] {
+        for (int index = 0; index < kModelsToRegister; ++index) {
+            ModelCatalogEntry entry;
+            entry.modelId = "concurrent-" + std::to_string(index);
+            entry.displayName = "Concurrent " + std::to_string(index);
+            entry.backendId = backend.id();
+            entry.artifactPath = "/private/concurrent/model.onnx";
+            entry.manifestPath = "/private/concurrent/manifest";
+            if (!catalog.registerModel(std::move(entry))) {
+                registrationFailures.fetch_add(1);
+            }
+        }
+        registrationDone.store(true, std::memory_order_release);
+    });
+
+    std::thread reader([&] {
+        while (!registrationDone.load(std::memory_order_acquire)) {
+            const auto snapshot = catalog.selectionSnapshot();
+            assert(snapshot.modelId == "seed");
+            assert(snapshot.backend == &backend);
+            assert(catalog.findModel("seed") != nullptr);
+            assert(catalog.selectedBackendRegistered());
+            (void) catalog.modelCount();
+            (void) catalog.backendCount();
+        }
+    });
+
+    registrar.join();
+    reader.join();
+
+    assert(registrationFailures.load() == 0);
+    assert(catalog.modelCount() == static_cast<std::size_t>(kModelsToRegister + 1));
+    const auto finalSnapshot = catalog.selectionSnapshot();
+    assert(finalSnapshot.modelId == "seed");
+    assert(finalSnapshot.backend == &backend);
+}
+
 } // namespace
 
 int main() {
     testSelectionDefersRuntimeAvailabilityToWorker();
     testSelectionGenerationInvalidatesPriorResults();
+    testConcurrentRegistrationAndSelectionSnapshotIsSafe();
     testDisablingSelectedModelClearsSelection();
     return 0;
 }
