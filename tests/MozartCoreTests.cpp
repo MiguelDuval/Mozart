@@ -2536,6 +2536,7 @@ int main() {
         mozart::runtime::MozartRuntime runtime(output);
 
         assert(runtime.registerModelBackend(backend));
+        assert(runtime.registerModelBackend(backendB));
         assert(runtime.registerModel({
                 "runtime-generation-model",
                 "Runtime Generation Model",
