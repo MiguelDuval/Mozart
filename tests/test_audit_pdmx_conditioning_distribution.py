@@ -104,9 +104,12 @@ class PdmxConditioningDistributionTests(unittest.TestCase):
         self.assertEqual(result["selection"]["csv_rows"], 2)
         self.assertEqual(result["selection"]["candidate_count"], 1)
         self.assertEqual(result["selection"]["selected_count"], 1)
+        self.assertEqual(len(result["selection"]["selection_digest_sha256"]), 64)
         self.assertEqual(result["results"]["successful_samples"], 1)
         self.assertEqual(result["results"]["failed_samples"], 0)
+        self.assertEqual(result["results"]["parse_success_fraction"], 1.0)
         self.assertEqual(result["results"]["missing_from_archive"], 0)
+        self.assertEqual(result["results"]["parse_success_fraction"], 0.5)
         self.assertEqual(
             result["results"]["controls"]["swing"]["status"],
             "NOT_MEASURED",
@@ -123,6 +126,10 @@ class PdmxConditioningDistributionTests(unittest.TestCase):
 
         self.assertEqual(left["selection"], right["selection"])
         self.assertEqual(left["results"], right["results"])
+        self.assertEqual(
+            left["selection"]["selection_digest_sha256"],
+            right["selection"]["selection_digest_sha256"],
+        )
 
     def test_duplicate_midi_aliases_are_collapsed_deterministically(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
