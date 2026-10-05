@@ -11,7 +11,8 @@ GenerationService::~GenerationService() {
 }
 
 void GenerationService::start() {
-    std::lock_guard<std::mutex> lock(queueMutex_);
+    std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
+    std::lock_guard<std::mutex> queueLock(queueMutex_);
     if (running_) {
         return;
     }
