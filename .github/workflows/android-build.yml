@@ -79,6 +79,12 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_android_lifecycle_contract.py'
 
+      - name: Validate Android smoke script
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n .github/scripts/android-smoke.sh
+
       - name: Test pinned LiteRT SDK fetch
         shell: bash
         run: |
