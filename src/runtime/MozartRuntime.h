@@ -73,6 +73,8 @@ public:
             generation::GenerationRequest request);
     [[nodiscard]] bool queueGeneratedPattern(
             generation::PatternProposal proposal);
+    [[nodiscard]] bool queueGeneratedResult(
+            generation::GenerationResult result);
     [[nodiscard]] bool selectModel(std::string_view modelId);
     void clearSelectedModel() noexcept;
     [[nodiscard]] std::string selectedModelId() const;
