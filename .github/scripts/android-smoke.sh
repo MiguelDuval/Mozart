@@ -181,18 +181,17 @@ exercise_activity_background_resume_guard() {
 
   adb shell input keyevent 3 >/dev/null 2>&1 || true
 
+  local resumed_activity=""
   for _ in $(seq 1 20); do
-    if ! adb shell dumpsys activity activities 2>/dev/null |
-        grep -Fq "mResumedActivity: ActivityRecord" ||
-       ! adb shell dumpsys activity activities 2>/dev/null |
-        grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"; then
+    resumed_activity="$(adb shell dumpsys activity activities 2>/dev/null |
+      grep -F "mResumedActivity" | head -n 1 || true)"
+    if [[ "$resumed_activity" != *"com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"* ]]; then
       break
     fi
     sleep 0.25
   done
 
-  if adb shell dumpsys activity activities 2>/dev/null |
-      grep -Fq "mResumedActivity: ActivityRecord.*com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"; then
+  if [[ "$resumed_activity" == *"com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"* ]]; then
     echo "MainActivity remained resumed after HOME; background transition was not observed." >&2
     return 1
   fi
