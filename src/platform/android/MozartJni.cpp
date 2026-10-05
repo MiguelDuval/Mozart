@@ -473,9 +473,9 @@ Java_com_miguelduval_mozart_MainActivity_nativeSelectedModelSnapshot(
             " class=" +
             (privateExperimental ? "private_experimental" : "none") +
             " backend=" +
-            (runtime()->selectedModelBackendAvailable()
-                    ? "available"
-                    : "unavailable");
+            (runtime()->selectedModelBackendRegistered()
+                    ? "registered"
+                    : "unregistered");
 
     return env->NewStringUTF(text.c_str());
 }
