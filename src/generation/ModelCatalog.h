@@ -79,12 +79,6 @@ public:
         return true;
     }
 
-    [[nodiscard]] const ModelCatalogEntry* findModel(
-            const std::string_view modelId) const noexcept {
-        std::lock_guard<std::mutex> lock(selectionMutex_);
-        return findModelUnlocked(modelId);
-    }
-
     [[nodiscard]] std::optional<ModelCatalogEntry> findModelSnapshot(
             const std::string_view modelId) const {
         std::lock_guard<std::mutex> lock(selectionMutex_);
@@ -141,17 +135,6 @@ public:
     [[nodiscard]] std::uint64_t selectionGeneration() const noexcept {
         std::lock_guard<std::mutex> lock(selectionMutex_);
         return selectionGeneration_;
-    }
-
-    [[nodiscard]] const ModelCatalogEntry* selectedModel() const noexcept {
-        std::lock_guard<std::mutex> lock(selectionMutex_);
-        return findModelUnlocked(selectedModelId_);
-    }
-
-    [[nodiscard]] const ModelCatalogEntry* modelAt(
-            const std::size_t index) const noexcept {
-        std::lock_guard<std::mutex> lock(selectionMutex_);
-        return index < models_.size() ? &models_[index] : nullptr;
     }
 
     [[nodiscard]] std::string selectedModelId() const {
