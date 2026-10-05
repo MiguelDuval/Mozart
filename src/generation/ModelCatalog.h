@@ -174,13 +174,19 @@ public:
     void clear() noexcept {
         models_.clear();
         backends_.clear();
-        selectedModelId_.clear();
+        if (!selectedModelId_.empty()) {
+            selectedModelId_.clear();
+            ++selectionGeneration_;
+        } else {
+            selectedModelId_.clear();
+        }
     }
 
 private:
     std::vector<ModelCatalogEntry> models_{};
     std::vector<TokenInferenceBackend*> backends_{};
     std::string selectedModelId_{};
+    std::uint64_t selectionGeneration_ = 0;
 };
 
 } // namespace mozart::generation
