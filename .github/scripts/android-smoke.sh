@@ -365,6 +365,21 @@ if [[ "$stale_runtime_smoke_rc" -eq 0 ]]; then
 fi
 
 if [[ "$runtime_smoke_rc" -eq 0 ]]; then
+  # The background/resume guard leaves a fresh foreground Activity without
+  # runtime smoke enabled. Start a separate clean runtime-smoke instance so
+  # the normal Link assertions remain independent from lifecycle guards.
+  adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
+  adb logcat -c
+  start_app true
+  runtime_startup_rc=0
+  wait_for_startup || runtime_startup_rc=$?
+  if [[ "$runtime_startup_rc" -ne 0 ]]; then
+    runtime_smoke_rc=1
+    echo "Fresh runtime-smoke Activity failed after background/resume guard." >&2
+  fi
+fi
+
+if [[ "$runtime_smoke_rc" -eq 0 ]]; then
   wait_for_runtime_smoke || runtime_smoke_rc=$?
 else
   runtime_smoke_rc=1
