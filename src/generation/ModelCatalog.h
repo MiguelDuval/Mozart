@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -82,6 +83,32 @@ public:
             const std::string_view modelId) const noexcept {
         std::lock_guard<std::mutex> lock(selectionMutex_);
         return findModelUnlocked(modelId);
+    }
+
+    [[nodiscard]] std::optional<ModelCatalogEntry> findModelSnapshot(
+            const std::string_view modelId) const {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
+        const auto* model = findModelUnlocked(modelId);
+        return model == nullptr
+                ? std::nullopt
+                : std::optional<ModelCatalogEntry>{*model};
+    }
+
+    [[nodiscard]] std::optional<ModelCatalogEntry> selectedModelSnapshot() const {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
+        const auto* model = findModelUnlocked(selectedModelId_);
+        return model == nullptr
+                ? std::nullopt
+                : std::optional<ModelCatalogEntry>{*model};
+    }
+
+    [[nodiscard]] std::optional<ModelCatalogEntry> modelAtSnapshot(
+            const std::size_t index) const {
+        std::lock_guard<std::mutex> lock(selectionMutex_);
+        if (index >= models_.size()) {
+            return std::nullopt;
+        }
+        return models_[index];
     }
 
     [[nodiscard]] bool selectModel(
