@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from dataset_split import source_key
 from manifest_digest import digest as manifest_digest
+from verify_manifest_inventory import verify as verify_manifest_inventory
 from mozart_conditioning import (
     CONDITIONING_VOCABULARY_ID,
     PERFORMANCE_CONTROL_NAMES,
@@ -176,6 +177,155 @@ def _resolve_manifest_sha256(
             f"expected={computed} provided={explicit_sha256}"
         )
     return computed
+
+
+def _validate_training_manifest_metadata(manifest: dict) -> None:
+    if manifest.get("schema_version") != 1:
+        raise ValueError("training manifest schema_version must be 1")
+    if manifest.get("status") not in {"audited", "release"}:
+        raise ValueError(
+            "training shards require an audited or release dataset manifest"
+        )
+    if manifest.get("license_policy") != "commercial-compatible-only":
+        raise ValueError(
+            "training manifest license_policy must be commercial-compatible-only"
+        )
+    if manifest.get("project_vocabulary_id") != VOCABULARY_ID:
+        raise ValueError(
+            f"training manifest project_vocabulary_id must be {VOCABULARY_ID}"
+        )
+
+    sources = manifest.get("sources")
+    if not isinstance(sources, list) or not sources:
+        raise ValueError("training manifest must contain at least one source")
+
+    seen_source_ids: set[str] = set()
+    seen_paths: set[str] = set()
+    for index, source in enumerate(sources):
+        where = f"manifest.sources[{index}]"
+        if not isinstance(source, dict):
+            raise ValueError(f"{where} must be an object")
+        source_id = _require_string(source, "source_id")
+        revision = _require_string(source, "revision")
+        if source_id in seen_source_ids:
+            raise ValueError(f"duplicate manifest source_id: {source_id}")
+        seen_source_ids.add(source_id)
+        if revision.startswith("REPLACE"):
+            raise ValueError(f"{where}.revision must be immutable")
+
+        license_info = source.get("license")
+        if not isinstance(license_info, dict):
+            raise ValueError(f"{where}.license must be an object")
+        if license_info.get("commercial_use") != "allowed":
+            raise ValueError(
+                f"{where}.license.commercial_use must be allowed"
+            )
+        if license_info.get("redistribution") != "allowed":
+            raise ValueError(
+                f"{where}.license.redistribution must be allowed"
+            )
+        if not isinstance(license_info.get("spdx_id"), str) or not license_info["spdx_id"].strip():
+            raise ValueError(f"{where}.license.spdx_id must be concrete")
+
+        provenance = source.get("provenance")
+        if not isinstance(provenance, dict):
+            raise ValueError(f"{where}.provenance must be an object")
+        rights_evidence = provenance.get("rights_evidence")
+        if not isinstance(rights_evidence, str) or not rights_evidence.strip() or rights_evidence.startswith("REPLACE"):
+            raise ValueError(
+                f"{where}.provenance.rights_evidence must be recorded"
+            )
+
+        files = source.get("files")
+        if not isinstance(files, list) or not files:
+            raise ValueError(f"{where}.files must contain at least one file")
+        for file_index, item in enumerate(files):
+            file_where = f"{where}.files[{file_index}]"
+            if not isinstance(item, dict):
+                raise ValueError(f"{file_where} must be an object")
+            file_path = _require_string(item, "path")
+            if file_path == "REPLACE":
+                raise ValueError(f"{file_where}.path must be concrete")
+            checksum = item.get("sha256")
+            if not isinstance(checksum, str) or len(checksum) != 64 or checksum == "REPLACE":
+                raise ValueError(f"{file_where}.sha256 must be verified")
+            size = item.get("size_bytes")
+            if not isinstance(size, int) or size < 0:
+                raise ValueError(f"{file_where}.size_bytes must be non-negative")
+            if file_path in seen_paths:
+                raise ValueError(f"duplicate manifest file path: {file_path}")
+            seen_paths.add(file_path)
+
+
+def _validate_training_record_provenance(
+    records: list[dict],
+    manifest: dict,
+) -> None:
+    source_revisions: dict[str, str] = {}
+    file_owners: dict[str, tuple[str, str]] = {}
+
+    for source in manifest["sources"]:
+        source_id = str(source["source_id"])
+        revision = str(source["revision"])
+        source_revisions[source_id] = revision
+        for item in source["files"]:
+            file_owners[str(item["path"])] = (source_id, revision)
+
+    referenced_files: set[str] = set()
+    for index, record in enumerate(records):
+        where = f"record[{index}]"
+        source_id = _require_string(record, "source_id")
+        revision = _require_string(record, "source_revision")
+        source_path = _require_string(record, "source_path")
+
+        expected_revision = source_revisions.get(source_id)
+        if expected_revision is None:
+            raise ValueError(
+                f"{where}.source_id {source_id!r} is absent from training manifest"
+            )
+        if revision != expected_revision:
+            raise ValueError(
+                f"{where}.source_revision does not match manifest source "
+                f"{source_id!r}: expected={expected_revision!r} actual={revision!r}"
+            )
+
+        owner = file_owners.get(source_path)
+        if owner is None:
+            raise ValueError(
+                f"{where}.source_path {source_path!r} is absent from the audited "
+                "manifest/inventory"
+            )
+        if owner != (source_id, revision):
+            raise ValueError(
+                f"{where}.source_path {source_path!r} belongs to "
+                f"source_id={owner[0]!r} revision={owner[1]!r}, not "
+                f"source_id={source_id!r} revision={revision!r}"
+            )
+        referenced_files.add(source_path)
+
+    if not referenced_files:
+        raise ValueError("training records must reference at least one manifest file")
+
+
+def _prepare_training_provenance(
+    records: list[dict],
+    manifest_path: Path,
+    inventory_path: Path,
+    explicit_manifest_sha256: str | None,
+) -> tuple[dict, str]:
+    manifest = _read_manifest(manifest_path)
+    _validate_training_manifest_metadata(manifest)
+
+    inventory_result = verify_manifest_inventory(manifest_path, inventory_path)
+    if inventory_result["manifest_id"] != manifest.get("manifest_id"):
+        raise ValueError("manifest/inventory verification returned mismatched manifest_id")
+
+    effective_manifest_sha256 = _resolve_manifest_sha256(
+        manifest_path,
+        explicit_manifest_sha256,
+    )
+    _validate_training_record_provenance(records, manifest)
+    return manifest, effective_manifest_sha256
 
 
 def _read_manifest(path: Path) -> dict:
@@ -381,7 +531,8 @@ def main() -> int:
     parser.add_argument("output_dir", type=Path)
     parser.add_argument("--max-records-per-shard", type=int, default=1024)
     parser.add_argument("--manifest-sha256")
-    parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--inventory", type=Path, required=True)
     args = parser.parse_args()
 
     if args.max_records_per_shard <= 0:
@@ -391,9 +542,10 @@ def main() -> int:
     try:
         records = read_jsonl(args.input_jsonl)
         validate_records(records)
-        manifest = _read_manifest(args.manifest) if args.manifest else None
-        effective_manifest_sha256 = _resolve_manifest_sha256(
+        manifest, effective_manifest_sha256 = _prepare_training_provenance(
+            records,
             args.manifest,
+            args.inventory,
             args.manifest_sha256,
         )
         paths = write_shards(
