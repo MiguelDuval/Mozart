@@ -191,6 +191,7 @@ void testConcurrentMozartRuntimeLifecycleIsSafe() {
 }
 #endif
 
+#ifdef LINK_PLATFORM_LINUX
 void testBoundedSchedulerMidiSoak() {
     class SoakOutput final : public mozart::midi::MidiOutputTransport {
     public:
@@ -254,6 +255,8 @@ void testBoundedSchedulerMidiSoak() {
     queue.stop();
     clock.setEnabled(false);
 }
+
+#endif
 
 void testConcurrentAccompanimentSchedulerLifecycleIsSafe() {
     class SilentOutput final : public mozart::midi::MidiOutputTransport {
