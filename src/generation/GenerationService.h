@@ -30,6 +30,7 @@ public:
     // Stops accepting new requests, drains queued jobs, and waits for any
     // active backend inference to return. Backend inference is currently
     // non-cancellable, so stop() may block until the backend completes.
+    void stop();
 
     [[nodiscard]] bool running() const noexcept;
 
