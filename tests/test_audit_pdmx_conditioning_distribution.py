@@ -109,7 +109,6 @@ class PdmxConditioningDistributionTests(unittest.TestCase):
         self.assertEqual(result["results"]["failed_samples"], 0)
         self.assertEqual(result["results"]["parse_success_fraction"], 1.0)
         self.assertEqual(result["results"]["missing_from_archive"], 0)
-        self.assertEqual(result["results"]["parse_success_fraction"], 0.5)
         self.assertEqual(
             result["results"]["controls"]["swing"]["status"],
             "NOT_MEASURED",
