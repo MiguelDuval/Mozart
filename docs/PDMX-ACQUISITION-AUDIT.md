@@ -57,6 +57,11 @@ For measured controls, the report includes range, mean, median, standard deviati
 IQR, unique-count/fraction, and non-zero fraction. These statistics are descriptive only;
 there is no automatic claim that the distribution is "sufficient" for conditioning training.
 
+The selection metadata also includes a SHA-256 fingerprint over the deterministically ordered
+selected `(mid_path, data_path)` pairs. This makes separate reports comparable without storing
+the dataset itself. The report additionally records the fraction of selected candidates that
+successfully passed MIDI normalization/measurement.
+
 
 ## Legal interpretation
 
