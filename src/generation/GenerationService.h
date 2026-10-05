@@ -44,7 +44,8 @@ private:
         std::promise<GenerationResult> promise{};
     };
 
-    [[nodiscard]] static std::future<GenerationResult> unavailableFuture(
+    [[nodiscard]] static std::future<GenerationResult> completedFuture(
+            GenerationStatus status,
             const char* message,
             GenerationRequestTicket ticket = {});
 
