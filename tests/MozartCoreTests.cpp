@@ -69,6 +69,113 @@ public:
 } // namespace
 #endif
 
+void testConcurrentMidiSendQueueLifecycleIsSafe() {
+    class SilentOutput final : public mozart::midi::MidiOutputTransport {
+    public:
+        mozart::midi::MidiSendResult send(
+                const mozart::midi::MidiShortMessage& message) noexcept override {
+            return {
+                    mozart::midi::MidiTransportStatus::Ok,
+                    message.size
+            };
+        }
+
+        void close() noexcept override {}
+    };
+
+    SilentOutput output;
+    mozart::scheduler::MidiSendQueue queue(output);
+
+    for (int iteration = 0; iteration < 128; ++iteration) {
+        std::atomic_bool readyStart{false};
+        std::atomic_bool readyStop{false};
+        std::atomic_bool fire{false};
+
+        std::thread starter([&] {
+            readyStart.store(true, std::memory_order_release);
+            while (!fire.load(std::memory_order_acquire)) {
+                std::this_thread::yield();
+            }
+            queue.start();
+        });
+        std::thread stopper([&] {
+            readyStop.store(true, std::memory_order_release);
+            while (!fire.load(std::memory_order_acquire)) {
+                std::this_thread::yield();
+            }
+            queue.stop();
+        });
+
+        while (!readyStart.load(std::memory_order_acquire) ||
+                !readyStop.load(std::memory_order_acquire)) {
+            std::this_thread::yield();
+        }
+        fire.store(true, std::memory_order_release);
+
+        starter.join();
+        stopper.join();
+
+        // Either transition may win the race; the explicit stop below must
+        // always leave a fully joinable-free queue for the next iteration.
+        queue.stop();
+    }
+
+    queue.stop();
+}
+
+void testConcurrentAccompanimentSchedulerLifecycleIsSafe() {
+    class SilentOutput final : public mozart::midi::MidiOutputTransport {
+    public:
+        mozart::midi::MidiSendResult send(
+                const mozart::midi::MidiShortMessage& message) noexcept override {
+            return {
+                    mozart::midi::MidiTransportStatus::Ok,
+                    message.size
+            };
+        }
+
+        void close() noexcept override {}
+    };
+
+    SilentOutput output;
+    mozart::clock::LinkClock clock(120.0, 4.0);
+    mozart::scheduler::MidiSendQueue queue(output);
+    mozart::scheduler::AccompanimentScheduler scheduler(clock, queue);
+
+    for (int iteration = 0; iteration < 128; ++iteration) {
+        std::atomic_bool readyStart{false};
+        std::atomic_bool readyStop{false};
+        std::atomic_bool fire{false};
+
+        std::thread starter([&] {
+            readyStart.store(true, std::memory_order_release);
+            while (!fire.load(std::memory_order_acquire)) {
+                std::this_thread::yield();
+            }
+            scheduler.start();
+        });
+        std::thread stopper([&] {
+            readyStop.store(true, std::memory_order_release);
+            while (!fire.load(std::memory_order_acquire)) {
+                std::this_thread::yield();
+            }
+            scheduler.stop();
+        });
+
+        while (!readyStart.load(std::memory_order_acquire) ||
+                !readyStop.load(std::memory_order_acquire)) {
+            std::this_thread::yield();
+        }
+        fire.store(true, std::memory_order_release);
+
+        starter.join();
+        stopper.join();
+        scheduler.stop();
+    }
+
+    scheduler.stop();
+}
+
 int main() {
     {
         using namespace mozart::generation;
