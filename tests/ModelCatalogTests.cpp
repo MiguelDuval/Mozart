@@ -77,12 +77,22 @@ void testSelectionGenerationInvalidatesPriorResults() {
     const auto firstGeneration = catalog.selectionGeneration();
     assert(firstGeneration == 1);
 
+    const auto snapshot = catalog.selectionSnapshot();
+    assert(snapshot.modelId == first.modelId);
+    assert(snapshot.backend == &backend);
+    assert(snapshot.selectionGeneration == firstGeneration);
+
     assert(catalog.selectModel(first.modelId));
     assert(catalog.selectionGeneration() == firstGeneration + 1);
 
     catalog.clearSelection();
     assert(catalog.selectedModelId().empty());
     assert(catalog.selectionGeneration() == firstGeneration + 2);
+
+    const auto clearedSnapshot = catalog.selectionSnapshot();
+    assert(clearedSnapshot.modelId.empty());
+    assert(clearedSnapshot.backend == nullptr);
+    assert(clearedSnapshot.selectionGeneration == firstGeneration + 2);
 }
 
 void testDisablingSelectedModelClearsSelection() {
