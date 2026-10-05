@@ -85,6 +85,9 @@ private:
     clock::LinkClock& clock_;
     MidiSendQueue& sendQueue_;
 
+    // Serialize lifecycle transitions so stop() cannot race the worker
+    // publication performed by start().
+    mutable std::mutex lifecycleMutex_;
     mutable std::mutex stateMutex_;
     musical::KeyScale requestedKeyScale_{6, musical::Scale::NaturalMinor};
     musical::KeyScale activeKeyScale_{6, musical::Scale::NaturalMinor};
