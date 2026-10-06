@@ -46,7 +46,7 @@ class AndroidJniKeyContextContractTests(unittest.TestCase):
             activity,
         )
         self.assertIn(
-            "TIMING  •  " + " + nativeTimingTelemetrySnapshot()",
+            '"TIMING  •  " + nativeTimingTelemetrySnapshot()',
             activity,
         )
 
