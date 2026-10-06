@@ -304,6 +304,10 @@ jobs:
           archive: false
           if-no-files-found: error
           retention-days: 30
+
+      - name: Validate release build
+        working-directory: android
+        run: gradle --no-daemon :app:assembleRelease
       - name: Enable KVM for Android emulator
         shell: bash
         run: |
