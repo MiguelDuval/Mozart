@@ -40,6 +40,7 @@ public final class AndroidMidiTransport {
         public final String name;
         public final String manufacturer;
         public final String product;
+        public final String serialNumber;
 
         MidiEndpoint(
                 int deviceId,
@@ -48,7 +49,8 @@ public final class AndroidMidiTransport {
                 int transportType,
                 String name,
                 String manufacturer,
-                String product) {
+                String product,
+                String serialNumber) {
             this.deviceId = deviceId;
             this.portNumber = portNumber;
             this.portType = portType;
@@ -56,6 +58,7 @@ public final class AndroidMidiTransport {
             this.name = name;
             this.manufacturer = manufacturer;
             this.product = product;
+            this.serialNumber = serialNumber;
         }
 
         public boolean isDeviceInput() {
@@ -212,6 +215,8 @@ public final class AndroidMidiTransport {
                         properties.getString(MidiDeviceInfo.PROPERTY_MANUFACTURER));
                 final String product = safeString(
                         properties.getString(MidiDeviceInfo.PROPERTY_PRODUCT));
+                final String serialNumber = safeString(
+                        properties.getString(MidiDeviceInfo.PROPERTY_SERIAL_NUMBER));
 
                 for (MidiDeviceInfo.PortInfo port : device.getPorts()) {
                     endpoints.add(new MidiEndpoint(
@@ -221,7 +226,8 @@ public final class AndroidMidiTransport {
                             device.getType(),
                             name,
                             manufacturer,
-                            product));
+                            product,
+                            serialNumber));
                 }
             }
         }
