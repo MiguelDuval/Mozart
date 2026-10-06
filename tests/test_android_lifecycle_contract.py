@@ -150,7 +150,7 @@ class AndroidLifecycleContractTest(unittest.TestCase):
             transport,
         )
         self.assertIn(
-            "sameStableEndpoint(selectionIntent,",
+            "sameStableEndpoint(\n                            selectionIntent,",
             activity,
         )
         self.assertIn(
