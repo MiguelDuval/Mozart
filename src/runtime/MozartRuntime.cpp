@@ -8,8 +8,8 @@
 namespace mozart::runtime {
 
 MozartRuntime::MozartRuntime(midi::MidiOutputTransport& midiOutput)
-    : sendQueue_(midiOutput),
-      scheduler_(linkClock_, sendQueue_),
+    : sendQueue_(midiOutput, 512, &timingTelemetry_),
+      scheduler_(linkClock_, sendQueue_, &timingTelemetry_),
       generationService_(modelCatalog_) {}
 
 MozartRuntime::~MozartRuntime() {
@@ -21,6 +21,8 @@ void MozartRuntime::start() {
     if (started_) {
         return;
     }
+
+    timingTelemetry_.reset();
 
     bool sendQueueStarted = false;
     bool schedulerStarted = false;
@@ -329,6 +331,11 @@ bool MozartRuntime::accompanimentEnabled() const noexcept {
 
 clock::LinkClockSnapshot MozartRuntime::captureLinkSnapshot() const {
     return linkClock_.captureAppSnapshot();
+}
+
+scheduler::TimingTelemetrySnapshot
+MozartRuntime::captureTimingTelemetrySnapshot() const noexcept {
+    return timingTelemetry_.snapshot();
 }
 
 bool MozartRuntime::registerModel(generation::ModelCatalogEntry entry) {
