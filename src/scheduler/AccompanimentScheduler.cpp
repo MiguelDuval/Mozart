@@ -507,5 +507,6 @@ void AccompanimentScheduler::scheduleEvent(
                     enqueued);
         }
     }
+}
 
 } // namespace mozart::scheduler
