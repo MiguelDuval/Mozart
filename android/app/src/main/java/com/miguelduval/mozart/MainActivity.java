@@ -960,7 +960,7 @@ public final class MainActivity extends Activity {
                 first.portNumber == second.portNumber;
     }
 
-    private static boolean sameStableEndpoint(
+    static boolean sameStableEndpoint(
             AndroidMidiTransport.MidiEndpoint first,
             AndroidMidiTransport.MidiEndpoint second) {
         if (first == null || second == null ||
