@@ -34,7 +34,7 @@ public final class MidiReconnectIdentityTest {
                 91, 0, 1, "Arturia MicroFreak", "Arturia",
                 "MicroFreak", "SERIAL-42");
 
-        assertTrue(MainActivity.sameStableEndpoint(before, after));
+        assertTrue(AndroidMidiTransport.sameStableEndpoint(before, after));
     }
 
     @Test
@@ -46,7 +46,7 @@ public final class MidiReconnectIdentityTest {
                 91, 0, 1, "Arturia MicroFreak", "Arturia",
                 "MicroFreak", "");
 
-        assertTrue(MainActivity.sameStableEndpoint(before, after));
+        assertTrue(AndroidMidiTransport.sameStableEndpoint(before, after));
     }
 
     @Test
@@ -58,7 +58,7 @@ public final class MidiReconnectIdentityTest {
                 91, 0, 1, "Arturia MicroFreak", "Arturia",
                 "MicroFreak", "SERIAL-B");
 
-        assertFalse(MainActivity.sameStableEndpoint(before, after));
+        assertFalse(AndroidMidiTransport.sameStableEndpoint(before, after));
     }
 
     @Test
@@ -70,6 +70,6 @@ public final class MidiReconnectIdentityTest {
                 91, 1, 1, "Arturia MicroFreak", "Arturia",
                 "MicroFreak", "SERIAL-42");
 
-        assertFalse(MainActivity.sameStableEndpoint(before, after));
+        assertFalse(AndroidMidiTransport.sameStableEndpoint(before, after));
     }
 }

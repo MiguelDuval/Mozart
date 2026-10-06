@@ -85,6 +85,26 @@ public final class AndroidMidiTransport {
     private static final String PREFERRED_MANUFACTURER = "Arturia";
     private static final String PREFERRED_PRODUCT = "MicroFreak";
 
+    static boolean sameStableEndpoint(
+            MidiEndpoint first,
+            MidiEndpoint second) {
+        if (first == null || second == null ||
+                first.portNumber != second.portNumber ||
+                first.transportType != second.transportType) {
+            return false;
+        }
+
+        if (!first.serialNumber.isEmpty() ||
+                !second.serialNumber.isEmpty()) {
+            return !first.serialNumber.isEmpty() &&
+                    first.serialNumber.equals(second.serialNumber);
+        }
+
+        return first.manufacturer.equals(second.manufacturer) &&
+                first.product.equals(second.product) &&
+                first.name.equals(second.name);
+    }
+
     private final MidiManager midiManager;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final HandlerThread midiThread = new HandlerThread("Mozart-MIDI");

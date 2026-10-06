@@ -910,7 +910,7 @@ public final class MainActivity extends Activity {
                 int stableMatches = 0;
                 int stableMatchIndex = -1;
                 for (int i = 0; i < midiInputCandidates.size(); ++i) {
-                    if (sameStableEndpoint(
+                    if (AndroidMidiTransport.sameStableEndpoint(
                             selectionIntent,
                             midiInputCandidates.get(i))) {
                         stableMatches++;
@@ -960,25 +960,6 @@ public final class MainActivity extends Activity {
                 first.portNumber == second.portNumber;
     }
 
-    static boolean sameStableEndpoint(
-            AndroidMidiTransport.MidiEndpoint first,
-            AndroidMidiTransport.MidiEndpoint second) {
-        if (first == null || second == null ||
-                first.portNumber != second.portNumber ||
-                first.transportType != second.transportType) {
-            return false;
-        }
-
-        if (!first.serialNumber.isEmpty() ||
-                !second.serialNumber.isEmpty()) {
-            return !first.serialNumber.isEmpty() &&
-                    first.serialNumber.equals(second.serialNumber);
-        }
-
-        return first.manufacturer.equals(second.manufacturer) &&
-                first.product.equals(second.product) &&
-                first.name.equals(second.name);
-    }
 
     private void cycleMidiInputSource() {
         if (midiInputCandidates.isEmpty()) {
