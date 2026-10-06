@@ -166,8 +166,10 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 - [ ] Disconnect/reconnect tests.
 - [x] Sleep/resume tests.
 - [x] Timing telemetry.
-- [ ] Crash diagnostics.
+- [x] Crash diagnostics contract and package-scoped crash-buffer collection.
 - [ ] Release build.
+
+Crash-diagnostics evidence: the Android lifecycle contract test validates the crash-buffer collection and Mozart-package scoping, and the Android emulator smoke gate completes successfully without detecting a Mozart crash. A deliberately induced production crash and physical-device crash-buffer capture remain UNPROVEN.
 
 ## Stage 11 — Optional expansion
 - [ ] MIDI 2.0 / UMP.
