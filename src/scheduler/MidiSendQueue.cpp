@@ -1,12 +1,16 @@
 #include "MidiSendQueue.h"
 
+#include <chrono>
+
 namespace mozart::scheduler {
 
 MidiSendQueue::MidiSendQueue(
         midi::MidiOutputTransport& transport,
-        const std::size_t capacity)
+        const std::size_t capacity,
+        TimingTelemetry* telemetry)
     : transport_(transport),
-      capacity_(capacity) {}
+      capacity_(capacity),
+      telemetry_(telemetry) {}
 
 MidiSendQueue::~MidiSendQueue() {
     stop();
@@ -108,7 +112,17 @@ void MidiSendQueue::run() {
             queue_.pop();
         }
 
-        (void) transport_.send(item.message);
+        const auto actualSendTimestampNanos =
+                static_cast<std::uint64_t>(
+                        std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                std::chrono::steady_clock::now().time_since_epoch()).count());
+        const auto result = transport_.send(item.message);
+        if (telemetry_ != nullptr) {
+            telemetry_->recordSend(
+                    item.message.timestampNanos,
+                    actualSendTimestampNanos,
+                    result.ok());
+        }
     }
 }
 
