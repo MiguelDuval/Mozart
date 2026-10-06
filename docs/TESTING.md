@@ -95,3 +95,21 @@ User-reported result:
 - This evidence is manual physical validation, not a substitute for automated CI or future soak/timing measurements.
 
 The next MIDI IN test should be recorded separately once an actual MIDI source/controller is available.
+
+## Timing telemetry
+
+The realtime scheduler remains responsible only for musical beat/timestamp resolution, while the bounded MIDI send queue records the moment the transport boundary is reached.
+
+The telemetry snapshot reports:
+
+- scheduled MIDI message count;
+- accepted/enqueued message count;
+- transport send attempts and successful/failed sends;
+- dispatches that reached the transport after their scheduled timestamp;
+- maximum dispatch lateness;
+- interval jitter computed from successive scheduled versus observed transport-dispatch intervals;
+- the most recently scheduled musical beat.
+
+The observed send timestamp is the monotonic timestamp at the start of the transport send() call. For Android AMidi this is **not** a measurement of the physical USB wire time or audible MIDI output time; those still require hardware instrumentation/physical testing.
+
+Telemetry uses atomic counters and does not add filesystem, network, allocation, or blocking-I/O work to the scheduler or MIDI send path.
