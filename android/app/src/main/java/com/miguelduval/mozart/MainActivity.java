@@ -902,6 +902,26 @@ public final class MainActivity extends Activity {
                     break;
                 }
             }
+
+            // Android MIDI device IDs are service-scoped and can change after
+            // a physical unplug/replug. Prefer the persisted USB serial number
+            // and only fall back to descriptive identity when it is unique.
+            if (preservedIndex < 0) {
+                int stableMatches = 0;
+                int stableMatchIndex = -1;
+                for (int i = 0; i < midiInputCandidates.size(); ++i) {
+                    if (sameStableEndpoint(
+                            selectionIntent,
+                            midiInputCandidates.get(i))) {
+                        stableMatches++;
+                        stableMatchIndex = i;
+                    }
+                }
+                if (stableMatches == 1) {
+                    preservedIndex = stableMatchIndex;
+                }
+            }
+
             midiInputSelection = preservedIndex;
         } else if (midiInputSelection >= midiInputCandidates.size()) {
             midiInputSelection = -1;
@@ -938,6 +958,26 @@ public final class MainActivity extends Activity {
                 second != null &&
                 first.deviceId == second.deviceId &&
                 first.portNumber == second.portNumber;
+    }
+
+    private static boolean sameStableEndpoint(
+            AndroidMidiTransport.MidiEndpoint first,
+            AndroidMidiTransport.MidiEndpoint second) {
+        if (first == null || second == null ||
+                first.portNumber != second.portNumber ||
+                first.transportType != second.transportType) {
+            return false;
+        }
+
+        if (!first.serialNumber.isEmpty() ||
+                !second.serialNumber.isEmpty()) {
+            return !first.serialNumber.isEmpty() &&
+                    first.serialNumber.equals(second.serialNumber);
+        }
+
+        return first.manufacturer.equals(second.manufacturer) &&
+                first.product.equals(second.product) &&
+                first.name.equals(second.name);
     }
 
     private void cycleMidiInputSource() {
