@@ -45,6 +45,7 @@ public final class MainActivity extends Activity {
     private static native void nativeStartAccompaniment();
     private static native void nativeStopAccompaniment();
     private static native String nativeLinkSnapshot();
+    private static native String nativeTimingTelemetrySnapshot();
     private static native String nativeMidiInputSnapshot();
     private static native boolean nativeTestMidiNote();
     private static native void nativeSetAccompanimentRole(int role);
@@ -226,8 +227,10 @@ public final class MainActivity extends Activity {
         liveStatus.setOrientation(LinearLayout.VERTICAL);
         liveStatus.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
 
-        linkStatus = label("LINK  •  " + nativeLinkSnapshot(), 11.0f, accent);
+        linkStatus = label("LINK  •  " + nativeLinkSnapshot(), 9.5f, accent);
         linkStatus.setGravity(Gravity.END);
+        linkStatus.setMaxLines(2);
+        linkStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
         keyContextStatus = label("KEY  •  " + nativeKeyContextSnapshot(), 10.0f, textSecondary);
         keyContextStatus.setGravity(Gravity.END);
 
@@ -841,7 +844,9 @@ public final class MainActivity extends Activity {
 
     private void updateLinkStatus() {
         if (linkStatus != null) {
-            linkStatus.setText("Link: " + nativeLinkSnapshot());
+            linkStatus.setText(
+                    "LINK  •  " + nativeLinkSnapshot() +
+                    "\nTIMING  •  " + nativeTimingTelemetrySnapshot());
         }
     }
 
