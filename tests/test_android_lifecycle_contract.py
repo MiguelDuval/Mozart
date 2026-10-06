@@ -150,7 +150,7 @@ class AndroidLifecycleContractTest(unittest.TestCase):
             transport,
         )
         self.assertIn(
-            "sameStableEndpoint(\n                            selectionIntent,",
+            "AndroidMidiTransport.sameStableEndpoint(\n                            selectionIntent,",
             activity,
         )
         self.assertIn(
@@ -163,11 +163,11 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         )
         self.assertIn(
             "first.serialNumber.equals(second.serialNumber)",
-            activity,
+            transport,
         )
         self.assertIn(
             "first.manufacturer.equals(second.manufacturer)",
-            activity,
+            transport,
         )
 
     def test_midi_input_reconnect_preserves_explicit_selection_intent(self):
