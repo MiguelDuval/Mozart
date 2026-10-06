@@ -164,8 +164,8 @@ Decision: compact **30–60M parameter symbolic-MIDI Transformer**, int8, offlin
 ## Stage 10 — Hardening
 - [x] Bounded native soak of Link scheduler → MIDI send queue with repeated start/stop cycles.
 - [ ] Disconnect/reconnect tests.
-- [ ] Sleep/resume tests.
-- [ ] Timing telemetry.
+- [x] Sleep/resume tests.
+- [x] Timing telemetry.
 - [ ] Crash diagnostics.
 - [ ] Release build.
 
