@@ -195,6 +195,28 @@ Java_com_miguelduval_mozart_MainActivity_nativeLinkSnapshot(
     return env->NewStringUTF(text.c_str());
 }
 
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_miguelduval_mozart_MainActivity_nativeTimingTelemetrySnapshot(
+        JNIEnv* env,
+        jobject) {
+    const auto snapshot = runtime()->captureTimingTelemetrySnapshot();
+
+    const std::string text =
+            "scheduled=" + std::to_string(snapshot.scheduledMessages) +
+            " enqueued=" + std::to_string(snapshot.enqueuedMessages) +
+            " send_attempts=" + std::to_string(snapshot.sendAttempts) +
+            " sent=" + std::to_string(snapshot.successfulSends) +
+            " failed=" + std::to_string(snapshot.failedSends) +
+            " late=" + std::to_string(snapshot.lateDispatches) +
+            " max_late_us=" + std::to_string(snapshot.maxLateMicros()) +
+            " jitter_samples=" + std::to_string(snapshot.jitterSamples) +
+            " mean_jitter_us=" + std::to_string(snapshot.meanJitterMicros()) +
+            " max_jitter_us=" + std::to_string(snapshot.maxJitterMicros()) +
+            " last_beat=" + std::to_string(snapshot.lastScheduledBeat);
+
+    return env->NewStringUTF(text.c_str());
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_miguelduval_mozart_MainActivity_nativeStartAccompaniment(
         JNIEnv*,
