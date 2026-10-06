@@ -42,6 +42,14 @@ class AndroidJniKeyContextContractTests(unittest.TestCase):
             jni,
         )
         self.assertIn(
+            "last_target_us=",
+            jni,
+        )
+        self.assertIn(
+            "last_send_us=",
+            jni,
+        )
+        self.assertIn(
             "private static native String nativeTimingTelemetrySnapshot();",
             activity,
         )
