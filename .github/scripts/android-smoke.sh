@@ -110,6 +110,9 @@ wait_for_runtime_smoke() {
        grep -Fq "startStopSync=false" "$LOGCAT_FILE" &&
        grep -Fq "tempo=120." "$LOGCAT_FILE" &&
        grep -Fq "RUNTIME: Link snapshot tick enabled=true" "$LOGCAT_FILE" &&
+       grep -Fq "RUNTIME: Timing telemetry tick scheduled=" "$LOGCAT_FILE" &&
+       grep -Fq "RUNTIME: Timing telemetry stopped scheduled=" "$LOGCAT_FILE" &&
+       grep -Fq "send_attempts=" "$LOGCAT_FILE" &&
        grep -Fq "RUNTIME: Link snapshot stopped enabled=false" "$LOGCAT_FILE" &&
        link_clock_advanced; then
       return 0
