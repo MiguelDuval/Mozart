@@ -66,3 +66,15 @@ The future Link test suite should cover:
 - disconnect/reconnect.
 
 Ableton's documented Link test plan is the external reference.
+
+## Timing telemetry
+
+The scheduler now exposes a diagnostic telemetry snapshot without changing its timing model.
+
+For each scheduled MIDI message, Mozart records the musical beat and the resolved monotonic host timestamp. When the bounded MIDI send queue dispatches that message to the transport, it records the monotonic time at the start of the send() call.
+
+From those points the runtime can report scheduling throughput, enqueue acceptance, transport failures, dispatches that were already late at the transport boundary, maximum lateness, and interval jitter. Jitter is derived from successive scheduled intervals versus successive observed transport-dispatch intervals, rather than from UI polling cadence.
+
+This is intentionally a **transport-boundary measurement**, not a claim about the exact instant a USB MIDI byte reaches external hardware. Physical timing remains a separate acceptance layer.
+
+The telemetry state is atomic and bounded: it introduces no blocking I/O, network work, or unbounded event history into the scheduler path.
