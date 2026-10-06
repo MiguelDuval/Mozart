@@ -212,7 +212,11 @@ Java_com_miguelduval_mozart_MainActivity_nativeTimingTelemetrySnapshot(
             " jitter_samples=" + std::to_string(snapshot.jitterSamples) +
             " mean_jitter_us=" + std::to_string(snapshot.meanJitterMicros()) +
             " max_jitter_us=" + std::to_string(snapshot.maxJitterMicros()) +
-            " last_beat=" + std::to_string(snapshot.lastScheduledBeat);
+            " last_beat=" + std::to_string(snapshot.lastScheduledBeat) +
+            " last_target_us=" +
+                    std::to_string(snapshot.lastScheduledTimestampNanos / 1000ULL) +
+            " last_send_us=" +
+                    std::to_string(snapshot.lastSendTimestampNanos / 1000ULL);
 
     return env->NewStringUTF(text.c_str());
 }
