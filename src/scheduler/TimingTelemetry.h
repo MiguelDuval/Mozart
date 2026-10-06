@@ -3,6 +3,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <limits>
 
 namespace mozart::scheduler {
 
@@ -107,20 +108,20 @@ public:
                         actualSendTimestampNanos,
                         std::memory_order_relaxed);
 
-        if (previousScheduled != 0 && previousActual != 0) {
+        if (previousScheduled != 0 &&
+            previousActual != 0 &&
+            actualSendTimestampNanos >= previousActual &&
+            scheduledTimestampNanos >= previousScheduled) {
             const auto scheduledInterval =
-                    actualSendTimestampNanos >= previousActual
-                            ? (scheduledTimestampNanos >= previousScheduled
-                                       ? scheduledTimestampNanos - previousScheduled
-                                       : 0)
-                            : 0;
-            const auto actualInterval = actualSendTimestampNanos - previousActual;
+                    scheduledTimestampNanos - previousScheduled;
+            const auto actualInterval =
+                    actualSendTimestampNanos - previousActual;
             const auto jitter =
                     actualInterval >= scheduledInterval
                             ? actualInterval - scheduledInterval
                             : scheduledInterval - actualInterval;
             jitterSamples_.fetch_add(1, std::memory_order_relaxed);
-            totalJitterNanos_.fetch_add(jitter, std::memory_order_relaxed);
+            atomicSaturatingAdd(totalJitterNanos_, jitter);
             atomicMax(maxJitterNanos_, jitter);
         }
 
@@ -148,6 +149,31 @@ public:
     }
 
 private:
+    static void atomicSaturatingAdd(
+            std::atomic<std::uint64_t>& target,
+            const std::uint64_t value) noexcept {
+        auto current = target.load(std::memory_order_relaxed);
+        for (;;) {
+            if (value > std::numeric_limits<std::uint64_t>::max() - current) {
+                if (target.compare_exchange_weak(
+                            current,
+                            std::numeric_limits<std::uint64_t>::max(),
+                            std::memory_order_relaxed,
+                            std::memory_order_relaxed)) {
+                    return;
+                }
+                continue;
+            }
+            if (target.compare_exchange_weak(
+                        current,
+                        current + value,
+                        std::memory_order_relaxed,
+                        std::memory_order_relaxed)) {
+                return;
+            }
+        }
+    }
+
     static void atomicMax(
             std::atomic<std::uint64_t>& target,
             const std::uint64_t value) noexcept {
