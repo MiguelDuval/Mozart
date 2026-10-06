@@ -234,6 +234,31 @@ class AndroidLifecycleContractTest(unittest.TestCase):
             smoke,
         )
 
+    def test_android_smoke_captures_crash_diagnostics(self):
+        smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
+
+        self.assertIn(
+            'CRASH_LOGCAT_FILE=/tmp/mozart-crash-logcat.txt',
+            smoke,
+        )
+        self.assertIn(
+            "write_crash_logcat()",
+            smoke,
+        )
+        self.assertIn(
+            "adb shell logcat -b crash -d",
+            smoke,
+        )
+        self.assertIn(
+            "mozart_crash_signature_detected()",
+            smoke,
+        )
+        self.assertIn("Fatal signal", smoke)
+        self.assertIn("SIGSEGV", smoke)
+        self.assertIn("SIGABRT", smoke)
+        self.assertIn("backtrace:", smoke)
+        self.assertIn("=== ANDROID CRASH BUFFER ===", smoke)
+
     def test_android_smoke_exercises_sleep_resume_power_state(self):
         smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
         self.assertIn("power_is_interactive()", smoke)
