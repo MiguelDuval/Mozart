@@ -25,6 +25,7 @@
 #include "musical/VoiceLeading.h"
 #include "scheduler/PerformanceScene.h"
 #include "scheduler/MacroControl.h"
+#include "scheduler/TimingTelemetry.h"
 #include "midi/MidiTransport.h"
 #include "midi/MidiReceiveQueue.h"
 #include "midi/ControllerMapping.h"
@@ -191,6 +192,33 @@ void testConcurrentMozartRuntimeLifecycleIsSafe() {
 }
 #endif
 
+void testTimingTelemetryStatistics() {
+    mozart::scheduler::TimingTelemetry telemetry;
+
+    telemetry.recordScheduled(4.0, 1'000'000ULL, true);
+    telemetry.recordScheduled(4.5, 2'000'000ULL, false);
+    telemetry.recordSend(1'000'000ULL, 1'100'000ULL, true);
+    telemetry.recordSend(2'000'000ULL, 1'900'000ULL, false);
+
+    const auto snapshot = telemetry.snapshot();
+    assert(snapshot.scheduledMessages == 2);
+    assert(snapshot.enqueuedMessages == 1);
+    assert(snapshot.sendAttempts == 2);
+    assert(snapshot.successfulSends == 1);
+    assert(snapshot.failedSends == 1);
+    assert(snapshot.lateDispatches == 1);
+    assert(snapshot.maxLateNanos == 100'000ULL);
+    assert(snapshot.jitterSamples == 1);
+    assert(snapshot.totalJitterNanos == 200'000ULL);
+    assert(snapshot.maxJitterNanos == 200'000ULL);
+    assert(std::abs(snapshot.lastScheduledBeat - 4.5) < 1.0e-12);
+    assert(snapshot.lastScheduledTimestampNanos == 2'000'000ULL);
+    assert(snapshot.lastSendTimestampNanos == 1'900'000ULL);
+    assert(std::abs(snapshot.meanJitterMicros() - 200.0) < 1.0e-12);
+    assert(std::abs(snapshot.maxLateMicros() - 100.0) < 1.0e-12);
+    assert(std::abs(snapshot.maxJitterMicros() - 200.0) < 1.0e-12);
+}
+
 #ifdef LINK_PLATFORM_LINUX
 void testBoundedSchedulerMidiSoak() {
     class SoakOutput final : public mozart::midi::MidiOutputTransport {
@@ -213,8 +241,12 @@ void testBoundedSchedulerMidiSoak() {
 
     SoakOutput output;
     mozart::clock::LinkClock clock(240.0, 1.0);
-    mozart::scheduler::MidiSendQueue queue(output);
-    mozart::scheduler::AccompanimentScheduler scheduler(clock, queue);
+    mozart::scheduler::TimingTelemetry telemetry;
+    mozart::scheduler::MidiSendQueue queue(output, 512, &telemetry);
+    mozart::scheduler::AccompanimentScheduler scheduler(
+            clock,
+            queue,
+            &telemetry);
 
     constexpr int kIterations = 12;
     constexpr int kMaxWaitAttempts = 80;
@@ -254,6 +286,12 @@ void testBoundedSchedulerMidiSoak() {
     scheduler.stop();
     queue.stop();
     clock.setEnabled(false);
+
+    const auto telemetrySnapshot = telemetry.snapshot();
+    assert(telemetrySnapshot.scheduledMessages > 0);
+    assert(telemetrySnapshot.enqueuedMessages > 0);
+    assert(telemetrySnapshot.sendAttempts > 0);
+    assert(telemetrySnapshot.successfulSends > 0);
 }
 
 #endif
@@ -2852,6 +2890,7 @@ int main() {
 #endif
 
     testConcurrentMidiSendQueueLifecycleIsSafe();
+    testTimingTelemetryStatistics();
 #ifdef LINK_PLATFORM_LINUX
     testBoundedSchedulerMidiSoak();
 #endif
