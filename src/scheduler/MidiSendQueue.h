@@ -1,6 +1,7 @@
 #pragma once
 
 #include "midi/MidiTransport.h"
+#include "scheduler/TimingTelemetry.h"
 
 #include <condition_variable>
 #include <cstddef>
@@ -16,7 +17,8 @@ class MidiSendQueue final {
 public:
     explicit MidiSendQueue(
             midi::MidiOutputTransport& transport,
-            std::size_t capacity = 512);
+            std::size_t capacity = 512,
+            TimingTelemetry* telemetry = nullptr);
 
     ~MidiSendQueue();
 
@@ -44,6 +46,7 @@ private:
 
     midi::MidiOutputTransport& transport_;
     const std::size_t capacity_;
+    TimingTelemetry* telemetry_ = nullptr;
 
     // Serialize lifecycle transitions so start() cannot publish a new worker
     // while stop() is still joining the previous one.
