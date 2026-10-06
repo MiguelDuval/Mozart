@@ -12,6 +12,44 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class AndroidJniKeyContextContractTests(unittest.TestCase):
+    def test_timing_telemetry_snapshot_boundary_exists(self) -> None:
+        jni = (
+            ROOT
+            / "src"
+            / "platform"
+            / "android"
+            / "MozartJni.cpp"
+        ).read_text(encoding="utf-8")
+        activity = (
+            ROOT
+            / "android"
+            / "app"
+            / "src"
+            / "main"
+            / "java"
+            / "com"
+            / "miguelduval"
+            / "mozart"
+            / "MainActivity.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "Java_com_miguelduval_mozart_MainActivity_nativeTimingTelemetrySnapshot",
+            jni,
+        )
+        self.assertIn(
+            "captureTimingTelemetrySnapshot()",
+            jni,
+        )
+        self.assertIn(
+            "private static native String nativeTimingTelemetrySnapshot();",
+            activity,
+        )
+        self.assertIn(
+            "TIMING  •  " + " + nativeTimingTelemetrySnapshot()",
+            activity,
+        )
+
     def test_generation_factory_receives_resolved_key_scale_field(self) -> None:
         source = (
             ROOT
