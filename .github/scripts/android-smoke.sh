@@ -17,8 +17,9 @@ WINDOW_FILE=/tmp/mozart-window.txt
 SCREEN_FILE=/tmp/mozart-screen.png
 UI_FILE=/tmp/mozart-ui.xml
 RETRY_LOGCAT_FILE=/tmp/mozart-attempt-1-logcat.txt
+CRASH_LOGCAT_FILE=/tmp/mozart-crash-logcat.txt
 
-rm -f "$LOGCAT_FILE" "$START_FILE" "$START_STATUS_FILE" "$START_HOST_PID_FILE" "$PID_FILE" "$PS_FILE" "$ACTIVITY_FILE" "$PROCESSES_FILE" "$WINDOW_FILE" "$SCREEN_FILE" "$UI_FILE" "$RETRY_LOGCAT_FILE"
+rm -f "$LOGCAT_FILE" "$START_FILE" "$START_STATUS_FILE" "$START_HOST_PID_FILE" "$PID_FILE" "$PS_FILE" "$ACTIVITY_FILE" "$PROCESSES_FILE" "$WINDOW_FILE" "$SCREEN_FILE" "$UI_FILE" "$RETRY_LOGCAT_FILE" "$CRASH_LOGCAT_FILE"
 
 write_logcat() {
   # Keep startup/runtime assertions focused on Mozart's own tagged logs.
@@ -26,8 +27,20 @@ write_logcat() {
   timeout 20s adb shell logcat -d -v brief -t 5000 -s MozartStartup:I "*:S" > "$LOGCAT_FILE" 2>/dev/null || true
 }
 
+write_crash_logcat() {
+  timeout 20s adb shell logcat -b crash -d -v threadtime -t 1000 > "$CRASH_LOGCAT_FILE" 2>/dev/null || true
+}
+
+mozart_crash_signature_detected() {
+  write_crash_logcat
+  grep -Eiq     "(Process: $PACKAGE|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|backtrace:)"     "$CRASH_LOGCAT_FILE"
+}
+
 fatal_mozart_exception() {
-  grep -B3 -A12 -F "Process: $PACKAGE" "$LOGCAT_FILE" | grep -Fq "FATAL EXCEPTION"
+  if grep -B3 -A12 -F "Process: $PACKAGE" "$LOGCAT_FILE" | grep -Fq "FATAL EXCEPTION"; then
+    return 0
+  fi
+  mozart_crash_signature_detected
 }
 
 system_anr_detected() {
@@ -338,6 +351,7 @@ collect_diagnostics() {
   timeout 15s adb shell dumpsys activity processes > "$PROCESSES_FILE" 2>/dev/null || true
   timeout 15s adb shell dumpsys window windows > "$WINDOW_FILE" 2>/dev/null || true
   write_logcat
+  write_crash_logcat
   timeout 15s adb exec-out screencap -p > "$SCREEN_FILE" 2>/dev/null || true
   timeout 10s adb shell uiautomator dump /sdcard/mozart-ui.xml >/dev/null 2>&1 || true
   timeout 10s adb exec-out cat /sdcard/mozart-ui.xml > "$UI_FILE" 2>/dev/null || true
@@ -490,6 +504,8 @@ printf '\n=== START OUTPUT ===\n'
 cat "$START_FILE" 2>/dev/null || true
 printf '\n=== MOZART LOG MARKERS ===\n'
 grep "MozartStartup" "$LOGCAT_FILE" || true
+printf '\n=== ANDROID CRASH BUFFER ===\n'
+cat "$CRASH_LOGCAT_FILE" 2>/dev/null || true
 printf '\n=== MOZART PS ===\n'
 grep -i "mozart" "$PS_FILE" || true
 
