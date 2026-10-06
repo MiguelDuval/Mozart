@@ -176,6 +176,31 @@ class AndroidLifecycleContractTest(unittest.TestCase):
             input,
         )
 
+    def test_android_smoke_emits_timing_telemetry_markers(self):
+        smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
+        activity = (JAVA_ROOT / "MainActivity.java").read_text()
+
+        self.assertIn(
+            "RUNTIME: Timing telemetry tick ",
+            activity,
+        )
+        self.assertIn(
+            "RUNTIME: Timing telemetry stopped ",
+            activity,
+        )
+        self.assertIn(
+            'grep -Fq "RUNTIME: Timing telemetry tick scheduled="',
+            smoke,
+        )
+        self.assertIn(
+            'grep -Fq "RUNTIME: Timing telemetry stopped scheduled="',
+            smoke,
+        )
+        self.assertIn(
+            'grep -Fq "send_attempts="',
+            smoke,
+        )
+
     def test_android_smoke_exercises_sleep_resume_power_state(self):
         smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
         self.assertIn("power_is_interactive()", smoke)
