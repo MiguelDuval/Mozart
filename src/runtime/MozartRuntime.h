@@ -16,6 +16,7 @@
 #include <mutex>
 #include <string_view>
 #include "scheduler/MidiSendQueue.h"
+#include "scheduler/TimingTelemetry.h"
 
 namespace mozart::runtime {
 
@@ -65,6 +66,8 @@ public:
     [[nodiscard]] bool linkEnabled() const noexcept;
     [[nodiscard]] bool accompanimentEnabled() const noexcept;
     [[nodiscard]] clock::LinkClockSnapshot captureLinkSnapshot() const;
+    [[nodiscard]] scheduler::TimingTelemetrySnapshot
+    captureTimingTelemetrySnapshot() const noexcept;
 
     [[nodiscard]] bool registerModel(
             generation::ModelCatalogEntry entry);
@@ -93,6 +96,7 @@ private:
 
     clock::LinkClock linkClock_{120.0, 4.0};
     musical::KeyContext keyContext_{};
+    scheduler::TimingTelemetry timingTelemetry_{};
     scheduler::MidiSendQueue sendQueue_;
     scheduler::AccompanimentScheduler scheduler_;
     midi::ControllerMapping controllerMapping_{};
