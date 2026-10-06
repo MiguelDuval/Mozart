@@ -33,7 +33,14 @@ write_crash_logcat() {
 
 mozart_crash_signature_detected() {
   write_crash_logcat
-  grep -Eiq     "(Process: $PACKAGE|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|backtrace:)"     "$CRASH_LOGCAT_FILE"
+
+  local mozart_crash_context
+  mozart_crash_context="$(grep -B8 -A24 -E     "Process: $PACKAGE|>>> $PACKAGE <<<"     "$CRASH_LOGCAT_FILE" || true)"
+
+  [[ -n "$mozart_crash_context" ]] || return 1
+
+  printf '%s\n' "$mozart_crash_context" |
+    grep -Eiq       "(FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|backtrace:)"
 }
 
 fatal_mozart_exception() {
