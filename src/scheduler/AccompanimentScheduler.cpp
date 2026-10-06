@@ -35,9 +35,11 @@ namespace {
 
 AccompanimentScheduler::AccompanimentScheduler(
         clock::LinkClock& clock,
-        MidiSendQueue& sendQueue)
+        MidiSendQueue& sendQueue,
+        TimingTelemetry* telemetry)
     : clock_(clock),
-      sendQueue_(sendQueue) {}
+      sendQueue_(sendQueue),
+      telemetry_(telemetry) {}
 
 AccompanimentScheduler::~AccompanimentScheduler() {
     stop();
@@ -487,12 +489,23 @@ void AccompanimentScheduler::scheduleEvent(
                     noteOffTimestamp);
 
     if (noteOn.has_value()) {
-        (void) sendQueue_.enqueue(*noteOn);
+        const bool enqueued = sendQueue_.enqueue(*noteOn);
+        if (telemetry_ != nullptr) {
+            telemetry_->recordScheduled(
+                    startBeat,
+                    noteOnTimestamp,
+                    enqueued);
+        }
     }
 
     if (noteOff.has_value()) {
-        (void) sendQueue_.enqueue(*noteOff);
+        const bool enqueued = sendQueue_.enqueue(*noteOff);
+        if (telemetry_ != nullptr) {
+            telemetry_->recordScheduled(
+                    endBeat,
+                    noteOffTimestamp,
+                    enqueued);
+        }
     }
-}
 
 } // namespace mozart::scheduler
