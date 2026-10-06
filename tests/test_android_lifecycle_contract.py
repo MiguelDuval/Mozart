@@ -137,6 +137,39 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         self.assertIn("midiManager.openDevice(", sync)
         self.assertIn("samePendingEndpoint(selected)", sync)
 
+    def test_midi_input_reconnect_uses_stable_identity_safely(self):
+        transport = self.midi_transport
+        activity = self.activity
+
+        self.assertIn(
+            "PROPERTY_SERIAL_NUMBER",
+            transport,
+        )
+        self.assertIn(
+            "serialNumber",
+            transport,
+        )
+        self.assertIn(
+            "sameStableEndpoint(selectionIntent,",
+            activity,
+        )
+        self.assertIn(
+            "int stableMatches = 0;",
+            activity,
+        )
+        self.assertIn(
+            "if (stableMatches == 1)",
+            activity,
+        )
+        self.assertIn(
+            "first.serialNumber.equals(second.serialNumber)",
+            activity,
+        )
+        self.assertIn(
+            "first.manufacturer.equals(second.manufacturer)",
+            activity,
+        )
+
     def test_midi_input_reconnect_preserves_explicit_selection_intent(self):
         self.assertIn("midiInputSelectionIntent", self.activity)
         update_start = self.activity.index("private void updateMidiInputCandidates")
