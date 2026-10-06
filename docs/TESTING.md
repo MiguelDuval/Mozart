@@ -113,3 +113,11 @@ The telemetry snapshot reports:
 The observed send timestamp is the monotonic timestamp at the start of the transport send() call. For Android AMidi this is **not** a measurement of the physical USB wire time or audible MIDI output time; those still require hardware instrumentation/physical testing.
 
 Telemetry uses atomic counters and does not add filesystem, network, allocation, or blocking-I/O work to the scheduler or MIDI send path.
+
+## MIDI disconnect/reconnect evidence
+
+The Android MIDI adapter invalidates the current output session on device removal and refreshes the device inventory on add/status callbacks. MIDI IN preserves the performer's selected endpoint intent across a transient disappearance.
+
+Android MIDI device IDs are service-generated and are not persistent across physical unplug/replug. The reconnect path therefore retains the USB serial property when available; when no serial is exposed, descriptive endpoint identity is used only when exactly one current candidate matches.
+
+Automated JVM/contract coverage proves the lifecycle and identity-selection rules. It does **not** prove a physical USB unplug/replug, which remains a hardware acceptance test.
