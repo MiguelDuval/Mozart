@@ -13,6 +13,7 @@
 #include "scheduler/AccompanimentRole.h"
 #include "scheduler/PerformanceScene.h"
 #include "scheduler/MacroControl.h"
+#include "scheduler/TimingTelemetry.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -27,7 +28,8 @@ class AccompanimentScheduler final {
 public:
     AccompanimentScheduler(
             clock::LinkClock& clock,
-            MidiSendQueue& sendQueue);
+            MidiSendQueue& sendQueue,
+            TimingTelemetry* telemetry = nullptr);
 
     ~AccompanimentScheduler();
 
@@ -84,6 +86,7 @@ private:
 
     clock::LinkClock& clock_;
     MidiSendQueue& sendQueue_;
+    TimingTelemetry* telemetry_ = nullptr;
 
     // Serialize lifecycle transitions so stop() cannot race the worker
     // publication performed by start().
