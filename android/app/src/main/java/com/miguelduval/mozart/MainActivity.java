@@ -156,6 +156,7 @@ public final class MainActivity extends Activity {
                 return;
             }
             Log.i(TAG, "RUNTIME: Link snapshot tick " + nativeLinkSnapshot());
+            Log.i(TAG, "RUNTIME: Timing telemetry tick " + nativeTimingTelemetrySnapshot());
         }
     };
 
@@ -167,6 +168,7 @@ public final class MainActivity extends Activity {
             }
             nativeStopAccompaniment();
             Log.i(TAG, "RUNTIME: Link snapshot stopped " + nativeLinkSnapshot());
+            Log.i(TAG, "RUNTIME: Timing telemetry stopped " + nativeTimingTelemetrySnapshot());
             Log.i(TAG, "RUNTIME: Android smoke stop complete");
         }
     };
