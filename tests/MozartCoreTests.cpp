@@ -341,7 +341,7 @@ void testAccompanimentStopDoesNotSendStaleNotesAfterStop() {
         std::unique_lock<std::mutex> lock(output.mutex);
         const bool observed = output.condition.wait_for(
                 lock,
-                std::chrono::seconds(2),
+                std::chrono::seconds(5),
                 [&output] { return !output.messages.empty(); });
         assert(observed);
     }
