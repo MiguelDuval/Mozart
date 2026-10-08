@@ -150,16 +150,16 @@ class AndroidLifecycleContractTest(unittest.TestCase):
             transport,
         )
         self.assertIn(
-            "AndroidMidiTransport.sameStableEndpoint(\n                            selectionIntent,",
+            "AndroidMidiTransport.findReconnectCandidateIndex(\n                            selectionIntent,",
             activity,
         )
         self.assertIn(
-            "int stableMatches = 0;",
-            activity,
+            "static int findReconnectCandidateIndex(",
+            transport,
         )
         self.assertIn(
-            "if (stableMatches == 1)",
-            activity,
+            "return stableMatches == 1 ? stableMatchIndex : -1;",
+            transport,
         )
         self.assertIn(
             "first.serialNumber.equals(second.serialNumber)",
