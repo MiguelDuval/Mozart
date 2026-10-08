@@ -895,34 +895,10 @@ public final class MainActivity extends Activity {
         midiInputCandidates = Collections.unmodifiableList(candidates);
 
         if (selectionIntent != null) {
-            int preservedIndex = -1;
-            for (int i = 0; i < midiInputCandidates.size(); ++i) {
-                if (sameEndpoint(selectionIntent, midiInputCandidates.get(i))) {
-                    preservedIndex = i;
-                    break;
-                }
-            }
-
-            // Android MIDI device IDs are service-scoped and can change after
-            // a physical unplug/replug. Prefer the persisted USB serial number
-            // and only fall back to descriptive identity when it is unique.
-            if (preservedIndex < 0) {
-                int stableMatches = 0;
-                int stableMatchIndex = -1;
-                for (int i = 0; i < midiInputCandidates.size(); ++i) {
-                    if (AndroidMidiTransport.sameStableEndpoint(
+            midiInputSelection =
+                    AndroidMidiTransport.findReconnectCandidateIndex(
                             selectionIntent,
-                            midiInputCandidates.get(i))) {
-                        stableMatches++;
-                        stableMatchIndex = i;
-                    }
-                }
-                if (stableMatches == 1) {
-                    preservedIndex = stableMatchIndex;
-                }
-            }
-
-            midiInputSelection = preservedIndex;
+                            midiInputCandidates);
         } else if (midiInputSelection >= midiInputCandidates.size()) {
             midiInputSelection = -1;
         }
@@ -950,16 +926,6 @@ public final class MainActivity extends Activity {
             midiInput.open(midiInputCandidates.get(midiInputSelection));
         }
     }
-
-    private static boolean sameEndpoint(
-            AndroidMidiTransport.MidiEndpoint first,
-            AndroidMidiTransport.MidiEndpoint second) {
-        return first != null &&
-                second != null &&
-                first.deviceId == second.deviceId &&
-                first.portNumber == second.portNumber;
-    }
-
 
     private void cycleMidiInputSource() {
         if (midiInputCandidates.isEmpty()) {
