@@ -105,6 +105,39 @@ public final class AndroidMidiTransport {
                 first.name.equals(second.name);
     }
 
+    /**
+     * Selects the only safe reconnect candidate for a previously selected
+     * endpoint. Exact device/port identity wins; otherwise stable identity
+     * may restore the selection only when exactly one candidate matches.
+     */
+    static int findReconnectCandidateIndex(
+            MidiEndpoint selectionIntent,
+            List<MidiEndpoint> candidates) {
+        if (selectionIntent == null || candidates == null || candidates.isEmpty()) {
+            return -1;
+        }
+
+        for (int i = 0; i < candidates.size(); ++i) {
+            final MidiEndpoint candidate = candidates.get(i);
+            if (candidate != null &&
+                    candidate.deviceId == selectionIntent.deviceId &&
+                    candidate.portNumber == selectionIntent.portNumber) {
+                return i;
+            }
+        }
+
+        int stableMatches = 0;
+        int stableMatchIndex = -1;
+        for (int i = 0; i < candidates.size(); ++i) {
+            if (sameStableEndpoint(selectionIntent, candidates.get(i))) {
+                stableMatches++;
+                stableMatchIndex = i;
+            }
+        }
+
+        return stableMatches == 1 ? stableMatchIndex : -1;
+    }
+
     private final MidiManager midiManager;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final HandlerThread midiThread = new HandlerThread("Mozart-MIDI");
