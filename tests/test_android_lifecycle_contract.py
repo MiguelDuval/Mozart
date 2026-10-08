@@ -175,7 +175,7 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         update_start = self.activity.index("private void updateMidiInputCandidates")
         update = self.activity[
             update_start:self.activity.index(
-                "private static boolean sameEndpoint", update_start
+                "private void cycleMidiInputSource", update_start
             )
         ]
         self.assertIn(
