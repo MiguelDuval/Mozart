@@ -296,6 +296,95 @@ void testBoundedSchedulerMidiSoak() {
 
 #endif
 
+void testAccompanimentStopDoesNotSendStaleNotesAfterStop() {
+#ifdef LINK_PLATFORM_LINUX
+    class RecordingOutput final : public mozart::midi::MidiOutputTransport {
+    public:
+        mozart::midi::MidiSendResult send(
+                const mozart::midi::MidiShortMessage& message) noexcept override {
+            {
+                std::lock_guard<std::mutex> lock(mutex);
+                messages.push_back(message);
+            }
+            condition.notify_all();
+            return {
+                    mozart::midi::MidiTransportStatus::Ok,
+                    message.size
+            };
+        }
+
+        void close() noexcept override {}
+
+        [[nodiscard]] std::size_t size() const {
+            std::lock_guard<std::mutex> lock(mutex);
+            return messages.size();
+        }
+
+        [[nodiscard]] std::vector<mozart::midi::MidiShortMessage> snapshot() const {
+            std::lock_guard<std::mutex> lock(mutex);
+            return messages;
+        }
+
+        mutable std::mutex mutex;
+        std::condition_variable condition;
+        std::vector<mozart::midi::MidiShortMessage> messages;
+    };
+
+    RecordingOutput output;
+    mozart::runtime::MozartRuntime runtime(output);
+
+    runtime.start();
+    runtime.setLinkEnabled(true);
+    runtime.setAccompanimentEnabled(true);
+
+    {
+        std::unique_lock<std::mutex> lock(output.mutex);
+        const bool observed = output.condition.wait_for(
+                lock,
+                std::chrono::seconds(2),
+                [&output] { return !output.messages.empty(); });
+        assert(observed);
+    }
+
+    const auto stopBoundary = output.size();
+    runtime.setAccompanimentEnabled(false);
+
+    // The normal stop path clears future scheduler events before enqueueing
+    // the transport-level panic. After the API returns, no stale Note On may
+    // appear; only the panic CCs are allowed to be newly emitted.
+    {
+        std::unique_lock<std::mutex> lock(output.mutex);
+        output.condition.wait_for(
+                lock,
+                std::chrono::milliseconds(250),
+                [&output] { return output.messages.size() >= stopBoundary + 2; });
+    }
+
+    const auto messages = output.snapshot();
+    assert(messages.size() >= stopBoundary + 2);
+
+    bool observedAllNotesOff = false;
+    bool observedAllSoundOff = false;
+
+    for (std::size_t i = stopBoundary; i < messages.size(); ++i) {
+        const auto& message = messages[i];
+        assert((message.status & 0xF0U) != 0x90U || message.data2 == 0);
+
+        if ((message.status & 0xF0U) == 0xB0U && message.data1 == 123) {
+            observedAllNotesOff = true;
+        }
+        if ((message.status & 0xF0U) == 0xB0U && message.data1 == 120) {
+            observedAllSoundOff = true;
+        }
+    }
+
+    assert(observedAllNotesOff);
+    assert(observedAllSoundOff);
+
+    runtime.stop();
+#endif
+}
+
 void testConcurrentAccompanimentSchedulerLifecycleIsSafe() {
     class SilentOutput final : public mozart::midi::MidiOutputTransport {
     public:
@@ -2898,6 +2987,8 @@ int main() {
 #ifdef LINK_PLATFORM_LINUX
     testConcurrentMozartRuntimeLifecycleIsSafe();
 #endif
+
+    testAccompanimentStopDoesNotSendStaleNotesAfterStop();
 
     return 0;
 }
