@@ -357,7 +357,7 @@ void testAccompanimentStopDoesNotSendStaleNotesAfterStop() {
         output.condition.wait_for(
                 lock,
                 std::chrono::milliseconds(250),
-                [&output] { return output.messages.size() >= stopBoundary + 2; });
+                [&output, stopBoundary] { return output.messages.size() >= stopBoundary + 2; });
     }
 
     const auto messages = output.snapshot();
