@@ -182,7 +182,10 @@ class AndroidLifecycleContractTest(unittest.TestCase):
             "midiInputSelectionIntent != null",
             update,
         )
-        self.assertIn("sameEndpoint(selectionIntent, midiInputCandidates.get(i))", update)
+        self.assertIn(
+            "AndroidMidiTransport.findReconnectCandidateIndex(",
+            update,
+        )
         self.assertIn("midiInput.open(midiInputCandidates.get(midiInputSelection))", update)
 
         cycle_start = self.activity.index("private void cycleMidiInputSource")
