@@ -648,3 +648,13 @@ After code:
 The purpose of Mozart is not to accumulate code.
 
 The purpose is to create a reliable musical instrument.
+
+## 21. Non-negotiable scope of the symbolic music model
+
+The intended model must cover **practically the full spectrum of electronic music**, subject to representative, legally usable training data and honest evaluation. Dark melodic techno is one requested style, not the sole purpose or training target. The model must support broad style-family/subgenre controls and useful hybrid requests rather than being optimized around a single narrow genre.
+
+This scope applies to model research, dataset selection, conditioning vocabulary, training runs, evaluation, checkpoint promotion, and future releases. The canonical training and corpus strategy is [`docs/MUSIC_MODEL_TRAINING_STRATEGY.md`](MUSIC_MODEL_TRAINING_STRATEGY.md). Follow it instead of treating each narrow experiment as the final objective.
+
+NRG-CP is only a narrow chord-progression experiment; its success cannot establish coverage of complete electronic arrangements or other genre families. The MAESTRO-derived technical smoke-test checkpoint is not a production candidate for the commercially oriented model path by default because its data has non-commercial/share-alike terms. Production candidates must pass both base-weight and training-data provenance/license review.
+
+The long-term plan is to build a rights-reviewed, diverse corpus and train/evaluate a broad model across genre families, with per-family metrics and controlled generation comparisons. Longer training is acceptable when justified by data and validation. Do not repeatedly rerun already-passed tokenizer/CUDA checks or substitute more narrow smoke tests for substantive corpus and training progress.
