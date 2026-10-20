@@ -14,8 +14,11 @@ The project contract is defined by:
 6. `docs/MIDI-CONTRACT.md`
 7. `docs/LINK-TIMING.md`
 8. `docs/AI-GENERATION.md`
+9. `docs/MUSIC_MODEL_TRAINING_STRATEGY.md`
 
 When documents conflict with source code or test evidence, investigate the discrepancy and update the documentation deliberately.
+
+For symbolic-MIDI model datasets, training, conditioning, evaluation, and checkpoint promotion, also follow `docs/MUSIC_MODEL_TRAINING_STRATEGY.md`. The strategic scope is broad coverage across practically the full spectrum of electronic music; no single subgenre, including dark melodic techno, is the overall model objective.
 
 ## Mandatory engineering rules
 
