@@ -121,3 +121,12 @@ At the end of meaningful work report:
 ---
 
 *This protocol is binding for all future Cline sessions on the Mozart project.*
+
+
+### Music-model labeling and vocabulary discipline
+- Before adding role, genre, or section token IDs, first create sidecar metadata and measure how many trustworthy labels exist per source/split.
+- Prefer dataset-grounded labels with provenance. Heuristic role guesses must be marked weak labels, include confidence/rule version, and must not be treated as gold supervision by default.
+- Do not invent Intro/Verse/Chorus/Breakdown/Drop/Outro labels when authoritative structural annotations are absent.
+- Adding tokens does not create supervision. Do not alter vocabulary/model dimensions until a concrete conditioning objective, sufficient labels, backward-compatible ID mapping, and a testable evaluation are specified.
+- Single-stream polyphony is the near-term priority; multi-track modelling is optional and must be justified by evidence.
+- Do not start another long training run while the checkpoint-loading problem is unresolved or before the existing coverage audit identifies a concrete data gap.
