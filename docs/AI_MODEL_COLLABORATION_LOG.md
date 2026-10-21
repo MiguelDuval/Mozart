@@ -212,3 +212,56 @@ After fixing `train_mmm_v2.py` with `weights_only=True` and verifying PyTorch im
 
 ### Message for ChatGPT
 **CRITICAL BLOCKER:** Post-reboot, 3 new unkillable Python processes appeared (PIDs 19992, 20436, 20600) that block ALL `torch.load()` operations (even with `weights_only=True` and `CUDA_VISIBLE_DEVICES=''`). These are in kernel wait state, survive `taskkill /F`. Root cause unknown — not scheduled task (last ran yesterday). Training is BLOCKED. Per user directive: NO REBOOT. Can only do non-PyTorch work (tokenizer tests, git, docs). Need user decision on how to clear deadlock.
+
+---
+
+## 2026-10-21 17:00 Europe/Madrid — Cline — Documentation Committed, GitHub Push Pending
+
+### Context
+Completed all non-PyTorch work: documentation created, tokenizer encoding verified, training script fixed, git commit created.
+
+### Executed
+1. **MMM v2 Tokenizer Round-trip Tests** (PARTIAL — encoding VERIFIED, decoding BUG):
+   - All 3 Slakh samples encode correctly with Track_Start/Track_End markers
+   - Track 00003: 9 tracks → 9 Track_Start + 9 Track_End markers ✓
+   - All regular tokens in 0-11999 range ✓
+   - **Decoding fails** with miditok API incompatibility: `AttributeError: 'list' object has no attribute 'tokens'` — UNVERIFIED for round-trip fidelity
+
+2. **Git Commit** (VERIFIED):
+   - Commit SHA: `a565b55`
+   - Branch: `main`
+   - Files: `docs/MUSIC_MODEL_TRAINING_HISTORY.md`, `docs/AI_MODEL_COLLABORATION_LOG.md`, `AGENTS.md`, `experiments/aura-midi/train_mmm_v2.py`, `experiments/aura-midi/test_mmm_v2_roundtrip.py`
+   - 5 files changed, 1187 insertions
+
+3. **GitHub Push** (PENDING):
+   - `git push origin main` initiated but hanging (possible auth/network)
+   - Local branch is ahead of origin/main by 1 commit
+
+### Verified Evidence
+- Commit `a565b55` exists locally
+- `train_mmm_v2.py` lines 237, 373 have `weights_only=True`
+- Tokenizer encoding produces correct Track_Start/Track_End markers for all 3 samples
+- Git status: "Your branch is ahead of 'origin/main' by 1 commit"
+
+### Unverified Claims
+- GitHub push success (hanging)
+- MMM v2 decoder fix for miditok compatibility
+
+### Changed Files
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md`
+- `docs/AI_MODEL_COLLABORATION_LOG.md`
+- `AGENTS.md`
+- `experiments/aura-midi/train_mmm_v2.py`
+- `experiments/aura-midi/test_mmm_v2_roundtrip.py`
+
+### Result
+**IN PROGRESS** — Documentation committed locally, GitHub push pending. Training BLOCKED by unkillable processes. No reboot performed per user directive.
+
+### Next Action
+1. Complete GitHub push (resolve auth/network)
+2. **Cannot proceed with training** until unkillable processes cleared — requires reboot (user permission) or system intervention
+3. Fix MMM v2 tokenizer decoding bug (miditok API)
+4. Resume Slakh download for full corpus
+
+### Message for ChatGPT
+Documentation complete and committed (SHA: a565b55). Push to GitHub pending. **Training remains BLOCKED** — 3 unkillable Python processes (PIDs 19992, 20436, 20600) prevent all `torch.load()` operations. User explicitly forbade reboot. MMM v2 tokenizer encoding VERIFIED on 3 Slakh samples; decoding has miditok API bug (UNVERIFIED round-trip). Need user decision: allow reboot to clear deadlock, or accept training block.
