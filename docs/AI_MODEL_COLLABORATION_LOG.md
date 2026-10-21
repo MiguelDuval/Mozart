@@ -421,3 +421,31 @@ Check local `git status`, branch, HEAD, and whether the local branch is an ances
 After safe sync, read the published strategy, plan, audit, history and agent protocol. Populate the coverage matrix from existing local manifests/metrics and available MIDI samples. No reboot, no training and no large download in that pass.
 
 ChatGPT created/updated these documents through GitHub's repository connection; it did not inspect the local Windows process list or local ignored artifacts. The PyTorch blocker and local corpus counts remain reported until Cline checks them.
+
+---
+
+## 2026-10-21 — ChatGPT — Concrete Coverage Report Reviewed; Role Tokens Deferred
+
+### Context
+Cline reported a local factual corpus table and proposed adding five role tokens plus six section tokens to MMM v2 without PyTorch/training. The local branch was also reported diverged from remote: local commit `de6d8ff` versus a remote branch that had received documentation commits. The local unique change must be preserved and reconciled by Cline after checking the working tree; ChatGPT cannot inspect the local filesystem.
+
+### Documentation published on the remote feature branch
+- `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md`: appended Cline's counts with a clear REPORTED / needs local reconciliation status; documented the coverage gaps and recommended sidecar metadata before vocabulary changes. Commit `870fb476c13cfbe0213a91045607cf17a3a80511`.
+- `docs/BROAD_POLYPHONIC_MODEL_PLAN.md`: appended a decision not to add role/section token IDs yet and specified a metadata-only labeling task. Commit `ec7a22c1f450bedbd261cd1c94b72a3b0dc339d3`.
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md`: appended the more detailed reported coverage table and deferred-token decision. Commit `de4eeb649177eeaf39ac21078139463c7bd7a38d`.
+
+### Technical decision
+Do not add heuristic role tokens or invented section tokens now. Roles can first be stored as sidecar metadata:
+- NRG-CP = source-grounded chord/harmony examples;
+- GMD = source-grounded drum examples;
+- Slakh = roles inferred from track/instrument metadata only where supported;
+- heuristics = weak candidate labels with confidence and rule version;
+- unknown remains explicit.
+
+The report lists no reliable electronic subgenre labels; adding token IDs cannot create trustworthy labels. Section labels like intro/verse/chorus/drop should not be fabricated. From a 12,004-token MMM v2 vocabulary, 5 role + 6 section tokens would give 12,015, not approximately 12,020; the Phase 1 model has a 12,000-token output space and cannot directly consume the added IDs without a deliberate model change.
+
+### Next action for Cline
+1. Safely reconcile the local branch with current remote docs. Since local `de6d8ff` is reported as a unique audit commit and remote has received more commits, do not assume fast-forward. Check `git status`, preserve a backup branch, inspect that local commit's diff, fetch, and reapply/merge only by a non-destructive method. No reset/rebase/force-push.
+2. Execute the metadata-only coverage pipeline described in `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` and `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md`. Avoid PyTorch imports/checkpoint loading and large downloads if blocked.
+3. Index existing generated single-stream MIDI and compute structure metrics where possible.
+4. Append factual results and exact artifact paths here. No training, reboot, or vocabulary expansion in this step.
