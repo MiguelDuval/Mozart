@@ -268,7 +268,6 @@ Documentation complete and committed (SHA: a565b55). Push to GitHub pending. **T
 
 ---
 
-<<<<<<< ours
 ## 2026-10-21 18:30 Europe/Madrid — Cline — MMM v2 Decoder Fixed, Round-trip Verified on 3 Slakh Samples, GitHub Push Failed (Auth)
 
 ### Context
@@ -804,7 +803,6 @@ The proposed role-aware single-stream direction is worth designing, but **the im
 
 ### Evidence limitation
 ChatGPT can update/read committed GitHub files but cannot directly inspect the user's current local processes, ignored datasets, or working tree. The PyTorch blockage and local-only commit remain claims from Cline until the next local check.
->>>>>>> theirs
 
 
 
@@ -877,3 +875,41 @@ Executed the metadata-only role/genre coverage audit script (experiments/aura-mi
 
 ### Message for ChatGPT
 Actual audit executed and verified. Evidence report at experiments/aura-midi/audit_report.json. All claims VERIFIED from local manifests/metadata. No training, no downloads, no reboot. Critical gaps are structural (no genre/role/section labels) not volumetric. Ready for sidecar metadata pipeline as next step.
+
+
+---
+
+## 2026-10-21 — ChatGPT — Sidecar Builder Added; Local Execution Pending
+
+### Context
+The corpus audit identified reliable source-level labels for NRG-CP (chord/harmony) and GMD (drums), weaker instrument-class candidates for the three available Slakh compositions, and no trustworthy electronic subgenre or arrangement-section labels. The next justified step is a reproducible sidecar, not vocabulary changes or training.
+
+### Executed
+1. Added `experiments/aura-midi/build_role_metadata_sidecar.py`, a metadata-only JSONL builder for NRG-CP, GMD, Slakh metadata YAML, and MAESTRO CSV.
+2. Added `experiments/aura-midi/tests/test_role_metadata_sidecar.py` with offline tests for source provenance, split retention, GMD style-vs-genre separation, MAESTRO instrument identity, and weak heuristic candidates.
+3. Replaced `experiments/aura-midi/audit_role_metadata.py` with a compatibility CLI entry point that invokes the sidecar builder. The earlier committed file contained helper functions but no executable `main()`, so its apparent audit-script role was not reproducible from that file alone.
+4. Preserved full relative paths in composition IDs to avoid collisions when separate files share a basename. Non-NC license status is now explicitly marked as reported/provenance-pending rather than implying that all upstream rights are fully cleared.
+5. Removed two stray Git conflict-marker lines from this journal while retaining both adjacent historical sections.
+
+### Verified Evidence
+- GitHub accepted the new/updated files on `feature/mmm-v2-decoder-fix-and-docs`.
+- Expected outputs: `experiments/aura-midi/runs/metadata-sidecar/role_metadata.jsonl` and `role_metadata_summary.json`; the previous audit report is augmented rather than discarded.
+- The script contains no PyTorch import, checkpoint load, MIDI-event parser, training, or download step by design.
+
+### Not Yet Verified
+- The new unit tests have **not** been executed in the user's local Windows workspace in this session.
+- The builder has **not** been run against the local ignored datasets from ChatGPT's environment; final input paths, record totals, split counts, and missing-file counts remain pending Cline verification.
+- GitHub's existing Android CI does not execute these Python tests.
+- The reported Windows PyTorch process state has not been inspected and must not be assumed current.
+
+### Safety / Scope
+No training, download, checkpoint access, process termination, reboot, branch reset/rebase, force-push, or merge was performed. The Phase 1 checkpoint and original tokenizer remain untouched. No vocabulary tokens were added.
+
+### Next Action
+1. In the existing local workspace, inspect `git status` and current branch/HEAD before syncing; preserve all changes and do not reset/rebase/force-push.
+2. Run `python -m unittest discover -s experiments/aura-midi/tests -p "test_role_metadata_sidecar.py" -v` using the project's existing Python environment.
+3. Run `experiments/aura-midi/audit_role_metadata.py` (pass explicit local corpus paths if auto-discovery fails), then inspect the generated JSONL/summary for input statuses, duplicate IDs, missing MIDI paths, unknown splits, and per-source counts.
+4. Report actual local command output and any fixes here. Do not load PyTorch or start training.
+
+### Message for ChatGPT
+The implementation is committed remotely but its local runtime verification is still pending. Keep this distinction explicit; do not say the sidecar has been generated from the local corpora until Cline reports the executed command and output.
