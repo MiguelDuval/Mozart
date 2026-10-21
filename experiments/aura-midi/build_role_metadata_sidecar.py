@@ -141,7 +141,7 @@ def make_record(
         "section_label": None,
         "section_label_origin": "not_annotated",
         "license": license_name,
-        "license_use_class": "noncommercial_only" if "NC" in license_name else "commercial_permitted_with_attribution",
+        "license_use_class": "noncommercial_only" if "NC" in license_name else "reported_cc_by_attribution_required_provenance_pending",
         "dedup_id": source_id + ":" + composition_id,
     }
 
@@ -160,7 +160,8 @@ def nrgcp_records(root: Path | None) -> tuple[list[dict[str, Any]], dict[str, An
     records = []
     for path in files:
         rel = path.relative_to(root).as_posix()
-        composition_id = path.stem
+        # Keep relative parent directories: basenames can collide across folders.
+        composition_id = Path(rel).with_suffix("").as_posix()
         records.append(make_record(
             source_id=source, composition_id=composition_id, asset_id=rel,
             midi_path=str(path.resolve()), asset_exists=True, split=split_from(rel),
@@ -188,9 +189,10 @@ def csv_records(csv_path: Path | None, source: str) -> tuple[list[dict[str, Any]
         path, exists = resolve_asset(raw_path, (root, root.parent, root.parent.parent))
         source_style = first_value(row, ("style", "rhythmic_style", "groove_style", "substyle"))
         if source == "gmd":
-            composition = first_value(row, ("groove_id", "example_id", "midi_filename", "filename", "session_id")) or (Path(raw_path).stem if raw_path else f"row-{index:06d}")
+            explicit_id = first_value(row, ("groove_id", "example_id", "session_id"))
+            composition = explicit_id or (Path(raw_path.replace("\\", "/")).with_suffix("").as_posix() if raw_path else f"row-{index:06d}")
             records.append(make_record(
-                source_id=source, composition_id=Path(composition).stem, asset_id=raw_path or f"csv-row-{index}",
+                source_id=source, composition_id=composition, asset_id=raw_path or f"csv-row-{index}",
                 midi_path=path, asset_exists=exists, split=split_from(raw_path, split_raw),
                 license_name=LICENSES[source], source_domain="drum_groove",
                 source_role="Drums", role_origin="dataset_semantics",
@@ -198,7 +200,8 @@ def csv_records(csv_path: Path | None, source: str) -> tuple[list[dict[str, Any]
                 source_style=source_style, label_evidence="source_semantics",
             ))
         else:
-            composition = first_value(row, ("composition_id", "midi_filename", "filename", "title", "canonical_title")) or (Path(raw_path).stem if raw_path else f"row-{index:06d}")
+            explicit_id = first_value(row, ("composition_id", "title", "canonical_title"))
+            composition = explicit_id or (Path(raw_path.replace("\\", "/")).with_suffix("").as_posix() if raw_path else f"row-{index:06d}")
             records.append(make_record(
                 source_id=source, composition_id=Path(composition).stem, asset_id=raw_path or f"csv-row-{index}",
                 midi_path=path, asset_exists=exists, split=split_from(raw_path, split_raw),
