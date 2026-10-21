@@ -377,3 +377,23 @@ ChatGPT read the committed project history and reports through GitHub. It did no
 
 ### Decision and next action
 Do not train, reboot, or make a large dataset download in this phase. Cline should safely fast-forward/reconcile the local feature branch after checking `git status`, read the new audit/strategy/plan, and fill source/role/genre counts from existing manifests and sample files. Preserve the Phase 1 checkpoint and keep MMM v2 experimental until round-trip and drum-event preservation are fully verified.
+---
+
+## 2026-10-21 — ChatGPT — Draft PR Opened for Review
+
+### Verified GitHub action
+- Draft PR #3 created: https://github.com/MiguelDuval/Mozart/pull/3
+- Head: `feature/mmm-v2-decoder-fix-and-docs`
+- Base: `main`
+- At creation, head SHA was `58a1935f3ccd6bdae1c5e39dbb019d533f669dd0`.
+- PR is open as DRAFT, unmerged. GitHub reported `mergeable=false` at creation and compare showed the branch behind main by one commit. Do not merge; first inspect the conflict/divergence and review all included experimental code.
+- No changes were made to `main` directly.
+
+### Scope and caveats
+The PR bundles the model training history, permanent collaboration protocol, broad single-stream polyphonic strategy, coverage audit, and MMM v2 experimental implementation. MMM v2 is still PARTIAL; PyTorch availability/checkpoint load is still REPORTED BLOCKED from the local Cline report. No new training is authorized by this handoff.
+
+### Next action for Cline
+1. Fetch the current branch head and check local `git status` before syncing. Do not reset, rebase, force-push or alter `main`.
+2. Read the PR description and review its base/head divergence. If there is a clean, safe path to reconcile the one commit behind, report it first or use a non-destructive merge strategy only when conflict impact is understood; do not rewrite history.
+3. Bring the local checkout to the published branch through a safe fast-forward when possible, then confirm the new documents exist locally.
+4. Build the evidence-based coverage matrix from already available manifests and output MIDI; do not train, reboot or download a large dataset in that step.
