@@ -265,3 +265,39 @@ Completed all non-PyTorch work: documentation created, tokenizer encoding verifi
 
 ### Message for ChatGPT
 Documentation complete and committed (SHA: a565b55). Push to GitHub pending. **Training remains BLOCKED** — 3 unkillable Python processes (PIDs 19992, 20436, 20600) prevent all `torch.load()` operations. User explicitly forbade reboot. MMM v2 tokenizer encoding VERIFIED on 3 Slakh samples; decoding has miditok API bug (UNVERIFIED round-trip). Need user decision: allow reboot to clear deadlock, or accept training block.
+
+---
+
+## 2026-10-21 — ChatGPT — Broad Polyphonic Plan Published; Current Handoff
+
+### Context
+Cline's latest report states that the MMM v2 decoder change and documentation are committed and pushed, while PyTorch checkpoint loading remains blocked by three reported unkillable Python processes. The user does not permit reboots. The next strategic task is a broad single-stream polyphonic model plan, not immediate multi-track fine-tuning.
+
+### Verified on GitHub during this handoff
+- Repository: `MiguelDuval/Mozart`.
+- The feature branch `feature/mmm-v2-decoder-fix-and-docs` existed at commit `17d3324170b5cdc4bc615ba69c686149b0a0ec88`; its remote tokenizer and round-trip test were readable.
+- The branch `feature/link-clock` also exists remotely; it is separate from the current MMM v2 branch.
+- The collaboration log and training history were present on the MMM v2 branch, but their final entries were stale and still described the earlier push as pending. This entry corrects the current handoff without rewriting historical records.
+- The MMM v2 tokenizer code is available on the remote branch. Prior Cline round-trip evidence remains PARTIAL, not complete.
+
+### New canonical documents published on this feature branch
+1. `docs/MUSIC_MODEL_TRAINING_STRATEGY.md` — commit `1b2d9a5797192f285d73a536046f9f2fb86bc916`.
+2. `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` — commit `fe891aee833db2687dca33a01fc2c2807207f157`.
+
+The branch HEAD is now `fe891aee833db2687dca33a01fc2c2807207f157`. These commits were made only on `feature/mmm-v2-decoder-fix-and-docs`, not on `main`.
+
+### Strategic decision
+Prioritize a high-quality single-stream polyphonic generator with broad electronic-music coverage. Polyphony and multi-track arrangement are distinct. Keep MMM v2 as an isolated research experiment until its round-trip behavior is reliable and a specific arrangement-generation use-case warrants its complexity.
+
+### Current status reported by Cline (not independently rechecked on the local workstation)
+- Phase 1 checkpoint is reported preserved at `experiments/aura-midi/runs/broad-training-20261020_204942/checkpoint_best.pt`.
+- PyTorch `torch.load()` remains blocked according to Cline by PIDs 19992, 20436, and 20600. Their current existence/state is UNVERIFIED in this handoff.
+- MMM v2 round-trip remains PARTIAL: one sample partial, one timeout, one not decoded.
+- Only three Slakh compositions were reported available in the NC-restricted mirror; insufficient for long training.
+- The user has explicitly prohibited reboots. Do not issue restart/shutdown commands, do not schedule a reboot, and do not repeatedly retry a blocked model load.
+
+### Next action
+Cline should first check local `git status`, branch, and HEAD; preserve local modifications; then fast-forward/safely reconcile with remote branch HEAD `fe891aee833db2687dca33a01fc2c2807207f157`. Do not reset/rebase/force-push. Then execute the evidence-only coverage matrix specified in `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` using existing manifests, metrics, and samples. No new training, reboot, or large dataset download in this step.
+
+### Message for Cline
+Read the newly published strategy and plan before proceeding. Reconcile the local checkout safely with the feature branch. Update local `AGENTS.md` links if needed. Continue the single-stream polyphonic plan and keep the Phase 1 checkpoint intact. Do not treat reported deadlock PIDs as verified without checking them; do not reboot. Append a new log entry after the coverage matrix is complete, including evidence and the next justified step.
