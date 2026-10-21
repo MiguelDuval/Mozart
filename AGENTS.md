@@ -16,6 +16,8 @@ The project contract is defined by:
 8. `docs/AI-GENERATION.md`
 9. `docs/MUSIC_MODEL_TRAINING_HISTORY.md` — **Long-term source of truth for all model training**
 10. `docs/AI_MODEL_COLLABORATION_LOG.md` — **Permanent AI collaboration journal**
+11. `docs/MUSIC_MODEL_TRAINING_STRATEGY.md` — **Canonical strategy for broad electronic-music coverage**
+12. `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` — **Current single-stream polyphonic model plan**
 
 When documents conflict with source code or test evidence, investigate the discrepancy and update the documentation deliberately.
 
@@ -67,9 +69,10 @@ At the end of meaningful work report:
 **Before any significant work, Cline MUST read:**
 1. `docs/AI_MODEL_COLLABORATION_LOG.md` — latest entries and decisions
 2. `docs/MUSIC_MODEL_TRAINING_HISTORY.md` — complete training history with evidence classification
-3. `docs/MUSIC_MODEL_TRAINING_STRATEGY.md` — if available
-4. `docs/PROJECT_MASTER_PROMPT.md`
-5. `experiments/aura-midi/AURA_FINETUNE_READINESS.md` — if available in current checkout
+3. `docs/MUSIC_MODEL_TRAINING_STRATEGY.md` — canonical music-model strategy
+4. `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` — current model plan
+5. `docs/PROJECT_MASTER_PROMPT.md`
+6. `experiments/aura-midi/AURA_FINETUNE_READINESS.md` — if available in current checkout
 
 ### Git Hygiene
 - Check `git status`, current branch, and `HEAD` before starting
@@ -102,6 +105,9 @@ At the end of meaningful work report:
 
 ### Training Process Discipline
 - Do not launch new training processes until previous process state verified
+- Current strategic priority is broad single-stream polyphonic generation; multi-track arrangement training is optional and must be justified by evidence
+- Do not use MMM v2 for prolonged training until track-level round-trip and drum-event preservation are verified
+- Current PyTorch checkpoint-loading block is reported, not independently verified; recheck current state once, do not repeat identical attempts, and never reboot
 - Do not delete historical checkpoints, data, or user modifications
 - Strategic model goal: **practically entire spectrum of electronic music**, not only dark melodic techno
 
