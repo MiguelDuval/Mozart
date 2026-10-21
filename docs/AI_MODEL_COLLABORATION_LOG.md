@@ -397,3 +397,27 @@ The PR bundles the model training history, permanent collaboration protocol, bro
 2. Read the PR description and review its base/head divergence. If there is a clean, safe path to reconcile the one commit behind, report it first or use a non-destructive merge strategy only when conflict impact is understood; do not rewrite history.
 3. Bring the local checkout to the published branch through a safe fast-forward when possible, then confirm the new documents exist locally.
 4. Build the evidence-based coverage matrix from already available manifests and output MIDI; do not train, reboot or download a large dataset in that step.
+---
+
+## 2026-10-21 — ChatGPT — Current Published Handoff and Draft PR State
+
+### Remote publication summary
+- Canonical strategy: `docs/MUSIC_MODEL_TRAINING_STRATEGY.md` (creation commit `1b2d9a5797192f285d73a536046f9f2fb86bc916`).
+- Broad polyphonic plan: `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` (creation commit `fe891aee833db2687dca33a01fc2c2807207f157`).
+- Coverage audit: `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md` (creation commit `1d206e146aa1d6d7b08e5454c96f60d63f7d4c93`).
+- Training history current-status addendum: commit `a038485eae85233b7629e4507db50e16bf52e8ea`.
+- Agent protocol now requires reading the plan and coverage audit: commit `e60504916c9a65b4886bf25b5aa38c61f18dd621`.
+- Draft PR #3: https://github.com/MiguelDuval/Mozart/pull/3.
+
+### PR status checked after latest documentation update
+- PR #3 is open, draft=true, merged=false.
+- Base is `main`; head is `feature/mmm-v2-decoder-fix-and-docs`.
+- At the latest check, GitHub returned `mergeable=true`; this is not permission to merge. Keep the PR in draft until all code and claims are reviewed and relevant tests are run.
+- Do not merge automatically and do not modify `main` directly.
+
+### Next local Cline action
+Check local `git status`, branch, HEAD, and whether the local branch is an ancestor of origin/feature/mmm-v2-decoder-fix-and-docs. If and only if the working tree is clean and a fast-forward is possible, fetch and use `git merge --ff-only origin/feature/mmm-v2-decoder-fix-and-docs`. Otherwise preserve local edits and report the divergence without reset/rebase/force-push.
+
+After safe sync, read the published strategy, plan, audit, history and agent protocol. Populate the coverage matrix from existing local manifests/metrics and available MIDI samples. No reboot, no training and no large download in that pass.
+
+ChatGPT created/updated these documents through GitHub's repository connection; it did not inspect the local Windows process list or local ignored artifacts. The PyTorch blocker and local corpus counts remain reported until Cline checks them.
