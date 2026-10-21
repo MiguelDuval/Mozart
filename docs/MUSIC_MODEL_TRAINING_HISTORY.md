@@ -374,3 +374,29 @@ Mozart/
 ---
 
 *This document is the long-term source of truth. Update after each significant phase. Classify all claims: VERIFIED / REPORTED, NOT VERIFIED / UNVERIFIED / BLOCKED.*
+
+---
+
+## Current Status Addendum — 2026-10-21 (after Phase 2 recovery report)
+
+This addendum supersedes stale **current-status** labels above, but does not alter historical experiment records.
+
+### Repository and collaboration status
+- Current work branch: `feature/mmm-v2-decoder-fix-and-docs`.
+- The local Cline report identified commit `17d3324170b5cdc4bc615ba69c686149b0a0ec88` as the synced MMM v2 tokenizer commit; GitHub confirmed that commit and the tokenizer file.
+- ChatGPT subsequently published `docs/MUSIC_MODEL_TRAINING_STRATEGY.md` and `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` on this feature branch and appended a new collaboration handoff.
+- The latest branch HEAD after those documentation changes is recorded in `docs/AI_MODEL_COLLABORATION_LOG.md`. Before local edits, Cline must check remote HEAD and safely fast-forward/reconcile without reset, rebase or force-push.
+- `feature/link-clock` exists remotely but is a separate branch, not the current MMM v2 work branch.
+
+### Strategic decision
+Near-term priority is **broad single-stream polyphonic generation**. Polyphony within a single MIDI stream does not require multi-track output. MMM v2 is retained as an experimental branch; multi-track training is not mandatory and must not block progress on the core generator.
+
+### Current blockers and evidence classification
+- **Phase 1 checkpoint:** reported preserved at `experiments/aura-midi/runs/broad-training-20261020_204942/checkpoint_best.pt`, step 24750, reported best validation loss 1.0252. Local file integrity/current accessibility has not been rechecked in this handoff.
+- **PyTorch loading:** Cline reports that `torch.load()` hangs due to PIDs 19992, 20436 and 20600. This is **REPORTED / NOT INDEPENDENTLY RECHECKED**; do not assume those PIDs still exist. Do not reboot.
+- **MMM v2 round-trip:** **PARTIAL**. One composition partially matched, one decode timed out, and another was not decoded. Large drum-note loss is unresolved. Do not label the serializer fully verified.
+- **Slakh data:** only three compositions were reported available from a CC BY-NC 4.0 mirror. This is insufficient for long training and makes a checkpoint trained on it non-commercial research-only.
+- **Dataset strategy:** NRG-CP supports short chord-progressions; GMD supports drum patterns. Neither alone nor together proves coverage across the full EDM spectrum. MAESTRO remains separately restricted by CC BY-NC-SA 4.0.
+
+### Next justified step
+Follow `docs/BROAD_POLYPHONIC_MODEL_PLAN.md`: create an evidence-based coverage matrix from existing manifests, metrics and available MIDI samples; identify actual gaps in melody, bass, arpeggios, chords, texture and genre diversity; do not repeat completed scans, start training, reboot the computer, or download a large corpus until the data gap and source suitability are documented.
