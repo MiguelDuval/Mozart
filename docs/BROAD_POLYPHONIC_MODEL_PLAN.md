@@ -177,7 +177,7 @@ The expected JSONL and summary are local generated artifacts, not committed trai
 - `experiments/aura-midi/runs/metadata-sidecar/role_metadata.jsonl`
 - `experiments/aura-midi/runs/metadata-sidecar/role_metadata_summary.json`
 
-**Status: IMPLEMENTED REMOTELY; LOCAL TEST/RUN PENDING.** The user's local workspace must run the unit tests and execute the builder against the actual corpus paths. Check source statuses, missing MIDI references, unknown splits, relative composition identity, and counts before treating the new sidecar as complete. A GitHub commit alone does not prove the local data scan succeeded.
+**Status: IMPLEMENTED; HOSTED UNIT TESTS PASSED; LOCAL CORPUS RUN PENDING.** The GitHub Actions job passed all five offline unit tests and the CLI-help smoke check. The user's local workspace must still execute the builder against the actual corpus paths. Check source statuses, missing MIDI references, unknown splits, relative composition identity, and counts before treating the new sidecar as complete. A GitHub commit alone does not prove the local data scan succeeded.
 
 The builder records source role labels separately from weak role candidates. In particular, GMD's raw rhythmic styles are preserved as source-style metadata rather than promoted to electronic subgenre labels; MAESTRO's Piano label is an instrument identity rather than a functional arrangement role; Slakh role candidates remain weak and versioned. Non-commercial datasets stay marked research-only, and attribution-only licenses remain provenance-pending.
 
