@@ -449,3 +449,25 @@ The report lists no reliable electronic subgenre labels; adding token IDs cannot
 2. Execute the metadata-only coverage pipeline described in `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` and `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md`. Avoid PyTorch imports/checkpoint loading and large downloads if blocked.
 3. Index existing generated single-stream MIDI and compute structure metrics where possible.
 4. Append factual results and exact artifact paths here. No training, reboot, or vocabulary expansion in this step.
+
+
+---
+
+## 2026-10-21 — ChatGPT — Agent Policy Updated for Evidence-First Conditioning
+
+### Executed
+- Updated `AGENTS.md` to require sidecar role/genre/section metadata before any vocabulary expansion, source provenance and confidence for heuristic labels, and no fabricated structural labels.
+- Commit: `aa88f4cf3f59c3cfb7434d68c79f4afcfcae7b3d`.
+- Kept this change on `feature/mmm-v2-decoder-fix-and-docs`; `main` remains untouched.
+
+### Decision
+The proposed role-aware single-stream direction is worth designing, but **the immediate implementation is metadata-first, not token-first**. The existing report contains source-level role semantics (NRG-CP harmony, GMD drums, Slakh instrument classes) but no reliable electronic subgenre labels or section labels. Treating heuristic guesses as gold labels would teach noisy conditioning. No new token IDs, model resizing, PyTorch load, training, reboot, or large download is part of the next task.
+
+### Next action for Cline
+1. Read this log, history, strategy, plan, coverage audit, and the latest AGENTS.md on the remote feature branch.
+2. Safely reconcile local commit `de6d8ff` with the updated remote branch. First check `git status`; create a backup ref for every unique local commit; inspect its diff; fetch remote. If the worktree is clean, use a non-destructive merge of `origin/feature/mmm-v2-decoder-fix-and-docs` into the local feature branch and resolve only understood conflicts, keeping both the Cline audit results and new remote documentation. Never reset/rebase/force-push. If conflicts are not safely resolvable, stop and preserve both sides.
+3. Implement a small offline metadata-only role/genre inventory using already available manifests and MIDI metadata. Do not import PyTorch or load checkpoints. Do not download more data.
+4. Append the actual counts, evidence paths and remaining gaps to the coverage audit and this log.
+
+### Evidence limitation
+ChatGPT can update/read committed GitHub files but cannot directly inspect the user's current local processes, ignored datasets, or working tree. The PyTorch blockage and local-only commit remain claims from Cline until the next local check.
