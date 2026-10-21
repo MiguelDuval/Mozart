@@ -357,3 +357,23 @@ Prioritize broad **single-stream polyphonic** generation. Multi-track output is 
 
 ### Required next action for Cline
 Read `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` and `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md`. Safely synchronize the local checkout with this remote feature branch only after checking `git status`; never reset/rebase/force-push. If PyTorch remains blocked, do not restart Windows or launch training. Use existing manifests, metrics and sample MIDI files to fill the per-source role/genre matrix and index the Phase 1 sample inventory. Append evidence and next steps here. Do not create a new data download or training run until a concrete gap has been measured.
+---
+
+## 2026-10-21 — ChatGPT — Coverage Audit and Agent Reading Protocol Published
+
+### Executed
+- Created `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md` (commit `1d206e146aa1d6d7b08e5454c96f60d63f7d4c93`).
+- Added its scope to `AGENTS.md` as mandatory reading before major dataset/model decisions (commit `e60504916c9a65b4886bf25b5aa38c61f18dd621`).
+- Earlier in this continuation, published `docs/MUSIC_MODEL_TRAINING_STRATEGY.md`, `docs/BROAD_POLYPHONIC_MODEL_PLAN.md`, and current-status addenda to the training history.
+
+### Current remote branch state
+The branch has continued to receive documentation-only commits from this collaboration. Fetch the actual current remote HEAD before any local sync; do not rely on the SHA recorded in earlier messages.
+
+### Coverage conclusion
+Available evidence points to role imbalance: NRG-CP represents short chord progressions; GMD represents drum performances; the currently available Slakh mirror is reported to have only three compositions and has a non-commercial restriction; MAESTRO is restricted and mainly classical piano. Bass, synth leads, arpeggios, pads/textures, full-length structure, and reliable per-genre counts remain missing or unmeasured.
+
+### Evidence limits
+ChatGPT read the committed project history and reports through GitHub. It did not inspect the user's local ignored manifests, Python processes, or MIDI files. Source counts and license classifications remain reported until reconciled with the local artifacts.
+
+### Decision and next action
+Do not train, reboot, or make a large dataset download in this phase. Cline should safely fast-forward/reconcile the local feature branch after checking `git status`, read the new audit/strategy/plan, and fill source/role/genre counts from existing manifests and sample files. Preserve the Phase 1 checkpoint and keep MMM v2 experimental until round-trip and drum-event preservation are fully verified.
