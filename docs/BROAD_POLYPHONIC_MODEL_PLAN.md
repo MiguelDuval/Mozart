@@ -165,3 +165,21 @@ Minimum outputs:
 Once this report identifies a material gap, select one small source or data transformation that fills that gap. Do not commence long training until checkpoint access works and the data is suitable.
 
 The main objective remains broad single-stream polyphonic electronic-music generation. MMM v2 stays experimental pending complete round-trip, drum-event preservation, and a demonstrated need for explicit multi-track generation.
+
+
+---
+
+## Execution Update — Sidecar Builder Added (2026-10-21)
+
+A reproducible metadata-only builder now exists at `experiments/aura-midi/build_role_metadata_sidecar.py`; `audit_role_metadata.py` invokes its CLI, and offline unit tests live at `experiments/aura-midi/tests/test_role_metadata_sidecar.py`.
+
+The expected JSONL and summary are local generated artifacts, not committed training data:
+- `experiments/aura-midi/runs/metadata-sidecar/role_metadata.jsonl`
+- `experiments/aura-midi/runs/metadata-sidecar/role_metadata_summary.json`
+
+**Status: IMPLEMENTED REMOTELY; LOCAL TEST/RUN PENDING.** The user's local workspace must run the unit tests and execute the builder against the actual corpus paths. Check source statuses, missing MIDI references, unknown splits, relative composition identity, and counts before treating the new sidecar as complete. A GitHub commit alone does not prove the local data scan succeeded.
+
+The builder records source role labels separately from weak role candidates. In particular, GMD's raw rhythmic styles are preserved as source-style metadata rather than promoted to electronic subgenre labels; MAESTRO's Piano label is an instrument identity rather than a functional arrangement role; Slakh role candidates remain weak and versioned. Non-commercial datasets stay marked research-only, and attribution-only licenses remain provenance-pending.
+
+### Immediate next step
+Run tests and the sidecar builder locally, fix any concrete failures, then append the real execution output and per-source/split totals to the collaboration log and audit report. No new tokens, training, downloads, or checkpoint loads are authorized by this step.
