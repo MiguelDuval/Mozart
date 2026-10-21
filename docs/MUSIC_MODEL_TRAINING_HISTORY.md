@@ -2,8 +2,8 @@
 
 **Last Updated:** 2026-10-21  
 **Current Phase:** Phase 2 — Multi-track MMM v2 (BLOCKED on PyTorch deadlock)  
-**Branch:** main (feature/link-clock does not exist)  
-**Remote:** origin/main (up to date)
+**Branch:** main (feature/link-clock EXISTS in remote at 1b0e939 — unrelated Android commits)  
+**Remote:** origin/main (up to date); origin/feature/mmm-v2-decoder-fix-and-docs at 17d3324 (SYNCED — tokenizer_mmm_v2.py + test script pushed)
 
 ---
 
@@ -278,7 +278,18 @@ def expand_model_embeddings(model, old_vocab=12000, new_vocab=12002):
 - **Manifests:** 2 train / 1 val (target was 13/4 — download incomplete)
 - **Note:** 3 compositions sufficient for serialization test, **insufficient for full training**
 
-### F.7 Known Issues (VERIFIED)
+### F.7 MMM v2 Tokenizer Development (2026-10-21)
+| Item | Status | Details |
+|------|--------|---------|
+| **Vocabulary** | ✅ VERIFIED | 12000 base + 4 custom = 12004 total (Track_Start=12000, Track_End=12001, Track_Program=12002, Track_IsDrum=12003) |
+| **Encoding** | ✅ VERIFIED | All 3 Slakh samples encode correctly with Track_Start/Track_End per track, Track_Program+program, Track_IsDrum+flag |
+| **Round-trip (Track 00001)** | ✅ VERIFIED | 9/11 tracks perfect MATCH (program, is_drum, note count); programs/is_drum correct for all 11; Track 1 (drums) note loss 1078→257 (base tokenizer limitation); Track 10 off by 1 |
+| **Round-trip (Track 00002)** | PARTIAL | Encode OK, decode timeout on large drum track (2244 notes) |
+| **Round-trip (Track 00003)** | UNVERIFIED | Encode OK, decode not tested |
+| **Decoder Fix** | ✅ VERIFIED | Root cause: `base_tokenizer.decode()` expects raw BPE token IDs list, not `TokSequence`; program info lost in single-track decode without explicit metadata |
+| **Program Preservation** | ✅ VERIFIED | Custom Track_Program/Track_IsDrum metadata tokens correctly preserve program and is_drum for all non-drum tracks |
+
+### F.8 Known Issues (VERIFIED)
 
 1. **PyTorch Deadlock:** 
    - Two unkillable Python processes (PIDs 18084, 19976 from previous session) held system resources
@@ -298,16 +309,17 @@ def expand_model_embeddings(model, old_vocab=12000, new_vocab=12002):
    - **Scheduled Task:** `AuraMidiTraining` exists but ran once at 20:49 on 2026-10-20, completed successfully (LastTaskResult=0), no logon/boot triggers, no restart-on-failure
    - **Conclusion:** All recent reboots were initiated by AI `shutdown /r` commands, NOT by scheduled tasks or system crashes
 
-3. **MMM v2 Track Serialization (UNVERIFIED — CRITICAL):**
-   - **Contradiction in PHASE2_STATUS.md:** Claims "9 tracks preserved" but also "entire composition serialized as one track with markers at boundaries"
-   - **Current Implementation:** `encode_midi` iterates tracks and wraps EACH with Track_Start/Track_End — **this IS correct per-track encoding**
-   - **Round-trip Test:** Only tested on 1 Slakh sample (Track00003, 9 tracks) — track count preserved in that test
-   - **Not Yet Tested:** Compositions with same program on multiple tracks (previously caused merging)
-   - **Status:** UNVERIFIED until comprehensive round-trip on multiple compositions
+3. **Post-Reboot Unkillable Processes (BLOCKING):**
+   - 3 new Python processes (PIDs 19992, 20436, 20600) appeared post-reboot (~13:57)
+   - Block ALL `torch.load()` operations (even with `weights_only=True`, `CUDA_VISIBLE_DEVICES=''`)
+   - Kernel wait state, survive `taskkill /F`, `Stop-Process -Force` (access denied)
+   - **NO REBOOT** per user directive — training completely blocked
 
-### F.8 Current Blocker
-**PyTorch environment deadlocked by unkillable processes (now cleared by reboot).** 
-Training script `train_mmm_v2.py` has not yet been executed successfully in current session.
+### F.9 Current Blocker
+**Training completely BLOCKED** — 3 unkillable Python processes (PIDs 19992, 20436, 20600) from post-reboot session block ALL `torch.load()` operations (even with `weights_only=True` and `CUDA_VISIBLE_DEVICES=''`). Processes in kernel wait state, survive `taskkill /F`. **NO REBOOT** per user directive. Only non-PyTorch work possible (tokenizer, git, docs).
+
+### F.10 GitHub Sync Status
+**GitHub push SUCCEEDED** (completed in background after apparent hang). `git push -u origin feature/mmm-v2-decoder-fix-and-docs` initially appeared to hang on HTTPS auth (no credential prompt, no error, 30s timeout), but remote `feature/mmm-v2-decoder-fix-and-docs` now at `17d3324` with both `tokenizer_mmm_v2.py` (456 lines) and `test_mmm_v2_roundtrip.py` confirmed present. Local commits: `a565b55` (docs + train fix), `1908e1a` (log update), `17d3324` (tokenizer fix + test script). Remote `feature/link-clock` HEAD at `1b0e939` (exists but unrelated — Android test commits).
 
 ---
 
@@ -320,17 +332,17 @@ Training script `train_mmm_v2.py` has not yet been executed successfully in curr
 | **Active Python Processes** | 3 (PIDs 19992, 20436, 20600) | Started ~13:57 post-reboot, command lines empty — investigate |
 | **Slakh Download** | Partial (3/13+ compositions) | Resume needed |
 | **.venv-aura** | Exists at `Mozart/.venv-aura` | PyTorch 2.6.0+cu124 confirmed |
-| **MMM v2 Tokenizer** | Code complete, tested on 1 sample | Round-trip track count verified on 1 composition |
+| **MMM v2 Tokenizer** | Code complete, local commit 17d3324 | Encoding verified on 3 Slakh samples; round-trip PARTIAL (1/3 decoded): Track 00001 — 9/11 tracks perfect (program, is_drum, notes); programs/is_drum correct all 11; Track 1 drums 1078→257 notes (base tokenizer limit); Track 10 off by 1; Track 00002 decode timeout (2244 notes); Track 00003 encode only |
 | **MMM v2 Training Script** | Complete, needs `weights_only=True` fix | Line 388: `torch.load(checkpoint_path, map_location='cpu')` — add `weights_only=True` |
 | **Completed Verifications** | Tokenizer vocab, model expansion logic, checkpoint ZIP structure, manifests | |
 | **Blocked Verifications** | Full checkpoint load, forward pass, training start | Requires PyTorch environment recovery |
-| **Next Action** | Fix `train_mmm_v2.py` loading, verify checkpoint, start training | Do NOT reboot |
+| **Next Action** | Prepare broad polyphonic model plan | Do NOT reboot. Do NOT start training. MMM v2 preserved as experimental branch. Priority: assess musical diversity gaps in available data, design single-stream polyphonic architecture using existing tokenizer (12000 vocab + 4 custom tokens). |
 
 ### Categorically Forbidden Actions
 - ❌ Automatic computer reboot (any `Restart-Computer`, `shutdown /r`, `Stop-Computer`)
 - ❌ Deleting partial Slakh download or checkpoints
 - ❌ Re-running diagnostic loops without new information
-- ❌ Claiming MMM v2 is "multi-track" without verified round-trip on multiple compositions
+- ❌ Claiming MMM v2 decoder is "fully verified" — round-trip is PARTIAL (1 of 3 compositions decoded)
 - ❌ Starting training before checkpoint verification with `weights_only=True`
 
 ---
