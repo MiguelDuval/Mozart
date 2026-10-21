@@ -113,6 +113,7 @@ def make_record(
     instrument_class: str | None = None, source_style: str | None = None,
     source_role_candidate: str | None = None, candidate_confidence: float | None = None,
     label_evidence: str = "unknown", is_drum: bool = False,
+    midi_saved: bool | None = None,
 ) -> dict[str, Any]:
     weak_label, weak_confidence = weak_role_candidate(instrument_class, is_drum) if source_role_candidate is None else (source_role_candidate, candidate_confidence)
     return {
@@ -123,6 +124,7 @@ def make_record(
         "asset_id": asset_id,
         "midi_path": midi_path,
         "asset_exists": asset_exists,
+        "midi_saved": midi_saved,
         "split": split,
         "source_domain_label": source_domain,
         "instrument_class": instrument_class,
@@ -236,24 +238,75 @@ def slakh_records(root: Path | None) -> tuple[list[dict[str, Any]], dict[str, An
             continue
         comp_root = root / comp_name
         for stem_id, meta in stems.items():
-            if not isinstance(meta, dict) or meta.get("midi_saved") is False:
+            if not isinstance(meta, dict):
                 continue
+            midi_saved_raw = meta.get("midi_saved")
+            midi_saved = midi_saved_raw if isinstance(midi_saved_raw, bool) else (
+                str(midi_saved_raw).strip().lower() in {"true", "1", "yes"} if midi_saved_raw is not None else None
+            )
+            # Keep unsaved MIDI stems as metadata rows so coverage counts do not silently drop them.
             # Slakh metadata.yaml uses "inst_class" not "instrument_class"
             raw_instrument = meta.get("inst_class") or meta.get("instrument_class") or meta.get("instrument") or meta.get("class")
             if not raw_instrument and isinstance(meta.get("program"), dict):
                 raw_instrument = meta["program"].get("name")
             instrument_class = str(raw_instrument).strip() if raw_instrument else None
-            is_drum = meta.get("is_drum", False)
-            matches = [p for p in comp_root.rglob("*") if p.is_file() and p.suffix.lower() in MIDI_SUFFIXES and (p.stem == str(stem_id) or p.stem.startswith(str(stem_id) + "_"))] if comp_root.is_dir() else []
+            raw_is_drum = meta.get("is_drum", False)
+            is_drum = raw_is_drum if isinstance(raw_is_drum, bool) else str(raw_is_drum).strip().lower() in {"true", "1", "yes"}
+            matches = [p for p in comp_root.rglob("*") if p.is_file() and p.suffix.lower() in MIDI_SUFFIXES and (p.stem == str(stem_id) or p.stem.startswith(str(stem_id) + "_"))] if comp_root.is_dir() and midi_saved is not False else []
             asset_path = str(matches[0].resolve()) if matches else None
             records.append(make_record(
                 source_id=source, composition_id=comp_name, asset_id=str(stem_id),
                 midi_path=asset_path, asset_exists=bool(matches),
                 split=split_from(metadata_path), license_name=LICENSES[source],
                 source_domain="multitrack_midi_stems", instrument_class=instrument_class,
-                is_drum=is_drum, role_origin="instrument_class_heuristic",
+                is_drum=is_drum, midi_saved=midi_saved, role_origin="instrument_class_heuristic",
             ))
-    return records, {"status": "OK" if records else "NO_MIDI_SAVED_STEMS", "path": str(root), "metadata_files_seen": len(metadata_paths), "stems_seen": len(records), "stems_without_midi_path": sum(not r["asset_exists"] for r in records)}
+    return records, {
+        "status": "OK" if records else "NO_METADATA_STEMS",
+        "path": str(root),
+        "metadata_files_seen": len(metadata_paths),
+        "stems_seen": len(records),
+        "midi_saved_true_stems": sum(r.get("midi_saved") is True for r in records),
+        "midi_saved_false_stems": sum(r.get("midi_saved") is False for r in records),
+        "stems_without_midi_path": sum(not r["asset_exists"] for r in records),
+    }
+
+
+def nested_counts(rows: list[dict[str, Any]], field: str, *, required_kind: str | None = None) -> dict[str, dict[str, int]]:
+    """Count annotated labels by split without treating composition IDs as asset IDs."""
+    counts: dict[str, Counter[str]] = defaultdict(Counter)
+    for row in rows:
+        label = row.get(field)
+        if not label:
+            continue
+        if required_kind is not None and row.get("source_role_kind") != required_kind:
+            continue
+        counts[str(row.get("split") or "unknown")][str(label)] += 1
+    return {split: dict(sorted(counter.items())) for split, counter in sorted(counts.items())}
+
+
+def deduplicate_asset_rows(records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
+    """Remove repeated asset rows only; never collapse all assets in one composition.
+
+    dedup_id groups related assets by composition. It is deliberately NOT a row
+    deduplication key because multi-track works and repeated performances may
+    legitimately produce many assets linked to the same composition.
+    """
+    seen: set[tuple[str, str, str]] = set()
+    deduped: list[dict[str, Any]] = []
+    duplicates = 0
+    for row in records:
+        key = (
+            str(row.get("source_id") or ""),
+            str(row.get("composition_id") or ""),
+            str(row.get("asset_id") or row.get("midi_path") or ""),
+        )
+        if key in seen:
+            duplicates += 1
+            continue
+        seen.add(key)
+        deduped.append(row)
+    return deduped, duplicates
 
 
 def summarize(records: list[dict[str, Any]], inputs: dict[str, Any]) -> dict[str, Any]:
@@ -264,20 +317,37 @@ def summarize(records: list[dict[str, Any]], inputs: dict[str, Any]) -> dict[str
     for source in ("nrgcp", "gmd", "slakh2100_samples", "maestro"):
         rows = by_source.get(source, [])
         role_counts = Counter(r["source_role_label"] for r in rows if r.get("source_role_label"))
+        functional_role_counts = Counter(r["source_role_label"] for r in rows if r.get("source_role_label") and r.get("source_role_kind") == "musical_function")
+        instrument_identity_counts = Counter(r["source_role_label"] for r in rows if r.get("source_role_label") and r.get("source_role_kind") == "instrument_identity_not_functional_role")
         candidate_counts = Counter(r["weak_role_candidate"] for r in rows if r.get("weak_role_candidate"))
         style_counts = Counter(r["source_style_label"] for r in rows if r.get("source_style_label"))
         compositions = {r["composition_id"] for r in rows}
         splits = Counter(r["split"] for r in rows)
+        composition_splits: dict[str, set[str]] = defaultdict(set)
+        for row in rows:
+            composition_splits[str(row["composition_id"])].add(str(row.get("split") or "unknown"))
+        split_overlap = sum(len(v) > 1 for v in composition_splits.values())
         corpora.append({
             "source_name": source,
-            "records": len(rows),
+            "asset_records": len(rows),
+            "unique_assets": len({(str(r.get("composition_id")), str(r.get("asset_id"))) for r in rows}),
             "unique_compositions": len(compositions),
+            "compositions_present_in_multiple_splits": split_overlap,
             "source_role_labels": dict(sorted(role_counts.items())),
+            "functional_role_labels": dict(sorted(functional_role_counts.items())),
+            "instrument_identity_labels": dict(sorted(instrument_identity_counts.items())),
+            "functional_role_labels_by_split": nested_counts(rows, "source_role_label", required_kind="musical_function"),
+            "instrument_identity_labels_by_split": nested_counts(rows, "source_role_label", required_kind="instrument_identity_not_functional_role"),
             "weak_role_candidates": dict(sorted(candidate_counts.items())),
+            "weak_role_candidates_by_split": nested_counts(rows, "weak_role_candidate"),
             "source_style_labels": dict(sorted(style_counts.items())),
+            "source_style_labels_by_split": nested_counts(rows, "source_style_label"),
             "splits": dict(sorted(splits.items())),
             "missing_asset_paths": sum(not r["asset_exists"] for r in rows),
+            "midi_saved_false_records": sum(r.get("midi_saved") is False for r in rows),
             "genre_labeled_records": sum(bool(r.get("genre_label")) for r in rows),
+            "genre_labels_by_split": nested_counts(rows, "genre_label"),
+            "section_labeled_records": sum(bool(r.get("section_label")) for r in rows),
             "license": LICENSES[source],
             "evidence_level": "VERIFIED_METADATA_SCAN" if inputs.get(source, {}).get("status") == "OK" else inputs.get(source, {}).get("status", "UNVERIFIED"),
         })
@@ -351,20 +421,10 @@ def main(argv: list[str] | None = None) -> int:
     new, inputs["maestro"] = csv_records(paths["maestro_csv"], "maestro")
     records.extend(new)
 
-    # A missing/partial local source is reported, not fabricated or silently called complete.
-    # Use dedup_id (source_id:composition_id) as the deduplication key to avoid
-    # incorrectly collapsing stems with the same name across different compositions.
-    seen = set()
-    deduped = []
-    duplicates = 0
-    for row in records:
-        key = row["dedup_id"]
-        if key in seen:
-            duplicates += 1
-            continue
-        seen.add(key)
-        deduped.append(row)
-    records = deduped
+    # Deduplicate repeated assets only. dedup_id intentionally groups a composition
+    # and must NOT be used as the row key: a composition can have many stems or
+    # performances that must remain distinct in the sidecar.
+    records, duplicates = deduplicate_asset_rows(records)
 
     args.sidecar_out.parent.mkdir(parents=True, exist_ok=True)
     with args.sidecar_out.open("w", encoding="utf-8", newline="\n") as handle:
