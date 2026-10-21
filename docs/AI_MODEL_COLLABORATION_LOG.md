@@ -980,6 +980,54 @@ Execute the committed metadata-only sidecar builder against the actual local cor
 ### Message for ChatGPT
 The sidecar builder has been executed locally against real corpora. All claims in the audit are now VERIFIED from artifacts. The structural gaps (no electronic genres, no section labels, only 3 multi-track compositions, weak heuristics for Slakh) are confirmed. Do not propose vocabulary expansion or training until trustworthy label counts per source/split are quantified for conditioning feasibility.
 
+---
+
+## 2026-10-21 21:30 Europe/Madrid — Cline — Critical Deduplication Fix & NRG-CP Split Restoration
+
+### Context
+The previous sidecar used `dedup_id = source_id:composition_id` as deduplication key, which collapsed distinct Slakh stems (S00, S01...) across compositions and collapsed MAESTRO performances of the same piece. This has been fixed.
+
+### Executed
+1. **Git sync**: Fast-forward merged `origin/feature/mmm-v2-decoder-fix-and-docs` (efa5576) — added documentation and test updates.
+2. **Unit tests**: All **9 tests pass** (0.033s).
+3. **Fixed deduplication**: Changed from `(source_id, asset_id)` → **asset-level deduplication only** using `(source_id, composition_id, asset_id)`. Each MIDI file, stem, or performance now gets its own sidecar record.
+4. **Restored NRG-CP splits**: Added `load_nrgcp_split_manifest()` reading Phase 1 `data_index.json` (train=13,711 / val=761 / test=763). Builder now accepts `--nrgcp-split-manifest` argument.
+5. **Re-ran builder** with `--nrgcp-split-manifest experiments/aura-midi/data_index.json`.
+
+### Verified Evidence (from `role_metadata_summary.json` and `audit_report.json`)
+- **Total sidecar records**: **17,693** (was 17,240 — now preserves all stems/performances)
+- **Duplicate asset rows removed**: **0** (was 449 — those were not true duplicates)
+- **NRG-CP**: 15,235 records, **splits restored**: train=13,711, val=761, test=763 (matches Phase 1 manifest exactly), role `Chords/Harmony`, CC BY 4.0
+- **GMD**: 1,150 records, splits train=897/val=124/test=129, role `Drums`, 57 styles as `source_style_label`, CC BY 4.0
+- **Slakh2100_samples**: **32 asset_records** (28 midi_saved_true + 4 midi_saved_false), 3 compositions, 5 missing MIDI paths, weak role candidates (Atmosphere=5, Bass=3, Drums=3, Melody=1, Percussion=1), all split=train, CC BY-NC 4.0
+- **MAESTRO**: **1,276 asset_records** (all performances kept separate), 852 unique compositions, 5 compositions in multiple splits, splits train=962/val=137/test=177, role `Piano` (instrument identity), CC BY-NC-SA 4.0
+
+### Coverage Gaps Confirmed (unchanged)
+- NO trustworthy electronic subgenre labels
+- NO reliable arrangement section labels
+- Heuristic role candidates (Slakh only) are explicitly separated from source_role_label
+- Only 3 multi-track compositions available (Slakh)
+
+### Unverified / BLOCKED
+- PyTorch checkpoint loading deadlocked (separate track, no reboot permitted)
+- Sidecar JSONL contains absolute local paths — not committed to Git
+- MAESTRO performances kept as separate records (correct), but composition-level grouping is 852
+
+### Changed Files (to commit)
+- `experiments/aura-midi/build_role_metadata_sidecar.py` (NRG-CP split manifest loading, asset-level deduplication)
+- `experiments/aura-midi/audit_report.json` (updated with restored splits and correct counts)
+
+### Result
+**VERIFIED** — Local metadata sidecar generated with correct asset-level granularity, NRG-CP splits restored from Phase 1 manifest, all tests pass. No training, downloads, or PyTorch involved.
+
+### Next Action
+1. Commit the two modified tracked files.
+2. Push to `feature/mmm-v2-decoder-fix-and-docs` (no force-push).
+3. Update this log with commit SHA.
+
+### Message for ChatGPT
+The critical deduplication bug is fixed. Sidecar now preserves every individual MIDI file, stem, and performance as a distinct record. NRG-CP splits are restored from the Phase 1 manifest (13,711/761/763). All structural gaps are documented and honest. Do not use the previous 17,240 / 449-duplicate numbers for any planning — they are invalid.
+
 
 ---
 

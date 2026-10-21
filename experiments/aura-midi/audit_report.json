@@ -273,29 +273,423 @@
   },
   "metadata_sidecar": "experiments\\aura-midi\\runs\\metadata-sidecar\\role_metadata.jsonl",
   "metadata_sidecar_summary": "experiments\\aura-midi\\runs\\metadata-sidecar\\role_metadata_summary.json",
-  "sidecar_status": "STALE_REQUIRES_LOCAL_RERUN_AFTER_ASSET_IDENTITY_FIX",
-  "sidecar_previous_run_correction": {
-    "previous_reported_sidecar_records": 17240,
-    "previous_reported_duplicate_asset_rows_removed": 449,
-    "issue": "The previous builder deduplicated by dedup_id, which groups records by composition instead of identifying duplicate assets. This collapsed distinct Slakh stems within a composition and distinct MAESTRO performances of the same titled piece.",
-    "observed_mismatches": {
-      "slakh_metadata_stems_reported_by_input_scan": 28,
-      "slakh_records_in_previous_summary": 3,
-      "maestro_csv_performances_reported_by_input_scan": 1276,
-      "maestro_rows_in_previous_summary": 852
+  "sidecar_status": "REGENERATED_FROM_CURRENT_ASSET_LEVEL_BUILDER",
+  "sidecar_row_semantics": "One record per unique MIDI file, stem, or performance. dedup_id links assets to a composition and is not a deduplication key.",
+  "sidecar_records": 17693,
+  "sidecar_inputs": {
+    "nrgcp": {
+      "status": "OK",
+      "path": "experiments\\aura-midi\\datasets\\NRG-CP\\extracted",
+      "files_seen": 15235
     },
-    "interpretation": "The 449 rows removed were not established duplicate assets; many were valid stems or performances. Do not use the old sidecar total or per-source record totals for conditioning feasibility.",
-    "arithmetic_expected_input_rows_before_true_duplicate_removal": 17689,
-    "arithmetic_breakdown": {
-      "nrgcp_files": 15235,
-      "gmd_rows": 1150,
-      "slakh_metadata_stems_including_unsaved": 28,
-      "maestro_performance_rows": 1276
+    "gmd": {
+      "status": "OK",
+      "path": "experiments\\aura-midi\\datasets\\gmd\\extracted\\groove\\info.csv",
+      "rows_seen": 1150,
+      "rows_with_missing_midi": 0
     },
-    "expected_total_is_not_a_verified_new_scan": true,
-    "corrective_code": "experiments/aura-midi/build_role_metadata_sidecar.py",
-    "corrective_tests": "experiments/aura-midi/tests/test_role_metadata_sidecar.py",
-    "last_hosted_test_run": "https://github.com/MiguelDuval/Mozart/actions/runs/39658167738",
-    "local_rerun_required": true
-  }
+    "slakh2100_samples": {
+      "status": "OK",
+      "path": "experiments\\aura-midi\\datasets\\Slakh2100_samples",
+      "metadata_files_seen": 3,
+      "stems_seen": 32,
+      "midi_saved_true_stems": 28,
+      "midi_saved_false_stems": 4,
+      "stems_without_midi_path": 5
+    },
+    "maestro": {
+      "status": "OK",
+      "path": "experiments\\aura-midi\\datasets\\maestro-v3.0.0\\maestro-v3.0.0\\maestro-v3.0.0.csv",
+      "rows_seen": 1276,
+      "rows_with_missing_midi": 0
+    }
+  },
+  "sidecar_corpora": [
+    {
+      "source_name": "nrgcp",
+      "asset_records": 15235,
+      "unique_assets": 15235,
+      "unique_compositions": 15235,
+      "compositions_present_in_multiple_splits": 0,
+      "source_role_labels": {
+        "Chords/Harmony": 15235
+      },
+      "functional_role_labels": {
+        "Chords/Harmony": 15235
+      },
+      "instrument_identity_labels": {},
+      "functional_role_labels_by_split": {
+        "test": {
+          "Chords/Harmony": 763
+        },
+        "train": {
+          "Chords/Harmony": 13711
+        },
+        "val": {
+          "Chords/Harmony": 761
+        }
+      },
+      "instrument_identity_labels_by_split": {},
+      "weak_role_candidates": {},
+      "weak_role_candidates_by_split": {},
+      "source_style_labels": {},
+      "source_style_labels_by_split": {},
+      "splits": {
+        "test": 763,
+        "train": 13711,
+        "val": 761
+      },
+      "missing_asset_paths": 0,
+      "midi_saved_false_records": 0,
+      "genre_labeled_records": 0,
+      "genre_labels_by_split": {},
+      "section_labeled_records": 0,
+      "license": "CC BY 4.0",
+      "evidence_level": "VERIFIED_METADATA_SCAN"
+    },
+    {
+      "source_name": "gmd",
+      "asset_records": 1150,
+      "unique_assets": 1150,
+      "unique_compositions": 1150,
+      "compositions_present_in_multiple_splits": 0,
+      "source_role_labels": {
+        "Drums": 1150
+      },
+      "functional_role_labels": {
+        "Drums": 1150
+      },
+      "instrument_identity_labels": {},
+      "functional_role_labels_by_split": {
+        "test": {
+          "Drums": 129
+        },
+        "train": {
+          "Drums": 897
+        },
+        "validation": {
+          "Drums": 124
+        }
+      },
+      "instrument_identity_labels_by_split": {},
+      "weak_role_candidates": {},
+      "weak_role_candidates_by_split": {},
+      "source_style_labels": {
+        "afrobeat": 13,
+        "afrocuban": 9,
+        "afrocuban/bembe": 30,
+        "afrocuban/calypso": 2,
+        "afrocuban/rhumba": 19,
+        "blues/shuffle": 4,
+        "country": 29,
+        "dance/breakbeat": 2,
+        "dance/disco": 5,
+        "funk": 77,
+        "funk/fast": 19,
+        "funk/groove1": 4,
+        "funk/groove2": 4,
+        "funk/groove5": 4,
+        "funk/latin": 2,
+        "funk/purdieshuffle": 30,
+        "funk/rock": 20,
+        "gospel": 19,
+        "highlife": 2,
+        "hiphop": 91,
+        "hiphop/groove6": 4,
+        "jazz": 46,
+        "jazz/fast": 1,
+        "jazz/funk": 24,
+        "jazz/fusion": 11,
+        "jazz/klezmer": 1,
+        "jazz/linear": 2,
+        "jazz/march": 3,
+        "jazz/mediumfast": 2,
+        "jazz/swing": 11,
+        "latin": 8,
+        "latin/ando": 1,
+        "latin/bomba": 1,
+        "latin/bounce": 2,
+        "latin/brazilian": 4,
+        "latin/brazilian-baiao": 32,
+        "latin/brazilian-bossa": 2,
+        "latin/brazilian-frevo": 1,
+        "latin/brazilian-ijexa": 3,
+        "latin/brazilian-maracatu": 2,
+        "latin/brazilian-samba": 5,
+        "latin/brazilian-sambareggae": 3,
+        "latin/brazilian-songo": 5,
+        "latin/chacarera": 3,
+        "latin/dominican-merengue": 1,
+        "latin/merengue": 1,
+        "latin/reggaeton": 1,
+        "latin/samba": 19,
+        "latin/venezuelan-joropo": 1,
+        "latin/venezuelan-merengue": 1,
+        "latin/venezuelan-sangueo": 1,
+        "middleeastern": 1,
+        "neworleans/chacha": 1,
+        "neworleans/funk": 48,
+        "neworleans/secondline": 3,
+        "neworleans/shuffle": 1,
+        "pop": 10,
+        "pop/groove7": 4,
+        "pop/soft": 13,
+        "punk": 58,
+        "reggae": 19,
+        "reggae/slow": 1,
+        "rock": 281,
+        "rock/folk": 1,
+        "rock/groove8": 4,
+        "rock/halftime": 37,
+        "rock/indie": 10,
+        "rock/prog": 3,
+        "rock/rockabilly": 1,
+        "rock/shuffle": 4,
+        "soul": 31,
+        "soul/groove10": 4,
+        "soul/groove3": 4,
+        "soul/groove4": 4,
+        "soul/groove9": 4,
+        "soul/motown": 16
+      },
+      "source_style_labels_by_split": {
+        "test": {
+          "afrobeat": 1,
+          "afrocuban/bembe": 3,
+          "afrocuban/rhumba": 1,
+          "country": 5,
+          "funk": 5,
+          "funk/fast": 1,
+          "funk/groove1": 4,
+          "funk/groove2": 4,
+          "funk/groove5": 4,
+          "funk/purdieshuffle": 3,
+          "funk/rock": 2,
+          "gospel": 1,
+          "highlife": 1,
+          "hiphop": 5,
+          "hiphop/groove6": 4,
+          "jazz": 3,
+          "jazz/funk": 2,
+          "jazz/fusion": 3,
+          "latin/brazilian-baiao": 2,
+          "latin/brazilian-maracatu": 1,
+          "latin/brazilian-sambareggae": 1,
+          "latin/samba": 3,
+          "neworleans/funk": 6,
+          "pop/groove7": 4,
+          "pop/soft": 1,
+          "punk": 6,
+          "reggae": 3,
+          "rock": 21,
+          "rock/groove8": 4,
+          "rock/halftime": 2,
+          "rock/indie": 3,
+          "rock/prog": 1,
+          "soul": 3,
+          "soul/groove10": 4,
+          "soul/groove3": 4,
+          "soul/groove4": 4,
+          "soul/groove9": 4
+        },
+        "train": {
+          "afrobeat": 10,
+          "afrocuban": 9,
+          "afrocuban/bembe": 24,
+          "afrocuban/calypso": 2,
+          "afrocuban/rhumba": 18,
+          "blues/shuffle": 4,
+          "country": 21,
+          "dance/breakbeat": 2,
+          "dance/disco": 5,
+          "funk": 65,
+          "funk/fast": 15,
+          "funk/latin": 2,
+          "funk/purdieshuffle": 24,
+          "funk/rock": 16,
+          "gospel": 13,
+          "highlife": 1,
+          "hiphop": 80,
+          "jazz": 35,
+          "jazz/fast": 1,
+          "jazz/funk": 19,
+          "jazz/fusion": 5,
+          "jazz/klezmer": 1,
+          "jazz/linear": 2,
+          "jazz/march": 3,
+          "jazz/mediumfast": 2,
+          "jazz/swing": 11,
+          "latin": 8,
+          "latin/ando": 1,
+          "latin/bounce": 2,
+          "latin/brazilian": 3,
+          "latin/brazilian-baiao": 25,
+          "latin/brazilian-bossa": 2,
+          "latin/brazilian-ijexa": 3,
+          "latin/brazilian-maracatu": 1,
+          "latin/brazilian-samba": 3,
+          "latin/brazilian-sambareggae": 1,
+          "latin/brazilian-songo": 5,
+          "latin/chacarera": 2,
+          "latin/dominican-merengue": 1,
+          "latin/merengue": 1,
+          "latin/reggaeton": 1,
+          "latin/samba": 12,
+          "latin/venezuelan-merengue": 1,
+          "latin/venezuelan-sangueo": 1,
+          "middleeastern": 1,
+          "neworleans/chacha": 1,
+          "neworleans/funk": 39,
+          "neworleans/secondline": 3,
+          "neworleans/shuffle": 1,
+          "pop": 7,
+          "pop/soft": 10,
+          "punk": 45,
+          "reggae": 15,
+          "reggae/slow": 1,
+          "rock": 231,
+          "rock/folk": 1,
+          "rock/halftime": 29,
+          "rock/indie": 7,
+          "rock/prog": 2,
+          "rock/rockabilly": 1,
+          "rock/shuffle": 4,
+          "soul": 23,
+          "soul/motown": 13
+        },
+        "validation": {
+          "afrobeat": 2,
+          "afrocuban/bembe": 3,
+          "country": 3,
+          "funk": 7,
+          "funk/fast": 3,
+          "funk/purdieshuffle": 3,
+          "funk/rock": 2,
+          "gospel": 5,
+          "hiphop": 6,
+          "jazz": 8,
+          "jazz/funk": 3,
+          "jazz/fusion": 3,
+          "latin/bomba": 1,
+          "latin/brazilian": 1,
+          "latin/brazilian-baiao": 5,
+          "latin/brazilian-frevo": 1,
+          "latin/brazilian-samba": 2,
+          "latin/brazilian-sambareggae": 1,
+          "latin/chacarera": 1,
+          "latin/samba": 4,
+          "latin/venezuelan-joropo": 1,
+          "neworleans/funk": 3,
+          "pop": 3,
+          "pop/soft": 2,
+          "punk": 7,
+          "reggae": 1,
+          "rock": 29,
+          "rock/halftime": 6,
+          "soul": 5,
+          "soul/motown": 3
+        }
+      },
+      "splits": {
+        "test": 129,
+        "train": 897,
+        "validation": 124
+      },
+      "missing_asset_paths": 0,
+      "midi_saved_false_records": 0,
+      "genre_labeled_records": 0,
+      "genre_labels_by_split": {},
+      "section_labeled_records": 0,
+      "license": "CC BY 4.0",
+      "evidence_level": "VERIFIED_METADATA_SCAN"
+    },
+    {
+      "source_name": "slakh2100_samples",
+      "asset_records": 32,
+      "unique_assets": 32,
+      "unique_compositions": 3,
+      "compositions_present_in_multiple_splits": 0,
+      "source_role_labels": {},
+      "functional_role_labels": {},
+      "instrument_identity_labels": {},
+      "functional_role_labels_by_split": {},
+      "instrument_identity_labels_by_split": {},
+      "weak_role_candidates": {
+        "Atmosphere": 5,
+        "Bass": 3,
+        "Drums": 3,
+        "Melody": 1,
+        "Percussion": 1
+      },
+      "weak_role_candidates_by_split": {
+        "train": {
+          "Atmosphere": 5,
+          "Bass": 3,
+          "Drums": 3,
+          "Melody": 1,
+          "Percussion": 1
+        }
+      },
+      "source_style_labels": {},
+      "source_style_labels_by_split": {},
+      "splits": {
+        "train": 32
+      },
+      "missing_asset_paths": 5,
+      "midi_saved_false_records": 4,
+      "genre_labeled_records": 0,
+      "genre_labels_by_split": {},
+      "section_labeled_records": 0,
+      "license": "CC BY-NC 4.0",
+      "evidence_level": "VERIFIED_METADATA_SCAN"
+    },
+    {
+      "source_name": "maestro",
+      "asset_records": 1276,
+      "unique_assets": 1276,
+      "unique_compositions": 852,
+      "compositions_present_in_multiple_splits": 5,
+      "source_role_labels": {
+        "Piano": 1276
+      },
+      "functional_role_labels": {},
+      "instrument_identity_labels": {
+        "Piano": 1276
+      },
+      "functional_role_labels_by_split": {},
+      "instrument_identity_labels_by_split": {
+        "test": {
+          "Piano": 177
+        },
+        "train": {
+          "Piano": 962
+        },
+        "validation": {
+          "Piano": 137
+        }
+      },
+      "weak_role_candidates": {},
+      "weak_role_candidates_by_split": {},
+      "source_style_labels": {},
+      "source_style_labels_by_split": {},
+      "splits": {
+        "test": 177,
+        "train": 962,
+        "validation": 137
+      },
+      "missing_asset_paths": 0,
+      "midi_saved_false_records": 0,
+      "genre_labeled_records": 0,
+      "genre_labels_by_split": {},
+      "section_labeled_records": 0,
+      "license": "CC BY-NC-SA 4.0",
+      "evidence_level": "VERIFIED_METADATA_SCAN"
+    }
+  ],
+  "sidecar_coverage_gaps": {
+    "trustworthy_electronic_subgenre_labels": true,
+    "reliable_arrangement_section_labels": true,
+    "heuristic_role_candidates_are_not_ground_truth": true
+  },
+  "duplicate_asset_rows_removed": 0
 }

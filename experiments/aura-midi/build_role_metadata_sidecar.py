@@ -155,19 +155,46 @@ def midi_files(root: Path) -> list[Path]:
     return sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in MIDI_SUFFIXES)
 
 
-def nrgcp_records(root: Path | None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def load_nrgcp_split_manifest(manifest_path: Path | None) -> dict[str, str]:
+    """Load NRG-CP split assignments from Phase 1 data_index.json.
+    Returns a mapping from MIDI filename (basename) to split."""
+    if manifest_path is None or not manifest_path.is_file():
+        return {}
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    mapping: dict[str, str] = {}
+    nrgcp = data.get("nrgcp", {})
+    for split_name in ("train", "val", "test"):
+        for abs_path in nrgcp.get(split_name, []):
+            fname = Path(abs_path).name
+            mapping[fname] = split_name
+    return mapping
+
+
+def nrgcp_records(root: Path | None, split_manifest: Path | None = None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     source = "nrgcp"
     if root is None or not root.is_dir():
         return [], {"status": "INPUT_NOT_FOUND", "path": str(root) if root else None}
+    
+    # Load Phase 1 split manifest if available
+    split_map = load_nrgcp_split_manifest(split_manifest)
+    
     files = midi_files(root)
     records = []
     for path in files:
         rel = path.relative_to(root).as_posix()
         # Keep relative parent directories: basenames can collide across folders.
         composition_id = Path(rel).with_suffix("").as_posix()
+        
+        # Use Phase 1 split manifest if available, otherwise fall back to path-based detection
+        fname = path.name
+        split = split_map.get(fname, split_from(rel))
+        
         records.append(make_record(
             source_id=source, composition_id=composition_id, asset_id=rel,
-            midi_path=str(path.resolve()), asset_exists=True, split=split_from(rel),
+            midi_path=str(path.resolve()), asset_exists=True, split=split,
             license_name=LICENSES[source], source_domain="algorithmic_edm_chord_progression",
             source_role="Chords/Harmony", role_origin="dataset_semantics",
             role_kind="musical_function", role_confidence=1.0,
@@ -395,6 +422,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-root", type=Path, default=Path("experiments/aura-midi/datasets"))
     parser.add_argument("--nrgcp-root", type=Path)
+    parser.add_argument("--nrgcp-split-manifest", type=Path, help="Path to Phase 1 data_index.json for NRG-CP train/val/test assignments")
     parser.add_argument("--gmd-csv", type=Path)
     parser.add_argument("--maestro-csv", type=Path)
     parser.add_argument("--slakh-root", type=Path)
@@ -412,7 +440,8 @@ def main(argv: list[str] | None = None) -> int:
     }
     records: list[dict[str, Any]] = []
     inputs: dict[str, Any] = {}
-    new, inputs["nrgcp"] = nrgcp_records(paths["nrgcp_root"])
+    nrgcp_split_manifest = args.nrgcp_split_manifest or (args.data_root / "broad_corpus" / "data_index.json")
+    new, inputs["nrgcp"] = nrgcp_records(paths["nrgcp_root"], nrgcp_split_manifest)
     records.extend(new)
     new, inputs["gmd"] = csv_records(paths["gmd_csv"], "gmd")
     records.extend(new)
