@@ -203,7 +203,7 @@ def csv_records(csv_path: Path | None, source: str) -> tuple[list[dict[str, Any]
             explicit_id = first_value(row, ("composition_id", "title", "canonical_title"))
             composition = explicit_id or (Path(raw_path.replace("\\", "/")).with_suffix("").as_posix() if raw_path else f"row-{index:06d}")
             records.append(make_record(
-                source_id=source, composition_id=Path(composition).stem, asset_id=raw_path or f"csv-row-{index}",
+                source_id=source, composition_id=composition, asset_id=raw_path or f"csv-row-{index}",
                 midi_path=path, asset_exists=exists, split=split_from(raw_path, split_raw),
                 license_name=LICENSES[source], source_domain="classical_solo_piano",
                 source_role="Piano", role_origin="dataset_semantics",
