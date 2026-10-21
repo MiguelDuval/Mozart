@@ -18,6 +18,7 @@ The project contract is defined by:
 10. `docs/AI_MODEL_COLLABORATION_LOG.md` — **Permanent AI collaboration journal**
 11. `docs/MUSIC_MODEL_TRAINING_STRATEGY.md` — **Canonical strategy for broad electronic-music coverage**
 12. `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` — **Current single-stream polyphonic model plan**
+13. `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md` — **Evidence-based source/role/genre coverage audit**
 
 When documents conflict with source code or test evidence, investigate the discrepancy and update the documentation deliberately.
 
@@ -71,8 +72,9 @@ At the end of meaningful work report:
 2. `docs/MUSIC_MODEL_TRAINING_HISTORY.md` — complete training history with evidence classification
 3. `docs/MUSIC_MODEL_TRAINING_STRATEGY.md` — canonical music-model strategy
 4. `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` — current model plan
-5. `docs/PROJECT_MASTER_PROMPT.md`
-6. `experiments/aura-midi/AURA_FINETUNE_READINESS.md` — if available in current checkout
+5. `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md` — source/role/genre coverage evidence
+6. `docs/PROJECT_MASTER_PROMPT.md`
+7. `experiments/aura-midi/AURA_FINETUNE_READINESS.md` — if available in current checkout
 
 ### Git Hygiene
 - Check `git status`, current branch, and `HEAD` before starting
