@@ -132,3 +132,36 @@ No further multi-track work is required merely to improve single-track polyphony
 Create the coverage matrix from the existing manifests and metrics; assess the saved Phase 1 MIDI examples where possible; report the specific missing musical roles and genre families. Then propose one next data acquisition or model change directly tied to that evidence.
 
 **Do not start training, reboot, or download a large new dataset as part of this planning phase.**
+
+
+---
+
+## Decision Update — Prefer Metadata Before New Role/Section Tokens (2026-10-21)
+
+The latest Cline local audit reports that available sources have very uneven roles: NRG-CP is chord progression material, GMD is drum grooves, and only three Slakh compositions are currently available. It reports no trustworthy electronic-subgenre labels. Treat these counts as reported until reconciled against local manifests.
+
+Do **not** expand the vocabulary to add role or section tokens in the immediate next step.
+
+### Why
+- Role/section labels do not emerge merely by adding token IDs; examples must carry labels with meaningful semantics.
+- NRG-CP and GMD have source-grounded roles. Record them as sidecar labels first.
+- Slakh instrument-class metadata may support some track role labels, but three compositions are not enough for broad training.
+- Pitch, velocity, program and density heuristics may propose weak role labels, but must carry confidence and rule-version metadata; unknown is a valid label.
+- No authoritative intro/verse/chorus/breakdown/drop/outro labels have been identified. Do not fabricate them.
+- Adding five role and six section tokens to an existing 12,004-token MMM vocabulary would yield 12,015 total, not 12,020. The Phase 1 checkpoint has a 12,000-token output space, so these new IDs cannot be used with it without a deliberately designed, tested vocabulary/model expansion.
+- Track markers are not required for the near-term goal of generating a polyphonic passage in one stream.
+
+### Next offline task
+Create a source-grounded metadata labeling manifest over existing corpus manifests and file metadata. Do not import/load PyTorch, alter vocabularies, retrain BPE, download large archives or start training.
+
+Minimum outputs:
+1. Counts by source and composition, distinguishing compositions from files, tracks, windows and tokens.
+2. Source-grounded role counts with provenance.
+3. Reliable genre-label counts; unknown or missing labels must remain explicit.
+4. Optional weak heuristic role candidates stored separately with confidence and rule version.
+5. A clear report explaining whether data is sufficient for useful genre/role conditioning.
+6. Current baseline MIDI inventory and structural measurements when obtainable without PyTorch.
+
+Once this report identifies a material gap, select one small source or data transformation that fills that gap. Do not commence long training until checkpoint access works and the data is suitable.
+
+The main objective remains broad single-stream polyphonic electronic-music generation. MMM v2 stays experimental pending complete round-trip, drum-event preservation, and a demonstrated need for explicit multi-track generation.
