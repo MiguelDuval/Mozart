@@ -407,3 +407,27 @@ All evidence comes from the following local artifacts (no external downloads, no
 This audit is recorded in:
 - docs/AI_MODEL_COLLABORATION_LOG.md — Entry: 2026-10-21 — Cline — Local Corpus Audit Complete + Evidence Results
 - docs/MUSIC_MODEL_TRAINING_HISTORY.md — Phase G table updated with verified audit reference
+
+
+---
+
+## 12. Sidecar Asset-Identity Correction — Do Not Use the Previous Sidecar Totals
+
+A post-run code review found that the first sidecar builder used `dedup_id` (`source_id:composition_id`) as its deduplication key. This identifier groups all assets belonging to one composition and therefore is **not** a valid key for removing duplicate asset rows.
+
+The prior generated summary reported:
+- 28 Slakh metadata stems at input, but only 3 sidecar records (one per composition);
+- 1,276 MAESTRO CSV performance rows, but only 852 sidecar rows (one per title-like composition ID);
+- 17,240 total records and 449 rows “removed as duplicates”.
+
+Those record/duplicate counts were therefore **invalid at asset level**. The 449 removed rows were not established as duplicate files: valid Slakh stems and MAESTRO performances were collapsed. The previous totals must not be used to build training manifests or decide conditioning feasibility.
+
+### Corrective implementation
+
+`experiments/aura-midi/build_role_metadata_sidecar.py` now deduplicates only repeated `(source_id, composition_id, asset_id)` identities. `dedup_id` links assets to their composition but does not determine row uniqueness. All source stems and performances remain independent sidecar rows; Slakh metadata with `midi_saved=false` is retained as a metadata record and explicitly marked as lacking a MIDI asset. The report now distinguishes asset rows from composition groupings and exposes role/style counts by split.
+
+Hosted CI run [39658167738](https://github.com/MiguelDuval/Mozart/actions/runs/39658167738) passed 9 tests and the CLI smoke check.
+
+The input-count arithmetic before removing any genuine duplicate asset rows is 17,689 (15,235 NRG-CP files + 1,150 GMD rows + 28 Slakh metadata stems + 1,276 MAESTRO performance rows). **This is only an expected total, not a verified corrected scan.** The prior sidecar count has been invalidated in `experiments/aura-midi/audit_report.json`. Cline must rerun the corrected builder locally before corrected totals can be classified VERIFIED.
+
+See `docs/CONDITIONING_FEASIBILITY_DECISION.md` for the conditioning decision: no electronic-genre or authoritative section conditioning; no vocabulary expansion; broad functional-role conditioning is not ready. Do not proceed with training.
