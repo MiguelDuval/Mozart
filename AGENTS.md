@@ -14,6 +14,8 @@ The project contract is defined by:
 6. `docs/MIDI-CONTRACT.md`
 7. `docs/LINK-TIMING.md`
 8. `docs/AI-GENERATION.md`
+9. `docs/MUSIC_MODEL_TRAINING_HISTORY.md` — **Long-term source of truth for all model training**
+10. `docs/AI_MODEL_COLLABORATION_LOG.md` — **Permanent AI collaboration journal**
 
 When documents conflict with source code or test evidence, investigate the discrepancy and update the documentation deliberately.
 
@@ -56,3 +58,58 @@ At the end of meaningful work report:
 - what is proven;
 - what is not proven;
 - next smallest step.
+
+---
+
+## Permanent AI Collaboration Protocol (Added 2026-10-21)
+
+### Required Reading Before Significant Work
+**Before any significant work, Cline MUST read:**
+1. `docs/AI_MODEL_COLLABORATION_LOG.md` — latest entries and decisions
+2. `docs/MUSIC_MODEL_TRAINING_HISTORY.md` — complete training history with evidence classification
+3. `docs/MUSIC_MODEL_TRAINING_STRATEGY.md` — if available
+4. `docs/PROJECT_MASTER_PROMPT.md`
+5. `experiments/aura-midi/AURA_FINETUNE_READINESS.md` — if available in current checkout
+
+### Git Hygiene
+- Check `git status`, current branch, and `HEAD` before starting
+- Verify upstream and remote
+- Preserve uncommitted user changes
+- Find existing commits and PRs related to the project
+- **Known working branch:** `feature/link-clock` (but verify current branch first — do not switch blindly if it has needed uncommitted changes)
+- No `reset`, `rebase`, `force-push`, or changes to `main`
+- Work in small, meaningful changes
+- Documents must not contain secrets, API keys, private tokens, or personal data
+
+### Evidence Standards
+- **Do not repeat completed experiments** without specific technical reason
+- **Do not claim verification passed** without verifiable evidence
+- After each substantial work phase, add entry to `docs/AI_MODEL_COLLABORATION_LOG.md` and update `docs/MUSIC_MODEL_TRAINING_HISTORY.md`
+- All values and conclusions explicitly classified:
+  - **VERIFIED** — confirmed by existing artifacts
+  - **REPORTED, NOT VERIFIED** — from agent reports without artifacts
+  - **UNVERIFIED** — no evidence available
+  - **BLOCKED** — cannot be verified due to environment issues
+
+### Reboot Prohibition
+- **NO automatic computer reboots** — any reboot request requires explicit user permission
+- No `Restart-Computer`, `shutdown /r`, `Stop-Computer`, or other reboot/shutdown commands
+- No Scheduled Task creation that restarts computer
+- No automatic reboot on PyTorch error or checkpoint load failure
+- No repeated reboots as standard fix for process issues
+- If reboot deemed absolutely necessary: save state, explain proven cause, stop for explicit user permission
+- **For current task: reboot NOT permitted**
+
+### Training Process Discipline
+- Do not launch new training processes until previous process state verified
+- Do not delete historical checkpoints, data, or user modifications
+- Strategic model goal: **practically entire spectrum of electronic music**, not only dark melodic techno
+
+### Documentation Maintenance
+- Links to `docs/AI_MODEL_COLLABORATION_LOG.md` and `docs/MUSIC_MODEL_TRAINING_HISTORY.md` added to canonical documents list above
+- These documents are the index and history — code, metrics, and training state remain in their respective project files
+- After GitHub push: add commit SHA, branch, and document links to collaboration log
+
+---
+
+*This protocol is binding for all future Cline sessions on the Mozart project.*
