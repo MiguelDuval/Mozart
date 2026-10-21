@@ -333,3 +333,27 @@ Before this log update, the verified branch HEAD was `68966636976f683aa58135d7ef
 4. Build a coverage matrix from existing manifests/metrics and existing MIDI samples without loading the Phase 1 checkpoint if PyTorch continues to hang.
 5. Report specific gaps in bass, lead, arpeggio, harmonic/pad, rhythm, phrase length, and reliable genre labels.
 6. Do not train, reboot, or start a large download in this planning step.
+
+---
+
+## 2026-10-21 — ChatGPT — Coverage Audit Published; Training Still Deferred
+
+### Executed
+Published a preliminary coverage audit based on the committed training history and Cline's reported dataset inventory. No local workstation, process list, Python runtime, or ignored artifacts were directly inspected by ChatGPT; the audit explicitly marks reported counts and licenses as requiring reconciliation against local manifests.
+
+### New artifact
+- `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md`
+- Commit creating audit: `1d206e146aa1d6d7b08e5454c96f60d63f7d4c93`
+- This remains on `feature/mmm-v2-decoder-fix-and-docs`; `main` was not changed.
+
+### Key decision
+Prioritize broad **single-stream polyphonic** generation. Multi-track output is optional and must not block the core model. The current reports suggest NRG-CP covers short chords and GMD covers drums; bass, synth leads, arpeggios, texture, longer form, and reliable per-genre coverage remain gaps or unmeasured. Do not repeat Phase 1, do not perform a large download, and do not start long training in the next planning step.
+
+### Important blockers
+- PyTorch checkpoint loading is reported as hung by Cline, but current PIDs and root cause are not independently verified here. Do not reboot, do not issue shutdown commands, and do not repeatedly retry the same hang.
+- MMM v2 round-trip remains PARTIAL, with a reported major drum-note discrepancy and incomplete sample coverage. Do not call it fully verified.
+- Only three Slakh compositions were reported available, with the mirror under CC BY-NC 4.0. This is for a small research test only, not long training or production.
+- Dataset counts and license facts in the coverage audit are reported until the local manifests/source records are rechecked.
+
+### Required next action for Cline
+Read `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` and `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md`. Safely synchronize the local checkout with this remote feature branch only after checking `git status`; never reset/rebase/force-push. If PyTorch remains blocked, do not restart Windows or launch training. Use existing manifests, metrics and sample MIDI files to fill the per-source role/genre matrix and index the Phase 1 sample inventory. Append evidence and next steps here. Do not create a new data download or training run until a concrete gap has been measured.
