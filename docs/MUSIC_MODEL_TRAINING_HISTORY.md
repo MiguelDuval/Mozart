@@ -4,6 +4,12 @@
 **Current Phase:** Phase 2 — Multi-track MMM v2 (BLOCKED on PyTorch deadlock)  
 **Branch:** main (feature/link-clock EXISTS in remote at 1b0e939 — unrelated Android commits)  
 **Remote:** origin/main (up to date); origin/feature/mmm-v2-decoder-fix-and-docs at 17d3324 (SYNCED — tokenizer_mmm_v2.py + test script pushed)
+---
+
+**Current Phase:** Phase 1 checkpoint preserved; current development priority is broad single-stream polyphonic generation. MMM v2 remains experimental and partially verified.  
+**Working branch:** feature/mmm-v2-decoder-fix-and-docs (review draft PR #3; do not merge before reviewing branch divergence and experimental code).  
+**PyTorch status:** checkpoint loading is REPORTED BLOCKED by Cline and requires a single fresh, bounded check; current process state is not independently verified here.  
+**Restart policy:** no reboot or shutdown commands; user has prohibited reboots.
 
 ---
 
@@ -387,3 +393,71 @@ Mozart/
 ---
 
 *This document is the long-term source of truth. Update after each significant phase. Classify all claims: VERIFIED / REPORTED, NOT VERIFIED / UNVERIFIED / BLOCKED.*
+
+---
+
+## Current Status Addendum — 2026-10-21 (after Phase 2 recovery report)
+
+This addendum supersedes stale **current-status** labels above, but does not alter historical experiment records.
+
+### Repository and collaboration status
+- Current work branch: `feature/mmm-v2-decoder-fix-and-docs`.
+- The local Cline report identified commit `17d3324170b5cdc4bc615ba69c686149b0a0ec88` as the synced MMM v2 tokenizer commit; GitHub confirmed that commit and the tokenizer file.
+- ChatGPT subsequently published `docs/MUSIC_MODEL_TRAINING_STRATEGY.md` and `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` on this feature branch and appended a new collaboration handoff.
+- The latest branch HEAD after those documentation changes is recorded in `docs/AI_MODEL_COLLABORATION_LOG.md`. Before local edits, Cline must check remote HEAD and safely fast-forward/reconcile without reset, rebase or force-push.
+- `feature/link-clock` exists remotely but is a separate branch, not the current MMM v2 work branch.
+
+### Strategic decision
+Near-term priority is **broad single-stream polyphonic generation**. Polyphony within a single MIDI stream does not require multi-track output. MMM v2 is retained as an experimental branch; multi-track training is not mandatory and must not block progress on the core generator.
+
+### Current blockers and evidence classification
+- **Phase 1 checkpoint:** reported preserved at `experiments/aura-midi/runs/broad-training-20261020_204942/checkpoint_best.pt`, step 24750, reported best validation loss 1.0252. Local file integrity/current accessibility has not been rechecked in this handoff.
+- **PyTorch loading:** Cline reports that `torch.load()` hangs due to PIDs 19992, 20436 and 20600. This is **REPORTED / NOT INDEPENDENTLY RECHECKED**; do not assume those PIDs still exist. Do not reboot.
+- **MMM v2 round-trip:** **PARTIAL**. One composition partially matched, one decode timed out, and another was not decoded. Large drum-note loss is unresolved. Do not label the serializer fully verified.
+- **Slakh data:** only three compositions were reported available from a CC BY-NC 4.0 mirror. This is insufficient for long training and makes a checkpoint trained on it non-commercial research-only.
+- **Dataset strategy:** NRG-CP supports short chord-progressions; GMD supports drum patterns. Neither alone nor together proves coverage across the full EDM spectrum. MAESTRO remains separately restricted by CC BY-NC-SA 4.0.
+
+### Next justified step
+Follow `docs/BROAD_POLYPHONIC_MODEL_PLAN.md`: create an evidence-based coverage matrix from existing manifests, metrics and available MIDI samples; identify actual gaps in melody, bass, arpeggios, chords, texture and genre diversity; do not repeat completed scans, start training, reboot the computer, or download a large corpus until the data gap and source suitability are documented.
+
+
+## Current Handoff Addendum — 2026-10-21
+
+- New evidence-based coverage audit: `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md`.
+- Canonical strategy: `docs/MUSIC_MODEL_TRAINING_STRATEGY.md`.
+- Current plan: `docs/BROAD_POLYPHONIC_MODEL_PLAN.md`.
+- Persistent AI handoff: `docs/AI_MODEL_COLLABORATION_LOG.md`.
+- Draft PR #3: https://github.com/MiguelDuval/Mozart/pull/3 — open, not merged. The branch was behind main by one commit and GitHub reported mergeable=false at PR creation. Inspect this divergence; never reset, rebase, force-push, or merge automatically.
+- Phase 1 checkpoint metrics and corpus counts remain reported values until local artifacts are directly reconciled.
+- Current strategic priority is a single-stream polyphonic generator with wide electronic-music coverage. Multi-track arrangement is optional; MMM v2 remains experimental pending stronger round-trip evidence.
+- User prohibition on automatic reboot remains binding. Do not issue reboot/shutdown commands.
+
+
+## Coverage Report Addendum — 2026-10-21 (Cline report, not locally re-read by ChatGPT)
+
+The latest Cline report provides a more concrete coverage table. The figures below are **REPORTED BY CLINE from local manifests**, not independently reproduced by ChatGPT during this GitHub-only pass. Use local manifests as the final authority before training.
+
+| Source | Unique compositions/files reported | Role/genre observations | Status for the primary broad polyphonic model |
+|---|---:|---|---|
+| Slakh2100 sample | 3 compositions, 61 stems, 8–11 tracks/composition | Instrument-class metadata, no genre labels | Useful only for multitrack codec experiments; source mirror reported CC BY-NC 4.0 |
+| NRG-CP | 15,235 algorithmic files | Chord progressions only; no authoritative electronic subgenre labels | Useful chord/harmony replay |
+| GMD | 1,150 files | Drum grooves; 11 supplied style labels reported (funk, soul, hiphop, pop, rock, jazz, latin/samba, New Orleans/secondline, dance/disco, rock/shuffle, jazz/funk) | Useful rhythm replay, but labels are not broad EDM genre control |
+| MAESTRO v3.0.0 | 1,276 files | Classical piano, no electronic genre labels | Research-only because of reported CC BY-NC-SA 4.0; not the primary production-oriented direction |
+| `broad_corpus` | 0 files reported | No actual items present | Not an available training source |
+
+The Cline report says Phase 1 used 13,711 NRG-CP train files plus 897 GMD train files, described as 15,260 training windows. This file/window distinction needs to be verified against actual manifests; never treat windows as unique works.
+
+### Design decision: no synthetic token expansion yet
+
+Do not implement the proposed five role tokens and six section tokens at this stage. Add metadata first:
+- source-grounded labels for NRG-CP chords and GMD drums;
+- instrument-class labels for Slakh only where supported by its metadata;
+- source/provenance and confidence for every label;
+- optional heuristic suggestions as weak labels, never gold labels by default;
+- unknown/missing values retained explicitly.
+
+No reliable section annotation has been established for intro/verse/chorus/breakdown/drop/outro. Do not manufacture it. If 5 role + 6 section tokens were added to MMM v2's reported 12,004 vocabulary, the arithmetically resulting size would be 12,015. More importantly, Phase 1's 12,000-token model cannot use those added IDs without a deliberate, tested model/tokenizer version change.
+
+### Next justified activity
+
+Build a metadata-only source/role/genre manifest from the existing local manifests and MIDI metadata, and inventory saved baseline generations without loading PyTorch weights. This is the next work item while checkpoint loading is blocked. It should quantify gaps rather than start another training loop or a large data download.
