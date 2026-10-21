@@ -413,3 +413,33 @@ Follow `docs/BROAD_POLYPHONIC_MODEL_PLAN.md`: create an evidence-based coverage 
 - Phase 1 checkpoint metrics and corpus counts remain reported values until local artifacts are directly reconciled.
 - Current strategic priority is a single-stream polyphonic generator with wide electronic-music coverage. Multi-track arrangement is optional; MMM v2 remains experimental pending stronger round-trip evidence.
 - User prohibition on automatic reboot remains binding. Do not issue reboot/shutdown commands.
+
+
+## Coverage Report Addendum — 2026-10-21 (Cline report, not locally re-read by ChatGPT)
+
+The latest Cline report provides a more concrete coverage table. The figures below are **REPORTED BY CLINE from local manifests**, not independently reproduced by ChatGPT during this GitHub-only pass. Use local manifests as the final authority before training.
+
+| Source | Unique compositions/files reported | Role/genre observations | Status for the primary broad polyphonic model |
+|---|---:|---|---|
+| Slakh2100 sample | 3 compositions, 61 stems, 8–11 tracks/composition | Instrument-class metadata, no genre labels | Useful only for multitrack codec experiments; source mirror reported CC BY-NC 4.0 |
+| NRG-CP | 15,235 algorithmic files | Chord progressions only; no authoritative electronic subgenre labels | Useful chord/harmony replay |
+| GMD | 1,150 files | Drum grooves; 11 supplied style labels reported (funk, soul, hiphop, pop, rock, jazz, latin/samba, New Orleans/secondline, dance/disco, rock/shuffle, jazz/funk) | Useful rhythm replay, but labels are not broad EDM genre control |
+| MAESTRO v3.0.0 | 1,276 files | Classical piano, no electronic genre labels | Research-only because of reported CC BY-NC-SA 4.0; not the primary production-oriented direction |
+| `broad_corpus` | 0 files reported | No actual items present | Not an available training source |
+
+The Cline report says Phase 1 used 13,711 NRG-CP train files plus 897 GMD train files, described as 15,260 training windows. This file/window distinction needs to be verified against actual manifests; never treat windows as unique works.
+
+### Design decision: no synthetic token expansion yet
+
+Do not implement the proposed five role tokens and six section tokens at this stage. Add metadata first:
+- source-grounded labels for NRG-CP chords and GMD drums;
+- instrument-class labels for Slakh only where supported by its metadata;
+- source/provenance and confidence for every label;
+- optional heuristic suggestions as weak labels, never gold labels by default;
+- unknown/missing values retained explicitly.
+
+No reliable section annotation has been established for intro/verse/chorus/breakdown/drop/outro. Do not manufacture it. If 5 role + 6 section tokens were added to MMM v2's reported 12,004 vocabulary, the arithmetically resulting size would be 12,015. More importantly, Phase 1's 12,000-token model cannot use those added IDs without a deliberate, tested model/tokenizer version change.
+
+### Next justified activity
+
+Build a metadata-only source/role/genre manifest from the existing local manifests and MIDI metadata, and inventory saved baseline generations without loading PyTorch weights. This is the next work item while checkpoint loading is blocked. It should quantify gaps rather than start another training loop or a large data download.
