@@ -444,11 +444,16 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, json.JSONDecodeError):
             previous = {}
     report = dict(previous)
+    # A successful run of this version supersedes any warning about an older
+    # composition-level deduplication bug.
+    report.pop("sidecar_previous_run_correction", None)
     report.update({
         "audit_date": date.today().isoformat(),
         "audit_type": "metadata-only inventory + role metadata JSONL (reproducible local scan)",
         "metadata_sidecar": str(args.sidecar_out),
         "metadata_sidecar_summary": str(args.summary_out),
+        "sidecar_status": "REGENERATED_FROM_CURRENT_ASSET_LEVEL_BUILDER",
+        "sidecar_row_semantics": "One record per unique MIDI file, stem, or performance. dedup_id links assets to a composition and is not a deduplication key.",
         "sidecar_records": len(records),
         "sidecar_inputs": inputs,
         "sidecar_corpora": summary["corpora"],
