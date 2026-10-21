@@ -19,6 +19,7 @@ The project contract is defined by:
 11. `docs/MUSIC_MODEL_TRAINING_STRATEGY.md` — **Canonical strategy for broad electronic-music coverage**
 12. `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` — **Current single-stream polyphonic model plan**
 13. `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md` — **Evidence-based source/role/genre coverage audit**
+14. `docs/CONDITIONING_FEASIBILITY_DECISION.md` — **Current label/conditioning go-no-go decision**
 
 When documents conflict with source code or test evidence, investigate the discrepancy and update the documentation deliberately.
 
@@ -130,3 +131,12 @@ At the end of meaningful work report:
 - Adding tokens does not create supervision. Do not alter vocabulary/model dimensions until a concrete conditioning objective, sufficient labels, backward-compatible ID mapping, and a testable evaluation are specified.
 - Single-stream polyphony is the near-term priority; multi-track modelling is optional and must be justified by evidence.
 - Do not start another long training run while the checkpoint-loading problem is unresolved or before the existing coverage audit identifies a concrete data gap.
+
+
+### Metadata sidecar identity
+- Sidecar row identity is the asset (MIDI performance/file or instrument stem), not the composition.
+- `dedup_id` is a composition linkage key only; never deduplicate all rows that share it.
+- Report asset-record counts and unique-composition counts separately.
+- Preserve repeated performances of one work and stems within one arrangement; only remove an exact repeated `(source_id, composition_id, asset_id)` row.
+- Keep metadata rows for unsaved stems marked `midi_saved=false`, but do not treat them as usable MIDI training assets.
+- After changing row identity/deduplication, rerun local corpus scans and invalidate prior generated asset totals until verified.
