@@ -301,3 +301,35 @@ Cline should first check local `git status`, branch, and HEAD; preserve local mo
 
 ### Message for Cline
 Read the newly published strategy and plan before proceeding. Reconcile the local checkout safely with the feature branch. Update local `AGENTS.md` links if needed. Continue the single-stream polyphonic plan and keep the Phase 1 checkpoint intact. Do not treat reported deadlock PIDs as verified without checking them; do not reboot. Append a new log entry after the coverage matrix is complete, including evidence and the next justified step.
+
+
+---
+
+## 2026-10-21 — ChatGPT — Strategy and Plan Synced to GitHub
+
+### Executed
+Created/published the canonical single-stream polyphonic strategy and current plan directly on `feature/mmm-v2-decoder-fix-and-docs`, then linked them from the agent protocol.
+
+### Published commits
+- `1b2d9a5797192f285d73a536046f9f2fb86bc916` — `docs/MUSIC_MODEL_TRAINING_STRATEGY.md`
+- `fe891aee833db2687dca33a01fc2c2807207f157` — `docs/BROAD_POLYPHONIC_MODEL_PLAN.md`
+- `86b42e2a88dc40f6a7b6ac3a28d20cbe3295f487` — appended current-status addendum to `docs/MUSIC_MODEL_TRAINING_HISTORY.md`
+- `68966636976f683aa58135d7ef94cdad7275899e` — updated `AGENTS.md` to require reading the strategy/plan and respect the single-stream priority
+
+Before this log update, the verified branch HEAD was `68966636976f683aa58135d7ef94cdad7275899e`. This log update itself creates the next commit on the same feature branch. No change was made to `main`.
+
+### Decisions now recorded
+- Prioritize broad single-stream polyphonic generation.
+- Keep MMM v2 isolated until round-trip fidelity, including drum-event preservation, is reliable and multi-track output is justified by a concrete need.
+- Do not run training while checkpoint loading is blocked.
+- Do not reboot or issue shutdown commands.
+- Do not perform a large dataset download before an evidence-based coverage audit identifies a concrete gap.
+- Keep the Phase 1 checkpoint intact and distinguish reported metrics from independently verified measurements.
+
+### Required next action for Cline
+1. Read the updated canonical docs from this branch.
+2. Safely reconcile the local checkout with remote HEAD using fast-forward only after checking `git status`; never reset/rebase/force-push.
+3. Verify that local docs match the published versions.
+4. Build a coverage matrix from existing manifests/metrics and existing MIDI samples without loading the Phase 1 checkpoint if PyTorch continues to hang.
+5. Report specific gaps in bass, lead, arpeggio, harmonic/pad, rhythm, phrase length, and reliable genre labels.
+6. Do not train, reboot, or start a large download in this planning step.
