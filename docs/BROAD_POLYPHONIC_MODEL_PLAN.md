@@ -127,11 +127,19 @@ No further multi-track work is required merely to improve single-track polyphony
 - Use `docs/AI_MODEL_COLLABORATION_LOG.md` for append-only handoffs, and `docs/MUSIC_MODEL_TRAINING_HISTORY.md` for durable experiment history.
 - Explicitly classify claims as VERIFIED, REPORTED/NOT VERIFIED, UNVERIFIED, or BLOCKED.
 
-## 10. Immediate next action
+## 10. Immediate next action — Start a Controlled Experiment
 
-Create the coverage matrix from the existing manifests and metrics; assess the saved Phase 1 MIDI examples where possible; report the specific missing musical roles and genre families. Then propose one next data acquisition or model change directly tied to that evidence.
+The metadata-only corpus audit and split reconciliation are now reported complete by Cline. The next step is **not another audit cycle**.
 
-**Do not start training, reboot, or download a large new dataset as part of this planning phase.**
+Missing genre/section labels block reliable genre/section conditioning, but they do not block unconditioned next-token training. Phase 1 already exists as a 25,000-step checkpoint. Proceed with a controlled single-stream polyphony experiment as specified in `docs/CONDITIONING_FEASIBILITY_DECISION.md`:
+
+- inspect the current PyTorch state once and perform one bounded load attempt for the Phase 1 checkpoint;
+- if the checkpoint can be loaded safely, run a new 10,000-step research-only fine-tune in a new output directory, with the original 12,000-token tokenizer, source-balanced NRG-CP/GMD replay and MAESTRO as a non-commercial polyphony supplement;
+- keep validation/test identity separate, explicitly filter any MAESTRO composition IDs spanning splits, evaluate every 500 steps, use early stopping, and generate fixed-seed MIDI before/after samples;
+- do not overwrite the Phase 1 checkpoint and do not train on the three-composition Slakh sample;
+- if checkpoint loading still hangs, do not loop retries or reboot; establish whether a tiny forward/backward operation works and report the concrete blocker.
+
+This is an incremental research experiment, not a claim of full-spectrum electronic-genre coverage. No more preparation-only work should precede it.
 
 
 ---
