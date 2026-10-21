@@ -50,3 +50,8 @@ The presence of a sidecar label is not model conditioning. Phase 1 was not train
 ## 5. Safety and scope
 
 This decision does not authorize model training, checkpoint loading, downloads, token changes, reboot, process termination, or merge of PR #3. No reboot. No changes to `main`.
+
+
+## External data screening reference
+
+The initial external corpus screen is documented in `docs/EXTERNAL_DATASET_CANDIDATES.md`. It found a small multi-track electronic dataset useful for research-only structural evaluation, but no verified source that meets both broad electronic coverage and production-oriented rights requirements. No files were downloaded.
