@@ -20,6 +20,7 @@ The project contract is defined by:
 12. `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` — **Current single-stream polyphonic model plan**
 13. `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md` — **Evidence-based source/role/genre coverage audit**
 14. `docs/CONDITIONING_FEASIBILITY_DECISION.md` — **Current label/conditioning go-no-go decision**
+15. `docs/EXTERNAL_DATASET_CANDIDATES.md` — **Screened electronic-music corpus candidates and rights/size caveats**
 
 When documents conflict with source code or test evidence, investigate the discrepancy and update the documentation deliberately.
 
