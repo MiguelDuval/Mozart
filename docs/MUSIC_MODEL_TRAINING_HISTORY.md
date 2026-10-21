@@ -1,9 +1,10 @@
 # Mozart Music Model Training History
 
 **Last Updated:** 2026-10-21  
-**Current Phase:** Phase 2 — Multi-track MMM v2 (BLOCKED on PyTorch deadlock)  
-**Branch:** main (feature/link-clock does not exist)  
-**Remote:** origin/main (up to date)
+**Current Phase:** Phase 1 checkpoint preserved; current development priority is broad single-stream polyphonic generation. MMM v2 remains experimental and partially verified.  
+**Working branch:** feature/mmm-v2-decoder-fix-and-docs (review draft PR #3; do not merge before reviewing branch divergence and experimental code).  
+**PyTorch status:** checkpoint loading is REPORTED BLOCKED by Cline and requires a single fresh, bounded check; current process state is not independently verified here.  
+**Restart policy:** no reboot or shutdown commands; user has prohibited reboots.
 
 ---
 
@@ -400,3 +401,15 @@ Near-term priority is **broad single-stream polyphonic generation**. Polyphony w
 
 ### Next justified step
 Follow `docs/BROAD_POLYPHONIC_MODEL_PLAN.md`: create an evidence-based coverage matrix from existing manifests, metrics and available MIDI samples; identify actual gaps in melody, bass, arpeggios, chords, texture and genre diversity; do not repeat completed scans, start training, reboot the computer, or download a large corpus until the data gap and source suitability are documented.
+
+
+## Current Handoff Addendum — 2026-10-21
+
+- New evidence-based coverage audit: `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md`.
+- Canonical strategy: `docs/MUSIC_MODEL_TRAINING_STRATEGY.md`.
+- Current plan: `docs/BROAD_POLYPHONIC_MODEL_PLAN.md`.
+- Persistent AI handoff: `docs/AI_MODEL_COLLABORATION_LOG.md`.
+- Draft PR #3: https://github.com/MiguelDuval/Mozart/pull/3 — open, not merged. The branch was behind main by one commit and GitHub reported mergeable=false at PR creation. Inspect this divergence; never reset, rebase, force-push, or merge automatically.
+- Phase 1 checkpoint metrics and corpus counts remain reported values until local artifacts are directly reconciled.
+- Current strategic priority is a single-stream polyphonic generator with wide electronic-music coverage. Multi-track arrangement is optional; MMM v2 remains experimental pending stronger round-trip evidence.
+- User prohibition on automatic reboot remains binding. Do not issue reboot/shutdown commands.
