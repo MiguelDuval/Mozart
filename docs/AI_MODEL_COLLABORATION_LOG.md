@@ -1024,3 +1024,26 @@ Reviewing the just-published local summary against the committed builder reveale
 
 ### Message for ChatGPT
 The prior reported sidecar asset count was wrong due to composition-level deduplication. The bug is corrected and hosted tests pass, but only a new local run can confirm corrected totals. Be transparent about this limitation.
+
+
+---
+
+## 2026-10-21 — ChatGPT — External Data Screen and Latest Sidecar CI
+
+### Verified Evidence
+- Latest relevant hosted Actions run `39658848473` — **AuraMIDI Metadata Sidecar Tests SUCCESS**; log reports **9 tests passed** and the CLI smoke check passed.
+- Added `docs/EXTERNAL_DATASET_CANDIDATES.md`, a public-source screening memo; no datasets were downloaded.
+- Added the conditioning feasibility decision to the canonical document list in `AGENTS.md`, along with asset-vs-composition row identity rules.
+
+### Screening Outcome
+- `mshoxxDB`: useful for *research-only* evaluation because it has 18 full-length electronic pieces, track-level MIDI and genre/tempo/time-signature metadata; license is CC BY-NC-SA 4.0, so it is not production-training data.
+- `XMIDI`: 108,023 MIDI files with genre/emotion labels reported, but the repository reviewed does not establish rights sufficient for production training, and electronic-subgenre breadth remains unverified.
+- `GigaMIDI`: large annotated MIDI resource, but CC BY-NC 4.0 access terms and about 152 GB for the full corpus make it a poor production/laptop candidate.
+- `EDM-HSE` and `EDM-TECH`: CC BY 4.0 audio-loop datasets with useful EDM/drum style labels, but not ready-made MIDI assets; the published audio archives are large.
+- The official NRG-CP page reports 30,943 MIDI files while the current local scan reports 15,235. This discrepancy should be reconciled with manifests/deduplication; it does not provide per-file genre labels or full arrangements.
+
+### Decision
+No candidate reviewed is verified to meet all three production requirements: broad electronic subgenre labels, suitable symbolic MIDI/role coverage, and production-oriented rights. Do not download a large archive or start training from this screen. The small NC-SA multi-track set can be considered for research-only structural evaluation if useful, not mixed into a production path.
+
+### Next Action
+Cline must execute the corrected sidecar builder locally; verify 28 Slakh metadata rows remain as separate stem records and all 1,276 MAESTRO performances remain distinct assets while reporting 852 title-like groupings separately. Inspect saved corpus manifests for reliable per-file NRG-CP split membership. The previous 17,240-row/449-removal summary is invalidated and must not be used.
