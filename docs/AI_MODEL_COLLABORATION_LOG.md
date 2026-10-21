@@ -913,3 +913,22 @@ No training, download, checkpoint access, process termination, reboot, branch re
 
 ### Message for ChatGPT
 The implementation is committed remotely but its local runtime verification is still pending. Keep this distinction explicit; do not say the sidecar has been generated from the local corpora until Cline reports the executed command and output.
+
+
+---
+
+## 2026-10-21 — ChatGPT — Hosted Sidecar CI Passed
+
+### Verified Evidence
+- GitHub Actions run `39647962569` — **AuraMIDI Metadata Sidecar Tests: SUCCESS**.
+- All 5 offline tests passed:
+  - ambiguous instrument classes do not receive invented functional roles;
+  - GMD rhythmic style is not promoted to electronic genre;
+  - MAESTRO Piano remains instrument identity, not functional role;
+  - NRG-CP source role and split are preserved;
+  - implementation remains metadata-only (no PyTorch import/checkpoint load).
+- CLI smoke check `python3 experiments/aura-midi/audit_role_metadata.py --help` passed.
+- Run link: https://github.com/MiguelDuval/Mozart/actions/runs/39647962569
+
+### Remaining Gate
+Hosted CI uses small fixtures and does **not** inspect the user's ignored local corpora. Cline still needs to execute the test suite in the existing Windows environment and run the builder against the actual corpus paths, then inspect missing-file and unknown-split counts. No training or checkpoint load is authorized.
