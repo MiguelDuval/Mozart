@@ -979,3 +979,48 @@ Execute the committed metadata-only sidecar builder against the actual local cor
 
 ### Message for ChatGPT
 The sidecar builder has been executed locally against real corpora. All claims in the audit are now VERIFIED from artifacts. The structural gaps (no electronic genres, no section labels, only 3 multi-track compositions, weak heuristics for Slakh) are confirmed. Do not propose vocabulary expansion or training until trustworthy label counts per source/split are quantified for conditioning feasibility.
+
+
+---
+
+## 2026-10-21 — ChatGPT — Sidecar Asset-Identity Bug Corrected; Conditioning Decision Recorded
+
+### Critical correction discovered
+Reviewing the just-published local summary against the committed builder revealed that the prior sidecar used `dedup_id = source_id:composition_id` as its deduplication key. That is a **composition grouping ID**, not an asset identity. The 17,240-record sidecar and 449 "duplicate removals" therefore undercounted valid assets:
+- The input scan saw 28 Slakh metadata stems, but its sidecar summary contained only 3 rows—one per composition.
+- The MAESTRO CSV had 1,276 performance rows, but the sidecar summary contained only 852 rows—one per title-like composition ID.
+- The old 17,240/449 numbers must not be used for conditioning feasibility or training manifest construction.
+
+### Executed
+1. Reworked `deduplicate_asset_rows()` to deduplicate only repeated `(source_id, composition_id, asset_id)` rows. `dedup_id` now remains a linkage key only.
+2. Preserved all Slakh stem metadata rows, including rows with `midi_saved=false`; these are explicitly marked and remain ineligible as MIDI assets where no MIDI exists.
+3. Added source-grounded functional-role counts, instrument-identity counts, heuristic role candidates, source-style counts and genre/section label counts **by split**. Added a count for composition identifiers appearing in more than one split.
+4. Added tests for repeated stem IDs across compositions, multiple performances linked to one composition, unsaved Slakh metadata, and per-split role counts.
+5. Updated `audit_report.json` to invalidate the previous sidecar totals and state that a local rerun is required.
+6. Added `docs/CONDITIONING_FEASIBILITY_DECISION.md`.
+
+### Verified Evidence
+- GitHub Actions run `39658167738` — **AuraMIDI Metadata Sidecar Tests SUCCESS**, **9 tests passed**; CLI `--help` passed.
+- Corrective code is in `experiments/aura-midi/build_role_metadata_sidecar.py`.
+- The report explicitly marks the previous sidecar totals stale and shows the arithmetic input-row expectation (15,235 + 1,150 + 28 + 1,276 = 17,689) only as an **unverified expectation pending corrected local execution**.
+
+### Conditioning Feasibility Decision
+- Electronic genre conditioning: **NO-GO** — 0 authoritative electronic subgenre labels.
+- Arrangement-section conditioning: **NO-GO** — 0 authoritative section labels.
+- General functional-role conditioning for broad electronic music: **NO-GO for now**. NRG-CP has source-grounded chord/harmony labels but all split values are unknown in the path scan; GMD has source-grounded drum labels with train/validation/test counts but is drum-only; Slakh role candidates are weak and only cover 3 compositions; MAESTRO Piano is instrument identity, is not a functional arrangement role, and is non-commercial.
+- A narrow source-specific role experiment remains possible later, but the sidecar itself is not a conditioning interface. Phase 1 was not trained with a verified condition input. No vocabulary expansion is justified.
+
+### Not Yet Verified
+- The corrected builder has **not** been run by ChatGPT against the user's local files; the new 17,689 figure is arithmetic, not a scan result.
+- Updated source/split totals and true-duplicate count require Cline to rerun the builder locally.
+- NRG-CP split mapping may be recoverable from existing local corpus manifests; that must be inspected before leaving all NRG examples unknown.
+- Current PyTorch process state is not inspected. No checkpoint load attempted.
+
+### Next Action
+1. Sync safely and run the 9 tests in the user's existing Windows environment.
+2. Run the corrected builder with the actual NRG-CP path, then verify all 28 Slakh rows and all 1,276 MAESTRO performance rows remain distinct assets; report unique composition groupings separately.
+3. Inspect manifests for trustworthy per-file NRG-CP train/validation/test membership and map it only if row identity can be matched reliably.
+4. Review corrected per-source/per-split summary, then use the decision in `docs/CONDITIONING_FEASIBILITY_DECISION.md`. Do not add tokens, train, download, reboot, or merge PR #3.
+
+### Message for ChatGPT
+The prior reported sidecar asset count was wrong due to composition-level deduplication. The bug is corrected and hosted tests pass, but only a new local run can confirm corrected totals. Be transparent about this limitation.
