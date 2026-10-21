@@ -522,3 +522,26 @@ Checkpoint: experiments/aura-midi/runs/broad-training-20261020_204942/checkpoint
 - GMD info.csv: experiments/aura-midi/datasets/gmd/extracted/groove/info.csv
 - MAESTRO CSV: experiments/aura-midi/datasets/maestro-v3.0.0/maestro-v3.0.0/maestro-v3.0.0.csv
 - Slakh metadata.yaml: experiments/aura-midi/datasets/Slakh2100_samples/Track*/train/Track*/metadata.yaml
+
+
+---
+
+## 2026-10-21 — Sidecar Asset-Identity Correction and Conditioning Feasibility Decision
+
+### Audit correction
+The initial locally generated sidecar was deduplicated by `dedup_id = source_id:composition_id`, which collapsed valid assets sharing a composition. The reported 17,240 rows and 449 removed rows were not valid asset-level counts. Specifically, the input scan reported 28 Slakh stem metadata rows but the sidecar summary retained only 3; it reported 1,276 MAESTRO performances but the sidecar summary retained only 852 title-level rows.
+
+The builder now deduplicates repeated asset rows using `(source_id, composition_id, asset_id)`; it preserves all stems and performances, including Slakh rows marked `midi_saved=false`. It reports asset rows separately from unique composition identifiers and counts source-grounded roles, instrument identities, weak candidates and styles by split. Nine hosted unit tests pass.
+
+**Current status:** corrected implementation is committed remotely and the old sidecar totals are invalidated in `experiments/aura-midi/audit_report.json`. The corrected builder must be executed again in the local Windows workspace before current totals can be called verified. The arithmetic expectation before removing genuine duplicates is 17,689 rows (15,235 NRG-CP + 1,150 GMD + 28 Slakh stems + 1,276 MAESTRO performances); this is not yet an observed corrected scan.
+
+### Conditioning decision
+See `docs/CONDITIONING_FEASIBILITY_DECISION.md`.
+
+- Genre conditioning: **NO-GO** — no authoritative electronic-subgenre labels exist in the scanned corpora.
+- Section conditioning: **NO-GO** — no authoritative arrangement-section labels exist.
+- General broad electronic functional-role conditioning: **NO-GO at present**. NRG-CP chord/harmony and GMD drum roles are source-grounded but come from separate source domains, NRG-CP split membership remains unknown in the current path scan, Slakh role candidates are weak and available for only three compositions, and MAESTRO's Piano label is instrument identity rather than functional arrangement role.
+- Do not expand the 12,000-token Phase 1 vocabulary. Sidecar metadata alone does not condition an existing trained model. A narrow source-specific role experiment can be considered later after split provenance and evaluation are reliable.
+
+### Immediate next action
+Run the corrected sidecar builder locally, verify record and asset counts, inspect duplicate/performance identities and missing MIDI paths, and recover NRG-CP split membership from existing manifests if file-level identity can be matched. No training, checkpoint loading, token changes, large downloads, reboot, or PR merge.
