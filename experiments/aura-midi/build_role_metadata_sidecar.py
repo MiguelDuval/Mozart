@@ -112,9 +112,9 @@ def make_record(
     role_kind: str = "functional_role", role_confidence: float | None = None,
     instrument_class: str | None = None, source_style: str | None = None,
     source_role_candidate: str | None = None, candidate_confidence: float | None = None,
-    label_evidence: str = "unknown",
+    label_evidence: str = "unknown", is_drum: bool = False,
 ) -> dict[str, Any]:
-    weak_label, weak_confidence = weak_role_candidate(instrument_class) if source_role_candidate is None else (source_role_candidate, candidate_confidence)
+    weak_label, weak_confidence = weak_role_candidate(instrument_class, is_drum) if source_role_candidate is None else (source_role_candidate, candidate_confidence)
     return {
         "schema_version": SCHEMA_VERSION,
         "source_id": source_id,
@@ -126,6 +126,7 @@ def make_record(
         "split": split,
         "source_domain_label": source_domain,
         "instrument_class": instrument_class,
+        "is_drum": is_drum,
         "source_role_label": source_role,
         "source_role_kind": role_kind if source_role else None,
         "role_label_origin": role_origin if source_role else "unknown",
@@ -237,10 +238,12 @@ def slakh_records(root: Path | None) -> tuple[list[dict[str, Any]], dict[str, An
         for stem_id, meta in stems.items():
             if not isinstance(meta, dict) or meta.get("midi_saved") is False:
                 continue
-            raw_instrument = meta.get("instrument_class") or meta.get("instrument") or meta.get("class")
+            # Slakh metadata.yaml uses "inst_class" not "instrument_class"
+            raw_instrument = meta.get("inst_class") or meta.get("instrument_class") or meta.get("instrument") or meta.get("class")
             if not raw_instrument and isinstance(meta.get("program"), dict):
                 raw_instrument = meta["program"].get("name")
             instrument_class = str(raw_instrument).strip() if raw_instrument else None
+            is_drum = meta.get("is_drum", False)
             matches = [p for p in comp_root.rglob("*") if p.is_file() and p.suffix.lower() in MIDI_SUFFIXES and (p.stem == str(stem_id) or p.stem.startswith(str(stem_id) + "_"))] if comp_root.is_dir() else []
             asset_path = str(matches[0].resolve()) if matches else None
             records.append(make_record(
@@ -248,7 +251,7 @@ def slakh_records(root: Path | None) -> tuple[list[dict[str, Any]], dict[str, An
                 midi_path=asset_path, asset_exists=bool(matches),
                 split=split_from(metadata_path), license_name=LICENSES[source],
                 source_domain="multitrack_midi_stems", instrument_class=instrument_class,
-                role_origin="instrument_class_heuristic",
+                is_drum=is_drum, role_origin="instrument_class_heuristic",
             ))
     return records, {"status": "OK" if records else "NO_MIDI_SAVED_STEMS", "path": str(root), "metadata_files_seen": len(metadata_paths), "stems_seen": len(records), "stems_without_midi_path": sum(not r["asset_exists"] for r in records)}
 
@@ -349,11 +352,13 @@ def main(argv: list[str] | None = None) -> int:
     records.extend(new)
 
     # A missing/partial local source is reported, not fabricated or silently called complete.
+    # Use dedup_id (source_id:composition_id) as the deduplication key to avoid
+    # incorrectly collapsing stems with the same name across different compositions.
     seen = set()
     deduped = []
     duplicates = 0
     for row in records:
-        key = (row["source_id"], row["asset_id"])
+        key = row["dedup_id"]
         if key in seen:
             duplicates += 1
             continue

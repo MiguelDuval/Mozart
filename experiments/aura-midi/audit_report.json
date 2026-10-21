@@ -1,6 +1,6 @@
 {
   "audit_date": "2026-10-21",
-  "audit_type": "metadata-only coverage audit (no PyTorch, no training, no downloads)",
+  "audit_type": "metadata-only inventory + role metadata JSONL (reproducible local scan)",
   "phase1_training": {
     "sources_used": [
       "NRG-CP",
@@ -270,5 +270,191 @@
     "REPORTED": "From prior agent reports without local artifact confirmation",
     "UNVERIFIED": "No evidence available",
     "BLOCKED": "Cannot verify due to environment issues (PyTorch deadlock)"
-  }
+  },
+  "metadata_sidecar": "experiments\\aura-midi\\runs\\metadata-sidecar\\role_metadata.jsonl",
+  "metadata_sidecar_summary": "experiments\\aura-midi\\runs\\metadata-sidecar\\role_metadata_summary.json",
+  "sidecar_records": 17240,
+  "sidecar_inputs": {
+    "nrgcp": {
+      "status": "OK",
+      "path": "experiments\\aura-midi\\datasets\\NRG-CP\\extracted",
+      "files_seen": 15235
+    },
+    "gmd": {
+      "status": "OK",
+      "path": "experiments\\aura-midi\\datasets\\gmd\\extracted\\groove\\info.csv",
+      "rows_seen": 1150,
+      "rows_with_missing_midi": 0
+    },
+    "slakh2100_samples": {
+      "status": "OK",
+      "path": "experiments\\aura-midi\\datasets\\Slakh2100_samples",
+      "metadata_files_seen": 3,
+      "stems_seen": 28,
+      "stems_without_midi_path": 1
+    },
+    "maestro": {
+      "status": "OK",
+      "path": "experiments\\aura-midi\\datasets\\maestro-v3.0.0\\maestro-v3.0.0\\maestro-v3.0.0.csv",
+      "rows_seen": 1276,
+      "rows_with_missing_midi": 0
+    }
+  },
+  "sidecar_corpora": [
+    {
+      "source_name": "nrgcp",
+      "records": 15235,
+      "unique_compositions": 15235,
+      "source_role_labels": {
+        "Chords/Harmony": 15235
+      },
+      "weak_role_candidates": {},
+      "source_style_labels": {},
+      "splits": {
+        "unknown": 15235
+      },
+      "missing_asset_paths": 0,
+      "genre_labeled_records": 0,
+      "license": "CC BY 4.0",
+      "evidence_level": "VERIFIED_METADATA_SCAN"
+    },
+    {
+      "source_name": "gmd",
+      "records": 1150,
+      "unique_compositions": 1150,
+      "source_role_labels": {
+        "Drums": 1150
+      },
+      "weak_role_candidates": {},
+      "source_style_labels": {
+        "afrobeat": 13,
+        "afrocuban": 9,
+        "afrocuban/bembe": 30,
+        "afrocuban/calypso": 2,
+        "afrocuban/rhumba": 19,
+        "blues/shuffle": 4,
+        "country": 29,
+        "dance/breakbeat": 2,
+        "dance/disco": 5,
+        "funk": 77,
+        "funk/fast": 19,
+        "funk/groove1": 4,
+        "funk/groove2": 4,
+        "funk/groove5": 4,
+        "funk/latin": 2,
+        "funk/purdieshuffle": 30,
+        "funk/rock": 20,
+        "gospel": 19,
+        "highlife": 2,
+        "hiphop": 91,
+        "hiphop/groove6": 4,
+        "jazz": 46,
+        "jazz/fast": 1,
+        "jazz/funk": 24,
+        "jazz/fusion": 11,
+        "jazz/klezmer": 1,
+        "jazz/linear": 2,
+        "jazz/march": 3,
+        "jazz/mediumfast": 2,
+        "jazz/swing": 11,
+        "latin": 8,
+        "latin/ando": 1,
+        "latin/bomba": 1,
+        "latin/bounce": 2,
+        "latin/brazilian": 4,
+        "latin/brazilian-baiao": 32,
+        "latin/brazilian-bossa": 2,
+        "latin/brazilian-frevo": 1,
+        "latin/brazilian-ijexa": 3,
+        "latin/brazilian-maracatu": 2,
+        "latin/brazilian-samba": 5,
+        "latin/brazilian-sambareggae": 3,
+        "latin/brazilian-songo": 5,
+        "latin/chacarera": 3,
+        "latin/dominican-merengue": 1,
+        "latin/merengue": 1,
+        "latin/reggaeton": 1,
+        "latin/samba": 19,
+        "latin/venezuelan-joropo": 1,
+        "latin/venezuelan-merengue": 1,
+        "latin/venezuelan-sangueo": 1,
+        "middleeastern": 1,
+        "neworleans/chacha": 1,
+        "neworleans/funk": 48,
+        "neworleans/secondline": 3,
+        "neworleans/shuffle": 1,
+        "pop": 10,
+        "pop/groove7": 4,
+        "pop/soft": 13,
+        "punk": 58,
+        "reggae": 19,
+        "reggae/slow": 1,
+        "rock": 281,
+        "rock/folk": 1,
+        "rock/groove8": 4,
+        "rock/halftime": 37,
+        "rock/indie": 10,
+        "rock/prog": 3,
+        "rock/rockabilly": 1,
+        "rock/shuffle": 4,
+        "soul": 31,
+        "soul/groove10": 4,
+        "soul/groove3": 4,
+        "soul/groove4": 4,
+        "soul/groove9": 4,
+        "soul/motown": 16
+      },
+      "splits": {
+        "test": 129,
+        "train": 897,
+        "validation": 124
+      },
+      "missing_asset_paths": 0,
+      "genre_labeled_records": 0,
+      "license": "CC BY 4.0",
+      "evidence_level": "VERIFIED_METADATA_SCAN"
+    },
+    {
+      "source_name": "slakh2100_samples",
+      "records": 3,
+      "unique_compositions": 3,
+      "source_role_labels": {},
+      "weak_role_candidates": {
+        "Atmosphere": 1
+      },
+      "source_style_labels": {},
+      "splits": {
+        "train": 3
+      },
+      "missing_asset_paths": 0,
+      "genre_labeled_records": 0,
+      "license": "CC BY-NC 4.0",
+      "evidence_level": "VERIFIED_METADATA_SCAN"
+    },
+    {
+      "source_name": "maestro",
+      "records": 852,
+      "unique_compositions": 852,
+      "source_role_labels": {
+        "Piano": 852
+      },
+      "weak_role_candidates": {},
+      "source_style_labels": {},
+      "splits": {
+        "test": 151,
+        "train": 582,
+        "validation": 119
+      },
+      "missing_asset_paths": 0,
+      "genre_labeled_records": 0,
+      "license": "CC BY-NC-SA 4.0",
+      "evidence_level": "VERIFIED_METADATA_SCAN"
+    }
+  ],
+  "sidecar_coverage_gaps": {
+    "trustworthy_electronic_subgenre_labels": true,
+    "reliable_arrangement_section_labels": true,
+    "heuristic_role_candidates_are_not_ground_truth": true
+  },
+  "duplicate_asset_rows_removed": 449
 }

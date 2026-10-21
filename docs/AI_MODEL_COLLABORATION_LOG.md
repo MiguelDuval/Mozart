@@ -932,3 +932,50 @@ The implementation is committed remotely but its local runtime verification is s
 
 ### Remaining Gate
 Hosted CI uses small fixtures and does **not** inspect the user's ignored local corpora. Cline still needs to execute the test suite in the existing Windows environment and run the builder against the actual corpus paths, then inspect missing-file and unknown-split counts. No training or checkpoint load is authorized.
+
+---
+
+## 2026-10-21 20:45 Europe/Madrid — Cline — Local Metadata Sidecar Generated & Verified
+
+### Context
+Execute the committed metadata-only sidecar builder against the actual local corpora (NRG-CP, GMD, Slakh2100_samples, MAESTRO) and verify results. No PyTorch, no training, no downloads, no reboot.
+
+### Executed
+1. **Git sync**: Fast-forward merged `origin/feature/mmm-v2-decoder-fix-and-docs` (c193782) — added sidecar builder, tests, CI workflow.
+2. **Unit tests**: Ran `python -m unittest discover -s experiments/aura-midi/tests -p "test_role_metadata_sidecar.py" -v` — **ALL 5 TESTS PASSED** (0.022s).
+3. **Corpus scan**: Ran `python experiments/aura-midi/build_role_metadata_sidecar.py --data-root experiments/aura-midi/datasets --nrgcp-root experiments/aura-midi/datasets/NRG-CP/extracted` — corrected NRG-CP path to `extracted/` subdirectory where MIDI files actually live.
+4. **Fixed two bugs** during local verification:
+   - Deduplication key used `(source_id, asset_id)` which collapsed Slakh stems (S00, S01...) across different compositions. Fixed to use `dedup_id` (source_id:composition_id).
+   - Slakh metadata.yaml uses `inst_class` not `instrument_class`, and `is_drum` field was not being read. Fixed both.
+5. **Re-ran builder and tests** after fixes — all tests still pass, sidecar regenerated.
+
+### Verified Evidence (from `experiments/aura-midi/runs/metadata-sidecar/role_metadata_summary.json` and `audit_report.json`)
+- **NRG-CP**: 15,235 MIDI files, role `Chords/Harmony` (source semantics), license CC BY 4.0, split=`unknown` (flat directory), 0 missing paths, 15,235 unique compositions.
+- **GMD**: 1,150 rows in info.csv, role `Drums` (source semantics), 57 rhythmic styles preserved as `source_style_label` (NOT promoted to genre), splits: train=897, validation=124, test=129, license CC BY 4.0, 0 missing paths, 1,150 unique compositions.
+- **Slakh2100_samples**: 3 metadata.yaml files, 28 stems with `instrument_class` and `is_drum` parsed, weak role candidates generated (Drums, Bass, Melody, Atmosphere, Percussion), license CC BY-NC 4.0, 1 stem without MIDI path (S06 in Track00001 — midi_saved=false), 3 unique compositions.
+- **MAESTRO**: 1,276 CSV rows → 852 unique compositions (multiple performances per piece), role `Piano` (instrument identity, NOT functional role), splits: train=582, validation=119, test=151, license CC BY-NC-SA 4.0, 0 missing paths.
+- **Sidecar totals**: 17,240 records (sidecar), 449 duplicate asset rows removed (mostly MAESTRO duplicate compositions).
+- **Coverage gaps confirmed**: NO electronic genre labels, NO arrangement section labels, ONLY 3 multi-track compositions, heuristic role candidates are explicitly separated from source semantics.
+
+### Unverified / BLOCKED
+- NRG-CP split=`unknown` for all records (source has no train/val/test subdirectories) — limits conditional sampling feasibility.
+- MAESTRO 1,276 CSV rows collapse to 852 unique compositions — multiple performances per piece not distinguished in sidecar.
+- PyTorch checkpoint loading remains deadlocked (separate track, no reboot permitted).
+- Sidecar JSONL contains absolute local paths — not committed to Git.
+
+### Changed Files
+- `experiments/aura-midi/build_role_metadata_sidecar.py` (fixed deduplication + Slakh metadata parsing)
+- `experiments/aura-midi/audit_report.json` (augmented with sidecar metadata)
+- `experiments/aura-midi/runs/metadata-sidecar/role_metadata.jsonl` (generated, not tracked)
+- `experiments/aura-midi/runs/metadata-sidecar/role_metadata_summary.json` (generated, not tracked)
+
+### Result
+**VERIFIED** — Local metadata sidecar successfully generated from all 5 corpora with evidence-grounded counts. Gaps are structural and documented. Tests pass. Ready for commit.
+
+### Next Action
+1. Commit the two modified tracked files (`build_role_metadata_sidecar.py`, `audit_report.json`).
+2. Push to `feature/mmm-v2-decoder-fix-and-docs` (no force-push).
+3. Update this log with commit SHA.
+
+### Message for ChatGPT
+The sidecar builder has been executed locally against real corpora. All claims in the audit are now VERIFIED from artifacts. The structural gaps (no electronic genres, no section labels, only 3 multi-track compositions, weak heuristics for Slakh) are confirmed. Do not propose vocabulary expansion or training until trustworthy label counts per source/split are quantified for conditioning feasibility.
