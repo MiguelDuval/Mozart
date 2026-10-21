@@ -515,3 +515,86 @@ Previous entry reported push failure. Subsequent `git fetch` + `git show` verifi
 
 ### Message for ChatGPT
 **GITHUB SYNC CONFIRMED SUCCESSFUL**. Remote `feature/mmm-v2-decoder-fix-and-docs` at `17d3324` with `tokenizer_mmm_v2.py` + `test_mmm_v2_roundtrip.py`. MMM v2 decoder PARTIAL (1/3 round-trip verified). PyTorch BLOCKED by 3 unkillable processes (NO REBOOT). Phase 1 checkpoint preserved. Next: broad polyphonic model plan — single-stream, 12004 vocab, assess diversity gaps in available data. No new training, no reboots.
+---
+
+## 2026-10-21 20:00 Europe/Madrid — Cline — Musical Corpus Coverage Audit Complete, Next Step Defined
+
+### Context
+Completed local audit of all available MIDI corpora (Slakh2100_samples, NRG-CP, GMD, MAESTRO, broad_corpus) to assess musical diversity gaps for broad polyphonic electronic music model. No new downloads, no training runs, no reboots. Git state: local HEAD de6d8ff diverged from remote HEAD 9eb0800 on feature/mmm-v2-decoder-fix-and-docs (6 remote doc commits ahead, 1 local doc commit ahead) — preserved locally, no merge attempted per protocol.
+
+### Executed
+1. **Corpus Inventory Verified** (VERIFIED via file counts + manifests):
+   - Slakh2100_samples: 3 compositions (Track00001/00002/00003), 61 stem files, 8–11 tracks each, CC BY-NC 4.0
+   - NRG-CP: 15,235 single-track chord progression files (8-bar, 120 BPM), CC BY 4.0
+   - GMD: 1,150 drum grooves across 10 drummers, 11 style labels (funk, soul, hiphop, pop, rock, jazz, latin/samba, neworleans/secondline, dance/disco, rock/shuffle, jazz/funk), CC BY 4.0
+   - MAESTRO v3.0.0: 1,276 solo piano performances, CC BY-NC-SA 4.0
+   - broad_corpus: EMPTY (0 files)
+
+2. **Phase 1 Training Data Confirmed** (VERIFIED via corpus_manifest.json):
+   - NRG-CP: 13,711 train / 761 val files → 13,711 / 761 windows
+   - GMD: 897 train / 124 val files → 1,549 / 199 windows
+   - Total: 15,260 train windows, 960 val windows
+   - Best checkpoint: step 24750, val_loss=1.0252 (preserved at runs/broad-training-20261020_204942/checkpoint_best.pt)
+
+3. **Genre/Style Metadata Audit** (VERIFIED):
+   - NO corpus provides electronic music subgenre labels (techno, house, trance, ambient, DnB, dubstep, etc.)
+   - GMD provides 11 rhythmic style labels but only for drum grooves
+   - Slakh provides instrument class per track only
+   - NRG-CP has no genre labels beyond "EDM chord progressions" description
+
+4. **Instrumental Role Coverage Audit** (VERIFIED):
+   - Bass: Only in Slakh (3 compositions)
+   - Melody/Lead: Only in Slakh (3) + MAESTRO (solo piano)
+   - Chords/Harmony: NRG-CP (dense), Slakh (3), MAESTRO (piano)
+   - Arpeggio: Implicit only, no explicit tracks
+   - Atmosphere/Pad: Only in Slakh (3)
+   - Drums: Strong (GMD 1150 grooves + Slakh)
+   - FX/Texture: None
+   - NO explicit role annotations in any corpus
+
+5. **Structural Representation Limits Confirmed** (VERIFIED via tokenizer code):
+   - No track role tokens, no chord symbols, no section structure tokens, no tempo/key tokens
+   - Fixed 1024-token context window
+   - Drum track note loss (1078→257) confirmed as base tokenizer BPE limitation
+   - MMM v2 adds Track_Program/Track_IsDrum metadata tokens (mitigates program loss)
+
+6. **MMM v2 Tokenizer Status Reconfirmed** (VERIFIED):
+   - Vocab: 12004 (12000 base + 4 custom: Track_Start=12000, Track_End=12001, Track_Program=12002, Track_IsDrum=12003)
+   - Encoder: VERIFIED on 3 Slakh samples
+   - Decoder: PARTIAL — Track 00001: 9/11 perfect; Track 00002 decode timeout; Track 00003 untested
+
+7. **Created Audit Document** (VERIFIED):
+   - `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md` — complete audit with evidence classification
+
+### Verified Evidence
+- File counts: NRG-CP 15235, GMD 1150, MAESTRO 1276, Slakh2100_samples 61 (3 compositions)
+- Manifests: slakh_train.jsonl (2 entries), slakh_validation.jsonl (1 entry)
+- GMD info.csv: 1150 rows with style labels
+- corpus_manifest.json: Phase 1 data splits confirmed
+- training_metrics.json: Phase 1 val_loss=1.0252 at step 24750
+- tokenizer_mmm_v2.py: vocab=12004, custom tokens defined
+- PyTorch deadlock: 3 unkillable processes (PIDs 19992, 20436, 20600) block all torch.load()
+
+### Unverified Claims
+- Track 00002/00003 decode fidelity (timeout / not tested)
+- Whether Slakh download can resume safely (partial 3/13+ compositions)
+- Exact cause of 3 Python processes (command lines empty)
+
+### Changed Files
+- `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md` (created)
+- `docs/AI_MODEL_COLLABORATION_LOG.md` (this entry)
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md` (to update with audit reference)
+
+### Result
+**AUDIT COMPLETE** — Factual coverage table created. **KEY FINDING**: Critical gaps are structural (no role tokens, no structure tokens, no genre labels), not data volume. Existing corpora provide chord (NRG-CP), rhythm (GMD), and multi-track (Slakh 3) coverage but lack explicit role/genre/structure representation.
+
+### Next Action
+**DESIGN ROLE-AWARE SINGLE-STREAM ARCHITECTURE WITH SYNTHETIC ROLE LABELING** — No new dataset, no training, no reboot:
+1. Extend MMM v2 vocab with 5 role tokens (Bass, Melody, Chords, Arpeggio, Atmosphere) → 12009 total
+2. Build offline synthetic role labeling pipeline (heuristic: pitch range, density, program)
+3. Add 6 section structure tokens (Verse, Chorus, Breakdown, Drop, Intro, Outro)
+4. Document single-stream architecture and curriculum training plan
+5. PyTorch deadlock resolution remains separate (requires user reboot decision)
+
+### Message for ChatGPT
+**MUSICAL CORPUS AUDIT COMPLETE**. No electronic subgenre labels in any corpus. No explicit role annotations. Slakh only 3 multi-track compositions. NRG-CP = chord loops only. GMD = drum grooves only. MMM v2 tokenizer ready (12004 vocab). Phase 1 checkpoint preserved. **NEXT STEP**: Design role-aware single-stream architecture with synthetic role labeling (5 role tokens + 6 structure tokens = ~12020 vocab). No new downloads, no training, no reboots. PyTorch deadlock still blocks checkpoint load — separate track requiring user decision.

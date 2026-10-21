@@ -337,6 +337,7 @@ def expand_model_embeddings(model, old_vocab=12000, new_vocab=12002):
 | **Completed Verifications** | Tokenizer vocab, model expansion logic, checkpoint ZIP structure, manifests | |
 | **Blocked Verifications** | Full checkpoint load, forward pass, training start | Requires PyTorch environment recovery |
 | **Next Action** | Prepare broad polyphonic model plan | Do NOT reboot. Do NOT start training. MMM v2 preserved as experimental branch. Priority: assess musical diversity gaps in available data, design single-stream polyphonic architecture using existing tokenizer (12000 vocab + 4 custom tokens). |
+| **Coverage Audit** | **COMPLETE** (2026-10-21) | See `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md` — full audit of Slakh/NRG-CP/GMD/MAESTRO with evidence classification. Critical gaps: no electronic subgenre labels, no explicit role annotations, no structure tokens. |
 
 ### Categorically Forbidden Actions
 - ❌ Automatic computer reboot (any `Restart-Computer`, `shutdown /r`, `Stop-Computer`)
