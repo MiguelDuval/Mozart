@@ -461,3 +461,64 @@ No reliable section annotation has been established for intro/verse/chorus/break
 ### Next justified activity
 
 Build a metadata-only source/role/genre manifest from the existing local manifests and MIDI metadata, and inventory saved baseline generations without loading PyTorch weights. This is the next work item while checkpoint loading is blocked. It should quantify gaps rather than start another training loop or a large data download.
+
+
+---
+
+## Verified Coverage Audit — 2026-10-21 (Cline local execution, evidence from artifacts)
+
+This section records the **verified counts and findings** from the actual metadata-only audit script (experiments/aura-midi/audit_role_metadata.py) executed locally on all available corpora. Output: experiments/aura-midi/audit_report.json.
+
+### Verified Corpus Inventory
+
+| Source | Unique Compositions | MIDI Files | Total Tracks | Source-Grounded Role | Genre Labels | License | Evidence |
+|--------|-------------------|------------|-------------|---------------------|--------------|---------|----------|
+| NRG-CP | 15,235 | 15,235 | 15,235 | Chords/Harmony (15,235) | None | CC BY 4.0 | **VERIFIED** |
+| GMD | 1,150 | 1,150 | 1,150 | Drums (1,150) | 57 rhythmic styles | CC BY 4.0 | **VERIFIED** |
+| Slakh2100_samples | 3 | 28 stems | 28 | Chords(15), Drums(3), Bass(3), Atmosphere(3), Melody(3), Unknown(1) [heuristic_v1.0] | None | CC BY-NC 4.0 | **VERIFIED** |
+| MAESTRO v3.0.0 | 1,276 | 1,276 | 1,276 | Piano (1,276) | None (classical) | CC BY-NC-SA 4.0 | **VERIFIED** |
+| broad_corpus | 0 | 0 | 0 | — | — | — | **VERIFIED EMPTY** |
+
+**Role label provenance:**
+- NRG-CP: **dataset_metadata** (algorithmic EDM chord progressions)
+- GMD: **dataset_metadata** (all drum grooves)
+- Slakh: **heuristic_v1.0** from instrument_class + program_num (confidence 0.3–0.9) — WEAK LABELS
+- MAESTRO: **dataset_metadata** (classical solo piano)
+
+### Verified Phase 1 Training Composition
+
+| Source | Train Files | Val Files | Train Windows | Val Windows |
+|--------|------------|-----------|--------------|-------------|
+| NRG-CP | 13,711 | 761 | 13,711 | 761 |
+| GMD | 897 | 124 | 1,549 | 199 |
+| **Total** | **14,608** | **885** | **15,260** | **960** |
+
+Best checkpoint: step 24,750, val_loss = 1.025230696797371 (VERIFIED from training_metrics.json)
+Checkpoint: experiments/aura-midi/runs/broad-training-20261020_204942/checkpoint_best.pt
+
+### Verified Structural Gaps
+
+| Gap | Finding | Evidence |
+|-----|---------|----------|
+| Electronic subgenre labels | **NONE** — no techno, house, trance, ambient, DnB, dubstep in any corpus | VERIFIED |
+| Explicit role annotations | **NONE** — all roles inferred from source semantics or heuristics | VERIFIED |
+| Multi-track polyphonic works | **Only 3** (Slakh) — insufficient for training | VERIFIED |
+| Arrangement section labels | **NONE** — intro/verse/chorus/breakdown/drop/outro not annotated | VERIFIED |
+| Electronic production data | NRG-CP = chord loops only; no bass, melody, arpeggio, pads, arrangements | VERIFIED |
+
+### Verified Recommendations (aligned with AGENTS.md evidence-first policy)
+
+1. **Immediate**: Build sidecar JSONL metadata with source-grounded roles. Keep weak heuristics separate with confidence/rule version.
+2. **Next Data**: Acquire electronic music dataset with genre labels and/or role-annotated multi-track data.
+3. **Tokenizer**: **Do NOT expand MMM v2 vocabulary** (12,004 tokens, PARTIAL round-trip). Phase 1 model uses 12,000-token REMI+BPE.
+4. **Blocked**: PyTorch checkpoint loading blocked by unkillable processes; no reboot permitted.
+
+### Artifacts Referenced
+- Audit report: experiments/aura-midi/audit_report.json
+- Audit script: experiments/aura-midi/audit_role_metadata.py
+- Corpus manifest: experiments/aura-midi/runs/broad-training-20261020_204942/corpus_manifest.json
+- Training metrics: experiments/aura-midi/runs/broad-training-20261020_204942/training_metrics.json
+- NRG-CP audit: experiments/aura-midi/runs/nrgcp-audit-20261019_105520.json
+- GMD info.csv: experiments/aura-midi/datasets/gmd/extracted/groove/info.csv
+- MAESTRO CSV: experiments/aura-midi/datasets/maestro-v3.0.0/maestro-v3.0.0/maestro-v3.0.0.csv
+- Slakh metadata.yaml: experiments/aura-midi/datasets/Slakh2100_samples/Track*/train/Track*/metadata.yaml

@@ -326,3 +326,84 @@ Unknown labels remain unknown. A pitch/density heuristic may be retained as a we
 Build a **metadata-only role/genre labeling pipeline** over existing manifests and representative MIDI metadata. It must not load PyTorch weights, add token IDs, retrain BPE, download a new dataset, or start training. Quantify the number of examples for each source-grounded role and reliable genre label, record weak labels separately, and use the results to decide whether conditioning is feasible.
 
 Do not start a long training run or reboot. Preserve the Phase 1 checkpoint and keep MMM v2 isolated.
+
+---
+
+## 9. Actual Audit Results — Verified from Local Artifacts (2026-10-21)
+
+This section records the **verified counts and findings** from the actual metadata-only audit script (experiments/aura-midi/audit_role_metadata.py) run on local artifacts. Output saved to experiments/aura-midi/audit_report.json.
+
+### 9.1 Verified Corpus Statistics
+
+| Source | Unique Compositions | MIDI Files | Total Tracks | Source-Grounded Role | Genre Labels | License | Evidence |
+|--------|-------------------|------------|-------------|---------------------|--------------|---------|----------|
+| NRG-CP | 15,235 | 15,235 | 15,235 | Chords/Harmony (15,235) | None | CC BY 4.0 | **VERIFIED** |
+| GMD | 1,150 | 1,150 | 1,150 | Drums (1,150) | 57 styles (funk, soul, jazz, rock, latin, dance/disco, hiphop, etc.) | CC BY 4.0 | **VERIFIED** |
+| Slakh2100_samples | 3 | 28 stems | 28 | Chords(15), Drums(3), Bass(3), Atmosphere(3), Melody(3), Unknown(1) | None (inst_class only) | CC BY-NC 4.0 | **VERIFIED** |
+| MAESTRO v3.0.0 | 1,276 | 1,276 | 1,276 | Piano (1,276) | None (classical) | CC BY-NC-SA 4.0 | **VERIFIED** |
+| broad_corpus | 0 | 0 | 0 | — | — | — | **VERIFIED EMPTY** |
+
+**Notes on role labels:**
+- NRG-CP: Source-grounded from dataset semantics (algorithmic EDM chord progressions)
+- GMD: Source-grounded from dataset semantics (all files are drum grooves)
+- Slakh: Heuristic inference from instrument_class + program_num metadata (rule version heuristic_v1.0, confidence 0.3–0.9) — **WEAK LABELS**, not ground truth
+- MAESTRO: Source-grounded (classical solo piano performances)
+
+### 9.2 Verified Phase 1 Training Composition
+
+| Source | Train Files | Val Files | Train Windows | Val Windows |
+|--------|------------|-----------|--------------|-------------|
+| NRG-CP | 13,711 | 761 | 13,711 | 761 |
+| GMD | 897 | 124 | 1,549 | 199 |
+| **Total** | **14,608** | **885** | **15,260** | **960** |
+
+Best checkpoint: step 24,750, val_loss = 1.025230696797371
+Checkpoint path: experiments/aura-midi/runs/broad-training-20261020_204942/checkpoint_best.pt
+
+### 9.3 Verified Gaps (Structural, Not Volumetric)
+
+| Gap | Finding | Evidence |
+|-----|---------|----------|
+| Electronic subgenre labels | **NONE** in any corpus. GMD has 57 rhythmic styles but no techno, house, trance, ambient, DnB, dubstep | VERIFIED |
+| Explicit role annotations | **NONE** — NRG-CP=Chords (source), GMD=Drums (source), Slakh=heuristic from inst_class, MAESTRO=Piano | VERIFIED |
+| Multi-track polyphonic compositions | **Only 3** (Slakh Track00001/00002/00003) — insufficient for training | VERIFIED |
+| Arrangement section labels | **NONE** (intro/verse/chorus/breakdown/drop/outro not annotated anywhere) | VERIFIED |
+| Electronic production data | NRG-CP provides chord loops only; no bass lines, melodies, arpeggios, pads, full arrangements | VERIFIED |
+
+### 9.4 Verified Recommendations
+
+| Priority | Action | Rationale |
+|----------|--------|-----------|
+| **Immediate** | Build sidecar JSONL metadata with source-grounded roles (NRG-CP→Chords, GMD→Drums, Slakh→inst_class heuristic, MAESTRO→Piano). Keep weak heuristics separate with confidence scores. | Evidence-first conditioning policy (AGENTS.md) |
+| **Next Data** | Acquire electronic music dataset with genre labels (techno, house, trance, ambient, DnB, etc.) and/or role-annotated multi-track data | Current corpora lack electronic genre coverage |
+| **Tokenizer** | **Do NOT expand MMM v2 vocabulary**. Phase 1 uses 12,000-token REMI+BPE. MMM v2 (12,004) is experimental with PARTIAL round-trip | Vocabulary expansion requires compatible model/checkpoint |
+| **Blocked** | PyTorch checkpoint loading blocked by unkillable processes. No reboot permitted per user directive | Environment issue, not data/model issue |
+
+---
+
+## 10. Evidence Appendix — Raw Data References
+
+All evidence comes from the following local artifacts (no external downloads, no PyTorch loads):
+
+| Artifact | Path | Type | Verified |
+|----------|------|------|----------|
+| Phase 1 Corpus Manifest | experiments/aura-midi/runs/broad-training-20261020_204942/corpus_manifest.json | JSON | ✅ |
+| Phase 1 Training Metrics | experiments/aura-midi/runs/broad-training-20261020_204942/training_metrics.json | JSON | ✅ |
+| Phase 1 Training State | experiments/aura-midi/runs/broad-training-20261020_204942/training_state.json | JSON | ✅ |
+| NRG-CP Audit | experiments/aura-midi/runs/nrgcp-audit-20261019_105520.json | JSON | ✅ |
+| GMD Info CSV | experiments/aura-midi/datasets/gmd/extracted/groove/info.csv | CSV | ✅ |
+| MAESTRO CSV | experiments/aura-midi/datasets/maestro-v3.0.0/maestro-v3.0.0/maestro-v3.0.0.csv | CSV | ✅ |
+| Slakh Metadata YAML | experiments/aura-midi/datasets/Slakh2100_samples/Track*/train/Track*/metadata.yaml | YAML | ✅ |
+| MMM v2 Tokenizer | experiments/aura-midi/models/shikhr-music-maker-multitrack-v2/tokenizer_mmm_v2.py | Python | ✅ |
+| Audit Report (this run) | experiments/aura-midi/audit_report.json | JSON | ✅ |
+| Audit Script | experiments/aura-midi/audit_role_metadata.py | Python | ✅ |
+| Phase 1 Best Checkpoint | experiments/aura-midi/runs/broad-training-20261020_204942/checkpoint_best.pt | PyTorch | ⚠️ BLOCKED (PyTorch deadlock) |
+| Phase 1 Last Checkpoint | experiments/aura-midi/runs/broad-training-20261020_204942/checkpoint_last.pt | PyTorch | ⚠️ BLOCKED |
+
+---
+
+## 11. Cross-Reference: Agent Collaboration Log
+
+This audit is recorded in:
+- docs/AI_MODEL_COLLABORATION_LOG.md — Entry: 2026-10-21 — Cline — Local Corpus Audit Complete + Evidence Results
+- docs/MUSIC_MODEL_TRAINING_HISTORY.md — Phase G table updated with verified audit reference

@@ -806,3 +806,74 @@ The proposed role-aware single-stream direction is worth designing, but **the im
 ChatGPT can update/read committed GitHub files but cannot directly inspect the user's current local processes, ignored datasets, or working tree. The PyTorch blockage and local-only commit remain claims from Cline until the next local check.
 >>>>>>> theirs
 
+
+
+---
+
+## 2026-10-21 21:30 Europe/Madrid — Cline — Actual Metadata-Only Coverage Audit Complete (Evidence Results)
+
+### Context
+Executed the metadata-only role/genre coverage audit script (experiments/aura-midi/audit_role_metadata.py) on all 5 local corpora using manifests, CSV, YAML metadata — no PyTorch loads, no training, no downloads. Generated experiments/aura-midi/audit_report.json with verified counts.
+
+### Executed
+1. **Audit Script Created & Run** (VERIFIED):
+   - Script: experiments/aura-midi/audit_role_metadata.py
+   - Output: experiments/aura-midi/audit_report.json
+   - Analyzed: NRG-CP (15,235 files), GMD (1,150 grooves), Slakh2100_samples (3 comps, 28 stems), MAESTRO (1,276 performances), broad_corpus (0)
+   - No MIDI file parsing (speed), used manifest/metadata only
+
+2. **Verified Corpus Statistics** (VERIFIED from local artifacts):
+   - **NRG-CP**: 15,235 unique compositions/files, single-track chord progressions, role=Chords/Harmony (source-grounded), no genre labels, CC BY 4.0
+   - **GMD**: 1,150 unique drum grooves, single-track, role=Drums (source-grounded), 57 rhythmic styles (funk, soul, jazz, rock, latin, dance/disco, hiphop, etc.), CC BY 4.0
+   - **Slakh2100_samples**: 3 compositions (Track00001/00002/00003), 28 stem files with midi_saved=true, roles inferred via heuristic_v1.0 from instrument_class: Chords(15), Drums(3), Bass(3), Atmosphere(3), Melody(3), Unknown(1) — **WEAK LABELS**, no genre labels, CC BY-NC 4.0
+   - **MAESTRO v3.0.0**: 1,276 solo piano performances, role=Piano (source-grounded), no electronic genres, CC BY-NC-SA 4.0 (research only)
+   - **broad_corpus**: Empty
+
+3. **Verified Phase 1 Training Composition** (VERIFIED from corpus_manifest.json):
+   - Train: NRG-CP 13,711 files (13,711 windows) + GMD 897 files (1,549 windows) = 15,260 train windows
+   - Val: NRG-CP 761 + GMD 124 files = 960 val windows
+   - Best checkpoint: step 24,750, val_loss=1.025230696797371
+
+4. **Verified Structural Gaps** (VERIFIED):
+   - **NO electronic subgenre labels** in any corpus (techno, house, trance, ambient, DnB, dubstep absent)
+   - **NO explicit role annotations** — all roles inferred (NRG-CP=Chords source, GMD=Drums source, Slakh=heuristic, MAESTRO=Piano)
+   - **Only 3 multi-track polyphonic compositions** (Slakh) — insufficient for training
+   - **NO arrangement section labels** (intro/verse/chorus/breakdown/drop/outro)
+   - NRG-CP provides chord loops only; no bass, melody, arpeggio, pads, full arrangements
+
+5. **Documents Updated** (VERIFIED):
+   - docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md — Added Sections 9–11 with verified counts
+   - docs/AI_MODEL_COLLABORATION_LOG.md — This entry
+   - docs/MUSIC_MODEL_TRAINING_HISTORY.md — Phase G updated with audit reference
+
+### Verified Evidence
+- Audit report: experiments/aura-midi/audit_report.json
+- Audit script: experiments/aura-midi/audit_role_metadata.py
+- Corpus manifest: experiments/aura-midi/runs/broad-training-20261020_204942/corpus_manifest.json
+- NRG-CP audit: experiments/aura-midi/runs/nrgcp-audit-20261019_105520.json
+- GMD info.csv: experiments/aura-midi/datasets/gmd/extracted/groove/info.csv
+- MAESTRO CSV: experiments/aura-midi/datasets/maestro-v3.0.0/maestro-v3.0.0/maestro-v3.0.0.csv
+- Slakh metadata.yaml: experiments/aura-midi/datasets/Slakh2100_samples/Track*/train/Track*/metadata.yaml
+- Training metrics: experiments/aura-midi/runs/broad-training-20261020_204942/training_metrics.json
+
+### Unverified Claims
+- Whether PyTorch deadlock can be resolved without reboot
+- Whether Slakh full corpus download can complete
+
+### Changed Files
+- docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md (Sections 9–11 added)
+- docs/AI_MODEL_COLLABORATION_LOG.md (this entry)
+- docs/MUSIC_MODEL_TRAINING_HISTORY.md (Phase G updated)
+
+### Result
+**AUDIT COMPLETE WITH VERIFIED EVIDENCE** — All 5 corpora analyzed from local artifacts. Critical gaps confirmed: no electronic genre labels, no explicit roles, only 3 multi-track compositions. Phase 1 baseline = NRG-CP (chords) + GMD (drums) only. MMM v2 vocab=12004 ready but PARTIAL round-trip. **Next: sidecar metadata pipeline, then decide on conditioning architecture.** PyTorch deadlock persists — separate track.
+
+### Next Action
+1. Build sidecar metadata JSONL with source-grounded roles per AGENTS.md evidence-first policy
+2. Quantify trustworthy labels per source/split for conditioning feasibility
+3. Keep weak heuristic labels separate with confidence/rule version
+4. Do NOT expand vocabulary until sufficient labels exist
+5. Preserve Phase 1 checkpoint; PyTorch deadlock resolution requires user decision
+
+### Message for ChatGPT
+Actual audit executed and verified. Evidence report at experiments/aura-midi/audit_report.json. All claims VERIFIED from local manifests/metadata. No training, no downloads, no reboot. Critical gaps are structural (no genre/role/section labels) not volumetric. Ready for sidecar metadata pipeline as next step.
