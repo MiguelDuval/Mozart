@@ -70,9 +70,12 @@ jobs:
           arch: x86_64
           emulator-options: -no-snapshot-save -no-window -gpu off -noaudio -no-boot-anim -camera-back none
           emulator-boot-timeout: 900
-          disable-animations: true
+          disable-animations: false
           script: |
             set -euo pipefail
+            adb start-server
+            adb wait-for-device
+            adb shell getprop sys.boot_completed | grep -q "1"
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.miguelduval.mozart.debug
             adb shell am start -W -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity
@@ -82,7 +85,7 @@ jobs:
             grep -Fq 'text="C++20 core ready | MIDI foundation | Link-ready timing boundary"' /tmp/mozart-ui.xml
 
       - name: Upload debug APK
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: mozart-android-debug-${{ github.sha }}

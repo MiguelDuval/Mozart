@@ -10,6 +10,7 @@ add_library(mozart-core STATIC
     src/core/MozartEngine.cpp
     src/core/MidiTypes.cpp
     src/core/TransportMath.cpp
+    src/core/MidiEndpoint.cpp
     src/generation/RhythmGenerator.cpp
 )
 
@@ -20,12 +21,14 @@ target_include_directories(mozart-core PUBLIC
 if(ANDROID)
     add_library(mozart SHARED
         src/platform/android/MozartJni.cpp
+        src/platform/android/AndroidMidiOutput.cpp
     )
 
     target_link_libraries(mozart
         PRIVATE
         mozart-core
         log
+        ${CMAKE_DL_LIBS}
     )
 else()
     add_library(mozart-platform INTERFACE)

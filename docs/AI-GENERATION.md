@@ -20,6 +20,8 @@ It does not return arbitrary executable MIDI bytes.
 
 ## Request
 
+Key/scale context should normally come from Mozart's local musical-domain state.
+
 A request can include:
 
 - style;
@@ -59,6 +61,10 @@ Before a proposal enters the musical model:
 8. assign deterministic fallback values.
 
 ## NIM
+
+NVIDIA NIM may later contribute optional key/scale interpretation or higher-level harmonic suggestions when musical/audio context is useful.
+
+NIM must not replace the deterministic Manual Key/Scale or local Audio Key Detection paths.
 
 NVIDIA NIM may be used through an OpenAI-compatible HTTP provider abstraction.
 

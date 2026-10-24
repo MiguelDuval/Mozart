@@ -1,10 +1,10 @@
 # Mozart
 
-**Mozart** is a personal Android music instrument for MIDI generation, accompaniment and synchronization.
+**Mozart** is a personal Android **MIDI accompanist for electronic music**, designed first around USB-MIDI control of an **Arturia MicroFreak**.
 
-The project is designed for live use with external MIDI hardware and electronic-music workflows. The first architecture milestone is intentionally small:
+The project is designed for live use with external MIDI hardware and electronic-music workflows. The first concrete performance target is a synchronized accompaniment engine driving an Arturia MicroFreak. The first architecture milestone is intentionally small:
 
-**musical input/control → deterministic MIDI generation → Ableton Link timing → Android MIDI output**
+**musical context / user control → accompaniment generation → Ableton Link timing → USB-MIDI → Arturia MicroFreak**
 
 Audio preview and richer engine capabilities are added behind clean interfaces so that MIDI timing remains reliable and testable.
 
