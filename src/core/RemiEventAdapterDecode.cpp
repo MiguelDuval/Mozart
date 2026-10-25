@@ -68,10 +68,19 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                     noteDuration = state.pendingDurationTicks;
                     state.hasPendingDuration = false;
                 }
+                const std::uint64_t absolutePosition =
+                    static_cast<std::uint64_t>(state.currentTick) + e.position;
+                if (absolutePosition > std::numeric_limits<std::uint32_t>::max() ||
+                    noteDuration > std::numeric_limits<std::uint32_t>::max() - absolutePosition) {
+                    state.warnings.push_back("Note position or end tick exceeds the supported tick range");
+                    state.droppedTokens++;
+                    state.hasNoteAtCurrentPosition = false;
+                    return;
+                }
                 PatternEvent patternEvent = NoteEvent{
                     e.pitch,
                     e.velocity > 0 ? e.velocity : state.currentVelocity,
-                    state.currentTick + e.position,
+                    static_cast<std::uint32_t>(absolutePosition),
                     noteDuration,
                     static_cast<std::uint8_t>(e.track % 16),
                     e.track
@@ -173,7 +182,6 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                             state.result = RemiDecodeResult::ExceededMaxBars;
                             state.message = "Truncated at max bars: " + std::to_string(config_.maxBars);
                             state.warnings.push_back(state.message);
-                            state.droppedTokens += events.size() - i - 1;
                             return;
                         }
                         ++state.currentBar;
@@ -199,7 +207,6 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                     state.result = RemiDecodeResult::ExceededMaxBars;
                     state.message = "Bar position exceeds the supported tick range";
                     state.warnings.push_back(state.message);
-                    state.droppedTokens += events.size() - i - 1;
                     return;
                 }
                 state.currentTick = static_cast<std::uint32_t>(barTick);
