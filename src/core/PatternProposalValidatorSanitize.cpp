@@ -17,7 +17,9 @@ std::pair<PatternProposal, ValidationReport> PatternProposalValidator::sanitize(
     
     ValidationReport report = validate(proposal);
     if (report.isOk()) {
-        return {sanitized, report};
+        // A valid proposal needs no filtering. Return its events intact; 'sanitized'
+        // has its event list cleared above for the invalid-input filtering path.
+        return {proposal, report};
     }
     
     // If too many events, truncate
