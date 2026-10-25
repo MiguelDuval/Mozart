@@ -574,14 +574,20 @@ void testBarNoneAdvancesThroughFullPipeline() {
     auto tokenizer = makeFixtureBpeTokenizer();
     assert(tokenizer.has_value());
     const auto barId = tokenIdForName(*tokenizer, "Bar_None");
+    const auto pitchId = tokenIdForName(*tokenizer, "Pitch_60");
     auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
     RemiEventAdapter adapter(config, sharedTokenizer);
-    std::vector<std::uint32_t> tokenIds = {barId, barId};
+    // Emit one note in each implicit bar so proposal finalization is not an empty sequence.
+    std::vector<std::uint32_t> tokenIds = {barId, pitchId, barId, pitchId};
     GenerationRequest request;
     request.barCount = 4;
     auto [proposal, report] = adapter.decodeTokensToProposal(tokenIds, request, "test", "test-model");
     assert(report.isOk());
     assert(report.droppedTokens == 0);
+    const auto notes = proposal.notes();
+    assert(notes.size() == 2);
+    assert(notes[0].position == 0);
+    assert(notes[1].position == config.ticksPerBar);
     std::cout << "  Bar_None advances through full pipeline: PASSED" << std::endl;
 }
 
