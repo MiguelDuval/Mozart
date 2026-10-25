@@ -77,20 +77,23 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                 };
                 state.events.push_back(patternEvent);
                 state.currentTrack = e.track;
+                state.hasNoteAtCurrentPosition = true;
             }
             else if constexpr (std::is_same_v<T, RemiNoteOffEvent>) {
                 if (e.pitch == 0) {
-                    // Маркер длительности из токена Duration_: позиция хранит длительность в тиках.
-                    // Прикрепить её к последней ноте на текущем треке (длительность следует за нотой).
-                    // Если такой ноты нет, запомнить как отложенную для следующей ноты на этом треке.
+                    // Duration_ normally follows the note it describes. Only attach backwards
+                    // while the current position is still associated with the most recent note.
+                    // If a Position_/Bar_ intervened, keep it pending for the next NoteOn instead.
                     bool applied = false;
-                    for (auto it = state.events.rbegin(); it != state.events.rend(); ++it) {
-                        if (std::holds_alternative<NoteEvent>(*it)) {
-                            auto& note = std::get<NoteEvent>(*it);
-                            if (note.track == state.currentTrack) {
-                                note.duration = e.position;
-                                applied = true;
-                                break;
+                    if (state.hasNoteAtCurrentPosition) {
+                        for (auto it = state.events.rbegin(); it != state.events.rend(); ++it) {
+                            if (std::holds_alternative<NoteEvent>(*it)) {
+                                auto& note = std::get<NoteEvent>(*it);
+                                if (note.track == state.currentTrack) {
+                                    note.duration = e.position;
+                                    applied = true;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -98,6 +101,7 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                         state.pendingDurationTicks = e.position;
                         state.hasPendingDuration = true;
                     }
+                    state.hasNoteAtCurrentPosition = false;
                 } else {
                     // Настоящий note-off: закрыть последнюю активную ноту с той же высотой и треком.
                     // e.position трактуется как абсолютный тик окончания ноты.
@@ -132,10 +136,12 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
             }
             else if constexpr (std::is_same_v<T, RemiPositionEvent>) {
                 state.currentTick = state.currentBar * config_.ticksPerBar + positionBinToTicks(e.position);
+                state.hasNoteAtCurrentPosition = false;
             }
             else if constexpr (std::is_same_v<T, RemiBarEvent>) {
                 state.currentBar = e.barNumber;
                 state.currentTick = state.currentBar * config_.ticksPerBar;
+                state.hasNoteAtCurrentPosition = false;
             }
             else if constexpr (std::is_same_v<T, RemiTempoEvent>) {
                 if (!state.hasTempo) {

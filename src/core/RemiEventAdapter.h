@@ -138,6 +138,9 @@ private:
         // прикрепить длительность (например, когда Duration_ идёт перед NoteOn).
         std::uint32_t pendingDurationTicks = 0;
         bool hasPendingDuration = false;
+        // True only while the current position still points at a just-emitted note.
+        // This disambiguates Duration_ for that note from a duration preceding the next one.
+        bool hasNoteAtCurrentPosition = false;
     };
     [[nodiscard]] std::pair<PatternProposal, RemiDecodeReport> finalizeProposal(DecodeState& state, const GenerationRequest& request, const std::string& providerId, const std::string& modelId, std::chrono::nanoseconds generationTime) const noexcept;
     [[nodiscard]] std::optional<RemiEvent> tokenNameToEvent(const std::string& tokenName) const noexcept;

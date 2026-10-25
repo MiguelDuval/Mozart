@@ -224,6 +224,31 @@ void testRemiEventAdapterDurationBeforeNoteOn() {
     std::cout << "  Duration_ before NoteOn applies to next note: PASSED" << std::endl;
 }
 
+void testRemiEventAdapterDurationBeforeNextNoteDoesNotRewritePreviousNote() {
+    std::cout << "Testing a pre-note Duration_ applies to the next note..." << std::endl;
+    auto config = RemiDecoderConfig::defaultConfig();
+    RemiEventAdapter adapter(config);
+
+    std::vector<RemiEvent> events;
+    events.push_back(RemiBarEvent{0});
+    events.push_back(RemiPositionEvent{0});
+    events.push_back(RemiNoteOnEvent{60, 100, 0, 0});  // Existing note at tick 0.
+    events.push_back(RemiPositionEvent{8});             // Advance to tick 480.
+    events.push_back(RemiNoteOffEvent{0, 960, 0});       // Duration belongs to the upcoming note.
+    events.push_back(RemiNoteOnEvent{64, 100, 0, 0});
+
+    GenerationRequest request;
+    auto [proposal, report] = adapter.decodeEventsToProposal(events, request);
+    assert(report.isOk());
+    const auto notes = proposal.notes();
+    assert(notes.size() == 2);
+    assert(notes[0].pitch == 60 && notes[0].position == 0);
+    assert(notes[0].duration == config.ticksPerBeat / 4); // Preserve the default duration.
+    assert(notes[1].pitch == 64 && notes[1].position == 480);
+    assert(notes[1].duration == 960);
+    std::cout << "  Pre-note Duration_ applies to the next note: PASSED" << std::endl;
+}
+
 void testRemiEventAdapterPolyphonyRepeatedPitch() {
     std::cout << "Testing polyphony and repeated pitch durations..." << std::endl;
     auto config = RemiDecoderConfig::defaultConfig();
@@ -278,6 +303,7 @@ int main() {
         testRemiEventAdapterDurationTokenParsing();
         testRemiEventAdapterDurationPreservation();
         testRemiEventAdapterDurationBeforeNoteOn();
+        testRemiEventAdapterDurationBeforeNextNoteDoesNotRewritePreviousNote();
         testRemiEventAdapterPolyphonyRepeatedPitch();
         testRemiEventAdapterNoteOffClosesNote();
         std::cout << "\n=== ALL TESTS PASSED (Part 2) ===" << std::endl;
