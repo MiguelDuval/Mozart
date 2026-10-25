@@ -18,7 +18,7 @@ RemiEventAdapter::RemiEventAdapter(const RemiDecoderConfig& config, std::shared_
     : config_(config), tokenizer_(std::move(tokenizer)) {}
 
 std::uint8_t RemiEventAdapter::velocityBinToMidi(std::uint8_t bin) const noexcept {
-    if (config_.numVelocities == 0) return 64;
+    if (config_.numVelocities <= 1) return 64;
     const auto boundedBin = std::min<std::uint8_t>(bin, static_cast<std::uint8_t>(config_.numVelocities - 1));
     const double ratio = static_cast<double>(boundedBin) / static_cast<double>(config_.numVelocities - 1);
     // Round to the nearest MIDI velocity; truncation makes midpoint bins biased low.
@@ -32,7 +32,9 @@ std::uint32_t RemiEventAdapter::positionBinToTicks(std::uint32_t bin) const noex
 
 double RemiEventAdapter::tempoBinToBpm(std::uint8_t bin) const noexcept {
     if (config_.numTempos == 0) return 120.0;
-    const double ratio = static_cast<double>(bin) / static_cast<double>(config_.numTempos - 1);
+    if (config_.numTempos == 1) return config_.tempoMin;
+    const auto boundedBin = std::min<std::uint8_t>(bin, static_cast<std::uint8_t>(config_.numTempos - 1));
+    const double ratio = static_cast<double>(boundedBin) / static_cast<double>(config_.numTempos - 1);
     return config_.tempoMin + ratio * (config_.tempoMax - config_.tempoMin);
 }
 

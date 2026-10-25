@@ -126,6 +126,19 @@ void testRemiEventAdapterConversions() {
     assert(adapter.tempoBinToBpm(0) == 40.0);
     assert(adapter.tempoBinToBpm(31) == 250.0);
     assert(adapter.tempoBinToBpm(15) >= 120.0 && adapter.tempoBinToBpm(15) <= 150.0);
+    assert(adapter.velocityBinToMidi(255) == 127);
+    assert(adapter.tempoBinToBpm(255) == config.tempoMax);
+
+    auto singleBinConfig = config;
+    singleBinConfig.numVelocities = 1;
+    singleBinConfig.numTempos = 1;
+    singleBinConfig.tempoMin = 80.0;
+    singleBinConfig.tempoMax = 180.0;
+    RemiEventAdapter singleBinAdapter(singleBinConfig);
+    assert(singleBinAdapter.velocityBinToMidi(0) == 64);
+    assert(singleBinAdapter.velocityBinToMidi(1) == 64);
+    assert(singleBinAdapter.tempoBinToBpm(0) == 80.0);
+    assert(singleBinAdapter.tempoBinToBpm(255) == 80.0);
 
     std::cout << "  RemiEventAdapter conversions: PASSED" << std::endl;
 }
