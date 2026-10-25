@@ -105,8 +105,10 @@ void testRemiEventAdapterTruncation() {
     auto [proposal, report] = adapter.decodeEventsToProposal(events, request);
     
     assert(proposal.events.size() <= 5);
-    assert(proposal.truncated || report.result == RemiDecodeResult::ExceededMaxEvents || 
-           report.result == RemiDecodeResult::Truncated);
+    assert(proposal.truncated);
+    assert(report.result == RemiDecodeResult::ExceededMaxEvents);
+    assert(report.droppedTokens > 0);
+    assert(!report.message.empty());
     
     std::cout << "  RemiEventAdapter truncation: PASSED" << std::endl;
 }

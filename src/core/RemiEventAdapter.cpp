@@ -157,7 +157,9 @@ std::optional<RemiEvent> RemiEventAdapter::parseTokenName(const std::string& tok
 
         // Position_ is a within-bar bin, not an absolute tick. Bar_ advances the bar;
         // reject bins beyond the configured bar before they can overflow during conversion.
-        const std::uint32_t positionsPerBar = config_.ticksPerBar / ticksPerPosition;
+        const std::uint32_t positionsPerBar =
+            config_.ticksPerBar / ticksPerPosition +
+            (config_.ticksPerBar % ticksPerPosition == 0 ? 0U : 1U);
         if (static_cast<std::uint32_t>(*bin) >= positionsPerBar) {
             return std::nullopt;
         }

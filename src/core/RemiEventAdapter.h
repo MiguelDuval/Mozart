@@ -144,6 +144,9 @@ private:
         // Token-level Bar_None has no explicit index: first marker starts bar 0,
         // every subsequent marker advances to the next bar.
         bool hasSeenImplicitBarToken = false;
+        RemiDecodeResult result = RemiDecodeResult::Ok;
+        std::string message;
+        std::size_t processedTokens = 0;
     };
     [[nodiscard]] std::pair<PatternProposal, RemiDecodeReport> finalizeProposal(DecodeState& state, const GenerationRequest& request, const std::string& providerId, const std::string& modelId, std::chrono::nanoseconds generationTime) const noexcept;
     [[nodiscard]] std::optional<RemiEvent> tokenNameToEvent(const std::string& tokenName) const noexcept;

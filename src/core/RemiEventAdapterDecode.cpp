@@ -19,32 +19,32 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
     
     auto startTime = std::chrono::high_resolution_clock::now();
     DecodeState state;
-    RemiDecodeReport report;
-    report.result = RemiDecodeResult::Ok;
-    
     if (events.empty()) {
+        RemiDecodeReport report;
         report.result = RemiDecodeResult::EmptySequence;
         report.message = "Empty event sequence";
         return {PatternProposal{}, report};
     }
-    
+
     for (std::size_t i = 0; i < events.size(); ++i) {
         if (state.events.size() >= config_.maxEvents) {
-            report.result = RemiDecodeResult::ExceededMaxEvents;
-            report.droppedTokens = events.size() - i;
-            state.warnings.push_back("Truncated at max events: " + std::to_string(config_.maxEvents));
+            state.result = RemiDecodeResult::ExceededMaxEvents;
+            state.message = "Truncated at max events: " + std::to_string(config_.maxEvents);
+            state.droppedTokens += events.size() - i;
+            state.warnings.push_back(state.message);
             break;
         }
-        
+
         if (state.currentBar >= config_.maxBars) {
-            report.result = RemiDecodeResult::ExceededMaxBars;
-            report.droppedTokens = events.size() - i;
-            state.warnings.push_back("Truncated at max bars: " + std::to_string(config_.maxBars));
+            state.result = RemiDecodeResult::ExceededMaxBars;
+            state.message = "Truncated at max bars: " + std::to_string(config_.maxBars);
+            state.droppedTokens += events.size() - i;
+            state.warnings.push_back(state.message);
             break;
         }
-        
+
         const auto& event = events[i];
-        report.processedTokens++;
+        state.processedTokens++;
         
         std::visit([&](const auto& e) {
             using T = std::decay_t<decltype(e)>;
@@ -136,13 +136,46 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                 }
             }
             else if constexpr (std::is_same_v<T, RemiPositionEvent>) {
-                state.currentTick = state.currentBar * config_.ticksPerBar + positionBinToTicks(e.position);
+                const std::uint32_t ticksPerPosition = config_.ticksPerBeat / 8;
+                if (ticksPerPosition == 0 || config_.ticksPerBar == 0) {
+                    state.warnings.push_back("Position bin cannot be converted with the current decoder configuration");
+                    state.droppedTokens++;
+                    state.hasNoteAtCurrentPosition = false;
+                    return;
+                }
+                const std::uint32_t positionsPerBar =
+                    config_.ticksPerBar / ticksPerPosition +
+                    (config_.ticksPerBar % ticksPerPosition == 0 ? 0U : 1U);
+                if (e.position >= positionsPerBar) {
+                    state.warnings.push_back("Position bin out of range: " + std::to_string(e.position));
+                    state.droppedTokens++;
+                    state.hasNoteAtCurrentPosition = false;
+                    return;
+                }
+                const std::uint64_t absoluteTick =
+                    static_cast<std::uint64_t>(state.currentBar) * config_.ticksPerBar +
+                    static_cast<std::uint64_t>(e.position) * ticksPerPosition;
+                if (absoluteTick > std::numeric_limits<std::uint32_t>::max()) {
+                    state.warnings.push_back("Position resolves beyond the supported tick range");
+                    state.droppedTokens++;
+                    state.hasNoteAtCurrentPosition = false;
+                    return;
+                }
+                state.currentTick = static_cast<std::uint32_t>(absoluteTick);
                 state.hasNoteAtCurrentPosition = false;
             }
             else if constexpr (std::is_same_v<T, RemiBarEvent>) {
                 if (e.barNumber == std::numeric_limits<std::uint32_t>::max()) {
                     // Bar_None has no index in REMI; the token marks a bar boundary.
                     if (state.hasSeenImplicitBarToken) {
+                        if (state.currentBar + 1U >= config_.maxBars) {
+                            state.currentBar = config_.maxBars;
+                            state.result = RemiDecodeResult::ExceededMaxBars;
+                            state.message = "Truncated at max bars: " + std::to_string(config_.maxBars);
+                            state.warnings.push_back(state.message);
+                            state.droppedTokens += events.size() - i - 1;
+                            return;
+                        }
                         ++state.currentBar;
                     } else {
                         state.currentBar = 0;
@@ -150,10 +183,26 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                     }
                 } else {
                     // Preserve explicit indexed-bar behavior for direct adapter callers/tests.
+                    if (e.barNumber >= config_.maxBars) {
+                        state.warnings.push_back("Bar index out of range: " + std::to_string(e.barNumber));
+                        state.droppedTokens++;
+                        state.hasNoteAtCurrentPosition = false;
+                        return;
+                    }
                     state.currentBar = e.barNumber;
                     state.hasSeenImplicitBarToken = false;
                 }
-                state.currentTick = state.currentBar * config_.ticksPerBar;
+                const std::uint64_t barTick =
+                    static_cast<std::uint64_t>(state.currentBar) * config_.ticksPerBar;
+                if (barTick > std::numeric_limits<std::uint32_t>::max()) {
+                    state.currentBar = config_.maxBars;
+                    state.result = RemiDecodeResult::ExceededMaxBars;
+                    state.message = "Bar position exceeds the supported tick range";
+                    state.warnings.push_back(state.message);
+                    state.droppedTokens += events.size() - i - 1;
+                    return;
+                }
+                state.currentTick = static_cast<std::uint32_t>(barTick);
                 state.hasNoteAtCurrentPosition = false;
             }
             else if constexpr (std::is_same_v<T, RemiTempoEvent>) {
