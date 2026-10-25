@@ -27,6 +27,13 @@ std::uint8_t RemiEventAdapter::velocityBinToMidi(std::uint8_t bin) const noexcep
 
 std::uint32_t RemiEventAdapter::positionBinToTicks(std::uint32_t bin) const noexcept {
     const std::uint32_t ticksPerPosition = config_.ticksPerBeat / 8;
+    if (ticksPerPosition == 0) return 0;
+
+    // This utility is also exposed to diagnostic/test callers, so defend against
+    // arbitrary bins instead of allowing unsigned multiplication to wrap.
+    if (bin > std::numeric_limits<std::uint32_t>::max() / ticksPerPosition) {
+        return std::numeric_limits<std::uint32_t>::max();
+    }
     return bin * ticksPerPosition;
 }
 
