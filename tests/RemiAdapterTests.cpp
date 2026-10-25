@@ -5,6 +5,8 @@
 #include "generation/RhythmGenerator.h"
 
 #include <cassert>
+#include <filesystem>
+#include <fstream>
 #include <vector>
 #include <string>
 #include <iostream>
@@ -110,6 +112,36 @@ void testRemiDecoderConfig() {
     std::cout << "  RemiDecoderConfig: PASSED" << std::endl;
 }
 
+void testRemiDecoderConfigSafeJsonParsing() {
+    std::cout << "Testing safe RemiDecoderConfig JSON parsing..." << std::endl;
+    const auto path =
+        std::filesystem::temp_directory_path() / "mozart_remi_decoder_config_safe_parse.json";
+    {
+        std::ofstream fixture(path);
+        assert(fixture.is_open());
+        fixture << R"json({
+  "config": {
+    "pitch_range": [60, 300],
+    "beat_res": {"0_4": 0, "4_12": 4},
+    "num_velocities": 32,
+    "num_tempos": 256,
+    "tempo_range": [240.0, 80.0]
+  }
+})json";
+    }
+
+    const auto config = RemiDecoderConfig::fromTokenizerJson(path.string());
+    std::filesystem::remove(path);
+    assert(config.pitchMin == 21);
+    assert(config.pitchMax == 109);
+    assert(config.numVelocities == 32); // Valid fields survive unrelated invalid fields.
+    assert(config.numTempos == 32);      // 256 must not wrap to uint8_t.
+    assert(config.tempoMin == 40.0 && config.tempoMax == 250.0);
+    assert(config.beatRes.at("0_4") == 8 && config.beatRes.at("4_12") == 4);
+
+    std::cout << "  Safe RemiDecoderConfig JSON parsing: PASSED" << std::endl;
+}
+
 void testRemiEventAdapterConvertEventBounds() {
     std::cout << "Testing single-event conversion bounds..." << std::endl;
     const auto config = RemiDecoderConfig::defaultConfig();
@@ -176,6 +208,7 @@ int main() {
         testPatternProposalValidation();
         testPatternProposalValidator();
         testRemiDecoderConfig();
+        testRemiDecoderConfigSafeJsonParsing();
         testRemiEventAdapterConversions();
         testRemiEventAdapterConvertEventBounds();
         std::cout << "\n=== ALL TESTS PASSED (Part 1) ===" << std::endl;
