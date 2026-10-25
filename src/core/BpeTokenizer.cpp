@@ -119,25 +119,34 @@ std::string BpeTokenizer::bytesToTokenName(const std::vector<std::uint8_t>& byte
     return std::string(bytes.begin(), bytes.end());
 }
 
-std::optional<std::string> BpeTokenizer::decodeToken(std::uint32_t tokenId) const noexcept {
-    auto bytes = applyReverseMerges(tokenId);
+std::optional<std::vector<std::string>> BpeTokenizer::decodeToken(std::uint32_t tokenId) const noexcept {
+    auto bytes = decodeTokenToBytes(tokenId);
     if (bytes.empty()) {
         return std::nullopt;
     }
-    std::string name = bytesToTokenName(bytes);
-    if (name.empty()) {
-        return std::nullopt;
+    // Map each byte to its musical token name via _vocab_base_byte_to_token.
+    // One model ID can represent a sequence of musical tokens (BPE merge),
+    // so we return one token name per byte. Bytes without a mapping are unknown.
+    std::vector<std::string> names;
+    names.reserve(bytes.size());
+    for (std::uint8_t b : bytes) {
+        auto it = byteToTokenName_.find(b);
+        if (it == byteToTokenName_.end()) {
+            return std::nullopt;  // unknown byte -> whole token is undecodable
+        }
+        names.push_back(it->second);
     }
-    return name;
+    return names;
 }
 
 std::vector<std::string> BpeTokenizer::decodeTokens(const std::vector<std::uint32_t>& tokenIds) const noexcept {
     std::vector<std::string> result;
-    result.reserve(tokenIds.size());
     for (std::uint32_t id : tokenIds) {
-        auto name = decodeToken(id);
-        if (name.has_value()) {
-            result.push_back(*name);
+        auto names = decodeToken(id);
+        if (names.has_value()) {
+            for (const auto& name : *names) {
+                result.push_back(name);
+            }
         }
     }
     return result;

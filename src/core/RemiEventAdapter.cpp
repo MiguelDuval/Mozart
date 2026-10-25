@@ -168,7 +168,13 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeTokensToPro
     }
     std::vector<RemiEvent> remiEvents;
     remiEvents.reserve(tokenNames.size());
+    std::size_t bpeDropped = tokenIds.size() - tokenNames.size();
     for (const auto& tokenName : tokenNames) {
+        // Special tokens (PAD, BOS, EOS, MASK) are silently skipped — not errors.
+        if (tokenName == "PAD_None" || tokenName == "BOS_None" ||
+            tokenName == "EOS_None" || tokenName == "MASK_None") {
+            continue;
+        }
         auto event = parseTokenName(tokenName);
         if (event.has_value()) {
             remiEvents.push_back(*event);
@@ -177,6 +183,7 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeTokensToPro
             state.droppedTokens++;
         }
     }
+    state.droppedTokens += static_cast<std::uint32_t>(bpeDropped);
     auto result = decodeEventsToProposal(remiEvents, request, providerId, modelId);
     auto endTime = std::chrono::high_resolution_clock::now();
     auto generationTime = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime);

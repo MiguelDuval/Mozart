@@ -119,10 +119,18 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                 state.currentVelocity = velocityBinToMidi(e.velocity);
             }
             else if constexpr (std::is_same_v<T, RemiPositionEvent>) {
-                state.currentTick = state.currentBar * config_.ticksPerBar + positionBinToTicks(e.position);
+                // e.position is already in ticks (converted by parseTokenName via positionBinToTicks).
+                // Do NOT apply positionBinToTicks again — that would double-convert.
+                state.currentTick = state.currentBar * config_.ticksPerBar + e.position;
             }
             else if constexpr (std::is_same_v<T, RemiBarEvent>) {
-                state.currentBar = e.barNumber;
+                // Bar_None token (barNumber == 0) advances to the next bar.
+                // Explicit bar numbers (Bar_1, Bar_2, ...) set the bar directly.
+                if (e.barNumber == 0) {
+                    ++state.currentBar;
+                } else {
+                    state.currentBar = e.barNumber;
+                }
                 state.currentTick = state.currentBar * config_.ticksPerBar;
             }
             else if constexpr (std::is_same_v<T, RemiTempoEvent>) {
