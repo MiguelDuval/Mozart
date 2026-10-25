@@ -36,7 +36,7 @@ std::optional<BpeTokenizer> makeFixtureBpeTokenizer() {
     "f": "Velocity_15",
     "g": "Tempo_15"
   },
-  "_model": "{\\"model\\":{\\"vocab\\":{\\"PAD_None\\":0,\\"BOS_None\\":1,\\"EOS_None\\":2,\\"MASK_None\\":3,\\"a\\":4,\\"b\\":5,\\"c\\":6,\\"d\\":7,\\"e\\":8,\\"f\\":9,\\"g\\":10},\\"merges\\":[]}}",
+  "_model": "{\"model\":{\"vocab\":{\"PAD_None\":0,\"BOS_None\":1,\"EOS_None\":2,\"MASK_None\":3,\"a\":4,\"b\":5,\"c\":6,\"d\":7,\"e\":8,\"f\":9,\"g\":10},\"merges\":[]}}",
   "config": { "special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"] }
 })json";
     }
