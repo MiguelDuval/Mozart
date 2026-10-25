@@ -30,7 +30,7 @@ jobs:
 
       - name: Build Mozart library
         run: |
-          cmake --build build --config Release -j$(nproc)
+          cmake --build build -j$(nproc)
 
       - name: Configure test targets
         run: |
@@ -42,26 +42,26 @@ jobs:
 
       - name: Build test targets
         run: |
-          cmake --build tests/build --config Release -j$(nproc)
+          cmake --build tests/build -j$(nproc)
 
       - name: Run mozart_core_tests
         run: |
-          ./tests/build/mozart_core_tests > test_mozart_core.log 2>&1 || true
+          ./tests/build/mozart_core_tests > test_mozart_core.log 2>&1
           cat test_mozart_core.log
 
       - name: Run remi_adapter_tests_1
         run: |
-          ./tests/build/remi_adapter_tests_1 > test_remi_adapter_1.log 2>&1 || true
+          ./tests/build/remi_adapter_tests_1 > test_remi_adapter_1.log 2>&1
           cat test_remi_adapter_1.log
 
       - name: Run remi_adapter_tests_2
         run: |
-          ./tests/build/remi_adapter_tests_2 > test_remi_adapter_2.log 2>&1 || true
+          ./tests/build/remi_adapter_tests_2 > test_remi_adapter_2.log 2>&1
           cat test_remi_adapter_2.log
 
       - name: Run remi_adapter_tests_3
         run: |
-          ./tests/build/remi_adapter_tests_3 > test_remi_adapter_3.log 2>&1 || true
+          ./tests/build/remi_adapter_tests_3 > test_remi_adapter_3.log 2>&1
           cat test_remi_adapter_3.log
 
       - name: Upload test logs

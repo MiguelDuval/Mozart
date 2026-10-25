@@ -60,11 +60,18 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                     return;
                 }
                 
+                // Длительность: приоритет от токена Duration_ (сохранён в состоянии),
+                // иначе фиксированная длительность по умолчанию.
+                std::uint32_t noteDuration = config_.ticksPerBeat / 4;
+                if (state.hasPendingDuration) {
+                    noteDuration = state.pendingDurationTicks;
+                    state.hasPendingDuration = false;
+                }
                 PatternEvent patternEvent = NoteEvent{
                     e.pitch,
                     e.velocity > 0 ? e.velocity : state.currentVelocity,
                     state.currentTick + e.position,
-                    config_.ticksPerBeat / 4,
+                    noteDuration,
                     static_cast<std::uint8_t>(e.track % 16),
                     e.track
                 };
@@ -72,6 +79,41 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                 state.currentTrack = e.track;
             }
             else if constexpr (std::is_same_v<T, RemiNoteOffEvent>) {
+                if (e.pitch == 0) {
+                    // Маркер длительности из токена Duration_: позиция хранит длительность в тиках.
+                    // Прикрепить её к последней ноте на текущем треке (длительность следует за нотой).
+                    // Если такой ноты нет, запомнить как отложенную для следующей ноты на этом треке.
+                    bool applied = false;
+                    for (auto it = state.events.rbegin(); it != state.events.rend(); ++it) {
+                        if (std::holds_alternative<NoteEvent>(*it)) {
+                            auto& note = std::get<NoteEvent>(*it);
+                            if (note.track == state.currentTrack) {
+                                note.duration = e.position;
+                                applied = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!applied) {
+                        state.pendingDurationTicks = e.position;
+                        state.hasPendingDuration = true;
+                    }
+                } else {
+                    // Настоящий note-off: закрыть последнюю активную ноту с той же высотой и треком.
+                    // e.position трактуется как абсолютный тик окончания ноты.
+                    const auto offTrack = static_cast<std::uint8_t>(e.track % 16);
+                    for (auto it = state.events.rbegin(); it != state.events.rend(); ++it) {
+                        if (std::holds_alternative<NoteEvent>(*it)) {
+                            auto& note = std::get<NoteEvent>(*it);
+                            if (note.pitch == e.pitch && note.track == offTrack) {
+                                if (e.position > note.position) {
+                                    note.duration = e.position - note.position;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
             }
             else if constexpr (std::is_same_v<T, RemiVelocityEvent>) {
                 state.currentVelocity = velocityBinToMidi(e.velocity);

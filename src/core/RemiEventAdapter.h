@@ -128,6 +128,11 @@ private:
     std::shared_ptr<BpeTokenizer> tokenizer_;
     struct DecodeState {
         std::uint32_t currentTick = 0; std::uint32_t currentBar = 0; std::uint8_t currentTrack = 0; std::uint8_t currentVelocity = 64; std::uint8_t currentProgram = 0; double currentTempo = 120.0; std::uint8_t timeSigNumerator = 4; std::uint8_t timeSigDenominator = 4; bool hasTempo = false; bool hasTimeSignature = false; std::vector<PatternEvent> events; std::vector<std::string> warnings; std::size_t droppedTokens = 0;
+        // Длительность, полученная из токена Duration_ (формат beats.subdivision.resolution).
+        // Применяется к следующей ноте, если нет предшествующей ноты, к которой можно
+        // прикрепить длительность (например, когда Duration_ идёт перед NoteOn).
+        std::uint32_t pendingDurationTicks = 0;
+        bool hasPendingDuration = false;
     };
     [[nodiscard]] std::pair<PatternProposal, RemiDecodeReport> finalizeProposal(DecodeState& state, const GenerationRequest& request, const std::string& providerId, const std::string& modelId, std::chrono::nanoseconds generationTime) const noexcept;
     [[nodiscard]] std::optional<RemiEvent> tokenNameToEvent(const std::string& tokenName) const noexcept;

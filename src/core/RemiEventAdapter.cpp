@@ -83,7 +83,13 @@ std::optional<RemiEvent> RemiEventAdapter::parseTokenName(const std::string& tok
         std::string durStr = tokenName.substr(9);
         auto durationTicks = parseDuration(durStr, config_.ticksPerBeat);
         if (durationTicks.has_value()) {
-            return RemiNoteOffEvent{0, 0, 0};
+            // Токен Duration_ кодирует длительность ноты. Так как вариант RemiEvent не
+            // содержит отдельного события длительности, duration представляется маркером
+            // note-off с pitch == 0: позиция хранит длительность в тиках, track — 0.
+            // pitch == 0 недопустим как высота ноты (pitchMin >= 21), поэтому маркер не
+            // пересекается с реальными нотами. Декодер прикрепляет длительность к
+            // соответствующей ноте в decodeEventsToProposal().
+            return RemiNoteOffEvent{0, *durationTicks, 0};
         }
         return std::nullopt;
     }

@@ -135,12 +135,107 @@ void testRemiVocabulary() {
     std::cout << "  RemiVocabulary: PASSED" << std::endl;
 }
 
+void testRemiEventAdapterDurationPreservation() {
+    std::cout << "Testing Duration_ token preserves note length..." << std::endl;
+    auto config = RemiDecoderConfig::defaultConfig();
+    RemiEventAdapter adapter(config);
+
+    std::vector<RemiEvent> events;
+    events.push_back(RemiBarEvent{0});
+    events.push_back(RemiPositionEvent{0});
+    events.push_back(RemiNoteOnEvent{60, 100, 0, 0});     // нота начинается на тике 0
+    events.push_back(RemiNoteOffEvent{0, 480, 0});         // маркер Duration_ (pitch==0), 480 тиков
+
+    GenerationRequest request;
+    auto [proposal, report] = adapter.decodeEventsToProposal(events, request, "test-provider", "test-model");
+
+    assert(report.isOk());
+    auto notes = proposal.notes();
+    assert(notes.size() == 1);
+    assert(notes[0].pitch == 60);
+    assert(notes[0].velocity == 100);
+    assert(notes[0].position == 0);
+    assert(notes[0].duration == 480);   // длина из Duration_, а не значение по умолчанию
+    std::cout << "  Duration_ token preserves note length: PASSED" << std::endl;
+}
+
+void testRemiEventAdapterDurationBeforeNoteOn() {
+    std::cout << "Testing Duration_ before NoteOn applies to next note..." << std::endl;
+    auto config = RemiDecoderConfig::defaultConfig();
+    RemiEventAdapter adapter(config);
+
+    std::vector<RemiEvent> events;
+    events.push_back(RemiBarEvent{0});
+    events.push_back(RemiNoteOffEvent{0, 960, 0});        // маркер длительности без предшествующей ноты -> pending
+    events.push_back(RemiPositionEvent{0});
+    events.push_back(RemiNoteOnEvent{60, 100, 0, 0});     // получает отложенную длительность 960
+
+    GenerationRequest request;
+    auto [proposal, report] = adapter.decodeEventsToProposal(events, request);
+    assert(report.isOk());
+    auto notes = proposal.notes();
+    assert(notes.size() == 1);
+    assert(notes[0].pitch == 60);
+    assert(notes[0].position == 0);
+    assert(notes[0].duration == 960);
+    std::cout << "  Duration_ before NoteOn applies to next note: PASSED" << std::endl;
+}
+
+void testRemiEventAdapterPolyphonyRepeatedPitch() {
+    std::cout << "Testing polyphony and repeated pitch durations..." << std::endl;
+    auto config = RemiDecoderConfig::defaultConfig();
+    RemiEventAdapter adapter(config);
+
+    std::vector<RemiEvent> events;
+    events.push_back(RemiBarEvent{0});
+    events.push_back(RemiPositionEvent{0});
+    events.push_back(RemiNoteOnEvent{60, 100, 0, 0});     // нота A, тик 0
+    events.push_back(RemiNoteOffEvent{0, 480, 0});        // длительность A = 480
+    events.push_back(RemiNoteOnEvent{60, 100, 480, 0});   // нота B, та же высота, тик 480
+    events.push_back(RemiNoteOffEvent{0, 960, 0});        // длительность B = 960
+
+    GenerationRequest request;
+    auto [proposal, report] = adapter.decodeEventsToProposal(events, request);
+    assert(report.isOk());
+    auto notes = proposal.notes();
+    assert(notes.size() == 2);
+    assert(notes[0].pitch == 60 && notes[0].position == 0 && notes[0].duration == 480);
+    assert(notes[1].pitch == 60 && notes[1].position == 480 && notes[1].duration == 960);
+    std::cout << "  Polyphony and repeated pitch durations: PASSED" << std::endl;
+}
+
+void testRemiEventAdapterNoteOffClosesNote() {
+    std::cout << "Testing genuine note-off closes a note..." << std::endl;
+    auto config = RemiDecoderConfig::defaultConfig();
+    RemiEventAdapter adapter(config);
+
+    std::vector<RemiEvent> events;
+    events.push_back(RemiBarEvent{0});
+    events.push_back(RemiPositionEvent{0});
+    events.push_back(RemiNoteOnEvent{60, 100, 0, 0});
+    events.push_back(RemiNoteOffEvent{60, 1440, 0});      // note-off: конец на тике 1440
+
+    GenerationRequest request;
+    auto [proposal, report] = adapter.decodeEventsToProposal(events, request);
+    assert(report.isOk());
+    auto notes = proposal.notes();
+    assert(notes.size() == 1);
+    assert(notes[0].pitch == 60);
+    assert(notes[0].position == 0);
+    assert(notes[0].duration == 1440);   // 1440 - 0 = 1440
+    std::cout << "  Genuine note-off closes a note: PASSED" << std::endl;
+}
+
 int main() {
     try {
         testRemiEventAdapterDecoding();
         testRemiEventAdapterEmpty();
         testRemiEventAdapterTruncation();
         testRemiVocabulary();
+        testRemiEventAdapterDurationPreservation();
+        testRemiEventAdapterDurationBeforeNoteOn();
+        testRemiEventAdapterPolyphonyRepeatedPitch();
+        testRemiEventAdapterNoteOffClosesNote();
         std::cout << "\n=== ALL TESTS PASSED (Part 2) ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {
