@@ -286,6 +286,28 @@ void testRemiEventAdapterDurationPreservation() {
     std::cout << "  Duration_ token preserves note length: PASSED" << std::endl;
 }
 
+void testRemiEventAdapterTotalTicksSaturateInsteadOfWrapping() {
+    std::cout << "Testing proposal length saturates safely near UINT32_MAX..." << std::endl;
+    const auto config = RemiDecoderConfig::defaultConfig();
+    RemiEventAdapter adapter(config);
+
+    std::vector<RemiEvent> events;
+    events.push_back(RemiBarEvent{0});
+    events.push_back(RemiNoteOnEvent{
+        60, 100, std::numeric_limits<std::uint32_t>::max() - 300U, 0});
+
+    GenerationRequest request;
+    auto [proposal, report] = adapter.decodeEventsToProposal(events, request);
+    assert(report.isOk());
+    const auto notes = proposal.notes();
+    assert(notes.size() == 1);
+    assert(notes[0].position == std::numeric_limits<std::uint32_t>::max() - 300U);
+    assert(notes[0].duration == config.ticksPerBeat / 4);
+    assert(proposal.totalTicks == std::numeric_limits<std::uint32_t>::max());
+    assert(proposal.totalTicks >= notes[0].position);
+    std::cout << "  Proposal length saturates without integer wrap: PASSED" << std::endl;
+}
+
 void testRemiEventAdapterRejectsNoteEndTickOverflow() {
     std::cout << "Testing note end tick overflow is rejected..." << std::endl;
     auto config = RemiDecoderConfig::defaultConfig();
@@ -406,6 +428,7 @@ int main() {
         testRemiEventAdapterDurationTokenParsing();
         testRemiBarTokenAdvancesAcrossMultipleBars();
         testRemiEventAdapterRejectsNoteEndTickOverflow();
+        testRemiEventAdapterTotalTicksSaturateInsteadOfWrapping();
         testRemiEventAdapterInvalidDurationTokenFallsBackSafely();
         testRemiEventAdapterDurationPreservation();
         testRemiEventAdapterDurationBeforeNoteOn();

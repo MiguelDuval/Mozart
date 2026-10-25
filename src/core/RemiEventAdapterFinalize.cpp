@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
+#include <limits>
 
 namespace mozart::generation {
 
@@ -39,7 +41,15 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::finalizeProposal(
         maxTick = std::max(maxTick, pos);
     }
     
-    std::uint32_t totalTicks = std::max(maxTick + config_.ticksPerBeat, config_.ticksPerBar);
+    // Compute in 64-bit arithmetic and saturate before narrowing. A valid last note
+    // may end near UINT32_MAX, so adding the nominal tail beat must not wrap the pattern
+    // length back to a small value.
+    const std::uint64_t proposedTotalTicks =
+        static_cast<std::uint64_t>(maxTick) + config_.ticksPerBeat;
+    const auto boundedTotalTicks = static_cast<std::uint32_t>(
+        std::min<std::uint64_t>(
+            proposedTotalTicks, std::numeric_limits<std::uint32_t>::max()));
+    std::uint32_t totalTicks = std::max(boundedTotalTicks, config_.ticksPerBar);
     
     std::uint8_t maxTrack = 0;
     for (const auto& event : state.events) {
