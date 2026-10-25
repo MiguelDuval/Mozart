@@ -1095,3 +1095,37 @@ No candidate reviewed is verified to meet all three production requirements: bro
 
 ### Next Action
 Cline must execute the corrected sidecar builder locally; verify 28 Slakh metadata rows remain as separate stem records and all 1,276 MAESTRO performances remain distinct assets while reporting 852 title-like groupings separately. Inspect saved corpus manifests for reliable per-file NRG-CP split membership. The previous 17,240-row/449-removal summary is invalidated and must not be used.
+
+
+---
+
+## 2026-10-21 — ChatGPT — Stop Preparation Loop; Authorize Controlled Polyphony Experiment
+
+### Context
+Cline's latest report states the corrected sidecar and NRG-CP split reconciliation are complete at commit `96601a1`. It reports 17,693 asset-level metadata records and 9 local tests passing. The user explicitly asked to begin useful model work rather than continue preparation-only cycles.
+
+### Decision
+Missing genre/section labels are a blocker for *genre/section conditioning*, not a blocker for ordinary unconditioned next-token training. The next research deliverable should therefore be a controlled single-stream polyphony fine-tune and actual MIDI outputs, not another metadata audit.
+
+### Executed
+1. Updated `docs/CONDITIONING_FEASIBILITY_DECISION.md` with the corrected local scan figures and an explicit 10,000-step experiment protocol.
+2. Updated `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` so the immediate action is the runtime/checkpoint gate and controlled experiment, not another coverage matrix.
+3. Kept the official 12,000-token tokenizer and Phase 1 checkpoint immutable as the baseline.
+4. Specified a research-only mixture using NRG-CP/GMD replay and MAESTRO as a polyphony supplement. Because MAESTRO is CC BY-NC-SA 4.0, this experiment and checkpoint must be marked non-commercial/research-only. Do not train on the three-composition Slakh sample.
+5. Explicitly required MAESTRO composition-level split decontamination, per-source validation, fixed-seed before/after MIDI samples, atomic best/last checkpoints, and early stopping.
+6. Preserved the no-reboot rule and restricted PyTorch loading diagnostics to one bounded attempt; do not repeat hanging loads.
+
+### Known Local Scan (reported by Cline)
+- NRG-CP: 15,235 assets; train 13,711 / validation 761 / test 763.
+- GMD: 1,150 assets; train 897 / validation 124 / test 129.
+- Slakh: 32 metadata rows / 3 compositions; 28 marked MIDI-saved, 4 unsaved; 5 MIDI paths reported missing.
+- MAESTRO: 1,276 performances / 852 title-like composition groupings; train 962 / validation 137 / test 177.
+- Total: 17,693 metadata records; 0 duplicate asset rows removed.
+- Zero authoritative electronic genre labels and zero authoritative section labels.
+
+### Next Action — Immediate
+Cline must perform one current-session PyTorch/runtime check and one bounded attempt to load the preserved Phase 1 checkpoint. If successful, start the new 10,000-step run under a separate output directory immediately. If it fails, do not reboot or loop retries; test a tiny fresh-process forward/backward step and report exactly which operation is blocked. Do not spend more time on another audit or documentation cycle.
+
+### Evidence Classification
+- Sidecar counts and split mapping: **REPORTED VERIFIED BY CLINE**, recorded in `experiments/aura-midi/audit_report.json`; ChatGPT can inspect the committed report but did not execute the local Windows scan itself.
+- No new training run has been started by ChatGPT. Actual launch and model results remain pending Cline's local execution.
