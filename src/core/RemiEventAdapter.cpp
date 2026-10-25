@@ -102,7 +102,12 @@ static std::optional<std::uint32_t> parseDuration(const std::string& str, std::u
             return std::nullopt;
         }
 
-        return static_cast<std::uint32_t>(std::floor(ticks + 0.5L));
+        const long double roundedTicks = std::floor(ticks + 0.5L);
+        if (!std::isfinite(roundedTicks) || roundedTicks < 1.0L ||
+            roundedTicks > static_cast<long double>(std::numeric_limits<std::uint32_t>::max())) {
+            return std::nullopt;
+        }
+        return static_cast<std::uint32_t>(roundedTicks);
     } catch (...) {
         return std::nullopt;
     }

@@ -237,8 +237,8 @@ void testRemiEventAdapterInvalidDurationTokenFallsBackSafely() {
         std::ofstream fixture(fixturePath);
         assert(fixture.is_open());
         fixture << R"json({
-  "_vocab_base_byte_to_token": {"a":"Bar_None","b":"Position_0","c":"Pitch_60","d":"Velocity_15","e":"Duration_1.0.0","f":"PitchDrum_300","g":"Pitch_60junk","h":"Position_32","i":"Position_2147483647"},
-  "_model": "{\"model\":{\"vocab\":{\"a\":0,\"b\":1,\"c\":2,\"d\":3,\"e\":4,\"f\":5,\"g\":6,\"h\":7,\"i\":8},\"merges\":[]}}",
+  "_vocab_base_byte_to_token": {"a":"Bar_None","b":"Position_0","c":"Pitch_60","d":"Velocity_15","e":"Duration_1.0.0","f":"PitchDrum_300","g":"Pitch_60junk","h":"Position_32","i":"Position_2147483647","j":"Duration_0.0.8"},
+  "_model": "{\"model\":{\"vocab\":{\"a\":0,\"b\":1,\"c\":2,\"d\":3,\"e\":4,\"f\":5,\"g\":6,\"h\":7,\"i\":8,\"j\":9},\"merges\":[]}}",
   "config": {"special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"]}
 })json";
     }
@@ -250,12 +250,12 @@ void testRemiEventAdapterInvalidDurationTokenFallsBackSafely() {
     auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
     RemiEventAdapter adapter(RemiDecoderConfig::defaultConfig(), sharedTokenizer);
     GenerationRequest request;
-    const std::vector<std::uint32_t> tokenIds{0, 1, 2, 3, 4, 5, 6, 7, 8};
+    const std::vector<std::uint32_t> tokenIds{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     auto [proposal, report] =
         adapter.decodeTokensToProposal(tokenIds, request, "test-provider", "test-model");
 
     assert(report.isOk());
-    assert(report.droppedTokens >= 5); // Bad duration, invalid pitches, and out-of-bar positions.
+    assert(report.droppedTokens >= 6); // Zero/malformed durations, invalid pitches, and out-of-bar positions.
     const auto notes = proposal.notes();
     assert(notes.size() == 1);
     assert(notes[0].duration == RemiDecoderConfig::defaultConfig().ticksPerBeat / 4);
