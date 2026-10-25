@@ -187,7 +187,7 @@ void testRemiEventAdapterInvalidDurationTokenFallsBackSafely() {
         std::ofstream fixture(fixturePath);
         assert(fixture.is_open());
         fixture << R"json({
-  "_model": "{\"model\":{\"vocab\":{\"Bar_None\":0,\"Position_0\":1,\"Pitch_60\":2,\"Velocity_15\":3,\"Duration_1.0.0\":4,\"PitchDrum_300\":5,\"Pitch_60junk\":6},\"merges\":[]}}",
+  "_model": "{\"model\":{\"vocab\":{\"Bar_None\":0,\"Position_0\":1,\"Pitch_60\":2,\"Velocity_15\":3,\"Duration_1.0.0\":4,\"PitchDrum_300\":5,\"Pitch_60junk\":6,\"Position_32\":7,\"Position_2147483647\":8},\"merges\":[]}}",
   "config": {"special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"]}
 })json";
     }
@@ -199,12 +199,12 @@ void testRemiEventAdapterInvalidDurationTokenFallsBackSafely() {
     auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
     RemiEventAdapter adapter(RemiDecoderConfig::defaultConfig(), sharedTokenizer);
     GenerationRequest request;
-    const std::vector<std::uint32_t> tokenIds{0, 1, 2, 3, 4, 5, 6};
+    const std::vector<std::uint32_t> tokenIds{0, 1, 2, 3, 4, 5, 6, 7, 8};
     auto [proposal, report] =
         adapter.decodeTokensToProposal(tokenIds, request, "test-provider", "test-model");
 
     assert(report.isOk());
-    assert(report.droppedTokens >= 3); // Bad duration, overflowing drum pitch, and suffixed pitch.
+    assert(report.droppedTokens >= 5); // Bad duration, invalid pitches, and out-of-bar positions.
     const auto notes = proposal.notes();
     assert(notes.size() == 1);
     assert(notes[0].duration == RemiDecoderConfig::defaultConfig().ticksPerBeat / 4);

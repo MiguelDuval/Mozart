@@ -150,11 +150,20 @@ std::optional<RemiEvent> RemiEventAdapter::parseTokenName(const std::string& tok
     }
     if (tokenName.rfind("Position_", 0) == 0) {
         const auto bin = parseInt(tokenName.substr(9));
-        if (bin.has_value() && *bin >= 0) {
-            // Keep the encoded bin here; decodeEventsToProposal converts it to ticks.
-            return RemiPositionEvent{static_cast<std::uint32_t>(*bin)};
+        const std::uint32_t ticksPerPosition = config_.ticksPerBeat / 8;
+        if (!bin.has_value() || *bin < 0 || ticksPerPosition == 0 || config_.ticksPerBar == 0) {
+            return std::nullopt;
         }
-        return std::nullopt;
+
+        // Position_ is a within-bar bin, not an absolute tick. Bar_ advances the bar;
+        // reject bins beyond the configured bar before they can overflow during conversion.
+        const std::uint32_t positionsPerBar = config_.ticksPerBar / ticksPerPosition;
+        if (static_cast<std::uint32_t>(*bin) >= positionsPerBar) {
+            return std::nullopt;
+        }
+
+        // Keep the encoded bin here; decodeEventsToProposal converts it to ticks.
+        return RemiPositionEvent{static_cast<std::uint32_t>(*bin)};
     }
     if (tokenName.rfind("Tempo_", 0) == 0) {
         std::string tempoStr = tokenName.substr(6);
