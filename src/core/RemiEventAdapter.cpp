@@ -96,9 +96,13 @@ std::optional<RemiEvent> RemiEventAdapter::parseTokenName(const std::string& tok
     if (tokenName.rfind("Position_", 0) == 0) {
         std::string posStr = tokenName.substr(9);
         try {
-            int bin = std::stoi(posStr);
-            return RemiPositionEvent{positionBinToTicks(static_cast<std::uint32_t>(bin))};
+            const int bin = std::stoi(posStr);
+            if (bin >= 0) {
+                // Keep the encoded bin here; decodeEventsToProposal converts it to ticks.
+                return RemiPositionEvent{static_cast<std::uint32_t>(bin)};
+            }
         } catch (...) { return std::nullopt; }
+        return std::nullopt;
     }
     if (tokenName.rfind("Tempo_", 0) == 0) {
         std::string tempoStr = tokenName.substr(6);
