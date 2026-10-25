@@ -1,21 +1,13 @@
 #include "LocalNeuralPatternProvider.h"
+#include "LocalNeuralPatternProviderImpl.h"
 #include "GenerationTypes.h"
 #include "RemiEventAdapter.h"
 
 #include <algorithm>
 #include <chrono>
-#include <random>
 #include <memory>
 
 namespace mozart::generation {
-
-struct LocalNeuralPatternProvider::Impl {
-    std::mt19937 rng;
-    std::uint64_t lastRequestId = 0;
-    std::shared_ptr<BpeTokenizer> tokenizer;
-    
-    Impl() : rng(std::random_device{}()) {}
-};
 
 LocalNeuralPatternProvider::LocalNeuralPatternProvider(const Config& config) noexcept
     : impl_(std::make_unique<Impl>())
