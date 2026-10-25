@@ -235,10 +235,15 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeTokensToPro
         report.message = "No BPE tokenizer loaded.";
         return {PatternProposal{}, report};
     }
-    std::vector<std::string> tokenNames = tokenizer_->decodeTokens(tokenIds);
+    auto bpeResult = tokenizer_->decodeTokensWithReport(tokenIds);
+    std::vector<std::string> tokenNames = std::move(bpeResult.tokenNames);
+    state.warnings = std::move(bpeResult.warnings);
+    state.droppedTokens = bpeResult.droppedTokenIds;
     if (tokenNames.empty()) {
         report.result = RemiDecodeResult::EmptySequence;
         report.message = "No valid tokens after BPE decoding";
+        report.droppedTokens = state.droppedTokens;
+        report.warnings = std::move(state.warnings);
         return {PatternProposal{}, report};
     }
     std::vector<RemiEvent> remiEvents;

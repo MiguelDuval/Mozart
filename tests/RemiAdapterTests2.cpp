@@ -165,13 +165,20 @@ void testRemiEventAdapterDurationTokenParsing() {
     GenerationRequest request;
     request.barCount = 1;
 
-    const std::vector<std::uint32_t> tokenIds{1, 4, 10, 11, 2}; // BOS, merged BPE events, EOS.
+    const std::vector<std::uint32_t> tokenIds{999, 1, 4, 10, 11, 2}; // Invalid ID plus BOS, merged events, EOS.
     auto [proposal, report] =
         adapter.decodeTokensToProposal(tokenIds, request, "test-provider", "test-model");
 
     assert(report.isOk());
-    assert(report.droppedTokens == 0); // BOS/EOS are expected control tokens.
+    assert(report.droppedTokens == 1); // Only invalid BPE ID 999 is dropped; BOS/EOS are control tokens.
+    assert(!report.warnings.empty());
+    assert(report.warnings.front().find("BPE token ID 999") != std::string::npos);
     assert(!sharedTokenizer->decodeToken(10).has_value()); // One BPE ID contains two base tokens.
+
+    const auto directDecode = sharedTokenizer->decodeTokensWithReport({999, 10});
+    assert(directDecode.droppedTokenIds == 1);
+    assert(directDecode.tokenNames.size() == 2); // Position_8 and Tempo_15 from one merged ID.
+    assert(directDecode.warnings.size() == 1);
     const auto notes = proposal.notes();
     assert(notes.size() == 1);
     assert(notes[0].pitch == 60);

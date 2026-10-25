@@ -174,17 +174,26 @@ std::optional<std::string> BpeTokenizer::decodeToken(std::uint32_t tokenId) cons
     return names->front();
 }
 
-std::vector<std::string> BpeTokenizer::decodeTokens(
+BpeTokenDecodeResult BpeTokenizer::decodeTokensWithReport(
     const std::vector<std::uint32_t>& tokenIds) const noexcept {
-    std::vector<std::string> result;
-    result.reserve(tokenIds.size());
+    BpeTokenDecodeResult result;
+    result.tokenNames.reserve(tokenIds.size());
+
     for (const std::uint32_t id : tokenIds) {
         auto names = decodeTokenToNames(id);
         if (names.has_value()) {
-            result.insert(result.end(), names->begin(), names->end());
+            result.tokenNames.insert(result.tokenNames.end(), names->begin(), names->end());
+        } else {
+            ++result.droppedTokenIds;
+            result.warnings.push_back("Unable to decode BPE token ID " + std::to_string(id));
         }
     }
     return result;
+}
+
+std::vector<std::string> BpeTokenizer::decodeTokens(
+    const std::vector<std::uint32_t>& tokenIds) const noexcept {
+    return decodeTokensWithReport(tokenIds).tokenNames;
 }
 
 } // namespace mozart::generation
