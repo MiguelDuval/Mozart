@@ -41,16 +41,51 @@ static std::optional<double> parseFloat(const std::string& str) {
 }
 
 static std::optional<std::uint32_t> parseDuration(const std::string& str, std::uint32_t ticksPerBeat) {
-    size_t dot1 = str.find(".");
-    size_t dot2 = str.find(".", dot1 + 1);
-    if (dot1 == std::string::npos || dot2 == std::string::npos) return std::nullopt;
+    const size_t dot1 = str.find('.');
+    if (dot1 == std::string::npos) return std::nullopt;
+    const size_t dot2 = str.find('.', dot1 + 1);
+    if (dot2 == std::string::npos || str.find('.', dot2 + 1) != std::string::npos) {
+        return std::nullopt;
+    }
+
     try {
-        double beats = std::stod(str.substr(0, dot1));
-        double subdivision = std::stod(str.substr(dot1 + 1, dot2 - dot1 - 1));
-        int resolution = std::stoi(str.substr(dot2 + 1));
-        double totalBeats = beats + subdivision / resolution;
-        return static_cast<std::uint32_t>(totalBeats * ticksPerBeat + 0.5);
-    } catch (...) { return std::nullopt; }
+        const std::string beatsText = str.substr(0, dot1);
+        const std::string subdivisionText = str.substr(dot1 + 1, dot2 - dot1 - 1);
+        const std::string resolutionText = str.substr(dot2 + 1);
+
+        size_t beatsChars = 0;
+        const double beats = std::stod(beatsText, &beatsChars);
+        if (beatsChars != beatsText.size() || !std::isfinite(beats) || beats < 0.0) {
+            return std::nullopt;
+        }
+
+        size_t subdivisionChars = 0;
+        const double subdivision = std::stod(subdivisionText, &subdivisionChars);
+        if (subdivisionChars != subdivisionText.size() || !std::isfinite(subdivision) ||
+            subdivision < 0.0) {
+            return std::nullopt;
+        }
+
+        size_t resolutionChars = 0;
+        const int resolution = std::stoi(resolutionText, &resolutionChars);
+        if (resolutionChars != resolutionText.size() || resolution <= 0 ||
+            subdivision >= static_cast<double>(resolution)) {
+            return std::nullopt;
+        }
+
+        const long double ticks =
+            (static_cast<long double>(beats) +
+             static_cast<long double>(subdivision) / static_cast<long double>(resolution)) *
+            static_cast<long double>(ticksPerBeat);
+        if (!std::isfinite(ticks) || ticks < 0.0L ||
+            ticks > static_cast<long double>(std::numeric_limits<std::uint32_t>::max())) {
+            return std::nullopt;
+        }
+
+        return static_cast<std::uint32_t>(std::floor(ticks + 0.5L));
+    } catch (...) {
+        return std::nullopt;
+    }
 }
 
 std::optional<RemiEvent> RemiEventAdapter::parseTokenName(const std::string& tokenName) const noexcept {

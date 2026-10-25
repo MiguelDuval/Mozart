@@ -178,6 +178,38 @@ void testRemiEventAdapterDurationTokenParsing() {
     std::cout << "  REMI Duration_ token parsing end-to-end: PASSED" << std::endl;
 }
 
+void testRemiEventAdapterInvalidDurationTokenFallsBackSafely() {
+    std::cout << "Testing malformed Duration_ token is rejected safely..." << std::endl;
+    const auto fixturePath =
+        std::filesystem::temp_directory_path() / "mozart_remi_invalid_duration_tokenizer_test.json";
+    {
+        std::ofstream fixture(fixturePath);
+        assert(fixture.is_open());
+        fixture << R"json({
+  "_model": "{\"model\":{\"vocab\":{\"Bar_None\":0,\"Position_0\":1,\"Pitch_60\":2,\"Velocity_15\":3,\"Duration_1.0.0\":4},\"merges\":[]}}",
+  "config": {"special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"]}
+})json";
+    }
+
+    auto tokenizer = BpeTokenizer::loadFromJson(fixturePath.string());
+    std::filesystem::remove(fixturePath);
+    assert(tokenizer.has_value());
+
+    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
+    RemiEventAdapter adapter(RemiDecoderConfig::defaultConfig(), sharedTokenizer);
+    GenerationRequest request;
+    const std::vector<std::uint32_t> tokenIds{0, 1, 2, 3, 4};
+    auto [proposal, report] =
+        adapter.decodeTokensToProposal(tokenIds, request, "test-provider", "test-model");
+
+    assert(report.isOk());
+    assert(report.droppedTokens >= 1);
+    const auto notes = proposal.notes();
+    assert(notes.size() == 1);
+    assert(notes[0].duration == RemiDecoderConfig::defaultConfig().ticksPerBeat / 4);
+    std::cout << "  Malformed Duration_ token is rejected safely: PASSED" << std::endl;
+}
+
 void testRemiEventAdapterDurationPreservation() {
     std::cout << "Testing Duration_ token preserves note length..." << std::endl;
     auto config = RemiDecoderConfig::defaultConfig();
@@ -301,6 +333,7 @@ int main() {
         testRemiEventAdapterTruncation();
         testRemiVocabulary();
         testRemiEventAdapterDurationTokenParsing();
+        testRemiEventAdapterInvalidDurationTokenFallsBackSafely();
         testRemiEventAdapterDurationPreservation();
         testRemiEventAdapterDurationBeforeNoteOn();
         testRemiEventAdapterDurationBeforeNextNoteDoesNotRewritePreviousNote();
