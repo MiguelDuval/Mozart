@@ -233,6 +233,11 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeTokensToPro
     std::vector<RemiEvent> remiEvents;
     remiEvents.reserve(tokenNames.size());
     for (const auto& tokenName : tokenNames) {
+        // These are standard sequence-control tokens, not malformed musical events.
+        if (tokenName == "PAD_None" || tokenName == "BOS_None" ||
+            tokenName == "EOS_None" || tokenName == "MASK_None") {
+            continue;
+        }
         auto event = parseTokenName(tokenName);
         if (event.has_value()) {
             remiEvents.push_back(*event);

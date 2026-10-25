@@ -146,7 +146,7 @@ void testRemiEventAdapterDurationTokenParsing() {
         std::ofstream fixture(fixturePath);
         assert(fixture.is_open());
         fixture << R"json({
-  "_model": "{\"model\":{\"vocab\":{\"Bar_None\":0,\"Position_8\":1,\"Pitch_60\":2,\"Velocity_15\":3,\"Duration_1.0.8\":4,\"Tempo_15\":5},\"merges\":[]}}",
+  "_model": "{\"model\":{\"vocab\":{\"PAD_None\":0,\"BOS_None\":1,\"EOS_None\":2,\"MASK_None\":3,\"Bar_None\":4,\"Position_8\":5,\"Pitch_60\":6,\"Velocity_15\":7,\"Duration_1.0.8\":8,\"Tempo_15\":9},\"merges\":[]}}",
   "config": {"special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"]}
 })json";
     }
@@ -161,11 +161,12 @@ void testRemiEventAdapterDurationTokenParsing() {
     GenerationRequest request;
     request.barCount = 1;
 
-    const std::vector<std::uint32_t> tokenIds{0, 1, 5, 2, 3, 4};
+    const std::vector<std::uint32_t> tokenIds{1, 4, 5, 9, 6, 7, 8, 2}; // BOS, events, EOS.
     auto [proposal, report] =
         adapter.decodeTokensToProposal(tokenIds, request, "test-provider", "test-model");
 
     assert(report.isOk());
+    assert(report.droppedTokens == 0); // BOS/EOS are expected control tokens.
     const auto notes = proposal.notes();
     assert(notes.size() == 1);
     assert(notes[0].pitch == 60);
