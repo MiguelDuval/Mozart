@@ -9,6 +9,9 @@
 #include <string>
 #include <iostream>
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
+#include <memory>
 
 using namespace mozart::generation;
 
@@ -135,6 +138,41 @@ void testRemiVocabulary() {
     std::cout << "  RemiVocabulary: PASSED" << std::endl;
 }
 
+void testRemiEventAdapterDurationTokenParsing() {
+    std::cout << "Testing REMI Duration_ token parsing end-to-end..." << std::endl;
+    const auto fixturePath =
+        std::filesystem::temp_directory_path() / "mozart_remi_duration_tokenizer_test.json";
+    {
+        std::ofstream fixture(fixturePath);
+        assert(fixture.is_open());
+        fixture << R"json({
+  "_model": "{\"model\":{\"vocab\":{\"Bar_None\":0,\"Position_0\":1,\"Pitch_60\":2,\"Velocity_15\":3,\"Duration_1.0.8\":4},\"merges\":[]}}",
+  "config": {"special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"]}
+})json";
+    }
+
+    auto tokenizer = BpeTokenizer::loadFromJson(fixturePath.string());
+    std::filesystem::remove(fixturePath);
+    assert(tokenizer.has_value());
+
+    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
+    auto config = RemiDecoderConfig::defaultConfig();
+    RemiEventAdapter adapter(config, sharedTokenizer);
+    GenerationRequest request;
+    request.barCount = 1;
+
+    const std::vector<std::uint32_t> tokenIds{0, 1, 2, 3, 4};
+    auto [proposal, report] =
+        adapter.decodeTokensToProposal(tokenIds, request, "test-provider", "test-model");
+
+    assert(report.isOk());
+    const auto notes = proposal.notes();
+    assert(notes.size() == 1);
+    assert(notes[0].pitch == 60);
+    assert(notes[0].duration == 480); // Duration_1.0.8 = one beat at 480 PPQ.
+    std::cout << "  REMI Duration_ token parsing end-to-end: PASSED" << std::endl;
+}
+
 void testRemiEventAdapterDurationPreservation() {
     std::cout << "Testing Duration_ token preserves note length..." << std::endl;
     auto config = RemiDecoderConfig::defaultConfig();
@@ -232,6 +270,7 @@ int main() {
         testRemiEventAdapterEmpty();
         testRemiEventAdapterTruncation();
         testRemiVocabulary();
+        testRemiEventAdapterDurationTokenParsing();
         testRemiEventAdapterDurationPreservation();
         testRemiEventAdapterDurationBeforeNoteOn();
         testRemiEventAdapterPolyphonyRepeatedPitch();
