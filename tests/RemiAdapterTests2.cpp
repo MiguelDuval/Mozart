@@ -149,7 +149,8 @@ void testRemiEventAdapterDurationTokenParsing() {
         std::ofstream fixture(fixturePath);
         assert(fixture.is_open());
         fixture << R"json({
-  "_model": "{\"model\":{\"vocab\":{\"PAD_None\":0,\"BOS_None\":1,\"EOS_None\":2,\"MASK_None\":3,\"Bar_None\":4,\"Position_8\":5,\"Pitch_60\":6,\"Velocity_15\":7,\"Duration_1.0.8\":8,\"Tempo_15\":9},\"merges\":[]}}",
+  "_vocab_base_byte_to_token": {"\u0100":"PAD_None","\u0101":"BOS_None","\u0102":"EOS_None","\u0103":"MASK_None","\u0104":"Bar_None","\u0105":"Position_8","\u0106":"Pitch_60","\u0107":"Velocity_15","\u0108":"Duration_1.0.8","\u0109":"Tempo_15"},
+  "_model": "{\"model\":{\"vocab\":{\"\\u0100\":0,\"\\u0101\":1,\"\\u0102\":2,\"\\u0103\":3,\"\\u0104\":4,\"\\u0105\":5,\"\\u0106\":6,\"\\u0107\":7,\"\\u0108\":8,\"\\u0109\":9,\"\\u0105\\u0109\":10,\"\\u0106\\u0107\\u0108\":11},\"merges\":[]}}",
   "config": {"special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"]}
 })json";
     }
@@ -164,12 +165,13 @@ void testRemiEventAdapterDurationTokenParsing() {
     GenerationRequest request;
     request.barCount = 1;
 
-    const std::vector<std::uint32_t> tokenIds{1, 4, 5, 9, 6, 7, 8, 2}; // BOS, events, EOS.
+    const std::vector<std::uint32_t> tokenIds{1, 4, 10, 11, 2}; // BOS, merged BPE events, EOS.
     auto [proposal, report] =
         adapter.decodeTokensToProposal(tokenIds, request, "test-provider", "test-model");
 
     assert(report.isOk());
     assert(report.droppedTokens == 0); // BOS/EOS are expected control tokens.
+    assert(!sharedTokenizer->decodeToken(10).has_value()); // One BPE ID contains two base tokens.
     const auto notes = proposal.notes();
     assert(notes.size() == 1);
     assert(notes[0].pitch == 60);
@@ -190,7 +192,8 @@ void testRemiBarTokenAdvancesAcrossMultipleBars() {
         std::ofstream fixture(fixturePath);
         assert(fixture.is_open());
         fixture << R"json({
-  "_model": "{\"model\":{\"vocab\":{\"Bar_None\":0,\"Position_0\":1,\"Pitch_60\":2,\"Velocity_15\":3,\"Duration_1.0.8\":4,\"Pitch_64\":5,\"Duration_2.0.8\":6},\"merges\":[]}}",
+  "_vocab_base_byte_to_token": {"a":"Bar_None","b":"Position_0","c":"Pitch_60","d":"Velocity_15","e":"Duration_1.0.8","f":"Pitch_64","g":"Duration_2.0.8"},
+  "_model": "{\"model\":{\"vocab\":{\"a\":0,\"b\":1,\"c\":2,\"d\":3,\"e\":4,\"f\":5,\"g\":6,\"cde\":7,\"fdg\":8},\"merges\":[]}}",
   "config": {"special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"]}
 })json";
     }
@@ -202,7 +205,7 @@ void testRemiBarTokenAdvancesAcrossMultipleBars() {
     auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
     RemiEventAdapter adapter(RemiDecoderConfig::defaultConfig(), sharedTokenizer);
     GenerationRequest request;
-    const std::vector<std::uint32_t> tokenIds{0, 1, 2, 3, 4, 0, 1, 5, 3, 6};
+    const std::vector<std::uint32_t> tokenIds{0, 1, 7, 0, 1, 8}; // Two merged note-event groups.
     auto [proposal, report] =
         adapter.decodeTokensToProposal(tokenIds, request, "test-provider", "test-model");
 
@@ -227,7 +230,8 @@ void testRemiEventAdapterInvalidDurationTokenFallsBackSafely() {
         std::ofstream fixture(fixturePath);
         assert(fixture.is_open());
         fixture << R"json({
-  "_model": "{\"model\":{\"vocab\":{\"Bar_None\":0,\"Position_0\":1,\"Pitch_60\":2,\"Velocity_15\":3,\"Duration_1.0.0\":4,\"PitchDrum_300\":5,\"Pitch_60junk\":6,\"Position_32\":7,\"Position_2147483647\":8},\"merges\":[]}}",
+  "_vocab_base_byte_to_token": {"a":"Bar_None","b":"Position_0","c":"Pitch_60","d":"Velocity_15","e":"Duration_1.0.0","f":"PitchDrum_300","g":"Pitch_60junk","h":"Position_32","i":"Position_2147483647"},
+  "_model": "{\"model\":{\"vocab\":{\"a\":0,\"b\":1,\"c\":2,\"d\":3,\"e\":4,\"f\":5,\"g\":6,\"h\":7,\"i\":8},\"merges\":[]}}",
   "config": {"special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"]}
 })json";
     }
