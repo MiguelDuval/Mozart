@@ -204,7 +204,6 @@ public:
         std::uint8_t maxTracks = 8;
         std::uint8_t maxChannels = 16;
         
-        constexpr Limits() noexcept = default;
         constexpr Limits(std::uint32_t maxEvents_, std::uint32_t maxTicks_, std::uint8_t maxTracks_, std::uint8_t maxChannels_) noexcept
             : maxEvents(maxEvents_), maxTicks(maxTicks_), maxTracks(maxTracks_), maxChannels(maxChannels_) {}
     };
