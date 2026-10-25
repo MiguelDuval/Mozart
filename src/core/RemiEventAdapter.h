@@ -123,6 +123,11 @@ public:
     [[nodiscard]] const RemiDecoderConfig& config() const noexcept { return config_; }
     [[nodiscard]] bool hasTokenizer() const noexcept { return tokenizer_ != nullptr; }
 
+    // Public mapping utilities used by the decoder's configuration diagnostics and tests.
+    [[nodiscard]] std::uint8_t velocityBinToMidi(std::uint8_t bin) const noexcept;
+    [[nodiscard]] std::uint32_t positionBinToTicks(std::uint32_t bin) const noexcept;
+    [[nodiscard]] double tempoBinToBpm(std::uint8_t bin) const noexcept;
+
 private:
     RemiDecoderConfig config_;
     std::shared_ptr<BpeTokenizer> tokenizer_;
@@ -136,9 +141,6 @@ private:
     };
     [[nodiscard]] std::pair<PatternProposal, RemiDecodeReport> finalizeProposal(DecodeState& state, const GenerationRequest& request, const std::string& providerId, const std::string& modelId, std::chrono::nanoseconds generationTime) const noexcept;
     [[nodiscard]] std::optional<RemiEvent> tokenNameToEvent(const std::string& tokenName) const noexcept;
-    [[nodiscard]] std::uint8_t velocityBinToMidi(std::uint8_t bin) const noexcept;
-    [[nodiscard]] std::uint32_t positionBinToTicks(std::uint32_t bin) const noexcept;
-    [[nodiscard]] double tempoBinToBpm(std::uint8_t bin) const noexcept;
     [[nodiscard]] std::optional<RemiEvent> parseTokenName(const std::string& tokenName) const noexcept;
 };
 

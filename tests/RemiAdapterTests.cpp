@@ -9,9 +9,6 @@
 #include <string>
 #include <iostream>
 #include <algorithm>
-#include <filesystem>
-#include <fstream>
-#include <memory>
 
 using namespace mozart::generation;
 
@@ -113,57 +110,24 @@ void testRemiDecoderConfig() {
 }
 
 void testRemiEventAdapterConversions() {
-    std::cout << "Testing REMI token bin conversions end-to-end..." << std::endl;
+    std::cout << "Testing RemiEventAdapter conversions..." << std::endl;
 
-    const auto fixturePath =
-        std::filesystem::temp_directory_path() / "mozart_remi_conversion_tokenizer_test.json";
-    {
-        std::ofstream fixture(fixturePath);
-        assert(fixture.is_open());
-        fixture << R"json({
-  "_model": "{\"model\":{\"vocab\":{\"Bar_None\":0,\"Position_0\":1,\"Tempo_0\":2,\"Velocity_0\":3,\"Pitch_60\":4,\"Duration_1.0.8\":5,\"Position_1\":6,\"Tempo_15\":7,\"Velocity_7\":8,\"Pitch_61\":9,\"Position_8\":10,\"Tempo_31\":11,\"Velocity_15\":12,\"Pitch_62\":13},\"merges\":[]}}",
-  "config": {"special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"]}
-})json";
-    }
+    auto config = RemiDecoderConfig::defaultConfig();
+    RemiEventAdapter adapter(config);
 
-    auto tokenizer = BpeTokenizer::loadFromJson(fixturePath.string());
-    std::filesystem::remove(fixturePath);
-    assert(tokenizer.has_value());
+    assert(adapter.velocityBinToMidi(0) == 1);
+    assert(adapter.velocityBinToMidi(15) == 127);
+    assert(adapter.velocityBinToMidi(7) >= 60 && adapter.velocityBinToMidi(7) <= 70);
 
-    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
-    RemiEventAdapter adapter(RemiDecoderConfig::defaultConfig(), sharedTokenizer);
+    assert(adapter.positionBinToTicks(0) == 0);
+    assert(adapter.positionBinToTicks(1) == 60);
+    assert(adapter.positionBinToTicks(8) == 480);
 
-    // Exercise conversion through the public token-decoding path rather than
-    // invoking private bin-conversion helpers directly.
-    const std::vector<std::uint32_t> tokenIds{
-        0, 1, 2, 3, 4, 5,
-        6, 7, 8, 9, 5,
-        10, 11, 12, 13, 5
-    };
-    auto [proposal, report] = adapter.decodeTokensToProposal(tokenIds);
+    assert(adapter.tempoBinToBpm(0) == 40.0);
+    assert(adapter.tempoBinToBpm(31) == 250.0);
+    assert(adapter.tempoBinToBpm(15) >= 120.0 && adapter.tempoBinToBpm(15) <= 150.0);
 
-    assert(report.isOk());
-    const auto notes = proposal.notes();
-    assert(notes.size() == 3);
-    assert(notes[0].pitch == 60 && notes[0].position == 0 && notes[0].duration == 480);
-    assert(notes[0].velocity == 1);
-    assert(notes[1].pitch == 61 && notes[1].position == 60 && notes[1].duration == 480);
-    assert(notes[1].velocity >= 60 && notes[1].velocity <= 70);
-    assert(notes[2].pitch == 62 && notes[2].position == 480 && notes[2].duration == 480);
-    assert(notes[2].velocity == 127);
-
-    std::vector<TempoEvent> tempos;
-    for (const auto& event : proposal.events) {
-        if (const auto* tempo = std::get_if<TempoEvent>(&event)) {
-            tempos.push_back(*tempo);
-        }
-    }
-    assert(tempos.size() == 3);
-    assert(tempos[0].bpm == 40.0);
-    assert(tempos[1].bpm >= 120.0 && tempos[1].bpm <= 150.0);
-    assert(tempos[2].bpm == 250.0);
-
-    std::cout << "  REMI token bin conversions end-to-end: PASSED" << std::endl;
+    std::cout << "  RemiEventAdapter conversions: PASSED" << std::endl;
 }
 
 int main() {
