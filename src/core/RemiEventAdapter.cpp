@@ -38,8 +38,26 @@ double RemiEventAdapter::tempoBinToBpm(std::uint8_t bin) const noexcept {
     return config_.tempoMin + ratio * (config_.tempoMax - config_.tempoMin);
 }
 
+static std::optional<int> parseInt(const std::string& str) {
+    try {
+        size_t consumed = 0;
+        const int value = std::stoi(str, &consumed);
+        if (consumed != str.size()) return std::nullopt;
+        return value;
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
 static std::optional<double> parseFloat(const std::string& str) {
-    try { return std::stod(str); } catch (...) { return std::nullopt; }
+    try {
+        size_t consumed = 0;
+        const double value = std::stod(str, &consumed);
+        if (consumed != str.size() || !std::isfinite(value)) return std::nullopt;
+        return value;
+    } catch (...) {
+        return std::nullopt;
+    }
 }
 
 static std::optional<std::uint32_t> parseDuration(const std::string& str, std::uint32_t ticksPerBeat) {
@@ -95,29 +113,25 @@ std::optional<RemiEvent> RemiEventAdapter::parseTokenName(const std::string& tok
     if (tokenName == "PAD_None" || tokenName == "BOS_None" || tokenName == "EOS_None" || tokenName == "MASK_None") return std::nullopt;
     if (tokenName == "Bar_None") return RemiBarEvent{0};
     if (tokenName.rfind("Pitch_", 0) == 0) {
-        std::string pitchStr = tokenName.substr(6);
-        try {
-            int pitch = std::stoi(pitchStr);
-            if (pitch >= config_.pitchMin && pitch <= config_.pitchMax) {
-                return RemiNoteOnEvent{static_cast<std::uint8_t>(pitch), 0, 0, 0};
-            }
-        } catch (...) { return std::nullopt; }
+        const auto pitch = parseInt(tokenName.substr(6));
+        if (pitch.has_value() && *pitch >= config_.pitchMin && *pitch <= config_.pitchMax) {
+            return RemiNoteOnEvent{static_cast<std::uint8_t>(*pitch), 0, 0, 0};
+        }
+        return std::nullopt;
     }
     if (tokenName.rfind("PitchDrum_", 0) == 0) {
-        std::string pitchStr = tokenName.substr(10);
-        try {
-            int pitch = std::stoi(pitchStr);
-            return RemiNoteOnEvent{static_cast<std::uint8_t>(pitch), 0, 0, 0};
-        } catch (...) { return std::nullopt; }
+        const auto pitch = parseInt(tokenName.substr(10));
+        // Validate before narrowing to uint8_t; otherwise 300 wraps to MIDI pitch 44.
+        if (pitch.has_value() && *pitch >= config_.pitchMin && *pitch <= config_.pitchMax) {
+            return RemiNoteOnEvent{static_cast<std::uint8_t>(*pitch), 0, 0, 0};
+        }
+        return std::nullopt;
     }
     if (tokenName.rfind("Velocity_", 0) == 0) {
-        std::string velStr = tokenName.substr(9);
-        try {
-            const int velocityBin = std::stoi(velStr);
-            if (velocityBin >= 0 && velocityBin < config_.numVelocities) {
-                return RemiVelocityEvent{static_cast<std::uint8_t>(velocityBin)};
-            }
-        } catch (...) { return std::nullopt; }
+        const auto velocityBin = parseInt(tokenName.substr(9));
+        if (velocityBin.has_value() && *velocityBin >= 0 && *velocityBin < config_.numVelocities) {
+            return RemiVelocityEvent{static_cast<std::uint8_t>(*velocityBin)};
+        }
         return std::nullopt;
     }
     if (tokenName.rfind("Duration_", 0) == 0) {
@@ -135,14 +149,11 @@ std::optional<RemiEvent> RemiEventAdapter::parseTokenName(const std::string& tok
         return std::nullopt;
     }
     if (tokenName.rfind("Position_", 0) == 0) {
-        std::string posStr = tokenName.substr(9);
-        try {
-            const int bin = std::stoi(posStr);
-            if (bin >= 0) {
-                // Keep the encoded bin here; decodeEventsToProposal converts it to ticks.
-                return RemiPositionEvent{static_cast<std::uint32_t>(bin)};
-            }
-        } catch (...) { return std::nullopt; }
+        const auto bin = parseInt(tokenName.substr(9));
+        if (bin.has_value() && *bin >= 0) {
+            // Keep the encoded bin here; decodeEventsToProposal converts it to ticks.
+            return RemiPositionEvent{static_cast<std::uint32_t>(*bin)};
+        }
         return std::nullopt;
     }
     if (tokenName.rfind("Tempo_", 0) == 0) {
@@ -150,13 +161,10 @@ std::optional<RemiEvent> RemiEventAdapter::parseTokenName(const std::string& tok
         // MidiTok-style model vocabularies often encode a tempo bin (0..numTempos-1).
         // Preserve support for explicit BPM tokens such as Tempo_120 or Tempo_120.0.
         if (tempoStr.find_first_of(".eE") == std::string::npos) {
-            try {
-                const int tempoBin = std::stoi(tempoStr);
-                if (tempoBin >= 0 && tempoBin < config_.numTempos) {
-                    return RemiTempoEvent{tempoBinToBpm(static_cast<std::uint8_t>(tempoBin))};
-                }
-            } catch (...) {
-                return std::nullopt;
+            const auto tempoBin = parseInt(tempoStr);
+            if (!tempoBin.has_value()) return std::nullopt;
+            if (*tempoBin >= 0 && *tempoBin < config_.numTempos) {
+                return RemiTempoEvent{tempoBinToBpm(static_cast<std::uint8_t>(*tempoBin))};
             }
         }
         auto bpm = parseFloat(tempoStr);
@@ -166,30 +174,29 @@ std::optional<RemiEvent> RemiEventAdapter::parseTokenName(const std::string& tok
         return std::nullopt;
     }
     if (tokenName.rfind("Program_", 0) == 0) {
-        std::string progStr = tokenName.substr(8);
-        try {
-            int program = std::stoi(progStr);
-            if (program >= -1 && program <= 127) {
-                return RemiProgramEvent{static_cast<std::uint8_t>(program >= 0 ? program : 0), 0};
-            }
-        } catch (...) { return std::nullopt; }
+        const auto program = parseInt(tokenName.substr(8));
+        if (program.has_value() && *program >= -1 && *program <= 127) {
+            return RemiProgramEvent{static_cast<std::uint8_t>(*program >= 0 ? *program : 0), 0};
+        }
+        return std::nullopt;
     }
     if (tokenName.rfind("Chord_", 0) == 0) {
         std::string quality = tokenName.substr(6);
         return RemiChordEvent{"C", quality};
     }
     if (tokenName.rfind("TimeSig_", 0) == 0) {
-        std::string tsPart = tokenName.substr(8);
-        size_t underscore = tsPart.find("_");
-        if (underscore != std::string::npos) {
-            try {
-                int num = std::stoi(tsPart.substr(0, underscore));
-                int den = std::stoi(tsPart.substr(underscore + 1));
-                if (num > 0 && den > 0) {
-                    return RemiTimeSignatureEvent{static_cast<std::uint8_t>(num), static_cast<std::uint8_t>(den)};
-                }
-            } catch (...) { return std::nullopt; }
+        const std::string tsPart = tokenName.substr(8);
+        const size_t underscore = tsPart.find("_");
+        if (underscore == std::string::npos) return std::nullopt;
+        const auto numerator = parseInt(tsPart.substr(0, underscore));
+        const auto denominator = parseInt(tsPart.substr(underscore + 1));
+        if (numerator.has_value() && denominator.has_value() &&
+            *numerator > 0 && *numerator <= 255 &&
+            *denominator > 0 && *denominator <= 255) {
+            return RemiTimeSignatureEvent{
+                static_cast<std::uint8_t>(*numerator), static_cast<std::uint8_t>(*denominator)};
         }
+        return std::nullopt;
     }
     return std::nullopt;
 }
@@ -238,8 +245,9 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeTokensToPro
     auto endTime = std::chrono::high_resolution_clock::now();
     auto generationTime = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime);
     result.first.generationTime = generationTime;
-    report.warnings.insert(report.warnings.end(), state.warnings.begin(), state.warnings.end());
-    report.droppedTokens += state.droppedTokens;
+    result.second.warnings.insert(
+        result.second.warnings.end(), state.warnings.begin(), state.warnings.end());
+    result.second.droppedTokens += state.droppedTokens;
     return result;
 }
 
