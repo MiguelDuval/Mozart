@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <utility>
 #include <limits>
 
 using namespace mozart::generation;
@@ -441,20 +442,16 @@ void testBpeTokenizerDecodeKnownIds() {
     assert(tokenizer.has_value());
     auto pad = tokenizer->decodeToken(0);
     assert(pad.has_value());
-    assert(pad->size() == 1);
-    assert((*pad)[0] == "PAD_None");
+    assert(*pad == "PAD_None");
     auto bos = tokenizer->decodeToken(1);
     assert(bos.has_value());
-    assert(bos->size() == 1);
-    assert((*bos)[0] == "BOS_None");
+    assert(*bos == "BOS_None");
     auto bar = tokenizer->decodeToken(4);
     assert(bar.has_value());
-    assert(bar->size() == 1);
-    assert((*bar)[0] == "Bar_None");
+    assert(*bar == "Bar_None");
     auto pitch = tokenizer->decodeToken(5);
     assert(pitch.has_value());
-    assert(pitch->size() == 1);
-    assert((*pitch)[0] == "Pitch_21");
+    assert(*pitch == "Pitch_21");
     auto invalid = tokenizer->decodeToken(999999);
     assert(!invalid.has_value());
     std::cout << "  BPE tokenizer decodes known IDs: PASSED" << std::endl;
@@ -487,7 +484,8 @@ void testSpecialTokensSilentlySkipped() {
     auto tokenizer = BpeTokenizer::loadFromJson(
         "experiments/aura-midi/models/shikhr-music-maker-official/tokenizer.json");
     assert(tokenizer.has_value());
-    RemiEventAdapter adapter(config, tokenizer);
+    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
+    RemiEventAdapter adapter(config, sharedTokenizer);
     // PAD, BOS, Bar_None, Pitch_60, EOS, MASK
     std::vector<std::uint32_t> tokenIds = {0, 1, 4, 65, 2, 3};
     GenerationRequest request;
@@ -513,7 +511,8 @@ void testBarNoneAdvancesThroughFullPipeline() {
     auto tokenizer = BpeTokenizer::loadFromJson(
         "experiments/aura-midi/models/shikhr-music-maker-official/tokenizer.json");
     assert(tokenizer.has_value());
-    RemiEventAdapter adapter(config, tokenizer);
+    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
+    RemiEventAdapter adapter(config, sharedTokenizer);
     std::vector<std::uint32_t> tokenIds = {4, 4};
     GenerationRequest request;
     request.barCount = 4;
@@ -529,11 +528,12 @@ void testDurationTokenThroughFullPipeline() {
     auto tokenizer = BpeTokenizer::loadFromJson(
         "experiments/aura-midi/models/shikhr-music-maker-official/tokenizer.json");
     assert(tokenizer.has_value());
-    RemiEventAdapter adapter(config, tokenizer);
+    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
+    RemiEventAdapter adapter(config, sharedTokenizer);
     std::uint32_t durationId = 109;
-    auto decoded = tokenizer->decodeToken(durationId);
+    auto decoded = sharedTokenizer->decodeToken(durationId);
     assert(decoded.has_value());
-    assert((*decoded)[0] == "Duration_0.1.8");
+    assert(*decoded == "Duration_0.1.8");
     std::vector<std::uint32_t> tokenIds = {4, 218, 65, durationId};
     GenerationRequest request;
     request.barCount = 1;
@@ -552,7 +552,8 @@ void testInvalidTokenIdsTrackedAsDropped() {
     auto tokenizer = BpeTokenizer::loadFromJson(
         "experiments/aura-midi/models/shikhr-music-maker-official/tokenizer.json");
     assert(tokenizer.has_value());
-    RemiEventAdapter adapter(config, tokenizer);
+    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
+    RemiEventAdapter adapter(config, sharedTokenizer);
     std::vector<std::uint32_t> tokenIds = {0, 999999, 1, 888888, 2};
     GenerationRequest request;
     request.barCount = 1;
