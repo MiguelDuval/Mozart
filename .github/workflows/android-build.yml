@@ -82,7 +82,8 @@ jobs:
           disable-linux-hw-accel: false
           disable-animations: true
           script: |
-            set -euo pipefail
+            # android-emulator-runner executes this block with /bin/sh, not Bash.
+            set -eu
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.miguelduval.mozart.debug
             adb shell am start -W -n com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity
