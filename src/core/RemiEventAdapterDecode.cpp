@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <limits>
 
 namespace mozart::generation {
 
@@ -139,7 +140,19 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                 state.hasNoteAtCurrentPosition = false;
             }
             else if constexpr (std::is_same_v<T, RemiBarEvent>) {
-                state.currentBar = e.barNumber;
+                if (e.barNumber == std::numeric_limits<std::uint32_t>::max()) {
+                    // Bar_None has no index in REMI; the token marks a bar boundary.
+                    if (state.hasSeenImplicitBarToken) {
+                        ++state.currentBar;
+                    } else {
+                        state.currentBar = 0;
+                        state.hasSeenImplicitBarToken = true;
+                    }
+                } else {
+                    // Preserve explicit indexed-bar behavior for direct adapter callers/tests.
+                    state.currentBar = e.barNumber;
+                    state.hasSeenImplicitBarToken = false;
+                }
                 state.currentTick = state.currentBar * config_.ticksPerBar;
                 state.hasNoteAtCurrentPosition = false;
             }

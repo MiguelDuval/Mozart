@@ -179,6 +179,43 @@ void testRemiEventAdapterDurationTokenParsing() {
     std::cout << "  REMI Duration_ token parsing end-to-end: PASSED" << std::endl;
 }
 
+void testRemiBarTokenAdvancesAcrossMultipleBars() {
+    std::cout << "Testing repeated Bar_None advances the decoded bar..." << std::endl;
+    const auto fixturePath =
+        std::filesystem::temp_directory_path() / "mozart_remi_implicit_bar_test.json";
+    {
+        std::ofstream fixture(fixturePath);
+        assert(fixture.is_open());
+        fixture << R"json({
+  "_model": "{\"model\":{\"vocab\":{\"Bar_None\":0,\"Position_0\":1,\"Pitch_60\":2,\"Velocity_15\":3,\"Duration_1.0.8\":4,\"Pitch_64\":5,\"Duration_2.0.8\":6},\"merges\":[]}}",
+  "config": {"special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"]}
+})json";
+    }
+
+    auto tokenizer = BpeTokenizer::loadFromJson(fixturePath.string());
+    std::filesystem::remove(fixturePath);
+    assert(tokenizer.has_value());
+
+    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
+    RemiEventAdapter adapter(RemiDecoderConfig::defaultConfig(), sharedTokenizer);
+    GenerationRequest request;
+    const std::vector<std::uint32_t> tokenIds{0, 1, 2, 3, 4, 0, 1, 5, 3, 6};
+    auto [proposal, report] =
+        adapter.decodeTokensToProposal(tokenIds, request, "test-provider", "test-model");
+
+    assert(report.isOk());
+    assert(report.droppedTokens == 0);
+    const auto notes = proposal.notes();
+    assert(notes.size() == 2);
+    assert(notes[0].pitch == 60);
+    assert(notes[0].position == 0);
+    assert(notes[0].duration == 480);
+    assert(notes[1].pitch == 64);
+    assert(notes[1].position == RemiDecoderConfig::defaultConfig().ticksPerBar);
+    assert(notes[1].duration == 960);
+    std::cout << "  Repeated Bar_None advances the decoded bar: PASSED" << std::endl;
+}
+
 void testRemiEventAdapterInvalidDurationTokenFallsBackSafely() {
     std::cout << "Testing malformed Duration_ token is rejected safely..." << std::endl;
     const auto fixturePath =
@@ -334,6 +371,7 @@ int main() {
         testRemiEventAdapterTruncation();
         testRemiVocabulary();
         testRemiEventAdapterDurationTokenParsing();
+        testRemiBarTokenAdvancesAcrossMultipleBars();
         testRemiEventAdapterInvalidDurationTokenFallsBackSafely();
         testRemiEventAdapterDurationPreservation();
         testRemiEventAdapterDurationBeforeNoteOn();

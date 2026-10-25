@@ -111,7 +111,7 @@ static std::optional<std::uint32_t> parseDuration(const std::string& str, std::u
 std::optional<RemiEvent> RemiEventAdapter::parseTokenName(const std::string& tokenName) const noexcept {
     if (tokenName.empty()) return std::nullopt;
     if (tokenName == "PAD_None" || tokenName == "BOS_None" || tokenName == "EOS_None" || tokenName == "MASK_None") return std::nullopt;
-    if (tokenName == "Bar_None") return RemiBarEvent{0};
+    if (tokenName == "Bar_None") return RemiBarEvent{std::numeric_limits<std::uint32_t>::max()};
     if (tokenName.rfind("Pitch_", 0) == 0) {
         const auto pitch = parseInt(tokenName.substr(6));
         if (pitch.has_value() && *pitch >= config_.pitchMin && *pitch <= config_.pitchMax) {
