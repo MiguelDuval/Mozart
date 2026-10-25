@@ -3,6 +3,7 @@
 #include "RemiDecoderConfig.h"
 
 #include <algorithm>
+#include <cmath>
 #include <chrono>
 #include <cmath>
 #include <limits>
@@ -18,8 +19,10 @@ RemiEventAdapter::RemiEventAdapter(const RemiDecoderConfig& config, std::shared_
 
 std::uint8_t RemiEventAdapter::velocityBinToMidi(std::uint8_t bin) const noexcept {
     if (config_.numVelocities == 0) return 64;
-    const double ratio = static_cast<double>(bin) / static_cast<double>(config_.numVelocities - 1);
-    return static_cast<std::uint8_t>(1 + ratio * 126);
+    const auto boundedBin = std::min<std::uint8_t>(bin, static_cast<std::uint8_t>(config_.numVelocities - 1));
+    const double ratio = static_cast<double>(boundedBin) / static_cast<double>(config_.numVelocities - 1);
+    // Round to the nearest MIDI velocity; truncation makes midpoint bins biased low.
+    return static_cast<std::uint8_t>(std::lround(1.0 + ratio * 126.0));
 }
 
 std::uint32_t RemiEventAdapter::positionBinToTicks(std::uint32_t bin) const noexcept {
