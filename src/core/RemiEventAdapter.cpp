@@ -73,11 +73,12 @@ std::optional<RemiEvent> RemiEventAdapter::parseTokenName(const std::string& tok
     if (tokenName.rfind("Velocity_", 0) == 0) {
         std::string velStr = tokenName.substr(9);
         try {
-            int velocity = std::stoi(velStr);
-            if (velocity >= 0 && velocity <= 127) {
-                return RemiVelocityEvent{static_cast<std::uint8_t>(velocity)};
+            const int velocityBin = std::stoi(velStr);
+            if (velocityBin >= 0 && velocityBin < config_.numVelocities) {
+                return RemiVelocityEvent{static_cast<std::uint8_t>(velocityBin)};
             }
         } catch (...) { return std::nullopt; }
+        return std::nullopt;
     }
     if (tokenName.rfind("Duration_", 0) == 0) {
         std::string durStr = tokenName.substr(9);
@@ -106,6 +107,18 @@ std::optional<RemiEvent> RemiEventAdapter::parseTokenName(const std::string& tok
     }
     if (tokenName.rfind("Tempo_", 0) == 0) {
         std::string tempoStr = tokenName.substr(6);
+        // MidiTok-style model vocabularies often encode a tempo bin (0..numTempos-1).
+        // Preserve support for explicit BPM tokens such as Tempo_120 or Tempo_120.0.
+        if (tempoStr.find_first_of(".eE") == std::string::npos) {
+            try {
+                const int tempoBin = std::stoi(tempoStr);
+                if (tempoBin >= 0 && tempoBin < config_.numTempos) {
+                    return RemiTempoEvent{tempoBinToBpm(static_cast<std::uint8_t>(tempoBin))};
+                }
+            } catch (...) {
+                return std::nullopt;
+            }
+        }
         auto bpm = parseFloat(tempoStr);
         if (bpm.has_value() && *bpm >= config_.tempoMin && *bpm <= config_.tempoMax) {
             return RemiTempoEvent{*bpm};

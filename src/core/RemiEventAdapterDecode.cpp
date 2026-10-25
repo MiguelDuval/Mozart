@@ -117,6 +117,18 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
             }
             else if constexpr (std::is_same_v<T, RemiVelocityEvent>) {
                 state.currentVelocity = velocityBinToMidi(e.velocity);
+                // In REMI sequences Velocity_ follows Pitch_. Update the just-created note
+                // when the token is at that note's position; this also supports Velocity_
+                // appearing before Pitch_ because currentVelocity remains the default source.
+                for (auto it = state.events.rbegin(); it != state.events.rend(); ++it) {
+                    if (std::holds_alternative<NoteEvent>(*it)) {
+                        auto& note = std::get<NoteEvent>(*it);
+                        if (note.track == state.currentTrack && note.position == state.currentTick) {
+                            note.velocity = state.currentVelocity;
+                        }
+                        break;
+                    }
+                }
             }
             else if constexpr (std::is_same_v<T, RemiPositionEvent>) {
                 state.currentTick = state.currentBar * config_.ticksPerBar + positionBinToTicks(e.position);

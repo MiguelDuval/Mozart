@@ -146,7 +146,7 @@ void testRemiEventAdapterDurationTokenParsing() {
         std::ofstream fixture(fixturePath);
         assert(fixture.is_open());
         fixture << R"json({
-  "_model": "{\"model\":{\"vocab\":{\"Bar_None\":0,\"Position_8\":1,\"Pitch_60\":2,\"Velocity_15\":3,\"Duration_1.0.8\":4},\"merges\":[]}}",
+  "_model": "{\"model\":{\"vocab\":{\"Bar_None\":0,\"Position_8\":1,\"Pitch_60\":2,\"Velocity_15\":3,\"Duration_1.0.8\":4,\"Tempo_15\":5},\"merges\":[]}}",
   "config": {"special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"]}
 })json";
     }
@@ -161,7 +161,7 @@ void testRemiEventAdapterDurationTokenParsing() {
     GenerationRequest request;
     request.barCount = 1;
 
-    const std::vector<std::uint32_t> tokenIds{0, 1, 2, 3, 4};
+    const std::vector<std::uint32_t> tokenIds{0, 1, 5, 2, 3, 4};
     auto [proposal, report] =
         adapter.decodeTokensToProposal(tokenIds, request, "test-provider", "test-model");
 
@@ -170,7 +170,11 @@ void testRemiEventAdapterDurationTokenParsing() {
     assert(notes.size() == 1);
     assert(notes[0].pitch == 60);
     assert(notes[0].position == 480); // Position_8 is one beat at 480 PPQ, converted once.
+    assert(notes[0].velocity == 127); // Velocity_15 is the highest configured velocity bin.
     assert(notes[0].duration == 480); // Duration_1.0.8 = one beat at 480 PPQ.
+    const auto tempo = proposal.firstTempo();
+    assert(tempo.has_value());
+    assert(tempo->bpm >= 120.0 && tempo->bpm <= 150.0); // Tempo_15 is decoded as a tempo bin.
     std::cout << "  REMI Duration_ token parsing end-to-end: PASSED" << std::endl;
 }
 
