@@ -243,6 +243,9 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeTokensToPro
     auto bpeResult = tokenizer_->decodeTokensWithReport(tokenIds);
     std::vector<std::string> tokenNames = std::move(bpeResult.tokenNames);
     state.warnings = std::move(bpeResult.warnings);
+    // Count invalid BPE IDs from the tokenizer report. A merged BPE ID expands
+    // to multiple base tokens, so tokenNames.size() can exceed tokenIds.size();
+    // subtracting those sizes underflows and falsely reports billions of drops.
     state.droppedTokens = bpeResult.droppedTokenIds;
     if (tokenNames.empty()) {
         report.result = RemiDecodeResult::EmptySequence;
@@ -253,7 +256,6 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeTokensToPro
     }
     std::vector<RemiEvent> remiEvents;
     remiEvents.reserve(tokenNames.size());
-    std::size_t bpeDropped = tokenIds.size() - tokenNames.size();
     for (const auto& tokenName : tokenNames) {
         // These are standard sequence-control tokens, not malformed musical events.
         if (tokenName == "PAD_None" || tokenName == "BOS_None" ||
@@ -268,7 +270,6 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeTokensToPro
             state.droppedTokens++;
         }
     }
-    state.droppedTokens += static_cast<std::uint32_t>(bpeDropped);
     auto result = decodeEventsToProposal(remiEvents, request, providerId, modelId);
     auto endTime = std::chrono::high_resolution_clock::now();
     auto generationTime = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime);
