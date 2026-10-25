@@ -32,7 +32,8 @@ std::optional<RemiVocabulary> RemiVocabulary::loadFromJson(const std::string& js
 
         for (const auto& [tokenStr, tokenId] : vocab.items()) {
             std::uint32_t id = tokenId.get<std::uint32_t>();
-            std::string name = tokenStr.get<std::string>();
+            // items() exposes the JSON object key as std::string.
+            std::string name = tokenStr;
 
             // Parse token name to determine type and value
             RemiEventType type = RemiEventType::Unknown;

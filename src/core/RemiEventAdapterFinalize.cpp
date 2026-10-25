@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
+#include <limits>
 
 namespace mozart::generation {
 
@@ -18,14 +20,17 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::finalizeProposal(
     std::chrono::nanoseconds generationTime) const noexcept {
     
     RemiDecodeReport report;
-    report.result = RemiDecodeResult::Ok;
-    report.processedTokens = state.events.size();
+    report.result = state.result;
+    report.message = state.message;
+    report.processedTokens = state.processedTokens;
     report.droppedTokens = state.droppedTokens;
     report.warnings = state.warnings;
-    
+
     if (state.events.empty()) {
-        report.result = RemiDecodeResult::EmptySequence;
-        report.message = "No valid events after decoding";
+        if (report.result == RemiDecodeResult::Ok) {
+            report.result = RemiDecodeResult::EmptySequence;
+            report.message = "No valid events after decoding";
+        }
         return {PatternProposal{}, report};
     }
     
@@ -36,7 +41,15 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::finalizeProposal(
         maxTick = std::max(maxTick, pos);
     }
     
-    std::uint32_t totalTicks = std::max(maxTick + config_.ticksPerBeat, config_.ticksPerBar);
+    // Compute in 64-bit arithmetic and saturate before narrowing. A valid last note
+    // may end near UINT32_MAX, so adding the nominal tail beat must not wrap the pattern
+    // length back to a small value.
+    const std::uint64_t proposedTotalTicks =
+        static_cast<std::uint64_t>(maxTick) + config_.ticksPerBeat;
+    const auto boundedTotalTicks = static_cast<std::uint32_t>(
+        std::min<std::uint64_t>(
+            proposedTotalTicks, std::numeric_limits<std::uint32_t>::max()));
+    std::uint32_t totalTicks = std::max(boundedTotalTicks, config_.ticksPerBar);
     
     std::uint8_t maxTrack = 0;
     for (const auto& event : state.events) {
@@ -56,8 +69,9 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::finalizeProposal(
     proposal.totalTicks = totalTicks;
     proposal.trackCount = maxTrack + 1;
     proposal.warnings = std::move(state.warnings);
-    proposal.truncated = (report.result == RemiDecodeResult::ExceededMaxEvents || 
-                          report.result == RemiDecodeResult::ExceededMaxBars);
+    proposal.truncated = (report.result == RemiDecodeResult::ExceededMaxEvents ||
+                          report.result == RemiDecodeResult::ExceededMaxBars ||
+                          report.result == RemiDecodeResult::Truncated);
     
     if (request.maxTicks.has_value()) {
         proposal.totalTicks = std::min(proposal.totalTicks, request.maxTicks.value());

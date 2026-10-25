@@ -40,6 +40,7 @@ public:
             : modelPath(modelPath_), tokenizerPath(tokenizerPath_), decoderConfig(decoderConfig_),
               maxTokens(maxTokens_), temperature(temperature_), topK(topK_),
               useDeterministicFallback(useDeterministicFallback_) {}
+    };
     
     explicit LocalNeuralPatternProvider(const Config& config = Config{}) noexcept;
     ~LocalNeuralPatternProvider() override;

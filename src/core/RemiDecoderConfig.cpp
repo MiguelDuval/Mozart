@@ -3,9 +3,52 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <limits>
+#include <optional>
+#include <unordered_map>
 #include "json.hpp"
 
 namespace mozart::generation {
+namespace {
+
+std::optional<std::uint32_t> readUnsigned32(const nlohmann::json& value) {
+    if (!value.is_number_integer()) return std::nullopt;
+
+    if (value.is_number_unsigned()) {
+        const auto number = value.get<std::uint64_t>();
+        if (number > std::numeric_limits<std::uint32_t>::max()) return std::nullopt;
+        return static_cast<std::uint32_t>(number);
+    }
+
+    const auto number = value.get<std::int64_t>();
+    if (number < 0 || static_cast<std::uint64_t>(number) >
+                          std::numeric_limits<std::uint32_t>::max()) {
+        return std::nullopt;
+    }
+    return static_cast<std::uint32_t>(number);
+}
+
+bool isValidTempoRange(const nlohmann::json& value, double& minBpm, double& maxBpm) {
+    if (!value.is_array() || value.size() < 2 ||
+        !value[0].is_number() || !value[1].is_number()) {
+        return false;
+    }
+
+    const double candidateMin = value[0].get<double>();
+    const double candidateMax = value[1].get<double>();
+    if (!std::isfinite(candidateMin) || !std::isfinite(candidateMax) ||
+        candidateMin <= 0.0 || candidateMax < candidateMin) {
+        return false;
+    }
+
+    minBpm = candidateMin;
+    maxBpm = candidateMax;
+    return true;
+}
+
+} // namespace
 
 RemiDecoderConfig RemiDecoderConfig::defaultConfig() noexcept {
     RemiDecoderConfig config;
@@ -42,50 +85,67 @@ RemiDecoderConfig RemiDecoderConfig::defaultConfig() noexcept {
 
 RemiDecoderConfig RemiDecoderConfig::fromTokenizerJson(const std::string& jsonPath) {
     RemiDecoderConfig config = defaultConfig();
-    
+
     try {
         std::ifstream file(jsonPath);
-        if (!file.is_open()) {
-            return config;
-        }
+        if (!file.is_open()) return config;
 
-        nlohmann::json data = nlohmann::json::parse(file);
+        const nlohmann::json data = nlohmann::json::parse(file);
+        if (!data.contains("config") || !data["config"].is_object()) return config;
+        const auto& cfg = data["config"];
 
-        if (!data.contains("config")) {
-            return config;
-        }
-
-        auto& cfg = data["config"];
-
-        if (cfg.contains("pitch_range") && cfg["pitch_range"].is_array() && cfg["pitch_range"].size() >= 2) {
-            config.pitchMin = static_cast<std::uint8_t>(cfg["pitch_range"][0].get<std::uint32_t>());
-            config.pitchMax = static_cast<std::uint8_t>(cfg["pitch_range"][1].get<std::uint32_t>());
-        }
-
-        if (cfg.contains("beat_res") && cfg["beat_res"].is_object()) {
-            config.beatRes.clear();
-            for (const auto& [key, val] : cfg["beat_res"].items()) {
-                config.beatRes[key] = val.get<std::uint32_t>();
+        // Parse each field independently. A malformed tokenizer setting must not wrap
+        // through a narrow integer cast or leave a half-parsed invalid configuration.
+        if (cfg.contains("pitch_range") && cfg["pitch_range"].is_array() &&
+            cfg["pitch_range"].size() >= 2) {
+            const auto minPitch = readUnsigned32(cfg["pitch_range"][0]);
+            const auto maxPitch = readUnsigned32(cfg["pitch_range"][1]);
+            if (minPitch && maxPitch && *minPitch <= *maxPitch && *maxPitch <= 127U) {
+                config.pitchMin = static_cast<std::uint8_t>(*minPitch);
+                config.pitchMax = static_cast<std::uint8_t>(*maxPitch);
             }
         }
 
+        if (cfg.contains("beat_res") && cfg["beat_res"].is_object()) {
+            std::unordered_map<std::string, std::uint32_t> parsedBeatRes;
+            bool valid = !cfg["beat_res"].empty();
+            for (const auto& [key, value] : cfg["beat_res"].items()) {
+                const auto resolution = readUnsigned32(value);
+                if (!resolution || *resolution == 0U || key.empty()) {
+                    valid = false;
+                    break;
+                }
+                parsedBeatRes.emplace(key, *resolution);
+            }
+            if (valid) config.beatRes = std::move(parsedBeatRes);
+        }
+
         if (cfg.contains("num_velocities")) {
-            config.numVelocities = static_cast<std::uint8_t>(cfg["num_velocities"].get<std::uint32_t>());
+            const auto value = readUnsigned32(cfg["num_velocities"]);
+            if (value && *value >= 1U && *value <= 255U) {
+                config.numVelocities = static_cast<std::uint8_t>(*value);
+            }
         }
 
         if (cfg.contains("num_tempos")) {
-            config.numTempos = static_cast<std::uint8_t>(cfg["num_tempos"].get<std::uint32_t>());
+            const auto value = readUnsigned32(cfg["num_tempos"]);
+            if (value && *value >= 1U && *value <= 255U) {
+                config.numTempos = static_cast<std::uint8_t>(*value);
+            }
         }
 
-        if (cfg.contains("tempo_range") && cfg["tempo_range"].is_array() && cfg["tempo_range"].size() >= 2) {
-            config.tempoMin = cfg["tempo_range"][0].get<double>();
-            config.tempoMax = cfg["tempo_range"][1].get<double>();
+        if (cfg.contains("tempo_range")) {
+            double minBpm = config.tempoMin;
+            double maxBpm = config.tempoMax;
+            if (isValidTempoRange(cfg["tempo_range"], minBpm, maxBpm)) {
+                config.tempoMin = minBpm;
+                config.tempoMax = maxBpm;
+            }
         }
-
     } catch (const std::exception&) {
+        // Malformed JSON preserves safe defaults; callers may still use deterministic decode.
     }
 
     return config;
 }
-
 } // namespace mozart::generation

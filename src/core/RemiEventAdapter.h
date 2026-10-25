@@ -86,13 +86,24 @@ private:
 // BpeTokenizer - BPE tokenizer for REMI tokens
 //----------------------------------------------------------------------
 
+struct BpeTokenDecodeResult {
+    std::vector<std::string> tokenNames;
+    std::size_t droppedTokenIds = 0;
+    std::vector<std::string> warnings;
+};
+
 class BpeTokenizer {
 public:
     static std::optional<BpeTokenizer> loadFromJson(const std::string& jsonPath);
+    // Returns one base token only; merged BPE IDs expand to multiple tokens via decodeTokens().
     [[nodiscard]] std::optional<std::string> decodeToken(std::uint32_t tokenId) const noexcept;
+    // Expands every encoded BPE ID to its underlying REMI/base-token sequence.
     [[nodiscard]] std::vector<std::string> decodeTokens(const std::vector<std::uint32_t>& tokenIds) const noexcept;
-    [[nodiscard]] std::size_t vocabSize() const noexcept { return idToBytes_.size(); }
-    [[nodiscard]] bool empty() const noexcept { return idToBytes_.empty(); }
+    // Diagnostic form used by production decoding so invalid model IDs are never silent.
+    [[nodiscard]] BpeTokenDecodeResult decodeTokensWithReport(
+        const std::vector<std::uint32_t>& tokenIds) const noexcept;
+    [[nodiscard]] std::size_t vocabSize() const noexcept { return idToEncodedToken_.size(); }
+    [[nodiscard]] bool empty() const noexcept { return idToEncodedToken_.empty(); }
     [[nodiscard]] std::uint32_t padToken() const noexcept { return padToken_; }
     [[nodiscard]] std::uint32_t bosToken() const noexcept { return bosToken_; }
     [[nodiscard]] std::uint32_t eosToken() const noexcept { return eosToken_; }
@@ -100,13 +111,11 @@ public:
 
 private:
     BpeTokenizer() = default;
-    std::vector<std::vector<std::uint8_t>> idToBytes_;
-    std::vector<std::pair<std::pair<std::uint32_t, std::uint32_t>, std::uint32_t>> merges_;
-    std::unordered_map<std::uint8_t, std::string> byteToTokenName_;
+    // Model vocabulary strings consist of one or more UTF-8 base-token byte characters.
+    std::vector<std::string> idToEncodedToken_;
+    std::unordered_map<std::string, std::string> baseCharacterToTokenName_;
     std::uint32_t padToken_ = 0; std::uint32_t bosToken_ = 1; std::uint32_t eosToken_ = 2; std::uint32_t maskToken_ = 3;
-    [[nodiscard]] std::vector<std::uint8_t> decodeTokenToBytes(std::uint32_t tokenId) const noexcept;
-    [[nodiscard]] std::vector<std::uint8_t> applyReverseMerges(std::uint32_t tokenId) const noexcept;
-    [[nodiscard]] std::string bytesToTokenName(const std::vector<std::uint8_t>& bytes) const noexcept;
+    [[nodiscard]] std::optional<std::vector<std::string>> decodeTokenToNames(std::uint32_t tokenId) const noexcept;
 };
 
 //----------------------------------------------------------------------
@@ -123,6 +132,11 @@ public:
     [[nodiscard]] const RemiDecoderConfig& config() const noexcept { return config_; }
     [[nodiscard]] bool hasTokenizer() const noexcept { return tokenizer_ != nullptr; }
 
+    // Public mapping utilities used by the decoder's configuration diagnostics and tests.
+    [[nodiscard]] std::uint8_t velocityBinToMidi(std::uint8_t bin) const noexcept;
+    [[nodiscard]] std::uint32_t positionBinToTicks(std::uint32_t bin) const noexcept;
+    [[nodiscard]] double tempoBinToBpm(std::uint8_t bin) const noexcept;
+
 private:
     RemiDecoderConfig config_;
     std::shared_ptr<BpeTokenizer> tokenizer_;
@@ -133,12 +147,18 @@ private:
         // прикрепить длительность (например, когда Duration_ идёт перед NoteOn).
         std::uint32_t pendingDurationTicks = 0;
         bool hasPendingDuration = false;
+        // True only while the current position still points at a just-emitted note.
+        // This disambiguates Duration_ for that note from a duration preceding the next one.
+        bool hasNoteAtCurrentPosition = false;
+        // Token-level Bar_None has no explicit index: first marker starts bar 0,
+        // every subsequent marker advances to the next bar.
+        bool hasSeenImplicitBarToken = false;
+        RemiDecodeResult result = RemiDecodeResult::Ok;
+        std::string message;
+        std::size_t processedTokens = 0;
     };
     [[nodiscard]] std::pair<PatternProposal, RemiDecodeReport> finalizeProposal(DecodeState& state, const GenerationRequest& request, const std::string& providerId, const std::string& modelId, std::chrono::nanoseconds generationTime) const noexcept;
     [[nodiscard]] std::optional<RemiEvent> tokenNameToEvent(const std::string& tokenName) const noexcept;
-    [[nodiscard]] std::uint8_t velocityBinToMidi(std::uint8_t bin) const noexcept;
-    [[nodiscard]] std::uint32_t positionBinToTicks(std::uint32_t bin) const noexcept;
-    [[nodiscard]] double tempoBinToBpm(std::uint8_t bin) const noexcept;
     [[nodiscard]] std::optional<RemiEvent> parseTokenName(const std::string& tokenName) const noexcept;
 };
 

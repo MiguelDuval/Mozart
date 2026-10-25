@@ -199,14 +199,19 @@ struct ValidationReport {
 class PatternProposalValidator final {
 public:
     struct Limits {
-        std::uint32_t maxEvents = 1024;
-        std::uint32_t maxTicks = 480 * 32;  // 32 bars at 480 ticks/beat
-        std::uint8_t maxTracks = 8;
-        std::uint8_t maxChannels = 16;
-        
-        constexpr Limits() noexcept = default;
-        constexpr Limits(std::uint32_t maxEvents_, std::uint32_t maxTicks_, std::uint8_t maxTracks_, std::uint8_t maxChannels_) noexcept
-            : maxEvents(maxEvents_), maxTicks(maxTicks_), maxTracks(maxTracks_), maxChannels(maxChannels_) {}
+        std::uint32_t maxEvents;
+        std::uint32_t maxTicks;  // 32 bars at 480 ticks/beat
+        std::uint8_t maxTracks;
+        std::uint8_t maxChannels;
+
+        // Explicit constructor defaults avoid Clang's nested-type/default-member-initializer
+        // diagnostic when Limits{} is used as PatternProposalValidator's default argument.
+        constexpr Limits(std::uint32_t maxEvents_ = 1024,
+                         std::uint32_t maxTicks_ = 480 * 32,
+                         std::uint8_t maxTracks_ = 8,
+                         std::uint8_t maxChannels_ = 16) noexcept
+            : maxEvents(maxEvents_), maxTicks(maxTicks_),
+              maxTracks(maxTracks_), maxChannels(maxChannels_) {}
     };
     
     explicit PatternProposalValidator(Limits limits = {}) noexcept : limits_(limits) {}

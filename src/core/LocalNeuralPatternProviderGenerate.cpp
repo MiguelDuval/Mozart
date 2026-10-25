@@ -1,4 +1,5 @@
 #include "LocalNeuralPatternProvider.h"
+#include "LocalNeuralPatternProviderImpl.h"
 #include "GenerationTypes.h"
 #include "RemiEventAdapter.h"
 
