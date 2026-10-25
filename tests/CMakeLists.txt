@@ -30,6 +30,8 @@ function(add_mozart_test name)
         target_include_directories(${name} PRIVATE ${NLOHMANN_JSON_LOCAL})
     else()
         target_link_libraries(${name} PRIVATE nlohmann_json::nlohmann_json)
+        # Match source includes using "json.hpp" to the fetched multi-header layout.
+        target_include_directories(${name} PRIVATE "${nlohmann_json_SOURCE_DIR}/include/nlohmann")
     endif()
 endfunction()
 

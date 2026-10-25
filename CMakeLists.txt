@@ -51,6 +51,9 @@ if(EXISTS "${NLOHMANN_JSON_LOCAL}/json.hpp")
     target_include_directories(mozart-core PUBLIC ${NLOHMANN_JSON_LOCAL})
 else()
     target_link_libraries(mozart-core PUBLIC nlohmann_json::nlohmann_json)
+    # Source files include the single-header name "json.hpp"; the fetched package
+    # exposes that header from include/nlohmann rather than directly from include.
+    target_include_directories(mozart-core PUBLIC "${nlohmann_json_SOURCE_DIR}/include/nlohmann")
 endif()
 
 if(ANDROID)
