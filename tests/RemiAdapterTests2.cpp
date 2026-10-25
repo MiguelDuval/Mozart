@@ -18,6 +18,43 @@
 
 using namespace mozart::generation;
 
+// Deterministic, self-contained MidiTok/Hugging Face tokenizer fixture. CI must not
+// depend on the local-only pretrained model files being present in the repository.
+std::optional<BpeTokenizer> makeFixtureBpeTokenizer() {
+    const auto fixturePath =
+        std::filesystem::temp_directory_path() / "mozart_remi_adapter_bpe_fixture.json";
+    {
+        std::ofstream fixture(fixturePath);
+        if (!fixture.is_open()) return std::nullopt;
+        fixture << R"json({
+  "_vocab_base_byte_to_token": {
+    "a": "Bar_None",
+    "b": "Pitch_21",
+    "c": "Pitch_60",
+    "d": "Duration_0.1.8",
+    "e": "Position_0",
+    "f": "Velocity_15",
+    "g": "Tempo_15"
+  },
+  "_model": "{\\"model\\":{\\"vocab\\":{\\"PAD_None\\":0,\\"BOS_None\\":1,\\"EOS_None\\":2,\\"MASK_None\\":3,\\"a\\":4,\\"b\\":5,\\"c\\":6,\\"d\\":7,\\"e\\":8,\\"f\\":9,\\"g\\":10},\\"merges\\":[]}}",
+  "config": { "special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"] }
+})json";
+    }
+    auto tokenizer = BpeTokenizer::loadFromJson(fixturePath.string());
+    std::error_code ignored;
+    std::filesystem::remove(fixturePath, ignored);
+    return tokenizer;
+}
+
+std::uint32_t tokenIdForName(const BpeTokenizer& tokenizer, const std::string& name) {
+    for (std::uint32_t id = 0; id < tokenizer.vocabSize(); ++id) {
+        const auto decoded = tokenizer.decodeToken(id);
+        if (decoded.has_value() && *decoded == name) return id;
+    }
+    assert(false && "Expected token missing from BPE fixture");
+    return std::numeric_limits<std::uint32_t>::max();
+}
+
 void testRemiEventAdapterDecoding() {
     std::cout << "Testing RemiEventAdapter event decoding..." << std::endl;
     
@@ -445,10 +482,9 @@ void testRemiEventAdapterNoteOffClosesRepeatedPitchVoices() {
     std::cout << "  Successive note-offs close distinct repeated-pitch notes: PASSED" << std::endl;
 }
 
-void testBpeTokenizerLoadsRealTokenizer() {
-    std::cout << "Testing BPE tokenizer loads real tokenizer.json..." << std::endl;
-    auto tokenizer = BpeTokenizer::loadFromJson(
-        "experiments/aura-midi/models/shikhr-music-maker-official/tokenizer.json");
+void testBpeTokenizerLoadsFixtureTokenizer() {
+    std::cout << "Testing BPE tokenizer loads a deterministic MidiTok fixture..." << std::endl;
+    auto tokenizer = makeFixtureBpeTokenizer();
     assert(tokenizer.has_value());
     assert(!tokenizer->empty());
     assert(tokenizer->vocabSize() > 0);
@@ -456,13 +492,12 @@ void testBpeTokenizerLoadsRealTokenizer() {
     assert(tokenizer->bosToken() == 1);
     assert(tokenizer->eosToken() == 2);
     assert(tokenizer->maskToken() == 3);
-    std::cout << "  BPE tokenizer loads real tokenizer: PASSED (vocab=" << tokenizer->vocabSize() << ")" << std::endl;
+    std::cout << "  BPE tokenizer loads fixture: PASSED (vocab=" << tokenizer->vocabSize() << ")" << std::endl;
 }
 
 void testBpeTokenizerDecodeKnownIds() {
     std::cout << "Testing BPE tokenizer decodes known IDs to musical token names..." << std::endl;
-    auto tokenizer = BpeTokenizer::loadFromJson(
-        "experiments/aura-midi/models/shikhr-music-maker-official/tokenizer.json");
+    auto tokenizer = makeFixtureBpeTokenizer();
     assert(tokenizer.has_value());
     auto pad = tokenizer->decodeToken(0);
     assert(pad.has_value());
@@ -483,8 +518,7 @@ void testBpeTokenizerDecodeKnownIds() {
 
 void testBpeTokenizerDecodeTokensFlattens() {
     std::cout << "Testing BPE tokenizer decodeTokens flattens results..." << std::endl;
-    auto tokenizer = BpeTokenizer::loadFromJson(
-        "experiments/aura-midi/models/shikhr-music-maker-official/tokenizer.json");
+    auto tokenizer = makeFixtureBpeTokenizer();
     assert(tokenizer.has_value());
     std::vector<std::uint32_t> ids = {0, 1, 2, 4, 5};
     auto names = tokenizer->decodeTokens(ids);
@@ -505,13 +539,18 @@ void testBpeTokenizerDecodeTokensFlattens() {
 void testSpecialTokensSilentlySkipped() {
     std::cout << "Testing special tokens are silently skipped..." << std::endl;
     auto config = RemiDecoderConfig::defaultConfig();
-    auto tokenizer = BpeTokenizer::loadFromJson(
-        "experiments/aura-midi/models/shikhr-music-maker-official/tokenizer.json");
+    auto tokenizer = makeFixtureBpeTokenizer();
     assert(tokenizer.has_value());
+    const auto padId = tokenIdForName(*tokenizer, "PAD_None");
+    const auto bosId = tokenIdForName(*tokenizer, "BOS_None");
+    const auto barId = tokenIdForName(*tokenizer, "Bar_None");
+    const auto pitchId = tokenIdForName(*tokenizer, "Pitch_60");
+    const auto eosId = tokenIdForName(*tokenizer, "EOS_None");
+    const auto maskId = tokenIdForName(*tokenizer, "MASK_None");
     auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
     RemiEventAdapter adapter(config, sharedTokenizer);
     // PAD, BOS, Bar_None, Pitch_60, EOS, MASK
-    std::vector<std::uint32_t> tokenIds = {0, 1, 4, 65, 2, 3};
+    std::vector<std::uint32_t> tokenIds = {padId, bosId, barId, pitchId, eosId, maskId};
     GenerationRequest request;
     request.barCount = 1;
     auto [proposal, report] = adapter.decodeTokensToProposal(tokenIds, request, "test", "test-model");
@@ -532,12 +571,12 @@ void testSpecialTokensSilentlySkipped() {
 void testBarNoneAdvancesThroughFullPipeline() {
     std::cout << "Testing Bar_None advances bar counter through full pipeline..." << std::endl;
     auto config = RemiDecoderConfig::defaultConfig();
-    auto tokenizer = BpeTokenizer::loadFromJson(
-        "experiments/aura-midi/models/shikhr-music-maker-official/tokenizer.json");
+    auto tokenizer = makeFixtureBpeTokenizer();
     assert(tokenizer.has_value());
+    const auto barId = tokenIdForName(*tokenizer, "Bar_None");
     auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
     RemiEventAdapter adapter(config, sharedTokenizer);
-    std::vector<std::uint32_t> tokenIds = {4, 4};
+    std::vector<std::uint32_t> tokenIds = {barId, barId};
     GenerationRequest request;
     request.barCount = 4;
     auto [proposal, report] = adapter.decodeTokensToProposal(tokenIds, request, "test", "test-model");
@@ -549,16 +588,18 @@ void testBarNoneAdvancesThroughFullPipeline() {
 void testDurationTokenThroughFullPipeline() {
     std::cout << "Testing Duration_ token through full pipeline..." << std::endl;
     auto config = RemiDecoderConfig::defaultConfig();
-    auto tokenizer = BpeTokenizer::loadFromJson(
-        "experiments/aura-midi/models/shikhr-music-maker-official/tokenizer.json");
+    auto tokenizer = makeFixtureBpeTokenizer();
     assert(tokenizer.has_value());
+    const auto barId = tokenIdForName(*tokenizer, "Bar_None");
+    const auto positionId = tokenIdForName(*tokenizer, "Position_0");
+    const auto pitchId = tokenIdForName(*tokenizer, "Pitch_60");
+    const auto durationId = tokenIdForName(*tokenizer, "Duration_0.1.8");
     auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
     RemiEventAdapter adapter(config, sharedTokenizer);
-    std::uint32_t durationId = 109;
     auto decoded = sharedTokenizer->decodeToken(durationId);
     assert(decoded.has_value());
     assert(*decoded == "Duration_0.1.8");
-    std::vector<std::uint32_t> tokenIds = {4, 218, 65, durationId};
+    std::vector<std::uint32_t> tokenIds = {barId, positionId, pitchId, durationId};
     GenerationRequest request;
     request.barCount = 1;
     auto [proposal, report] = adapter.decodeTokensToProposal(tokenIds, request, "test", "test-model");
@@ -573,8 +614,7 @@ void testDurationTokenThroughFullPipeline() {
 void testInvalidTokenIdsTrackedAsDropped() {
     std::cout << "Testing invalid token IDs are tracked as dropped..." << std::endl;
     auto config = RemiDecoderConfig::defaultConfig();
-    auto tokenizer = BpeTokenizer::loadFromJson(
-        "experiments/aura-midi/models/shikhr-music-maker-official/tokenizer.json");
+    auto tokenizer = makeFixtureBpeTokenizer();
     assert(tokenizer.has_value());
     auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
     RemiEventAdapter adapter(config, sharedTokenizer);
@@ -604,7 +644,7 @@ int main() {
         testRemiEventAdapterPolyphonyRepeatedPitch();
         testRemiEventAdapterNoteOffClosesNote();
         testRemiEventAdapterNoteOffClosesRepeatedPitchVoices();
-        testBpeTokenizerLoadsRealTokenizer();
+        testBpeTokenizerLoadsFixtureTokenizer();
         testBpeTokenizerDecodeKnownIds();
         testBpeTokenizerDecodeTokensFlattens();
         testSpecialTokensSilentlySkipped();
