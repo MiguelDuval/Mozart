@@ -90,7 +90,8 @@ jobs:
             adb shell uiautomator dump /sdcard/mozart-ui.xml
             adb exec-out cat /sdcard/mozart-ui.xml > /tmp/mozart-ui.xml
             grep -Fq 'text="MOZART"' /tmp/mozart-ui.xml
-            grep -Fq 'text="C++20 core ready | MIDI foundation | Link-ready timing boundary"' /tmp/mozart-ui.xml
+            # UIAutomator prefixes the status TextView with an XML newline entity.
+            grep -Fq 'C++20 core ready | MIDI foundation | Link-ready timing boundary' /tmp/mozart-ui.xml
 
       - name: Upload debug APK
         if: success()
