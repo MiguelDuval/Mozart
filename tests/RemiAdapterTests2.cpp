@@ -421,6 +421,30 @@ void testRemiEventAdapterNoteOffClosesNote() {
     std::cout << "  Genuine note-off closes a note: PASSED" << std::endl;
 }
 
+void testRemiEventAdapterNoteOffClosesRepeatedPitchVoices() {
+    std::cout << "Testing successive note-offs close distinct repeated-pitch notes..." << std::endl;
+    const auto config = RemiDecoderConfig::defaultConfig();
+    RemiEventAdapter adapter(config);
+
+    std::vector<RemiEvent> events;
+    events.push_back(RemiBarEvent{0});
+    events.push_back(RemiNoteOnEvent{60, 100, 0, 0});    // First voice starts at tick 0.
+    events.push_back(RemiNoteOnEvent{60, 100, 240, 0});  // Overlapping same-pitch voice.
+    events.push_back(RemiNoteOffEvent{60, 480, 0});      // Closes the second voice (duration 240).
+    events.push_back(RemiNoteOffEvent{60, 960, 0});      // Closes the first voice (duration 960).
+
+    GenerationRequest request;
+    auto [proposal, report] = adapter.decodeEventsToProposal(events, request);
+    assert(report.isOk());
+    const auto notes = proposal.notes();
+    assert(notes.size() == 2);
+    assert(notes[0].pitch == 60 && notes[0].position == 0);
+    assert(notes[0].duration == 960);
+    assert(notes[1].pitch == 60 && notes[1].position == 240);
+    assert(notes[1].duration == 240);
+    std::cout << "  Successive note-offs close distinct repeated-pitch notes: PASSED" << std::endl;
+}
+
 void testBpeTokenizerLoadsRealTokenizer() {
     std::cout << "Testing BPE tokenizer loads real tokenizer.json..." << std::endl;
     auto tokenizer = BpeTokenizer::loadFromJson(
@@ -579,6 +603,7 @@ int main() {
         testRemiEventAdapterDurationBeforeNextNoteDoesNotRewritePreviousNote();
         testRemiEventAdapterPolyphonyRepeatedPitch();
         testRemiEventAdapterNoteOffClosesNote();
+        testRemiEventAdapterNoteOffClosesRepeatedPitchVoices();
         testBpeTokenizerLoadsRealTokenizer();
         testBpeTokenizerDecodeKnownIds();
         testBpeTokenizerDecodeTokensFlattens();

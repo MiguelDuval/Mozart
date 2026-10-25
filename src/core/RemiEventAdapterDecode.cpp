@@ -63,6 +63,7 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                 
                 // Длительность: приоритет от токена Duration_ (сохранён в состоянии),
                 // иначе фиксированная длительность по умолчанию.
+                const bool durationWasAlreadyKnown = state.hasPendingDuration;
                 std::uint32_t noteDuration = config_.ticksPerBeat / 4;
                 if (state.hasPendingDuration) {
                     noteDuration = state.pendingDurationTicks;
@@ -86,6 +87,10 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                     e.track
                 };
                 state.events.push_back(patternEvent);
+                if (!durationWasAlreadyKnown) {
+                    state.activeNotes.push_back(
+                        DecodeState::ActiveNote{e.pitch, e.track, state.events.size() - 1});
+                }
                 state.currentTrack = e.track;
                 state.hasNoteAtCurrentPosition = true;
             }
@@ -95,38 +100,58 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                     // while the current position is still associated with the most recent note.
                     // If a Position_/Bar_ intervened, keep it pending for the next NoteOn instead.
                     bool applied = false;
+                    std::size_t durationNoteIndex = state.events.size();
                     if (state.hasNoteAtCurrentPosition) {
                         for (auto it = state.events.rbegin(); it != state.events.rend(); ++it) {
                             if (std::holds_alternative<NoteEvent>(*it)) {
                                 auto& note = std::get<NoteEvent>(*it);
                                 if (note.track == state.currentTrack) {
                                     note.duration = e.position;
+                                    durationNoteIndex = static_cast<std::size_t>(
+                                        it.base() - state.events.begin() - 1);
                                     applied = true;
                                     break;
                                 }
                             }
                         }
                     }
-                    if (!applied) {
+                    if (applied) {
+                        // Duration_ completes this note; remove it from the active-note set
+                        // so a later genuine NoteOff cannot overwrite its duration.
+                        for (std::size_t i = state.activeNotes.size(); i > 0; --i) {
+                            if (state.activeNotes[i - 1].eventIndex == durationNoteIndex) {
+                                state.activeNotes.erase(state.activeNotes.begin() +
+                                    static_cast<std::ptrdiff_t>(i - 1));
+                                break;
+                            }
+                        }
+                    } else {
                         state.pendingDurationTicks = e.position;
                         state.hasPendingDuration = true;
                     }
                     state.hasNoteAtCurrentPosition = false;
                 } else {
-                    // Настоящий note-off: закрыть последнюю активную ноту с той же высотой и треком.
-                    // e.position трактуется как абсолютный тик окончания ноты.
+                    // Genuine note-off closes the most recently started still-active
+                    // note with this pitch/track. Closed notes are removed from activeNotes,
+                    // preventing a later note-off from repeatedly extending the same note.
                     const auto offTrack = static_cast<std::uint8_t>(e.track % 16);
-                    for (auto it = state.events.rbegin(); it != state.events.rend(); ++it) {
-                        if (std::holds_alternative<NoteEvent>(*it)) {
-                            auto& note = std::get<NoteEvent>(*it);
-                            if (note.pitch == e.pitch && note.track == offTrack) {
+                    for (std::size_t i = state.activeNotes.size(); i > 0; --i) {
+                        const std::size_t activeIndex = i - 1;
+                        const auto active = state.activeNotes[activeIndex];
+                        if (active.pitch == e.pitch && active.track == offTrack) {
+                            if (active.eventIndex < state.events.size() &&
+                                std::holds_alternative<NoteEvent>(state.events[active.eventIndex])) {
+                                auto& note = std::get<NoteEvent>(state.events[active.eventIndex]);
                                 if (e.position > note.position) {
                                     note.duration = e.position - note.position;
                                 }
-                                break;
                             }
+                            state.activeNotes.erase(state.activeNotes.begin() +
+                                static_cast<std::ptrdiff_t>(activeIndex));
+                            break;
                         }
                     }
+                    state.hasNoteAtCurrentPosition = false;
                 }
             }
             else if constexpr (std::is_same_v<T, RemiVelocityEvent>) {
@@ -216,6 +241,7 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                 if (!state.hasTempo) {
                     PatternEvent tempoEvent = TempoEvent{state.currentTick, e.bpm};
                     state.events.insert(state.events.begin(), tempoEvent);
+                    for (auto& active : state.activeNotes) ++active.eventIndex;
                     state.hasTempo = true;
                     state.currentTempo = e.bpm;
                 }
@@ -223,7 +249,11 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
             else if constexpr (std::is_same_v<T, RemiTimeSignatureEvent>) {
                 if (!state.hasTimeSignature) {
                     PatternEvent tsEvent = TimeSignatureEvent{state.currentTick, e.numerator, e.denominator};
-                    state.events.insert(state.events.begin() + (state.hasTempo ? 1 : 0), tsEvent);
+                    const std::size_t insertionIndex = state.hasTempo ? 1U : 0U;
+                    state.events.insert(state.events.begin() + insertionIndex, tsEvent);
+                    for (auto& active : state.activeNotes) {
+                        if (active.eventIndex >= insertionIndex) ++active.eventIndex;
+                    }
                     state.hasTimeSignature = true;
                     state.timeSigNumerator = e.numerator;
                     state.timeSigDenominator = e.denominator;
