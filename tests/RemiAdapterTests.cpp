@@ -9,6 +9,7 @@
 #include <string>
 #include <iostream>
 #include <algorithm>
+#include <limits>
 
 using namespace mozart::generation;
 
@@ -109,6 +110,33 @@ void testRemiDecoderConfig() {
     std::cout << "  RemiDecoderConfig: PASSED" << std::endl;
 }
 
+void testRemiEventAdapterConvertEventBounds() {
+    std::cout << "Testing single-event conversion bounds..." << std::endl;
+    const auto config = RemiDecoderConfig::defaultConfig();
+    RemiEventAdapter adapter(config);
+
+    auto note = adapter.convertEvent(RemiNoteOnEvent{60, 100, 0, 0}, 480, 0, 64);
+    assert(note.has_value());
+    assert(std::holds_alternative<NoteEvent>(*note));
+    assert(std::get<NoteEvent>(*note).position == 480);
+    assert(std::get<NoteEvent>(*note).duration == config.ticksPerBeat / 4);
+
+    assert(!adapter.convertEvent(RemiNoteOnEvent{10, 100, 0, 0}, 0, 0, 64).has_value());
+    assert(!adapter.convertEvent(RemiNoteOnEvent{60, 100, 0, config.maxTracks}, 0, 0, 64).has_value());
+    assert(!adapter.convertEvent(
+        RemiNoteOnEvent{60, 100, 0, 0},
+        std::numeric_limits<std::uint32_t>::max() - 10U, 0, 64).has_value());
+    assert(!adapter.convertEvent(
+        RemiNoteOnEvent{60, 100, std::numeric_limits<std::uint32_t>::max() - 100U, 0},
+        0, 0, 64).has_value());
+
+    assert(!adapter.convertEvent(
+        RemiTempoEvent{std::numeric_limits<double>::infinity()}, 0, 0, 64).has_value());
+    assert(!adapter.convertEvent(RemiTimeSignatureEvent{4, 3}, 0, 0, 64).has_value());
+    assert(!adapter.convertEvent(RemiProgramEvent{0, config.maxTracks}, 0, 0, 64).has_value());
+    std::cout << "  Single-event conversion bounds: PASSED" << std::endl;
+}
+
 void testRemiEventAdapterConversions() {
     std::cout << "Testing RemiEventAdapter conversions..." << std::endl;
 
@@ -149,6 +177,7 @@ int main() {
         testPatternProposalValidator();
         testRemiDecoderConfig();
         testRemiEventAdapterConversions();
+        testRemiEventAdapterConvertEventBounds();
         std::cout << "\n=== ALL TESTS PASSED (Part 1) ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {
