@@ -731,3 +731,14 @@ Matches HF Hub API safetensors info exactly.
    - Run bounded CPU pilot on NRG-CP/GMD splits
 3. **Option D:** Find/create 12k BPE tokenizer compatible with official model weights
 4. **Do NOT:** Use auramidi_v1.pt for 12k, retry 533 MB load, extend vocab, use MMM v2, declare training started, reboot
+
+
+---
+
+## Tokenizer Vocabulary Count Recheck — 2026-10-26
+
+**Superseding caution:** The preceding official-model addendum inferred a total 441-token vocabulary from `tokenizer.json["_vocab_base"]`. This inference is not sufficient by itself: MidiTok documents `_vocab_base` as the base vocabulary and exposes a distinct learned BPE vocabulary via `vocab_bpe` / the underlying BPE model (https://miditok.readthedocs.io/en/latest/tokenizing_music_with_miditok.html).
+
+The model card claims a 12,000-token tokenizer and demonstrates `MusicTokenizer.from_pretrained` (https://huggingface.co/shikhr/music_maker), while the visible serialized JSON shows 441 base tokens and did not visibly expose a learned-BPE vocabulary/merge payload. This makes a missing or inconsistent published tokenizer plausible, but does not settle the runtime behavior. The earlier “96.3% of output dimensions have no tokenizer mapping” claim is therefore **NOT VERIFIED** and must not be treated as a definitive measurement.
+
+**Gate status: BLOCKED pending a direct, pinned-revision runtime test.** Using the supported MidiTok loader, report `len(tokenizer)`, `vocab_bpe` / underlying model vocabulary size, serialized tokenizer keys and BPE-state availability; then test real MIDI encode → decode → re-encode, maximum ID, and inference compatibility against the model's 12,000-row embedding/head. No training on the official weights, vocabulary surgery, retry of the blocked 533 MB checkpoint, or reboot until this resolves. If the official tokenizer really has only 441 usable IDs or omits the learned BPE state, proceed with a new internally consistent tokenizer/model pair for the bounded research pilot.
