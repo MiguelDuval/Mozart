@@ -1129,3 +1129,42 @@ Cline must perform one current-session PyTorch/runtime check and one bounded att
 ### Evidence Classification
 - Sidecar counts and split mapping: **REPORTED VERIFIED BY CLINE**, recorded in `experiments/aura-midi/audit_report.json`; ChatGPT can inspect the committed report but did not execute the local Windows scan itself.
 - No new training run has been started by ChatGPT. Actual launch and model results remain pending Cline's local execution.
+
+
+---
+
+## 2026-10-26 — Cline — Local Training Gate Results (reported; compatibility decision pending)
+
+### Context
+A bounded training gate was run in the local Windows workspace. This entry records the report without treating local-only observations as independently reproduced by GitHub CI.
+
+### Reported Results
+- **PyTorch:** 2.14.1+cpu; CUDA unavailable.
+- **Checkpoint that loaded:** `experiments/aura-midi/weights/auramidi_v1.pt`, reported as 174 MB with 149 state-dictionary keys.
+- **Reported architecture values:** 12 transformer layers, vocabulary size 12,000, hidden size 512, 8 attention heads, context length 1,024.
+- **Fresh-process smoke test:** reported successful forward pass, backward pass and one optimizer step; reported parameter count 50.6 million.
+- **Larger Phase 1 fine-tune checkpoint:** `experiments/aura-midi/runs/broad-training-20261020_204942/checkpoint_best.pt`, reported as 533 MB, hangs during its one load attempt. It was not retried and the file was left untouched.
+- No full training run was started.
+
+### Independently Verified in This handoff
+- The live GitHub feature branch was at `bf82b4acc2405dcaa3c9d839144772036ffbceab`, not `c3cf5bb` as stated in the local gate report. The remote branch has advanced with subsequent commits. Local/remote synchronization must therefore be checked again before further local edits; preserve local changes and do not reset, rebase, force-push or rewrite history.
+- At `bf82b4acc2405dcaa3c9d839144772036ffbceab`, the REMI/BPE Adapter CI, Android Build and AuraMIDI Metadata Sidecar Tests all passed on exact-SHA runs.
+
+### Unverified / Compatibility Risks
+- The local load and optimizer-step report is **REPORTED BY CLINE**, not independently executed by ChatGPT.
+- The successfully loaded 174 MB file is not the same artifact as the 533 MB fine-tune checkpoint that hangs. Its filename alone does not establish checkpoint lineage.
+- The reported 50.6M parameter count differs from the previously documented 44.43M official MusicMaker architecture. One possible explanation is separate, untied input/output embeddings, but that is an inference—not a verified explanation.
+- Exact checkpoint-to-tokenizer lineage, ID-to-token mapping, embedding/output-head shapes and weight-tying behavior still need confirmation before treating this file as the canonical 12k-token Phase 1 baseline.
+- Dataset availability, split integrity and sustained CPU training throughput have not been re-verified in this pass.
+
+### Decision
+The bounded test establishes that the reported 174 MB artifact can run one optimizer step in the reported local environment. It does **not** establish that the 533 MB best fine-tune checkpoint is loadable, nor that the two files are interchangeable. Do not retry the blocked 533 MB load or reboot. Do not launch a 10,000-step run until the loadable checkpoint's tokenizer/model compatibility is checked against the exact 12,000-token tokenizer and a short CPU throughput/data-loader pilot is measured.
+
+### Next Action
+1. Safely reconcile the local checkout with the live remote branch without discarding local work.
+2. Inspect the already-reported loadable checkpoint's saved configuration and tensor shapes, verify vocabulary rows and the exact tokenizer file/hash, and explicitly verify the input/output embedding relationship.
+3. If compatibility is confirmed, run a bounded, separately named CPU research pilot with deterministic seed, existing approved data splits, per-source validation, a short timing measurement and atomic checkpoint output. Preserve a generated MIDI baseline before fine-tuning and a comparable output afterward.
+4. Keep the run single-stream and 12,000-token; do not switch to MMM v2, add tokens, overwrite historical checkpoints, or use the three-composition Slakh sample as a training corpus. Do not mark training started until logs demonstrate actual optimizer steps and output artifacts.
+
+### Result
+**Training gate: PARTIAL / RESEARCH BASELINE COMPATIBILITY PENDING.** Smoke-test success is reported for `auramidi_v1.pt`; the established 533 MB fine-tune checkpoint remains blocked.
