@@ -1344,3 +1344,25 @@ The official `shikhr/music_maker` model is a valid, loadable GPT-2 style model (
 - Option D: Find/create a 12k BPE tokenizer compatible with official model weights
 
 Message for ChatGPT: Official shikhr/music_maker verification complete. Model loads (44.43M, GPT-2, tied, 12k config) but tokenizer is 441-token MIDI REMI — fundamental vocab mismatch. Phase 1 config matches model arch but not tokenizer. auramidi_v1.pt is 10k nn.TransformerEncoder — incompatible with both. Blocker documented. No training, no reboot.
+
+
+---
+
+## 2026-10-26 — ChatGPT — Tokenizer Vocabulary Count Requires Recheck
+
+### Correction to the preceding Cline conclusion
+The claim that the published tokenizer has *exactly 441 total IDs* was derived from the length of the JSON field `_vocab_base`. That field is the **base MIDI-token vocabulary**, not necessarily the full learned BPE vocabulary. MidiTok documentation explicitly distinguishes `vocab` / `_vocab_base` from `vocab_bpe` and the underlying BPE model vocabulary (see https://miditok.readthedocs.io/en/latest/tokenizing_music_with_miditok.html). Therefore, `len(_vocab_base) == 441` alone does **not** establish that only 441 IDs are available.
+
+### Current evidence and remaining uncertainty
+- The Hugging Face model card states a tokenizer vocabulary size of 12,000 and demonstrates `MusicTokenizer.from_pretrained('shikhr/music_maker')` (https://huggingface.co/shikhr/music_maker).
+- The published `tokenizer.json` visibly contains a 441-entry `_vocab_base` and byte-to-token/base-ID metadata. The hosted JSON inspection did not reveal a clearly serialized learned-BPE vocabulary or merge model. That raises a real possibility that the public tokenizer artifact is incomplete or inconsistent with the 12,000-row model head, but this has not yet been established by the tokenizer's actual runtime API.
+- Consequently, the previous statement that 96.3% of output dimensions definitely have no mapping is **NOT VERIFIED**. The model/tokenizer compatibility gate remains **BLOCKED pending runtime verification**, rather than conclusively failed based on the base-vocabulary count alone.
+
+### Required decisive test
+At the pinned model revision `7528164fe0d4fa2625f1bfc126cc8df62791a429`, use the supported `MusicTokenizer.from_pretrained` loader with the already downloaded local files and report:
+1. `len(tokenizer)`, `tokenizer.vocab_bpe` length (if present), and the underlying BPE model vocabulary length (if present);
+2. every serialized top-level key and whether BPE model/merge state exists in the actual JSON;
+3. a real MIDI encode/decode round-trip, maximum emitted token ID, and confirmation that all IDs fit the 12,000-row embedding/head;
+4. whether tokenizer/model inference can generate, decode, and re-encode without unknown IDs, dropped tokens, or ID remapping.
+
+Do not start training from the official weights or conclude the count is 441 until this test settles the issue. Keep `auramidi_v1.pt` and the blocked 533 MB checkpoint untouched; do not reboot or perform vocabulary surgery. If the runtime tokenizer is genuinely 441-only or lacks the learned BPE mapping, then keep the official model as a reference artifact and use a new, internally consistent tokenizer/model pair for the research pilot.
