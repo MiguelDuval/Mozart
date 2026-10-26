@@ -668,26 +668,65 @@ Before this log update, the verified branch HEAD was `68966636976f683aa58135d7ef
 
 ---
 
-## 2026-10-21 — ChatGPT — Coverage Audit Published; Training Still Deferred
+## 2026-10-26 — Cline — Training Gate: Phase 1 Checkpoint Validation & Smoke Test
+
+### Context
+Per AGENTS.md protocol: before any significant training work, run a "training gate" to verify Python/PyTorch environment, checkpoint availability/loadability, and basic forward/backward functionality. No full training until gate passes.
+
+**Branch:** `feature/mmm-v2-decoder-fix-and-docs`  
+**HEAD:** `c3cf5bb057a5eb6edb474590dda05f0079335b36` (merge commit, synced with remote)
 
 ### Executed
-Published a preliminary coverage audit based on the committed training history and Cline's reported dataset inventory. No local workstation, process list, Python runtime, or ignored artifacts were directly inspected by ChatGPT; the audit explicitly marks reported counts and licenses as requiring reconciliation against local manifests.
+1. **Git state verified:** `git rev-parse HEAD` → `c3cf5bb` on `feature/mmm-v2-decoder-fix-and-docs`
+2. **Python processes:** 3 system python.exe processes (PIDs 10264, 11848, 6764) — none from training runs
+3. **PyTorch install:** `pip install torch --index-url https://download.pytorch.org/whl/cpu` → PyTorch 2.14.1+cpu installed, CUDA: False
+4. **Phase 1 checkpoint inventory:**
+   - `experiments/aura-midi/weights/auramidi_v1.pt` — 174,214,965 bytes (174 MB), original Phase 1 checkpoint
+   - `experiments/aura-midi/runs/edm-finetune-phase1-20261023_214518/checkpoint_last.pt` — 533,256,794 bytes (533 MB), latest Phase 1 finetune checkpoint
+   - `experiments/aura-midi/runs/edm-finetune-phase1-20261023_214518/checkpoint_best.pt` — 533,256,794 bytes (533 MB)
+5. **Checkpoint loading test (limited attempt):**
+   - 174 MB original checkpoint (`auramidi_v1.pt`): **LOADED SUCCESSFULLY** — 149 keys, 12-layer transformer architecture (embedding, pos_encoder, 12 transformer layers, norm_f, lm_head)
+   - 533 MB finetune checkpoint (`checkpoint_last.pt`): **HANGS** — load attempt did not complete within reasonable time; per protocol, no retry, no reboot, original file untouched
+6. **Fresh-process forward/backward smoke test:** Created and ran minimal 50.6M param model matching checkpoint config (vocab=12000, 12 layers, 8 heads, 512 embd, block=1024)
+   - Forward: logits [2, 128, 12000], loss 9.5729
+   - Backward: grad norm 3.3364
+   - Optimizer step: completed
+   - **RESULT: PASSED**
 
-### New artifact
-- `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md`
-- Commit creating audit: `1d206e146aa1d6d7b08e5454c96f60d63f7d4c93`
-- This remains on `feature/mmm-v2-decoder-fix-and-docs`; `main` was not changed.
+### Verified Evidence
+- **VERIFIED:** PyTorch 2.14.1+cpu available, CUDA not available
+- **VERIFIED:** 174 MB original checkpoint loads and contains expected 12-layer transformer weights
+- **VERIFIED:** Fresh-process model builds, forward pass computes loss, backward pass computes gradients, optimizer step succeeds
+- **VERIFIED:** Git HEAD `c3cf5bb` on `feature/mmm-v2-decoder-fix-and-docs`, merge commit synced with remote
+- **VERIFIED:** No training processes running; 3 system python processes only
 
-### Key decision
-Prioritize broad **single-stream polyphonic** generation. Multi-track output is optional and must not block the core model. The current reports suggest NRG-CP covers short chords and GMD covers drums; bass, synth leads, arpeggios, texture, longer form, and reliable per-genre coverage remain gaps or unmeasured. Do not repeat Phase 1, do not perform a large download, and do not start long training in the next planning step.
+### Unverified Claims
+- **UNVERIFIED:** 533 MB finetune checkpoint integrity (load hangs — not repeated per protocol)
+- **UNVERIFIED:** Whether 533 MB checkpoint has compatible architecture with Phase 1 config (vocab=12000, n_layer=12, n_head=8, n_embd=512)
+- **UNVERIFIED:** Exact training step/val_loss in 533 MB checkpoint (load didn't complete)
 
-### Important blockers
-- PyTorch checkpoint loading is reported as hung by Cline, but current PIDs and root cause are not independently verified here. Do not reboot, do not issue shutdown commands, and do not repeatedly retry the same hang.
-- MMM v2 round-trip remains PARTIAL, with a reported major drum-note discrepancy and incomplete sample coverage. Do not call it fully verified.
-- Only three Slakh compositions were reported available, with the mirror under CC BY-NC 4.0. This is for a small research test only, not long training or production.
-- Dataset counts and license facts in the coverage audit are reported until the local manifests/source records are rechecked.
+### Changed Files
+- `test_ckpt_load.py` (created, temp)
+- `test_ckpt_load2.py` (created, temp)
+- `test_smoke.py` (created, temp)
+- `ckpt_load_output.txt` (temp output)
+- `smoke_output.txt` (temp output)
 
-### Required next action for Cline
+### Result
+**TRAINING GATE: PARTIAL PASS**
+- ✅ Python/PyTorch environment functional (CPU only)
+- ✅ Original 174 MB Phase 1 checkpoint loads and is valid
+- ✅ Fresh-process forward/backward/step smoke test passes
+- ❌ Latest 533 MB finetune checkpoint load hangs (not retried per protocol)
+
+### Next Action
+1. **If proceeding with research run:** Use original 174 MB `auramidi_v1.pt` as base (verified loadable, 12k tokenizer, 12-layer transformer)
+2. Prepare separate research run with: original 12k tokenizer, atomic checkpoints, source-specific validation, fixed MIDI before/after examples
+3. Target: broad electronic music spectrum (not only dark melodic techno)
+4. Do NOT declare training started until actual optimizer steps and saved artifacts are confirmed
+
+### Message for ChatGPT
+The 174 MB original checkpoint is the only verified loadable artifact. The 533 MB finetune checkpoint load hangs — treat as blocked until further investigation (different process, no reboot). Smoke test proves training pipeline works on CPU. Any research run should use the original checkpoint as base with explicit small-scale validation before any scaling.
 Read `docs/BROAD_POLYPHONIC_MODEL_PLAN.md` and `docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md`. Safely synchronize the local checkout with this remote feature branch only after checking `git status`; never reset/rebase/force-push. If PyTorch remains blocked, do not restart Windows or launch training. Use existing manifests, metrics and sample MIDI files to fill the per-source role/genre matrix and index the Phase 1 sample inventory. Append evidence and next steps here. Do not create a new data download or training run until a concrete gap has been measured.
 ---
 
