@@ -545,3 +545,31 @@ See `docs/CONDITIONING_FEASIBILITY_DECISION.md`.
 
 ### Immediate next action
 Run the corrected sidecar builder locally, verify record and asset counts, inspect duplicate/performance identities and missing MIDI paths, and recover NRG-CP split membership from existing manifests if file-level identity can be matched. No training, checkpoint loading, token changes, large downloads, reboot, or PR merge.
+
+
+---
+
+## Training Gate Addendum — 2026-10-26 (Cline report; partial pass)
+
+This addendum supersedes the stale current-status labels in earlier sections only for the bounded test results stated below. Historical training records remain unchanged.
+
+### Reported local result
+- Environment: PyTorch `2.14.1+cpu`; CUDA unavailable.
+- Loadable artifact reported by Cline: `experiments/aura-midi/weights/auramidi_v1.pt`, 174 MB, 149 keys.
+- Reported model values: 12 layers, vocab=12,000, n_embd=512, n_head=8, block_size=1,024; report states 50.6M parameters.
+- A fresh-process forward/backward/optimizer smoke step reportedly passed.
+- `experiments/aura-midi/runs/broad-training-20261020_204942/checkpoint_best.pt` (reported 533 MB) still hangs on its single bounded load attempt. It was not retried; the file was not modified.
+- **No full training run is reported as started.**
+
+### Important distinction
+The loadable 174 MB file and the 533 MB Phase 1 fine-tune checkpoint are different artifacts. A successful load of one does not establish the other is usable or that their learned weights are equivalent. The 50.6M parameter count also differs from the previously documented 44.43M official MusicMaker architecture. An untied output head could account for roughly one additional 12,000×512 matrix, but this explanation has not been verified.
+
+Before selecting `auramidi_v1.pt` as the baseline, confirm its saved model config, state-dictionary tensor shapes, tokenizer lineage and exact 12k ID mapping. Preserve the checkpoint as-is. Do not infer compatibility from the filename or matching headline dimensions alone.
+
+### Repository synchronization
+Cline's report says local HEAD was `c3cf5bb`. During this handoff the live GitHub feature branch was `bf82b4acc2405dcaa3c9d839144772036ffbceab`, and the latter passed REMI/BPE Adapter CI, Android Build and AuraMIDI Metadata Sidecar Tests on exact-SHA runs. The local checkout must reconcile with the current remote safely before further local edits; no reset, rebase, force-push or history rewrite.
+
+### Current decision
+**PARTIAL PASS — do not start a long run yet.** The reported small optimizer step demonstrates basic PyTorch functionality for the loadable file in a CPU-only environment. It does not verify the blocked 533 MB checkpoint or exact tokenizer/architecture compatibility. After the compatibility check passes, run a small, timed CPU research pilot in a new run directory and record data-loader behavior, validation-by-source, optimizer steps, atomic output, and comparable MIDI before/after examples. Estimate long-run feasibility from observed throughput rather than assuming 10,000 steps are practical on CPU.
+
+Keep the original tokenizer at 12,000 IDs and the model single-stream. Do not add MMM v2 tokens, use Slakh's three compositions as a training corpus, overwrite historical checkpoints, or reboot the machine. Any MAESTRO-containing run remains research-only/non-commercial under the existing license decision.

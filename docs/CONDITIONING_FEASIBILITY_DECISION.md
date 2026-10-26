@@ -65,3 +65,16 @@ This decision authorizes the isolated research-only experiment described above o
 ## External data screening reference
 
 The initial external corpus screen is documented in `docs/EXTERNAL_DATASET_CANDIDATES.md`. It found a small multi-track electronic dataset useful for research-only structural evaluation, but no verified source that meets both broad electronic coverage and production-oriented rights requirements. No files were downloaded.
+
+
+---
+
+## Training Gate Addendum — 2026-10-26
+
+Cline reports that a 174 MB artifact at `experiments/aura-midi/weights/auramidi_v1.pt` loaded in a local CPU-only PyTorch 2.14.1 environment and passed one fresh-process forward/backward/optimizer step. The report gives 12 layers, vocab=12,000, n_embd=512, n_head=8, block_size=1,024 and 50.6M parameters. These are **reported local results**, not independently reproduced by ChatGPT.
+
+The 533 MB checkpoint at `experiments/aura-midi/runs/broad-training-20261020_204942/checkpoint_best.pt` still reportedly hangs on its one attempted load. It was not retried and remains untouched. The successful smaller artifact must not be treated as equivalent to that fine-tuned checkpoint by filename or size.
+
+**Updated decision: PARTIAL PASS.** A single optimizer step proves basic execution for the smaller file, not the larger checkpoint's loadability, model/tokenizer lineage, full training viability, or musical improvement. Before any long run, verify the saved model config, all embedding/head tensor shapes, input/output weight-tying behavior and exact tokenizer ID mapping. The reported 50.6M parameters differ from the previously recorded 44.43M architecture, so this difference requires an explicit explanation.
+
+Once compatibility is verified, perform a bounded, timed CPU pilot in a separate research directory. Record actual optimizer steps and throughput, preserve fixed-seed generated MIDI before/after, use per-source validation and atomically save outputs. Do not add vocabulary tokens or switch to MMM v2. The pilot's dataset and checkpoint remain subject to the existing license restrictions; MAESTRO means research-only/non-commercial. No reboot, no retry of the blocked 533 MB load, and no overwrite/deletion of checkpoints.

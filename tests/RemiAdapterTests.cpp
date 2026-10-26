@@ -183,6 +183,19 @@ void testRemiEventAdapterConversions() {
     assert(adapter.positionBinToTicks(1) == 60);
     assert(adapter.positionBinToTicks(8) == 480);
 
+    auto overflowPositionConfig = config;
+    overflowPositionConfig.ticksPerBeat = std::numeric_limits<std::uint32_t>::max();
+    RemiEventAdapter overflowPositionAdapter(overflowPositionConfig);
+    assert(overflowPositionAdapter.positionBinToTicks(8) ==
+           std::numeric_limits<std::uint32_t>::max() - 7U);
+    assert(overflowPositionAdapter.positionBinToTicks(9) ==
+           std::numeric_limits<std::uint32_t>::max());
+
+    auto subResolutionConfig = config;
+    subResolutionConfig.ticksPerBeat = 7;
+    RemiEventAdapter subResolutionAdapter(subResolutionConfig);
+    assert(subResolutionAdapter.positionBinToTicks(1) == 0);
+
     assert(adapter.tempoBinToBpm(0) == 40.0);
     assert(adapter.tempoBinToBpm(31) == 250.0);
     assert(adapter.tempoBinToBpm(15) >= 120.0 && adapter.tempoBinToBpm(15) <= 150.0);

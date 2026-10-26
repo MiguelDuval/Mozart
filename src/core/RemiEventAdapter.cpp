@@ -27,6 +27,13 @@ std::uint8_t RemiEventAdapter::velocityBinToMidi(std::uint8_t bin) const noexcep
 
 std::uint32_t RemiEventAdapter::positionBinToTicks(std::uint32_t bin) const noexcept {
     const std::uint32_t ticksPerPosition = config_.ticksPerBeat / 8;
+    if (ticksPerPosition == 0) return 0;
+
+    // This utility is also exposed to diagnostic/test callers, so defend against
+    // arbitrary bins instead of allowing unsigned multiplication to wrap.
+    if (bin > std::numeric_limits<std::uint32_t>::max() / ticksPerPosition) {
+        return std::numeric_limits<std::uint32_t>::max();
+    }
     return bin * ticksPerPosition;
 }
 
@@ -243,6 +250,9 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeTokensToPro
     auto bpeResult = tokenizer_->decodeTokensWithReport(tokenIds);
     std::vector<std::string> tokenNames = std::move(bpeResult.tokenNames);
     state.warnings = std::move(bpeResult.warnings);
+    // Count invalid BPE IDs from the tokenizer report. A merged BPE ID expands
+    // to multiple base tokens, so tokenNames.size() can exceed tokenIds.size();
+    // subtracting those sizes underflows and falsely reports billions of drops.
     state.droppedTokens = bpeResult.droppedTokenIds;
     if (tokenNames.empty()) {
         report.result = RemiDecodeResult::EmptySequence;
@@ -253,7 +263,6 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeTokensToPro
     }
     std::vector<RemiEvent> remiEvents;
     remiEvents.reserve(tokenNames.size());
-    std::size_t bpeDropped = tokenIds.size() - tokenNames.size();
     for (const auto& tokenName : tokenNames) {
         // These are standard sequence-control tokens, not malformed musical events.
         if (tokenName == "PAD_None" || tokenName == "BOS_None" ||
@@ -268,7 +277,6 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeTokensToPro
             state.droppedTokens++;
         }
     }
-    state.droppedTokens += static_cast<std::uint32_t>(bpeDropped);
     auto result = decodeEventsToProposal(remiEvents, request, providerId, modelId);
     auto endTime = std::chrono::high_resolution_clock::now();
     auto generationTime = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime);

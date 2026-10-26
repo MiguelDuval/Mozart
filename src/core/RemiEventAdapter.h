@@ -2,7 +2,9 @@
 
 #include "GenerationTypes.h"
 #include "RemiDecoderConfig.h"
+#include "BpeTokenizer.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 #include <string>
@@ -82,41 +84,7 @@ private:
     std::unordered_map<std::string, std::uint32_t> nameToId_;
 };
 
-//----------------------------------------------------------------------
-// BpeTokenizer - BPE tokenizer for REMI tokens
-//----------------------------------------------------------------------
-
-struct BpeTokenDecodeResult {
-    std::vector<std::string> tokenNames;
-    std::size_t droppedTokenIds = 0;
-    std::vector<std::string> warnings;
-};
-
-class BpeTokenizer {
-public:
-    static std::optional<BpeTokenizer> loadFromJson(const std::string& jsonPath);
-    // Returns one base token only; merged BPE IDs expand to multiple tokens via decodeTokens().
-    [[nodiscard]] std::optional<std::string> decodeToken(std::uint32_t tokenId) const noexcept;
-    // Expands every encoded BPE ID to its underlying REMI/base-token sequence.
-    [[nodiscard]] std::vector<std::string> decodeTokens(const std::vector<std::uint32_t>& tokenIds) const noexcept;
-    // Diagnostic form used by production decoding so invalid model IDs are never silent.
-    [[nodiscard]] BpeTokenDecodeResult decodeTokensWithReport(
-        const std::vector<std::uint32_t>& tokenIds) const noexcept;
-    [[nodiscard]] std::size_t vocabSize() const noexcept { return idToEncodedToken_.size(); }
-    [[nodiscard]] bool empty() const noexcept { return idToEncodedToken_.empty(); }
-    [[nodiscard]] std::uint32_t padToken() const noexcept { return padToken_; }
-    [[nodiscard]] std::uint32_t bosToken() const noexcept { return bosToken_; }
-    [[nodiscard]] std::uint32_t eosToken() const noexcept { return eosToken_; }
-    [[nodiscard]] std::uint32_t maskToken() const noexcept { return maskToken_; }
-
-private:
-    BpeTokenizer() = default;
-    // Model vocabulary strings consist of one or more UTF-8 base-token byte characters.
-    std::vector<std::string> idToEncodedToken_;
-    std::unordered_map<std::string, std::string> baseCharacterToTokenName_;
-    std::uint32_t padToken_ = 0; std::uint32_t bosToken_ = 1; std::uint32_t eosToken_ = 2; std::uint32_t maskToken_ = 3;
-    [[nodiscard]] std::optional<std::vector<std::string>> decodeTokenToNames(std::uint32_t tokenId) const noexcept;
-};
+// BPE tokenizer declarations are kept in the dedicated BpeTokenizer.h header.
 
 //----------------------------------------------------------------------
 // RemiEventAdapter - converts REMI tokens/events to PatternProposal
@@ -141,7 +109,12 @@ private:
     RemiDecoderConfig config_;
     std::shared_ptr<BpeTokenizer> tokenizer_;
     struct DecodeState {
-        std::uint32_t currentTick = 0; std::uint32_t currentBar = 0; std::uint8_t currentTrack = 0; std::uint8_t currentVelocity = 64; std::uint8_t currentProgram = 0; double currentTempo = 120.0; std::uint8_t timeSigNumerator = 4; std::uint8_t timeSigDenominator = 4; bool hasTempo = false; bool hasTimeSignature = false; std::vector<PatternEvent> events; std::vector<std::string> warnings; std::size_t droppedTokens = 0;
+        struct ActiveNote {
+            std::uint8_t pitch = 0;
+            std::uint8_t track = 0;
+            std::size_t eventIndex = 0;
+        };
+        std::uint32_t currentTick = 0; std::uint32_t currentBar = 0; std::uint8_t currentTrack = 0; std::uint8_t currentVelocity = 64; std::uint8_t currentProgram = 0; double currentTempo = 120.0; std::uint8_t timeSigNumerator = 4; std::uint8_t timeSigDenominator = 4; bool hasTempo = false; bool hasTimeSignature = false; std::vector<PatternEvent> events; std::vector<ActiveNote> activeNotes; std::vector<std::string> warnings; std::size_t droppedTokens = 0;
         // Длительность, полученная из токена Duration_ (формат beats.subdivision.resolution).
         // Применяется к следующей ноте, если нет предшествующей ноты, к которой можно
         // прикрепить длительность (например, когда Duration_ идёт перед NoteOn).
