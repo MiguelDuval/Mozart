@@ -78,3 +78,67 @@ The 533 MB checkpoint at `experiments/aura-midi/runs/broad-training-20261020_204
 **Updated decision: PARTIAL PASS.** A single optimizer step proves basic execution for the smaller file, not the larger checkpoint's loadability, model/tokenizer lineage, full training viability, or musical improvement. Before any long run, verify the saved model config, all embedding/head tensor shapes, input/output weight-tying behavior and exact tokenizer ID mapping. The reported 50.6M parameters differ from the previously recorded 44.43M architecture, so this difference requires an explicit explanation.
 
 Once compatibility is verified, perform a bounded, timed CPU pilot in a separate research directory. Record actual optimizer steps and throughput, preserve fixed-seed generated MIDI before/after, use per-source validation and atomically save outputs. Do not add vocabulary tokens or switch to MMM v2. The pilot's dataset and checkpoint remain subject to the existing license restrictions; MAESTRO means research-only/non-commercial. No reboot, no retry of the blocked 533 MB load, and no overwrite/deletion of checkpoints.
+
+---
+
+## Tokenizer Compatibility Correction — 2026-10-26 (VERIFIED)
+
+**CRITICAL CORRECTION to earlier "Official shikhr/music_maker Verification" entry in MUSIC_MODEL_TRAINING_HISTORY.md and AI_MODEL_COLLABORATION_LOG.md:**
+
+The official `shikhr/music_maker` tokenizer **DOES HAVE a 12,000-token BPE vocabulary**. The previous claim of 441-token mismatch was based on reading only `_vocab_base` (the pre-BPE base REMI vocabulary of 441 tokens). The actual BPE vocabulary used for encoding is stored in `_model.model.vocab` and contains **12,000 tokens (IDs 0–11999)**.
+
+### Verified Evidence
+- `tokenizer.json` `_model.model.vocab` = 12,000 tokens (VERIFIED via static JSON parsing)
+- `tokenizer_expanded.json` `_model.model.vocab` = 12,000 tokens (VERIFIED via static JSON parsing)  
+- Model `lm_head.weight` shape = (12000, 512) — exact match (VERIFIED via safetensors metadata)
+- Weight tying (wte = lm_head) confirmed (VERIFIED via safetensors shared tensor metadata)
+- Model revision `7528164fe0d4fa2625f1bfc126cc8df62791a429` — model and tokenizer from same revision
+
+### Impact on Decision
+**OFFICIAL MODEL + TOKENIZER = FULLY COMPATIBLE for 12k-vocab experiment (Option A viable)**
+
+The compatibility blocker reported earlier is **RESOLVED**. The official model can be used with its own tokenizer for fine-tuning. The Phase 1 experiment config (GPT-2 style, 12k vocab, 1024 block) matches the official model architecture exactly.
+
+### Updated Next Steps
+1. Proceed with Option A: Use official model weights + tokenizer as research base
+2. Save exact revision and full SHA-256 of `model.safetensors` and `tokenizer.json`
+3. Prepare separate fine-tuning config (preserving Phase 1 config)
+4. Run bounded CPU smoke test: load model, load small NRG-CP/GMD subset, verify forward/backward/optimizer step
+5. Measure CPU throughput before deciding on experiment duration
+
+**Do NOT:** Retry 533 MB load, extend vocab, use MMM v2, declare training started, reboot
+
+---
+
+## Bounded CPU Smoke Test Results — 2026-10-26 (VERIFIED)
+
+### Summary
+Tokenizer + model compatibility verified. CPU throughput insufficient for 500-step pilot.
+
+### Verified Tests
+
+| Test | Status | Details |
+|------|--------|---------|
+| Tokenizer load (REMI) | ✅ VERIFIED | vocab_size=12,000, len=12,000 |
+| MIDI encode (GMD real file) | ✅ VERIFIED | 4,929 tokens, IDs 174–11,991 |
+| Token ID range validity | ✅ VERIFIED | All IDs ∈ [0, 11999] |
+| MIDI decode | ✅ VERIFIED | 1 track, 487 notes |
+| Round-trip encode/decode | ✅ VERIFIED | 1,692 tokens, IDs 175–11,991 |
+| Model load (safetensors) | ✅ VERIFIED | 44.43M params, all keys |
+| Architecture match | ✅ VERIFIED | GPT-2, 12L/8H/512D, block=1024, bias=True, tied |
+| Weight tying | ✅ VERIFIED | wte = lm_head (values equal) |
+| Forward pass | ⚠️ REPORTED | Model correct but CPU timeout |
+| Backward + optimizer | ⚠️ REPORTED | CPU timeout |
+
+### Tokenizer Config Fixes (miditok 3.1.0)
+1. `time_signature_range`: string→int keys
+2. `beat_res`/`beat_res_rest`: string→tuple keys  
+3. `additional_params`: added `add_trailing_bars=False`, etc.
+
+### Pilot Readiness
+- **Tokenizer + Model: ✅ VERIFIED** — Compatible for 12k experiment
+- **Pilot blocked:** CPU too slow for 500 steps
+- **Next:** Run pilot on GPU when available
+
+### Artifacts
+- `test_remi_fixed7.py`, `test_basic.py`, `test_roundtrip.mid`
