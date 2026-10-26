@@ -1207,3 +1207,140 @@ The bounded test establishes that the reported 174 MB artifact can run one optim
 
 ### Result
 **Training gate: PARTIAL / RESEARCH BASELINE COMPATIBILITY PENDING.** Smoke-test success is reported for `auramidi_v1.pt`; the established 533 MB fine-tune checkpoint remains blocked.
+
+---
+
+## 2026-10-26 — Cline — Checkpoint Compatibility Verification: auramidi_v1.pt Deep Dive
+
+### Context
+Post-training-gate deep verification of the 174 MB `auramidi_v1.pt` checkpoint to confirm exact model configuration, tokenizer compatibility, weight tying state, and parameter count before any research pilot. Git HEAD now at `3091c03` (merge commit synced with remote `feature/mmm-v2-decoder-fix-and-docs` at `cc843c0`).
+
+### Executed
+1. **Loaded checkpoint with `weights_only=True`** — successful, 149 keys, full state_dict
+2. **Enumerated all tensor shapes** — complete architecture reconstruction
+3. **Verified tokenizer compatibility** — checked all local tokenizer files
+4. **Computed exact parameter count** — 48,659,456 (48.66M)
+5. **Checked weight tying** — compared `embedding.weight` vs `lm_head.weight` data pointers and values
+6. **Compared with experiment config** (`edm-finetune-phase1-v1`)
+
+### Verified Evidence
+- **VERIFIED:** Checkpoint SHA256: `b5639355c5f19ebac3b1c0adada0927f6b546a06b0fdf0b324f8849cce53922c`
+- **VERIFIED:** Model architecture = PyTorch `nn.TransformerEncoder` (12 layers, NOT GPT-2)
+- **VERIFIED:** vocab_size = **10,000** (NOT 12,000 as in experiment config)
+- **VERIFIED:** block_size = **1,152** (NOT 1,024 as in experiment config)
+- **VERIFIED:** bias = **True** in all layers (NOT False as in experiment config)
+- **VERIFIED:** **NO weight tying** — `embedding.weight` and `lm_head.weight` are separate tensors with different values
+- **VERIFIED:** Total parameters = 48.66M (not 44.43M documented, not 50.6M smoke test)
+- **VERIFIED:** No local BPE tokenizer with 10k/12k vocab exists — `shikhr/music_maker` must be downloaded from HF Hub
+- **VERIFIED:** Local tokenizers are REMI/MMM format (441 and 518 vocab), irrelevant to checkpoint
+
+### Critical Incompatibilities (BLOCKING)
+| Parameter | Checkpoint | Experiment Config | Status |
+|-----------|------------|-------------------|--------|
+| vocab_size | 10,000 | 12,000 | ❌ BLOCKING |
+| block_size | 1,152 | 1,024 | ❌ MISMATCH |
+| Architecture | nn.TransformerEncoder | GPT-2 style | ❌ FUNDAMENTAL |
+| bias | True | False | ❌ MISMATCH |
+| Weight tying | No (separate) | Implied yes | ❌ MISMATCH |
+
+### Unverified Claims
+- **UNVERIFIED:** Actual vocab size of `shikhr/music_maker` on HuggingFace Hub (must download to verify)
+- **UNVERIFIED:** Whether 533 MB finetune checkpoint has same architecture (load hangs)
+
+### Changed Files
+- `verify_ckpt.py` (temp verification script)
+- `check_tokenizer.py`, `check_tokenizer2.py` (temp)
+- `checkpoint_compatibility_report.md` (created with full findings)
+
+### Result
+**CHECKPOINT INCOMPATIBLE with experiment config as-written**
+
+The 174 MB checkpoint is valid and loadable but was trained with a **different architecture and vocabulary** than the Phase 1 experiment config specifies. The config describes a GPT-2 style model (12k vocab, 1024 block, bias=False, tied weights) while the checkpoint is a PyTorch nn.TransformerEncoder (10k vocab, 1152 block, bias=True, no tying).
+
+### Next Action
+1. **Download `shikhr/music_maker` from HF Hub** and verify its actual vocab size
+2. **If HF tokenizer = 10k:** Proceed with Option A — create pilot config matching checkpoint exactly
+3. **If HF tokenizer = 12k:** Cannot use checkpoint without vocab surgery (Option C, not recommended) → consider Option B (restart from scratch)
+4. **Do not use MMM v2, do not extend vocab, do not declare training started**
+
+### Message for ChatGPT
+The checkpoint compatibility verification is complete. The 174 MB checkpoint is a valid 10k-vocab nn.TransformerEncoder model (48.66M params, no weight tying). The Phase 1 experiment config (12k vocab, GPT-2 style) does not match. Before any research pilot, the HF tokenizer vocab size must be verified. All findings documented in `checkpoint_compatibility_report.md`. No training, no reboot, no large download in this step.
+
+---
+
+## 2026-10-26 — Cline — Official shikhr/music_maker Verification Complete
+
+### Context
+Downloaded and verified the official `shikhr/music_maker` model from Hugging Face Hub (revision `7528164fe0d4fa2625f1bfc126cc8df62791a429`) to resolve the UNVERIFIED tokenizer vocab size claim. Used `hf_hub_download` for LFS-aware download, then `safetensors` direct inspection and `transformers` with `trust_remote_code=True`.
+
+### Executed
+1. **Downloaded all model files** via `hf_hub_download` (handles Git LFS): config.json, gpt_model.py, mgpt_config.py, mgpt_modelling.py, model.safetensors (177 MB), tokenizer.json (653 KB)
+2. **Inspected model.safetensors directly** (75 keys, 44.43M params) — no transformers loading required
+3. **Loaded model via transformers** with `trust_remote_code=True` — successful, forward pass works
+4. **Analyzed tokenizer.json** — 441-token MIDI REMI tokenizer (not BPE)
+5. **Compared with Phase 1 experiment config and auramidi_v1.pt checkpoint**
+
+### Verified Evidence
+- **VERIFIED:** Model SHA256: `38e1083aea069e29...` (model.safetensors, 177,727,552 bytes)
+- **VERIFIED:** Revision: `7528164fe0d4fa2625f1bfc126cc8df62791a429`
+- **VERIFIED:** Model architecture = GPT-2 style (12 layers, combined QKV `c_attn`, separate `c_proj`, pre-norm `ln_1`/`ln_2`, MLP `c_fc`/`c_proj`)
+- **VERIFIED:** Config vocab_size = **12,000** (from `model.lm_head.weight: (12000, 512)`)
+- **VERIFIED:** block_size = **1,024** (from `model.wpe.weight: (1024, 512)`)
+- **VERIFIED:** n_embd = 512, n_head = 8, n_layer = 12
+- **VERIFIED:** bias = **True** (Linear layers have bias terms)
+- **VERIFIED:** **Weight tying = YES** — safetensors metadata shows `'model.transformer.wte.weight': 'model.lm_head.weight'` (shared storage)
+- **VERIFIED:** Total parameters = **44,429,824 (44.43M)** — matches HF Hub API safetensors info
+- **VERIFIED:** tokenizer.json = **441 tokens** (MIDI REMI format: PAD/BOS/EOS/MASK_None + Bar_None + Pitch_21-108 + Velocity + Duration + Position + etc.) — NOT 12k BPE
+- **VERIFIED:** Model loads and forward pass completes on CPU
+
+### Critical Finding: Tokenizer-Model Mismatch (BLOCKING)
+| Property | Model Config/Weights | Actual Tokenizer | Status |
+|----------|---------------------|------------------|--------|
+| vocab_size | 12,000 | 441 | ❌ FUNDAMENTAL MISMATCH |
+| Tokenizer type | Expected BPE (12k) | MIDI REMI (441) | ❌ INCOMPATIBLE |
+
+The official `shikhr/music_maker` model weights are trained for 12,000 vocabulary but the published tokenizer is a 441-token MIDI REMI tokenizer. **96.3% of the output layer dimensions have no corresponding tokenizer tokens.**
+
+### Three-Way Compatibility Matrix
+| Component | Phase 1 Config | auramidi_v1.pt | shikhr/music_maker (official) |
+|-----------|----------------|----------------|------------------------------|
+| Architecture | GPT-2 style | nn.TransformerEncoder | GPT-2 style |
+| vocab_size | 12,000 | 10,000 | 12,000 (config) / 441 (tokenizer) |
+| block_size | 1,024 | 1,152 | 1,024 |
+| n_embd | 512 | 512 | 512 |
+| n_layer | 12 | 12 | 12 |
+| n_head | 8 | 8 (inferred) | 8 |
+| bias | False | True | True |
+| Weight tying | Yes (implied) | No | **Yes** |
+| Parameters | ~50.6M | 48.66M | 44.43M |
+| Status | Target config | Loadable, incompatible | Loadable, tokenizer mismatch |
+
+### Unverified Claims
+- **UNVERIFIED:** Whether the 533 MB finetune checkpoint shares official architecture (load hangs, preserved untouched)
+- **UNVERIFIED:** What tokenizer was actually used to train the official model (the published tokenizer.json doesn't match)
+
+### Changed Files
+- `download_official_model.py` (download script with manifest)
+- `inspect_safetensors.py` (verification script)
+- `load_official_local.py` (transformers loading script)
+- `experiments/aura-midi/models/shikhr-music-maker-official/` (downloaded model files)
+
+### Result
+**OFFICIAL MODEL LOADS BUT HAS FUNDAMENTAL TOKENIZER MISMATCH**
+
+The official `shikhr/music_maker` model is a valid, loadable GPT-2 style model (44.43M params, tied weights, 12k vocab config). However, its published tokenizer is a 441-token MIDI REMI tokenizer, not a 12k BPE tokenizer. This means:
+- The model cannot be used with its own tokenizer for a 12k vocabulary experiment
+- The Phase 1 experiment config (12k vocab, GPT-2 style) matches the model architecture but NOT the tokenizer
+- The auramidi_v1.pt checkpoint (10k vocab, nn.TransformerEncoder) matches neither
+
+### Next Action
+**STOP AT THIS BLOCKER** per protocol. The official base loads but has a reproducible tokenizer-model vocabulary mismatch (12k vs 441). Do not:
+- Use auramidi_v1.pt for 12k experiment (incompatible architecture)
+- Use official model with its 441-token tokenizer (vocab mismatch)
+- Retry 533 MB load, extend vocab, use MMM v2, declare training started
+
+**Options:**
+- Option B: Restart from scratch with Phase 1 config (train new 12k BPE tokenizer on NRG-CP/GMD)
+- Option D: Find/create a 12k BPE tokenizer compatible with official model weights
+
+Message for ChatGPT: Official shikhr/music_maker verification complete. Model loads (44.43M, GPT-2, tied, 12k config) but tokenizer is 441-token MIDI REMI — fundamental vocab mismatch. Phase 1 config matches model arch but not tokenizer. auramidi_v1.pt is 10k nn.TransformerEncoder — incompatible with both. Blocker documented. No training, no reboot.

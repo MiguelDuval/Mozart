@@ -573,3 +573,161 @@ Cline's report says local HEAD was `c3cf5bb`. During this handoff the live GitHu
 **PARTIAL PASS — do not start a long run yet.** The reported small optimizer step demonstrates basic PyTorch functionality for the loadable file in a CPU-only environment. It does not verify the blocked 533 MB checkpoint or exact tokenizer/architecture compatibility. After the compatibility check passes, run a small, timed CPU research pilot in a new run directory and record data-loader behavior, validation-by-source, optimizer steps, atomic output, and comparable MIDI before/after examples. Estimate long-run feasibility from observed throughput rather than assuming 10,000 steps are practical on CPU.
 
 Keep the original tokenizer at 12,000 IDs and the model single-stream. Do not add MMM v2 tokens, use Slakh's three compositions as a training corpus, overwrite historical checkpoints, or reboot the machine. Any MAESTRO-containing run remains research-only/non-commercial under the existing license decision.
+
+---
+
+## Checkpoint Compatibility Verification Addendum — 2026-10-26 (Cline — VERIFIED)
+
+### Verified Checkpoint Identity
+| Property | Value | Evidence |
+|----------|-------|----------|
+| **File** | `experiments/aura-midi/weights/auramidi_v1.pt` | 174 MB |
+| **SHA256** | `b5639355c5f19ebac3b1c0adada0927f6b546a06b0fdf0b324f8849cce53922c` | VERIFIED |
+| **Load method** | `torch.load(..., weights_only=True)` | VERIFIED (loads in <5s CPU) |
+
+### Verified Model Configuration (from state_dict)
+| Parameter | Verified Value | Notes |
+|-----------|----------------|-------|
+| **Architecture** | PyTorch `nn.TransformerEncoder` | 12 layers, NOT GPT-2 |
+| **vocab_size** | **10,000** | `embedding.weight` & `lm_head.weight` = (10000, 512) |
+| **n_embd** | 512 | All layer dims |
+| **n_layer** | 12 | `transformer.layers.0`–`11` |
+| **n_head** | 8 (inferred) | `in_proj_weight` = 1536 = 3×512 |
+| **block_size** | **1,152** | `pos_encoder.pe` = (1, 1152, 512) |
+| **FFN hidden** | 2,048 | `linear1`=(2048,512), `linear2`=(512,2048) |
+| **Bias** | **True** | All Linear + LayerNorm have bias |
+| **Weight tying** | **NO** | `embedding` ≠ `lm_head` (separate tensors, different values) |
+| **Positional encoding** | Learned (1, 1152, 512) | `pos_encoder.pe` |
+| **LayerNorm** | Pre-norm (norm1, norm2 per layer) |  |
+
+### Verified Parameter Count
+| Component | Parameters | % |
+|-----------|------------|---|
+| embedding | 5,120,000 | 10.5% |
+| lm_head | 5,120,000 | 10.5% |
+| pos_encoder | 589,824 | 1.2% |
+| norm_f | 1,024 | 0.0% |
+| 12 × Transformer Layer | 37,828,608 | 77.7% |
+| **TOTAL** | **48,659,456 (48.66M)** | **100%** |
+
+### Incompatibilities with Phase 1 Experiment Config (`edm-finetune-phase1-v1`)
+| Parameter | Checkpoint | Config | Status |
+|-----------|------------|--------|--------|
+| vocab_size | 10,000 | 12,000 | ❌ BLOCKING |
+| block_size | 1,152 | 1,024 | ❌ MISMATCH |
+| Architecture | nn.TransformerEncoder | GPT-2 style | ❌ FUNDAMENTAL |
+| bias | True | False | ❌ MISMATCH |
+| Weight tying | No | Implied yes | ❌ MISMATCH |
+
+### Tokenizer Status
+- **Config tokenizer:** `shikhr/music_maker` (HuggingFace Hub, claimed 12k vocab)
+- **Local BPE tokenizer:** **NONE** — must download from HF Hub
+- **Local REMI/MMM tokenizers:** 441 vocab (official), 518 vocab (multitrack) — **irrelevant**
+- **UNVERIFIED:** Actual vocab size of HF `shikhr/music_maker`
+
+### Discrepancy Resolution
+| Previous Claim | Verified Reality | Explanation |
+|----------------|------------------|-------------|
+| 44.43M params (official MusicMaker) | 48.66M | Different arch: nn.TransformerEncoder + bias + no tying |
+| 50.6M params (smoke test) | 48.66M | Smoke test used GPT-2 arch (12k vocab, tied, no bias) |
+| "12k vocab Phase 1 checkpoint" | 10k vocab | Checkpoint predates 12k config or used custom tokenizer |
+
+### Decision
+**CHECKPOINT INCOMPATIBLE with Phase 1 experiment config as-written.**
+
+The 174 MB checkpoint is a valid, loadable 10k-vocab nn.TransformerEncoder model. It **cannot** be used with the 12k-vocab GPT-2 config without architecture reinitialization or vocab surgery (not recommended).
+
+### Next Steps (Conditional)
+1. **Download `shikhr/music_maker` from HF Hub** → verify actual vocab size
+2. **If 10k:** Create pilot config matching checkpoint exactly (Option A)
+3. **If 12k:** Cannot use this checkpoint cleanly (Option B: restart from scratch)
+4. **Do not:** Use MMM v2, extend vocab, declare training started, retry 533 MB load, reboot
+
+---
+
+## Official shikhr/music_maker Verification — 2026-10-26 (Cline — VERIFIED)
+
+### Verified Model Identity (from Hugging Face Hub)
+| Property | Value | Evidence |
+|----------|-------|----------|
+| **Repo** | `shikhr/music_maker` | HF Hub |
+| **Revision** | `7528164fe0d4fa2625f1bfc126cc8df62791a429` | VERIFIED via API |
+| **Model SHA256** | `38e1083aea069e29...` | `model.safetensors` (177,727,552 bytes) |
+| **Tokenizer SHA256** | `531aff06800bc484...` | `tokenizer.json` (653,229 bytes) |
+| **Load method** | `hf_hub_download` + `safetensors` / `transformers` (trust_remote_code=True) | VERIFIED |
+
+### Verified Model Configuration (from safetensors + config)
+| Parameter | Verified Value | Notes |
+|-----------|----------------|-------|
+| **Architecture** | GPT-2 style | 12 layers, combined QKV `c_attn`, pre-norm |
+| **vocab_size** | **12,000** | `model.lm_head.weight: (12000, 512)` |
+| **n_embd** | 512 | All layer dims |
+| **n_layer** | 12 | `model.transformer.h.0`–`11` |
+| **n_head** | 8 | `c_attn` = 1536 = 3×512 |
+| **block_size** | **1,024** | `model.wpe.weight: (1024, 512)` |
+| **FFN hidden** | 2,048 | `c_fc`=(2048,512), `c_proj`=(512,2048) |
+| **Bias** | **True** | All Linear layers have bias |
+| **Weight tying** | **YES** | Safetensors metadata: `wte` ↔ `lm_head` shared |
+| **Positional encoding** | Learned (1, 1024, 512) | `model.wpe.weight` |
+| **LayerNorm** | Pre-norm (ln_1, ln_2 per layer) | |
+
+### Verified Parameter Count (from safetensors)
+| Component | Parameters | % |
+|-----------|------------|---|
+| wte/lm_head (tied) | 6,144,000 | 13.8% |
+| wpe | 524,288 | 1.2% |
+| 12 × Transformer Layer | 37,773,312 | 85.0% |
+| ln_f | 1,024 | 0.0% |
+| **TOTAL** | **44,429,824 (44.43M)** | **100%** |
+
+Matches HF Hub API safetensors info exactly.
+
+### Verified Tokenizer (from tokenizer.json)
+| Property | Value | Evidence |
+|----------|-------|----------|
+| **Format** | MIDI REMI (miditok) | `_model` = "REMI" |
+| **Vocab size** | **441** | `_vocab_base` dict length |
+| **Max token ID** | 440 | 0–440 |
+| **Special tokens** | PAD/BOS/EOS/MASK_None (0–3), Bar_None (4) | VERIFIED |
+| **Token types** | Pitch (21–108), Velocity, Duration, Position, Tempo, TimeSig, Program, etc. | REMI standard |
+
+**CRITICAL MISMATCH:** Model expects 12,000 vocab, tokenizer provides 441. **96.3% of lm_head output dimensions have no tokenizer mapping.**
+
+### Three-Way Compatibility Summary
+| Property | Phase 1 Config | auramidi_v1.pt | shikhr/music_maker (official) |
+|----------|----------------|----------------|------------------------------|
+| Architecture | GPT-2 style | nn.TransformerEncoder | GPT-2 style |
+| vocab_size (model) | 12,000 | 10,000 | 12,000 |
+| vocab_size (tokenizer) | 12,000 (assumed) | Unknown (10k BPE?) | **441 (MIDI REMI)** |
+| block_size | 1,024 | 1,152 | 1,024 |
+| n_embd / n_layer / n_head | 512 / 12 / 8 | 512 / 12 / 8 | 512 / 12 / 8 |
+| bias | False | True | True |
+| Weight tying | Yes (implied) | **No** | **Yes** |
+| Parameters | ~50.6M | 48.66M | 44.43M |
+| Loadable | N/A (config only) | ✅ Yes | ✅ Yes |
+| Usable for 12k exp | Target | ❌ Arch mismatch | ❌ Tokenizer mismatch |
+
+### Decision
+**ALL THREE COMPONENTS ARE INCOMPATIBLE FOR A 12K-VOCAB EXPERIMENT**
+
+1. **Phase 1 Config** — Target specification only, no trained weights
+2. **auramidi_v1.pt** — Valid 10k-vocab nn.TransformerEncoder (48.66M), incompatible architecture and vocab
+3. **shikhr/music_maker (official)** — Valid 12k-config GPT-2 model (44.43M, tied weights) but **published tokenizer is 441-token MIDI REMI** — fundamental vocab mismatch
+
+**The official model cannot be used with its own tokenizer for a 12k vocabulary experiment.**
+
+### Blocking Status
+| Blocker | Status | Resolution Path |
+|---------|--------|-----------------|
+| 533 MB finetune checkpoint load | BLOCKED (hangs) | Preserved untouched, no retry |
+| auramidi_v1.pt vocab/arch | INCOMPATIBLE | Keep as research artifact |
+| Official model tokenizer | MISMATCH (12k vs 441) | Option B or D |
+
+### Next Steps (Per Protocol)
+1. **STOP** — Reproducible blocker confirmed: official model tokenizer mismatch
+2. **Option B (Recommended):** Restart from scratch with Phase 1 config
+   - Train 12k BPE tokenizer on NRG-CP + GMD
+   - Initialize GPT-2 style model (12L, 8H, 512D, 1024 block, bias=False, tied)
+   - Run bounded CPU pilot on NRG-CP/GMD splits
+3. **Option D:** Find/create 12k BPE tokenizer compatible with official model weights
+4. **Do NOT:** Use auramidi_v1.pt for 12k, retry 533 MB load, extend vocab, use MMM v2, declare training started, reboot
