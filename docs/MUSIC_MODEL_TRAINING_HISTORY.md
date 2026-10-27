@@ -1016,3 +1016,45 @@ Large checkpoint files are preserved locally and MUST NOT be committed to Git.
 
 ### J.7 Recommendation
 The conservative step-25 update passes all generation-quality gates and recovers GMD drum generation without regressing NRG-CP. Steps 50/75/100 checkpoints are saved; evaluate each against the same gates. If any gate is violated, preserve that checkpoint and stop extending the run. Do **not** extend training purely because validation loss decreases. Any longer proposal must address catastrophic forgetting, per-source evaluation, rhythmic diversity, and broader electronic-genre coverage with authoritative, provenance-labeled data (no fabricated Intro/Verse/Chorus labels).
+
+
+## Phase K. Sequential checkpoint gate evaluation (2026-10-27) — COMPLETE
+
+### K.1 Protocol (VERIFIED)
+Evaluate saved checkpoints in order (step 50 → 75 → 100), stopping at the first quality-gate failure. Gates: all MIDI parse; ≤1 of 6 prompts per source with ≤1 note; mean notes ≥70% of pretrained baseline per source; mean duration ≥70% of pretrained baseline per source. Identical decoding (max_new=100, temp=1.0, top_k=40, seed=20261027) and the matched 12-prompt validation set (6 NRG-CP + 6 GMD) used for every checkpoint.
+
+### K.2 Step 50 evaluation (VERIFIED — FAIL)
+Checkpoint: `experiments/aura-midi/runs/antiforgetting-20261028-20261027_191132/checkpoints/checkpoint_step_50.pt`
+Report: `experiments/aura-midi/eval/runs/eval-antiforget-step50/comparison_report.json`
+Metrics: `experiments/aura-midi/eval/runs/eval-antiforget-step50/metrics_from_midi.json`
+
+| Source | Metric | Pretrained baseline | Step 50 | 70% gate | Pass? |
+|--------|--------|--------------------|---------|----------|-------|
+| NRG-CP | mean notes | 103.667 | 104.167 | 72.567 | YES |
+| NRG-CP | mean duration (beats) | 27.271 | 27.375 | 19.090 | YES |
+| NRG-CP | prompts ≤1 note | 0 | 0 | ≤1 | YES |
+| GMD | mean notes | 54.500 | 41.167 | 38.150 | YES |
+| GMD | mean duration (beats) | 20.000 | 12.292 | 14.000 | **NO** |
+| GMD | prompts ≤1 note | 0 | 0 | ≤1 | YES |
+| All | MIDI files parse/reopen | yes | yes | yes | YES |
+
+**Result: step 50 FAILS** — GMD mean duration 12.292 beats (61.5% of pretrained 20.000) is below the 14.000 gate. All 12 MIDI files parse; 0 prompts ≤1 note in either source; NRG-CP passes all gates.
+
+### K.3 Step 50 vs step 25 regression (VERIFIED)
+| Metric | Step 25 | Step 50 | Change |
+|--------|---------|---------|--------|
+| NRG-CP mean notes | 101.667 | 104.167 | +2.5% |
+| NRG-CP mean duration (beats) | 28.271 | 27.375 | −3.2% |
+| GMD mean notes | 57.833 | 41.167 | −28.8% |
+| GMD mean duration (beats) | 16.188 | 12.292 | −24.1% |
+
+GMD regressed from step 25 to step 50 on both notes (−28.8%) and duration (−24.1%), causing the duration gate failure.
+
+### K.4 Sequential evaluation decision (PER RULES)
+- Step 50 FAILS → **STOP immediately**.
+- Steps 75 and 100 are **NOT evaluated** (per Phase K stop-at-first-failure rule).
+- Step 25 remains the **latest verified passing candidate**.
+- No further training is extended.
+
+### K.5 Conclusion
+The conservative step-25 update is the safest verified model state: it passes all generation-quality gates and substantially recovers GMD drum generation vs the degraded 500-step pilot (GMD ~2 notes, 5/6 drum prompts ≤1 note) while preserving NRG-CP. Step 50 introduces a GMD duration regression that violates the provisional gate. No longer training run is justified at this point.

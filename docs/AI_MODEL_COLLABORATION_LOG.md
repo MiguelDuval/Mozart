@@ -1650,3 +1650,50 @@ Per the recovery plan: diagnose the 500-step generation collapse, then run a bou
 
 ### Message for ChatGPT
 Phase J complete: collapse diagnosed (catastrophic forgetting, not termination/tokenizer), bounded 100-step anti-forgetting run from the original pretrained checkpoint completed safely, step 25 passes all quality gates and recovers GMD. Checkpoints saved for steps 50/75/100. Ready to commit task files only and verify CI.
+
+
+---
+
+## 2026-10-27 — Cline — Phase K: Sequential Checkpoint Gate Evaluation (VERIFIED — STOP AT STEP 50 FAILURE)
+
+### Context
+Per Phase K protocol: evaluate saved anti-forgetting checkpoints in order (step 50 → 75 → 100), stopping at the first quality-gate failure. Step 25 previously passed all gates. Gates: all MIDI parse; ≤1 of 6 prompts per source with ≤1 note; mean notes ≥70% of pretrained baseline per source; mean duration ≥70% of pretrained baseline per source. Identical decoding (max_new=100, temp=1.0, top_k=40, seed=20261027), matched 12-prompt validation set.
+
+### Executed
+1. **Checkpoint verification (VERIFIED):** All 6 checkpoints exist and intact in `experiments/aura-midi/runs/antiforgetting-20261028-20261027_191132/checkpoints/`:
+   - checkpoint_step_25.pt (533,259,258), checkpoint_step_50.pt (533,259,258), checkpoint_step_75.pt (533,259,258), checkpoint_step_100.pt (533,259,626), checkpoint_best.pt (533,258,346), checkpoint_latest.pt (533,258,954)
+   - Pretrained checkpoint SHA-256 `38e1083a…` matches official.
+2. **Step 50 generation (VERIFIED):** All 12 validation MIDI files generated via gen_checkpoint.py (modified to support --prompt-ids for reliable completion under process limits).
+3. **Step 50 metrics (VERIFIED):** metrics_from_midi.py computed per-prompt and per-source metrics. 12/12 files parse/reopen.
+
+### Verified Evidence — Step 50 results
+| Source | Metric | Pretrained | Step 50 | 70% Gate | Pass? |
+|--------|--------|-----------|---------|----------|-------|
+| NRG-CP | mean notes | 103.667 | 104.167 | 72.567 | YES |
+| NRG-CP | mean duration (beats) | 27.271 | 27.375 | 19.090 | YES |
+| NRG-CP | prompts ≤1 note | 0 | 0 | ≤1 | YES |
+| GMD | mean notes | 54.500 | 41.167 | 38.150 | YES |
+| GMD | mean duration (beats) | 20.000 | 12.292 | 14.000 | **NO** |
+| GMD | prompts ≤1 note | 0 | 0 | ≤1 | YES |
+| All | MIDI parse/reopen | yes | yes | yes | YES |
+
+Step 50 vs step 25 regression: GMD mean notes −28.8% (57.833→41.167), GMD mean duration −24.1% (16.188→12.292).
+
+### Changed Files
+- `gen_checkpoint.py` — added `--prompt-ids` option for reliable batch generation
+- `experiments/aura-midi/eval/runs/eval-antiforget-step50/comparison_report.json` (new) — step 50 machine-readable report
+- `experiments/aura-midi/eval/runs/eval-antiforget-step50/metrics_from_midi.json` (new) — step 50 metrics
+- `experiments/aura-midi/eval/runs/eval-antiforget-step50/midi/` (new) — 12 step-50 MIDI samples
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md` — appended Phase K
+- `docs/AI_MODEL_COLLABORATION_LOG.md` — this entry
+
+### Result
+**STEP 50 FAILS** — GMD mean duration 12.292 beats (61.5% of pretrained 20.000) below the 14.000 gate. Per Phase K stop-at-first-failure rule: steps 75 and 100 are NOT evaluated. Step 25 remains the latest verified passing candidate. No further training extended.
+
+### Next Action
+1. Commit + push Phase K files only (report, metrics, gen_checkpoint.py change, docs) — NO checkpoints, caches, or MIDI samples.
+2. Verify remote SHA and CI status.
+3. Step 25 is the recommended checkpoint for any future work; investigate GMD duration regression before further training.
+
+### Message for ChatGPT
+Phase K complete: step 50 FAILS on GMD duration gate (12.292 < 14.000 beats). Per stop-at-first-failure rule, steps 75/100 not evaluated. Step 25 is the latest verified passing candidate. Committing Phase K artifacts and pushing.

@@ -35,6 +35,8 @@ def main():
     ap.add_argument("--temperature", type=float, default=1.0)
     ap.add_argument("--top-k", type=int, default=40)
     ap.add_argument("--seed", type=int, default=20261027)
+    ap.add_argument("--prompt-ids", default=None,
+                    help="Comma-separated prompt IDs to generate (default: all 12)")
     args = ap.parse_args()
 
     midi_dir = Path(args.midi_dir)
@@ -44,6 +46,10 @@ def main():
     pid = {g["prompt_id"]: g["prompt_ids"] for g in rep["generations"]
            if g.get("model") == "pretrained" and g.get("prompt_id")}
 
+    if args.prompt_ids:
+        wanted = {s.strip() for s in args.prompt_ids.split(",")}
+        pid = {k: v for k, v in pid.items() if k in wanted}
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tok = MusicTokenizer.from_pretrained(str(MODEL_DIR))
     loaded = load_finetuned_model(Path(args.checkpoint), MODEL_DIR, device)
@@ -51,13 +57,8 @@ def main():
     model.eval()
 
     n = 0
-    for g in rep["generations"]:
-        if g.get("model") != "pretrained":
-            continue
-        prompt_id = g["prompt_id"]
-        prompt_ids = pid.get(prompt_id)
-        if not prompt_ids:
-            continue
+    for prompt_id in sorted(pid.keys()):
+        prompt_ids = pid[prompt_id]
         seed = args.seed + (hash(prompt_id) % (2 ** 31))
         ids, score, info = generate(model, tok, prompt_ids, device,
                                     args.max_new, args.temperature, args.top_k, seed)
