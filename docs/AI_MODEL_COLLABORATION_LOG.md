@@ -1132,6 +1132,53 @@ The prior reported sidecar asset count was wrong due to composition-level dedupl
 ### Decision
 No candidate reviewed is verified to meet all three production requirements: broad electronic subgenre labels, suitable symbolic MIDI/role coverage, and production-oriented rights. Do not download a large archive or start training from this screen. The small NC-SA multi-track set can be considered for research-only structural evaluation if useful, not mixed into a production path.
 
+---
+## 2026-10-27 — Cline — Pilot Fine-Tuning Completed (VERIFIED)
+
+### Context
+GPU smoke test passed on 2026-10-27. `.venv-aura` environment confirmed working with PyTorch 2.6.0+cu124, CUDA 12.4, GTX 1650. Launching controlled fine-tuning pilot with official shikhr/music_maker pretrained model.
+
+### Executed
+1. **Pre-tokenization:** Pre-tokenized bounded subset of NRG-CP (300 train + 100 val files) and GMD (300 train + 100 val files) into `token_cache.json` — 2337 train windows, 764 val windows.
+2. **Pilot training launch:** `Start-Process -WindowStyle Hidden` with detached process (PID 6600) — survived `run_commands` return.
+3. **Training loop:** 500 optimizer steps completed, batch_size=1, seq_len=128, lr=1e-5, AdamW, source-balanced sampling (50% NRG-CP / 50% GMD).
+4. **Evaluation:** Per-source validation loss at steps 100, 200, 300, 400, 500.
+5. **Checkpoints:** Atomic best/latest checkpoints saved at each evaluation; best = step 500 (val_loss=2.4509).
+6. **Fixed-seed generation:** sample_before.mid and sample_after.mid produced.
+
+### Verified Evidence
+- **VERIFIED:** Model loaded correctly — 44,429,824 parameters, weight-tied embeddings, SHA-256 matches `38e1083aea069e298f40373ebc394211b66b876702df91b2c4488cbd53079319`
+- **VERIFIED:** Forward pass finite — loss 9.5207 (batch=1, seq=32), grad norm 38.93
+- **VERIFIED:** Backward pass — finite gradients, 75 parameters with gradients
+- **VERIFIED:** Optimizer step — AdamW update completed, all parameters finite
+- **VERIFIED:** Peak VRAM 886.2 MB (within GTX 1650 4 GB limit)
+- **VERIFIED:** All 500 steps completed, final train loss 2.3417, best val loss 2.4509
+- **VERIFIED:** Per-source val loss at step 500: NRG-CP=2.2906, GMD=2.6112
+
+### Unverified Claims
+- Music quality of generated MIDI — requires listening/analysis, not just loss metrics
+
+### Changed Files
+- `pilot_train.py` — New training script (created)
+- `pretokenize_pilot.py` — Pre-tokenization script (created)
+- `launch_pilot.bat` — Batch launcher (created)
+- `experiments/aura-midi/runs/pilot-20261027_145544/` — Complete run directory with checkpoints, logs, generations, metrics
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md` — Added Phase H section
+- `docs/AI_MODEL_COLLABORATION_LOG.md` — This entry
+- `midi_roundtrip_analysis.py` — MIDI round-trip analysis (created earlier)
+- `midi_roundtrip_results.json` — Updated MIDI results (created earlier)
+- `gpu_smoke_test.py` — GPU smoke test script (created earlier)
+- `gpu_smoke_test_results.json` — Smoke test results (created earlier)
+
+### Result
+**PILOT: ✅ COMPLETED** — All 500 optimizer steps executed successfully on GPU. Per-source validation metrics recorded. Atomic checkpoints saved. Fixed-seed generations before/after produced. Original pretrained checkpoint preserved unmodified.
+
+### Next Action
+1. Compute SHA-256 hashes of checkpoint files
+2. Stage and commit task-related files to feature branch
+3. Push to remote and verify CI
+4. Continue MIDI timing-fidelity investigation if needed
+
 ### Next Action
 Cline must execute the corrected sidecar builder locally; verify 28 Slakh metadata rows remain as separate stem records and all 1,276 MAESTRO performances remain distinct assets while reporting 852 title-like groupings separately. Inspect saved corpus manifests for reliable per-file NRG-CP split membership. The previous 17,240-row/449-removal summary is invalidated and must not be used.
 

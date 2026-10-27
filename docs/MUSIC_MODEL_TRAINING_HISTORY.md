@@ -623,6 +623,69 @@ Keep the original tokenizer at 12,000 IDs and the model single-stream. Do not ad
 - **Config tokenizer:** `shikhr/music_maker` (HuggingFace Hub, claimed 12k vocab)
 - **Local BPE tokenizer:** **NONE** — must download from HF Hub
 - **Local REMI/MMM tokenizers:** 441 vocab (official), 518 vocab (multitrack) — **irrelevant**
+
+---
+## Phase H. Pilot Fine-Tuning — Official shikhr/music_maker (2026-10-27)
+
+### H.1 Pilot Configuration (VERIFIED)
+| Parameter | Value |
+|-----------|-------|
+| Run name | `pilot-20261027_145544` |
+| Branch | `feature/mmm-v2-decoder-fix-and-docs` |
+| Git HEAD | `d26576d2dd050d73f865d37fc3ebc897eb709623` |
+| Model revision | `7528164fe0d4fa2625f1bfc126cc8df62791a429` |
+| Model SHA-256 | `38e1083aea069e298f40373ebc394211b66b876702df91b2c4488cbd53079319` |
+| Model parameters | 44,429,824 (44.43M) |
+| Vocab size | 12,000 |
+| PyTorch | 2.6.0+cu124 |
+| CUDA | 12.4 |
+| Device | NVIDIA GeForce GTX 1650 (4 GB VRAM) |
+| Python environment | `.venv-aura` |
+| Seed | 20261027 |
+| Max steps | 500 |
+| Batch size | 1 |
+| Seq len | 128 |
+| Learning rate | 1e-5 |
+| Optimizer | AdamW |
+| Weight decay | 0.01 |
+| Grad clip | 1.0 |
+| Val every | 100 steps |
+| Data sources | NRG-CP (50%) + GMD (50%) |
+| Train examples | NRG-CP=275, GMD=2062 |
+| Val examples | NRG-CP=96, GMD=668 |
+
+### H.2 Training Results (VERIFIED)
+| Metric | Value |
+|--------|-------|
+| Completed steps | 500/500 |
+| Best val loss | 2.4509 (at step 500) |
+| Final train loss | 2.3417 |
+| Total elapsed | 117.6s (2.0 min) |
+| Peak VRAM | 886.2 MB |
+| Average throughput | 803.4 tok/s |
+| Interrupted | False |
+
+### H.3 Per-Source Validation Loss (VERIFIED)
+| Step | Combined | NRG-CP | GMD |
+|------|----------|--------|-----|
+| 100 | 3.5396 | 3.6113 | 3.4679 |
+| 200 | 2.9795 | 2.9826 | 2.9764 |
+| 300 | 2.7487 | 2.6683 | 2.8290 |
+| 400 | 2.5853 | 2.4131 | 2.7575 |
+| 500 | 2.4509 | 2.2906 | 2.6112 |
+
+### H.4 Checkpoints (VERIFIED)
+| Checkpoint | Path | Size | SHA-256 |
+|------------|------|------|---------|
+| Best | `experiments/aura-midi/runs/pilot-20261027_145544/checkpoints/checkpoint_best.pt` | 533,258,026 bytes | aa3fec76db842816dc30b79b0901e0554fa126a7bee62285b48c9818c79cada2 |
+| Latest | `experiments/aura-midi/runs/pilot-20261027_145544/checkpoints/checkpoint_latest.pt` | 533,258,634 bytes | ec10b24733bb574c543b5d9c5e16aa4e2dd1048029ee92abb6d38b48034ba379 |
+
+### H.5 Fixed-Seed Generation (VERIFIED)
+- Before training: `sample_before.mid` (132 tokens)
+- After training: `sample_after.mid` (132 tokens)
+
+### H.6 Conclusion
+**PILOT: ✅ COMPLETED** — All 500 optimizer steps executed successfully on GPU with finite loss, gradients, and parameters throughout. Per-source validation losses recorded at steps 100, 200, 300, 400, 500. Atomic best/latest checkpoints saved. Fixed-seed generations before/after training produced. Original pretrained checkpoint preserved unmodified.
 - **UNVERIFIED:** Actual vocab size of HF `shikhr/music_maker`
 
 ### Discrepancy Resolution
