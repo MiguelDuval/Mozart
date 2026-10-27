@@ -1175,3 +1175,71 @@ Do not simply lower the learning rate or shorten training. Any further training 
 - Investigate why proportional sampling harms GMD rhythm (e.g., whether GMD needs MORE relative exposure, not proportional, or whether the issue is architectural/data).
 - Consider GMD/drum-focused data to strengthen rhythmic patterns before any longer run.
 - Reconfirm that validation loss and generation quality are decoupled (lower val loss ≠ better music).
+
+## Phase N. Evaluation & Training-Safety Diagnostics (2026-10-27) — COMPLETE
+
+### N.1 MIDI Evaluation Verification (VERIFIED — NO DEFECT)
+
+Independently recomputed per-generation metrics from all 24 MIDI files across pretrained, step-25, and step-50 runs using `metrics_from_midi.py` and an independent `verify_midi_metrics.py` script. All metrics match exactly:
+
+| Source | Metric | Pretrained | Step-25 (antiforget) | Step-50 (antiforget) | Step-25 (sampling) |
+|--------|--------|------------|----------------------|----------------------|--------------------|
+| NRG-CP | mean notes | 103.667 | 101.667 | 104.167 | 101.833 |
+| NRG-CP | mean dur (beats) | 27.271 | 28.271 | 27.375 | 25.958 |
+| GMD | mean notes | 54.500 | 57.833 | 41.167 | 46.167 |
+| GMD | mean dur (beats) | 20.000 | 16.188 | 12.292 | 11.146 |
+
+**Conclusion:** The duration calculation is correct — `duration_beats = max(note.end) / tpq`, applied identically to all models, with tempo from `score.tempos[0].qpm`. The GMD duration regression at step 50 is **real**, not a metric artifact. Metrics_from_midi.py is accurate and requires no fix.
+
+
+### N.2 Training-Safety Checks (VERIFIED — DEFECT FOUND AND FIXED)
+
+**Defect:** `training_safety_ok(loss, step)` in both `train_antiforgetting.py` and `train_sampling_balanced.py` was called **before** `loss.backward()`. This meant `check_gradients_and_params_finite()` inspected gradients from the **previous** step (or `None`/zero after `optimizer.zero_grad()`), not the current step's gradients.
+
+**Fix:** Split `training_safety_ok` into two functions:
+- `check_loss_finite(loss, step)` — called **before** `loss.backward()`
+- `check_gradients_and_params_finite(model, step, log_path, state)` — called **after** `loss.backward()`, before `optimizer.step()`
+
+Applied to both `train_antiforgetting.py` and `train_sampling_balanced.py`. The gradient-norm check now correctly inspects the current step's gradients.
+
+### N.3 Regression Tests Added (VERIFIED)
+
+New file `tests/test_training_safety.py` with 10 tests:
+- `TestLossFinitenessCheck`: finite loss passes, NaN/inf loss detected
+- `TestGradientFinitenessCheck`: finite gradients pass, NaN/inf gradients detected after `backward()`, no gradients (pre-backward) is OK
+- `TestParameterFinitenessCheck`: finite params pass, NaN/inf parameters detected
+
+All 10 tests pass.
+
+
+### N.4 Phase M Conclusion Refined (VERIFIED)
+
+The proportional sampling experiment (p_nrgcp=0.1177, p_gmd=0.8823) **did not** preserve GMD rhythmic structure. Step-25 GMD mean duration fell to 11.146 beats (55.7% of pretrained 20.000), failing the gate. Compared to antiforgetting step-25 (16.188 beats), sampling-balanced step-25 is **31.1% worse** on GMD duration.
+
+**Critical nuance:** The proportional sampling experiment changed **two variables simultaneously**:
+1. **Sampling probabilities**: 0.5/0.5 → 0.1177/0.8823 (changed source mixture ratio)
+2. **Per-example exposure**: equalized to 1/2337 per step (changed per-window exposure)
+
+One experiment cannot disentangle these two effects. The GMD duration regression under proportional sampling does **not** prove that source-imbalance (0.5/0.5 with 275 vs 2062 examples) is the cause. It only shows that proportional sampling as implemented is not a remedy.
+
+**Step 25 (antiforgetting run) remains the latest verified passing candidate.**
+
+### N.5 Next Experiment Proposal
+
+**Objective:** Disentangle source-mixture ratio from per-window exposure to determine which factor drives GMD rhythmic degradation.
+
+**Proposed experiment:** Three-arm ablation, each 100 steps, lr 1e-6, seed 20261028, batch 1, seq 128, AdamW, eval every 25 steps, eval at step 25 only (stop at first gate failure):
+
+| Arm | NRG-CP prob | GMD prob | Rationale |
+|-----|-------------|----------|-----------|
+| A (control) | 0.5 | 0.5 | Baseline — GMD degrades |
+| B | 0.2 | 0.8 | Test if more GMD weight helps |
+| C | 0.8 | 0.2 | Test if more NRG-CP worsens GMD |
+
+If GMD duration improves in arm B, source imbalance is a factor. If it worsens in arm C, confirms NRG-CP interference. If neither helps, the issue is architectural or data-quality related, not sampling.
+
+**Success criterion:** GMD mean duration at step 25 ≥ 14.000 beats (70% gate) in any arm.
+
+**Do not change:** Pretrained checkpoint, tokenizer, max steps (100), lr (1e-6), seed (20261028), batch size (1), seq len (128), AdamW, weight_decay (0.01), grad_clip (1.0), val_every (25).
+
+

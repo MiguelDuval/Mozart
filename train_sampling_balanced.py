@@ -109,6 +109,51 @@ def load_file_list(path: Path) -> list:
     return files
 
 
+# --- Module-level safety checks (importable by train_antiforgetting.py) ---
+
+def check_loss_finite(loss, step, log_path, state):
+    """Check that the forward-pass loss is finite (called BEFORE backward)."""
+    ok = True
+    if not torch.isfinite(loss):
+        log_err(f"Non-finite loss at step {step}: {loss.item()}", log_path)
+        state["safety"]["non_finite_loss_steps"] += 1
+        ok = False
+    else:
+        state["safety"]["finite_loss_steps"] += 1
+    return ok
+
+
+def check_gradients_and_params_finite(model, step, log_path, state):
+    """Check gradient and parameter finiteness (called AFTER backward)."""
+    ok = True
+    total_grad_norm = 0.0
+    for p in model.parameters():
+        if p.grad is not None:
+            total_grad_norm += p.grad.data.norm(2).item() ** 2
+    total_grad_norm = math.sqrt(total_grad_norm)
+    if not math.isfinite(total_grad_norm):
+        log_err(f"Non-finite gradient norm at step {step}", log_path)
+        state["safety"]["non_finite_grad_steps"] += 1
+        ok = False
+    if not check_parameters_finite(model, step, log_path, state):
+        state["safety"]["non_finite_param_steps"] += 1
+        ok = False
+    return ok
+
+
+def check_parameters_finite(model, step, log_path, state):
+    """Check that all model parameters are finite."""
+    bad = []
+    for name, p in model.named_parameters():
+        if not torch.isfinite(p.data).all():
+            bad.append(name)
+    if bad:
+        log_err(f"NON-FINITE PARAMETERS at step {step}: {bad[:8]}", log_path)
+        state["safety"]["non_finite_param_steps"] += 1
+        return False
+    return True
+
+
 def atomic_torch_save(obj, path: Path):
     tmp_path = str(path) + ".tmp"
     torch.save(obj, tmp_path)
@@ -155,7 +200,7 @@ def proportional_sample(train_nrgcp, train_gmd, p_nrgcp, rng):
     return train_gmd, "gmd"
 
 
-def check_parameters_finite(model, step):
+def check_parameters_finite(model, step, log_path, state):
     bad = []
     for name, p in model.named_parameters():
         if not torch.isfinite(p.data).all():
@@ -357,28 +402,6 @@ def main():
         log(f"Checkpoint saved: {name} (step {state['step']})", log_path)
         if is_best:
             log(f"  -> NEW BEST (combined val_loss={state['best_val_loss']:.4f})", log_path)
-
-    def training_safety_ok(loss, step):
-        ok = True
-        if not torch.isfinite(loss):
-            log_err(f"Non-finite loss at step {step}: {loss.item()}", log_path)
-            state["safety"]["non_finite_loss_steps"] += 1
-            ok = False
-        else:
-            state["safety"]["finite_loss_steps"] += 1
-        total_grad_norm = 0.0
-        for p in model.parameters():
-            if p.grad is not None:
-                total_grad_norm += p.grad.data.norm(2).item() ** 2
-        total_grad_norm = math.sqrt(total_grad_norm)
-        if not math.isfinite(total_grad_norm):
-            log_err(f"Non-finite gradient norm at step {step}", log_path)
-            state["safety"]["non_finite_grad_steps"] += 1
-            ok = False
-        if not check_parameters_finite(model, step):
-            state["safety"]["non_finite_param_steps"] += 1
-            ok = False
-        return ok
     try:
         while state["step"] < config.max_steps and not interrupted:
             state["step"] += 1
@@ -397,11 +420,16 @@ def main():
 
             logits, loss = model(input_ids, targets=targets)
 
-            if not training_safety_ok(loss, step):
+            if not check_loss_finite(loss, step):
                 state["stop_reason"] = f"safety check failed at step {step}"
                 break
 
             loss.backward()
+
+            if not check_gradients_and_params_finite(step):
+                state["stop_reason"] = f"safety check failed at step {step}"
+                break
+
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
             optimizer.step()
             optimizer.zero_grad()

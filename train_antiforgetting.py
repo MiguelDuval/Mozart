@@ -330,7 +330,8 @@ def main():
         if is_best:
             log(f"  -> NEW BEST (combined val_loss={state['best_val_loss']:.4f})", log_path)
 
-    def training_safety_ok(loss, step):
+    def check_loss_finite(loss, step):
+        """Check that the forward-pass loss is finite (called BEFORE backward)."""
         ok = True
         if not torch.isfinite(loss):
             log_err(f"Non-finite loss at step {step}: {loss.item()}", log_path)
@@ -338,6 +339,11 @@ def main():
             ok = False
         else:
             state["safety"]["finite_loss_steps"] += 1
+        return ok
+
+    def check_gradients_and_params_finite(step):
+        """Check gradient and parameter finiteness (called AFTER backward)."""
+        ok = True
         total_grad_norm = 0.0
         for p in model.parameters():
             if p.grad is not None:
@@ -365,11 +371,16 @@ def main():
 
             logits, loss = model(input_ids, targets=targets)
 
-            if not training_safety_ok(loss, step):
+            if not check_loss_finite(loss, step):
                 state["stop_reason"] = f"safety check failed at step {step}"
                 break
 
             loss.backward()
+
+            if not check_gradients_and_params_finite(step):
+                state["stop_reason"] = f"safety check failed at step {step}"
+                break
+
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
             optimizer.step()
             optimizer.zero_grad()
