@@ -944,3 +944,75 @@ Do **not** simply run a longer fine-tune. The evidence points to catastrophic fo
 2. Address rhythmic diversity / premature termination (drum collapse is the most urgent measurable limitation).
 3. Broaden the data mixture — NRG-CP+GMD alone do not establish broad electronic-subgenre coverage.
 4. Define data mixture, objective, validation strategy, and measurable success criteria *before* any long run or dataset download. Measure generation quality (density, polyphony, pitch/velocity diversity, silence, premature termination), not validation loss alone.
+
+---
+
+
+## Phase J. Bounded anti-forgetting experiment (2026-10-27 to 2026-10-28) — VERIFIED
+
+### J.1 Diagnosis of the prior generation collapse (VERIFIED)
+| Finding | Classification | Evidence |
+|---------|---------------|----------|
+| `model.generate()` has **no internal EOS stop**; always emits exactly `max_new` tokens | VERIFIED | `gpt_model.py` `generate()` loops `max_new_tokens` unconditionally |
+| `eos_count == 0` for ALL 24 pretrained and fine-tuned generations | VERIFIED | diagnostic eval `eval-diagnostic-20261028`, `termination.eos_count` |
+| Collapse is **NOT premature termination** and **NOT a tokenizer bug** | VERIFIED | EOS_None/BOS_None/PAD_None all decode to silence, but fine-tuned model emits no EOS on collapsed GMD prompts; tokenizer round-trip note/token counts match on all 8 validation MIDIs |
+| Collapse **IS catastrophic forgetting / overfitting** on small NRG-CP+GMD set | VERIFIED | val loss improves (2.4509) while GMD generation falls to 0-1 note (5/6 drum prompts ≤1 note) |
+
+### J.2 Experiment configuration (VERIFIED)
+| Parameter | Value |
+|-----------|-------|
+| Run name | `antiforgetting-20261028-20261027_191132` |
+| Branch / Git HEAD | `feature/mmm-v2-decoder-fix-and-docs` / `618142ddff83fce3e477b2f7b3897adff201479d` |
+| Start checkpoint | ORIGINAL pretrained (`model.safetensors`, sha `38e1083a…`), NOT the degraded 500-step pilot |
+| Max steps | 100 |
+| Learning rate | 1e-6 (5x lower than pilot's 1e-5) |
+| Seed | 20261028 |
+| Batch size / seq len | 1 / 128 |
+| Optimizer | AdamW, weight_decay 0.01, grad_clip 1.0 |
+| Data | source-balanced NRG-CP/GMD (0.5/0.5), verified pilot token cache |
+| Eval | every 25 steps, per-source val loss |
+| Checkpoints | atomic, separate best/latest + per-step (25, 50, 75, 100) |
+| Safety | finite-loss, finite-gradient, parameter-validity every step |
+
+### J.3 Training results (VERIFIED)
+| Metric | Value |
+|--------|-------|
+| Completed steps | 100/100 |
+| Best val loss | 8.6952 (step 100) |
+| Final train loss | 8.3636 |
+| Elapsed | 69.3s |
+| Peak VRAM | 886.2 MB |
+| Safety violations | 0 (100/100 finite loss, grad, params) |
+| Stop reason | none (completed normally) |
+
+### J.4 Generation-quality evaluation at step 25 (VERIFIED)
+Matched 12-prompt validation set, identical decoding (max_new=100, temp=1.0, top_k=40, seed=20261027). All 24 MIDIs parse/reopen.
+
+Acceptance gates (70% of pretrained baseline; <=1 of 6 prompts per source with <=1 note; all MIDI parse):
+
+| Source | Metric | Pretrained baseline | Step 25 | 70% gate | Step 25 passes? |
+|--------|--------|--------------------|---------|----------|-----------------|
+| NRG-CP | mean notes | 103.667 | 101.667 | 72.567 | YES |
+| NRG-CP | mean duration (beats) | 27.271 | 28.271 | 19.090 | YES |
+| NRG-CP | prompts with <=1 note | 0 | 0 | <=1 | YES |
+| GMD | mean notes | 54.500 | 57.833 | 38.150 | YES |
+| GMD | mean duration (beats) | 20.000 | 16.188 | 14.000 | YES |
+| GMD | prompts with <=1 note | 0 | 0 | <=1 | YES |
+| All | MIDI files parse/reopen | yes | yes | yes | YES |
+
+**Result: step 25 PASSES all acceptance gates.** vs the degraded 500-step pilot (GMD ~2 notes, 5/6 drum prompts ≤1 note), step 25 substantially recovers GMD (57.8 notes, 0 prompts ≤1 note) while preserving NRG-CP (101.7 notes).
+
+### J.5 Checkpoints (VERIFIED, locally only — not committed)
+Run dir: `experiments/aura-midi/runs/antiforgetting-20261028-20261027_191132/`
+Saved: `checkpoint_step_25.pt`, `checkpoint_step_50.pt`, `checkpoint_step_75.pt`, `checkpoint_step_100.pt`, `checkpoint_latest.pt`, `checkpoint_best.pt`
+Large checkpoint files are preserved locally and MUST NOT be committed to Git.
+
+### J.6 Regression tests added (VERIFIED)
+`experiments/aura-midi/eval/tests/test_generation_termination.py` (5 tests):
+- EOS_None/BOS_None/PAD_None/MASK_None decode to silence (no notes/tracks)
+- `model.generate()` emits exactly `max_new_tokens` with no internal early stop
+- termination info schema (`eos_count`, `first_eos_position`, `eos_fraction`, …)
+- continuation note accounting non-negative and bounded by total notes
+
+### J.7 Recommendation
+The conservative step-25 update passes all generation-quality gates and recovers GMD drum generation without regressing NRG-CP. Steps 50/75/100 checkpoints are saved; evaluate each against the same gates. If any gate is violated, preserve that checkpoint and stop extending the run. Do **not** extend training purely because validation loss decreases. Any longer proposal must address catastrophic forgetting, per-source evaluation, rhythmic diversity, and broader electronic-genre coverage with authoritative, provenance-labeled data (no fabricated Intro/Verse/Chorus labels).

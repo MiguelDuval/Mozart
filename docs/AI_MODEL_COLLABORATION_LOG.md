@@ -1608,3 +1608,45 @@ Resume Mozart model development on branch `feature/mmm-v2-decoder-fix-and-docs` 
 
 ### Message for ChatGPT
 Baseline-vs-fine-tuned controlled evaluation complete and verified. Fine-tuned checkpoint degraded generation (drum collapse especially). Tokenizer fidelity confirmed perfect вЂ” the problem is model quality/overfitting, not tokenization. Ready to commit and propose the next experiment.
+
+
+---
+
+
+## 2026-10-27/28 — Cline — Phase J: Bounded Anti-Forgetting Experiment (VERIFIED)
+
+### Context
+Per the recovery plan: diagnose the 500-step generation collapse, then run a bounded anti-forgetting experiment from the ORIGINAL pretrained checkpoint (not the degraded 500-step pilot). Conservative config: max 100 steps, lr 1e-6, seed 20261028, batch 1, seq len 128, AdamW, source-balanced NRG-CP/GMD, eval every 25 steps, atomic best/latest + per-step checkpoints, finite-loss/grad/param safety checks.
+
+### Executed
+1. **Generation-path diagnosis (VERIFIED):** `model.generate()` has no internal EOS stop (always emits `max_new` tokens); `eos_count == 0` for all 24 pretrained + fine-tuned generations. Collapse is NOT premature termination and NOT a tokenizer bug (EOS/BOS/PAD decode to silence, tokenizer round-trip note+token match on 8/8 validation MIDIs). Collapse IS catastrophic forgetting/overfitting: val loss improves (2.4509) while GMD falls to 0-1 note (5/6 drum prompts ≤1 note). Regression tests added in `experiments/aura-midi/eval/tests/test_generation_termination.py` (5 tests, all pass).
+2. **`evaluate_models.py` extended (VERIFIED):** `generate()` now returns termination info (`eos_count`, `first_eos_position`, `eos_fraction`, …) plus `prompt_notes` / `notes_in_continuation` to separate prompt material from generated material. All 14 existing eval tests still pass.
+3. **Bounded experiment run (VERIFIED):** `train_antiforgetting.py` completed 100/100 steps from the original pretrained checkpoint. Best val loss 8.6952 (step 100), final train loss 8.3636, elapsed 69.3s, peak VRAM 886.2 MB, 0 safety violations. Per-step checkpoints saved (25, 50, 75, 100) + latest/best.
+4. **Step-25 generation evaluation (VERIFIED):** matched 12-prompt set, identical decoding. **ALL ACCEPTANCE GATES PASSED:** all MIDI parse; 0 prompts ≤1 note in either source; NRG-CP mean notes 101.667 (≥72.567 gate), duration 28.271 (≥19.090); GMD mean notes 57.833 (≥38.150 gate), duration 16.188 (≥14.000). vs degraded 500-step pilot (GMD ~2 notes, 5/6 prompts ≤1 note), step 25 substantially recovers GMD while preserving NRG-CP.
+5. **Artifacts:** `train_antiforgetting.py`, `eval_ckpt_metrics.py`, `gen_checkpoint.py`, `metrics_from_midi.py` (new); `evaluate_models.py` (modified); comparison report `experiments/aura-midi/eval/runs/eval-antiforget-step25/comparison_report.json`; step-25 MIDI samples.
+
+### Verified Evidence
+- Checkpoint SHA-256 `38e1083a…` matches official pretrained; model loads cleanly (missing `lm_head.weight` only, weight-tied)
+- 100/100 steps finite loss/grad/params; best val 8.6952
+- Step-25 gates: NRG-CP notes 101.667/103.667 (98%), GMD notes 57.833/54.500 (106%); durations above 70% gates
+- All 14 pre-existing eval tests + 5 new termination tests pass
+
+### Changed Files
+- `evaluate_models.py` — termination/prompt-continuation metrics
+- `train_antiforgetting.py` (new) — bounded anti-forgetting training script
+- `eval_ckpt_metrics.py`, `gen_checkpoint.py`, `metrics_from_midi.py` (new) — evaluation tooling
+- `experiments/aura-midi/eval/tests/test_generation_termination.py` (new) — 5 regression tests
+- `experiments/aura-midi/eval/runs/eval-antiforget-step25/comparison_report.json` (new) — machine-readable report
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md` — appended Phase J
+- `docs/AI_MODEL_COLLABORATION_LOG.md` — this entry
+
+### Result
+**BOUNDED ANTI-FORGETTING EXPERIMENT COMPLETE AND VERIFIED.** Step 25 passes all generation-quality gates and recovers GMD drum generation without regressing NRG-CP. Checkpoints for steps 50/75/100 saved locally (not committed).
+
+### Next Action
+1. Commit + push source code, tests, lightweight report, docs only to `feature/mmm-v2-decoder-fix-and-docs` (NO checkpoints, caches, MIDI samples, or large files); verify remote SHA and CI (Android Build + REMI adapter + metadata tests).
+2. Evaluate saved steps 50/75/100 checkpoints against the same gates in a follow-up session; stop extending any run that violates a gate.
+3. Any longer training proposal must address catastrophic forgetting, per-source evaluation, rhythmic diversity, and broader electronic-genre data with authoritative labels.
+
+### Message for ChatGPT
+Phase J complete: collapse diagnosed (catastrophic forgetting, not termination/tokenizer), bounded 100-step anti-forgetting run from the original pretrained checkpoint completed safely, step 25 passes all quality gates and recovers GMD. Checkpoints saved for steps 50/75/100. Ready to commit task files only and verify CI.

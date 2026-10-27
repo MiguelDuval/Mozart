@@ -223,9 +223,23 @@ def load_or_build_prompts(prompts_path: Path, runs_dir: Path, tokenizer: MusicTo
 # ---------------------------------------------------------------------------
 
 
+def _eos_token_id(tokenizer: MusicTokenizer) -> int:
+    """Resolve the EOS_None token id from the tokenizer vocabulary (fallback 2)."""
+    try:
+        return int(tokenizer.vocab.get("EOS_None", 2))
+    except Exception:
+        return 2
+
+
 def generate(model: GPT, tokenizer: MusicTokenizer, prompt_ids: list, device: torch.device,
              max_new: int, temperature: float, top_k: int, seed: int):
-    """Generate a continuation deterministically. Returns (ids, score)."""
+    """Generate a continuation deterministically. Returns (ids, score, info).
+
+    ``info`` records termination-relevant facts about the produced continuation:
+    the model's ``generate()`` has no internal EOS stop and always emits exactly
+    ``max_new`` tokens, so any early "termination" is visible at token level as
+    EOS_None tokens (which the tokenizer decodes to silence / no notes).
+    """
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
@@ -236,8 +250,22 @@ def generate(model: GPT, tokenizer: MusicTokenizer, prompt_ids: list, device: to
             idx, max_new_tokens=max_new, temperature=temperature, top_k=top_k
         )
         ids = generated[0].cpu().tolist()
+    prompt_len = len(prompt_ids)
+    continuation = ids[prompt_len:]
+    eos_id = _eos_token_id(tokenizer)
+    eos_positions = [i for i, t in enumerate(continuation) if t == eos_id]
+    info = {
+        "new_tokens": len(continuation),
+        "max_new_requested": max_new,
+        "model_early_termination": len(continuation) < max_new,
+        "eos_id": eos_id,
+        "eos_count": len(eos_positions),
+        "first_eos_position": eos_positions[0] if eos_positions else None,
+        "eos_positions": eos_positions,
+        "eos_fraction": round(len(eos_positions) / len(continuation), 4) if continuation else 0.0,
+    }
     score = tokenizer.decode(ids)
-    return ids, score
+    return ids, score, info
 
 
 # ---------------------------------------------------------------------------
@@ -575,8 +603,8 @@ def main():
             seed = args.seed + (hash(prompt_id) % (2 ** 31))  # deterministic per-prompt seed
             print(f"  [{model_name}] {prompt_id} (seed={seed}) ...")
             t0 = time.time()
-            ids, score = generate(model, tokenizer, p["prompt_ids"], device,
-                                  args.max_new, args.temperature, args.top_k, seed)
+            ids, score, gen_info = generate(model, tokenizer, p["prompt_ids"], device,
+                                            args.max_new, args.temperature, args.top_k, seed)
             gen_time = time.time() - t0
 
             midi_path = midi_dir / f"{model_name}_{prompt_id}.mid"
@@ -584,6 +612,14 @@ def main():
 
             metrics = score_metrics(score)
             reopen = midi_valid_and_reopenable(midi_path)
+
+            # Prompt-only decode: how much of the decoded score comes from the
+            # prompt itself vs. the generated continuation. The difference is the
+            # best available proxy for "notes contributed by the continuation".
+            prompt_score = tokenizer.decode(p["prompt_ids"])
+            prompt_metrics = score_metrics(prompt_score)
+            prompt_notes = int(prompt_metrics["num_notes"])
+            notes_in_continuation = max(0, int(metrics["num_notes"]) - prompt_notes)
 
             generations.append({
                 "model": model_name,
@@ -600,6 +636,10 @@ def main():
                 "prompt_len": p["prompt_len"],
                 "generated_token_count": len(ids),
                 "new_tokens": len(ids) - p["prompt_len"],
+                "termination": gen_info,
+                "prompt_notes": prompt_notes,
+                "prompt_duration_beats": prompt_metrics["duration_beats"],
+                "notes_in_continuation": int(notes_in_continuation),
                 "midi_path": str(midi_path),
                 "midi_rel_path": str(midi_path.relative_to(REPO_ROOT)),
                 "generation_sec": round(gen_time, 3),

@@ -1,0 +1,86 @@
+{
+  "evaluator": "evaluate_models.py + metrics_from_midi.py (MIDI-based metrics)",
+  "experiment": "antiforgetting-20261028-20261027_191132 (bounded anti-forgetting run)",
+  "created_at": "2026-10-27T18:12:46Z",
+  "git_head": "618142ddff83fce3e477b2f7b3897adff201479d",
+  "branch": "feature/mmm-v2-decoder-fix-and-docs",
+  "purpose": "Compare pretrained baseline vs conservative anti-forgetting checkpoint (step 25) vs degraded 500-step pilot on the matched 12-prompt validation set.",
+  "setup": {
+    "tokenizer": "shikhr/music-maker (official BPE), vocab 12000",
+    "pretrained_ckpt": "experiments/aura-midi/models/shikhr-music-maker-official/model.safetensors",
+    "pretrained_ckpt_sha256": "38e1083aea069e298f40373ebc394211b66b876702df91b2c4488cbd53079319",
+    "experimental_ckpt": "experiments/aura-midi/runs/antiforgetting-20261028-20261027_191132/checkpoints/checkpoint_step_25.pt",
+    "experimental_step": 25,
+    "decoding": { "max_new": 100, "temperature": 1.0, "top_k": 40, "seed": 20261027 },
+    "prompts": "experiments/aura-midi/eval/prompts.json (6 NRG-CP chord-oriented + 6 GMD drum-oriented)",
+    "device": "cuda (GTX 1650, 4 GB VRAM)"
+  },
+  "diagnosis": {
+    "collapse_is_premature_termination": false,
+    "collapse_is_tokenizer_bug": false,
+    "collapse_is_catastrophic_forgetting": true,
+    "evidence": [
+      "model.generate() has no internal EOS stop and always emits exactly max_new tokens; eos_count=0 for all 24 pretrained and fine-tuned generations",
+      "EOS_None (id 2), BOS_None and PAD_None all decode to silence (0 notes) in the tokenizer, but the fine-tuned model emits NO EOS tokens for the collapsed GMD prompts -- it simply predicts note-free sequences",
+      "GMD drum prompts collapse to 0-1 note after the 500-step fine-tune while validation loss improves (2.4509), a signature of catastrophic forgetting / overfitting on the small NRG-CP+GMD set"
+    ]
+  },
+  "acceptance_gates": {
+    "rule": "All MIDI parse; <=1 of 6 prompts per source with <=1 note; mean notes per source >=70% of pretrained baseline; mean duration per source >=70% of pretrained baseline.",
+    "pretrained_baseline": {
+      "nrgcp": { "mean_notes": 103.667, "mean_duration_beats": 27.271, "le1_note_prompts": 0 },
+      "gmd":   { "mean_notes": 54.500,  "mean_duration_beats": 20.000, "le1_note_prompts": 0 }
+    },
+    "gate_thresholds_70_percent": {
+      "nrgcp_mean_notes": 72.567,
+      "nrgcp_mean_duration_beats": 19.090,
+      "gmd_mean_notes": 38.150,
+      "gmd_mean_duration_beats": 14.000
+    },
+    "step_25_result": {
+      "nrgcp": { "mean_notes": 101.667, "mean_duration_beats": 28.271, "le1_note_prompts": 0, "gate_pass": true },
+      "gmd":   { "mean_notes": 57.833,  "mean_duration_beats": 16.188, "le1_note_prompts": 0, "gate_pass": true }
+    },
+    "all_midi_parse": true,
+    "gate_result": "PASSED"
+  },
+  "comparison": {
+    "pretrained_vs_degraded_500step": {
+      "nrgcp_avg_notes": "103.7 -> ~46.2 (ref: ANALYSIS.md)",
+      "gmd_avg_notes": "54.5 -> ~2 (ref: ANALYSIS.md)",
+      "gmd_prompts_le1_note": "0 -> 5 of 6",
+      "assessment": "degraded pilot collapsed generation, especially drums"
+    },
+    "pretrained_vs_step_25": {
+      "nrgcp_avg_notes": "103.667 -> 101.667 (-1.9%)",
+      "nrgcp_mean_duration_beats": "27.271 -> 28.271 (+3.7%)",
+      "gmd_avg_notes": "54.500 -> 57.833 (+6.1%)",
+      "gmd_mean_duration_beats": "20.000 -> 16.188 (-19.1%)",
+      "assessment": "step 25 preserves NRG-CP and substantially recovers GMD vs the degraded pilot; GMD duration modestly below pretrained but well above the 70% gate"
+    }
+  },
+  "training": {
+    "max_steps": 100,
+    "lr": 1e-6,
+    "seed": 20261028,
+    "batch_size": 1,
+    "seq_len": 128,
+    "optimizer": "AdamW",
+    "weight_decay": 0.01,
+    "grad_clip": 1.0,
+    "val_every": 25,
+    "source_balance": { "nrgcp": 0.5, "gmd": 0.5 },
+    "completed_steps": 100,
+    "best_val_loss": 8.6952,
+    "final_train_loss": 8.3636,
+    "peak_vram_mb": 886.2,
+    "safety": { "finite_loss": 100, "non_finite_loss": 0, "non_finite_grad": 0, "non_finite_param": 0 },
+    "stop_reason": null
+  },
+  "checkpoints": {
+    "run_dir": "experiments/aura-midi/runs/antiforgetting-20261028-20261027_191132",
+    "saved": [ "checkpoint_step_25.pt", "checkpoint_step_50.pt", "checkpoint_step_75.pt", "checkpoint_step_100.pt", "checkpoint_latest.pt", "checkpoint_best.pt" ],
+    "note": "Large checkpoint files are preserved locally and MUST NOT be committed to Git."
+  },
+  "recommendation": "The conservative step-25 update passes all generation-quality gates and recovers GMD drum generation without regressing NRG-CP. Continue to evaluate steps 50/75/100 against the same gates; if any gate is violated, preserve that checkpoint and stop. Do not extend training purely on validation loss. Any longer proposal must address catastrophic forgetting, per-source evaluation, rhythmic diversity, and broader electronic-genre data with authoritative labels."
+}
