@@ -361,6 +361,9 @@ def main():
             "non_finite_grad_steps": 0,
             "non_finite_param_steps": 0,
         },
+        "safety_violation": False,
+        "safety_violation": False,
+        "safety_violation": False,
         "sampling": {
             "nrgcp_steps": 0,
             "gmd_steps": 0,

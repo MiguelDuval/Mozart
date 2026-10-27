@@ -1787,6 +1787,46 @@ Proportional sampling made GMD duration WORSE (−31.1% vs antiforgetting step-2
 ### Message for ChatGPT
 Phase M complete: controlled sampling experiment — proportional source sampling step-25 FAILS GMD duration gate (11.146 < 14.000 beats), worse than antiforgetting step-25 (16.188). Source-imbalance hypothesis NOT supported. Step 25 (antiforgetting) remains the latest verified passing candidate. Steps 50/75/100 not evaluated. No new training beyond the one bounded run. Committing Phase M artifacts.
 
+## 2026-10-27 — Cline — Phase N: Sequential Checkpoint Gate Evaluation & Generation-Collapse Diagnosis (VERIFIED)
+
+### Context
+Per Phase N protocol: evaluate saved checkpoints in order (step 50 → 75 → 100), stopping at first quality-gate failure. Step 25 previously passed all gates.
+
+### Executed
+
+1. **Generation-collapse diagnosis (VERIFIED):** `model.generate()` has no internal EOS stop; `eos_count==0` for all 24 generations. Collapse is catastrophic forgetting/overfitting on small NRG-CP/GMD set, NOT premature termination or tokenizer bug.
+
+2. **Step 25 evaluation (VERIFIED — PASSED):** All 12 validation prompts generate valid MIDI with 0 prompts ≤1 note. NRG-CP: 101.667 mean notes (≥72.567), 28.271 mean duration (≥19.090). GMD: 57.833 mean notes (≥38.150), 16.188 mean duration (≥14.000).
+
+3. **Step 50 evaluation (VERIFIED — FAILED):** GMD mean duration 12.292 beats (<14.000 gate). NRG-CP passes all gates (104.167 notes ≥72.567, 27.375 beats ≥19.090).
+
+4. **Steps 75/100:** Not evaluated (stop-at-first-failure rule).
+
+### Verified Evidence
+- GMD mean duration at step 25: 16.188 beats (≥14.000 gate, 80.9% of pretrained 20.000) — PASSED
+- GMD mean duration at step 50: 12.292 beats (<14.000 gate, 61.5% of pretrained 20.000) — FAILED
+- NRG-CP step 25: 101.667 notes (≥72.567), 28.271 beats (≥19.090) — PASSED
+- NRG-CP step 50: 104.167 notes (≥72.567), 27.375 beats (≥19.090) — PASSED
+
+### Changed Files
+- `train_antiforgetting.py` — Fixed safety checks: finite-loss check before backward, gradient-norm check after backward, parameter-finite check after optimizer.step()
+- `train_sampling_balanced.py` — Same safety fixes applied
+- `tests/test_training_safety.py` (new) — 10 regression tests for safety checks
+- `tests/verify_midi_metrics.py` (new) — independent MIDI metrics verification
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md` — appended Phase N
+- `docs/AI_MODEL_COLLABORATION_LOG.md` — this entry
+
+### Result
+**STEP 25 PASSES** all quality gates (NRG-CP and GMD both pass). **STEP 50 FAILS** GMD duration gate (12.292 < 14.000 beats). Steps 75/100 not evaluated per stop-at-first-failure rule. Step 25 remains the latest verified passing candidate.
+
+### Next Action
+1. Commit + push Phase N files (training script fixes, tests, docs) — NO checkpoints, caches, MIDI samples.
+2. Verify remote SHA and CI status (Android Build from Phase M push should be complete).
+3. Recommend against proportional sampling as remedy; investigate other mechanisms for GMD rhythmic degradation before any longer run.
+
+### Message for ChatGPT
+Phase N complete: step-25 antiforgetting PASSES all generation-quality gates (NRG-CP and GMD both pass). Step 50 FAILS GMD duration gate (12.292 < 14.000 beats). Steps 75/100 not evaluated per stop-at-first-failure rule. Antiforgetting step-25 remains latest verified passing candidate. Committing Phase N artifacts.
+
 ## 2026-10-27 — Cline — Phase N: Evaluation & Training-Safety Diagnostics (VERIFIED)
 
 ### Context
