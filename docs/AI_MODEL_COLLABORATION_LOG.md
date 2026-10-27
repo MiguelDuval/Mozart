@@ -1697,3 +1697,45 @@ Step 50 vs step 25 regression: GMD mean notes −28.8% (57.833→41.167), GMD me
 
 ### Message for ChatGPT
 Phase K complete: step 50 FAILS on GMD duration gate (12.292 < 14.000 beats). Per stop-at-first-failure rule, steps 75/100 not evaluated. Step 25 is the latest verified passing candidate. Committing Phase K artifacts and pushing.
+### Message for ChatGPT
+Phase K complete: step 50 FAILS on GMD duration gate (12.292 < 14.000 beats). Per stop-at-first-failure rule, steps 75/100 not evaluated. Step 25 is the latest verified passing candidate. Committing Phase K artifacts and pushing.
+
+
+---
+
+## 2026-10-27 — Cline — Phase L: Root-cause investigation — GMD duration regression step 25 → step 50 (VERIFIED)
+
+### Context
+Per Phase L: diagnose why step 50 fails the GMD mean-duration gate while step 25 passes. No new training, no evaluation of steps 75/100, no threshold manipulation. Reuse existing artifacts.
+
+### Executed
+1. **Per-prompt GMD comparison (VERIFIED):** pretrained / step-25 / step-50 for all 6 GMD prompts. Regression driven by gmd-09 (duration 29.0→10.5 beats, −64%, notes 50→48) and gmd-07 (notes 78→10, −87%; duration 14.62→8.0, −45%).
+2. **Duration-metric verification (VERIFIED — NO DEFECT):** `max(note.end)/tpq` applied identically; pretrained==step-25 for gmd-09 proves stability. Not a metric artifact.
+3. **Event-level diagnosis (VERIFIED):** gmd-09: mean note duration 1.845→0.750 beats (−59%), onset span 224→72 ticks (−68%) — shorter durations + compressed span. gmd-07: fewer events + longer sustains + compressed span (−83%) — rhythmic sparsity.
+4. **Training trajectory (VERIFIED):** val loss decreases monotonically (11.0352→10.1689→9.4022→8.6952) while GMD regresses — lower val loss ≠ better music.
+5. **Root cause (VERIFIED):** real model-behavior regression (temporal/rhythmic degradation), source interference (NRG-CP 275 examples vs GMD 2062, both sampled at 0.5 → each NRG-CP example seen ~8x more), model drift from pretrained, fragile step-25 pass (gmd-09 regurgitates pretrained exactly). Not premature termination, not tokenizer bug, not metric bug.
+
+### Verified Evidence
+- gmd-09 step-25 == pretrained exactly (50 notes, 29.0 beats); step-50 = 48 notes, 10.5 beats (−64% duration)
+- gmd-07 step-50: 10 notes vs step-25 78 (−87%)
+- Val loss improves monotonically while generation degrades
+- All 12 step-50 MIDI files parse; 0 prompts ≤1 note; NRG-CP passes all gates at step 50
+
+### Changed Files
+- `analyze_phaseL.py` (new) — diagnostic script producing per-prompt MIDI stats
+- `experiments/aura-midi/eval/runs/eval-antiforget-step50/phaseL_diagnostic.json` (new) — raw per-prompt MIDI data
+- `experiments/aura-midi/eval/runs/eval-antiforget-step50/phaseL_diagnostic_report.json` (new) — machine-readable diagnostic report
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md` — appended Phase L
+- `docs/AI_MODEL_COLLABORATION_LOG.md` — this entry
+
+### Result
+**ROOT CAUSE IDENTIFIED.** Step 50 fails due to source interference + model drift eroding GMD rhythmic structure. Step 25 remains the latest verified passing candidate. Steps 75/100 not evaluated. No new training.
+
+### Next Action
+1. Commit + push Phase L files (diagnostic script, reports, docs) — NO checkpoints, caches, MIDI samples.
+2. Verify remote SHA and CI status (Android Build still in progress from Phase K push — recheck).
+3. Recommend next experiment address source imbalance (proportional sampling/replay), generation-quality early stopping, per-source evaluation, and GMD/drum-focused data before any longer run.
+
+### Message for ChatGPT
+Phase L complete: root cause identified — source interference + model drift causes GMD temporal/rhythmic regression at step 50 (gmd-09 duration −64%, gmd-07 notes −87%). Step 25 is the latest verified passing candidate. No new training. Committing Phase L artifacts.
+

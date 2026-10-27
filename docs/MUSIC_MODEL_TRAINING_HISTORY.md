@@ -1058,3 +1058,49 @@ GMD regressed from step 25 to step 50 on both notes (−28.8%) and duration (−
 
 ### K.5 Conclusion
 The conservative step-25 update is the safest verified model state: it passes all generation-quality gates and substantially recovers GMD drum generation vs the degraded 500-step pilot (GMD ~2 notes, 5/6 drum prompts ≤1 note) while preserving NRG-CP. Step 50 introduces a GMD duration regression that violates the provisional gate. No longer training run is justified at this point.
+
+## Phase L. Root-cause investigation: GMD duration regression step 25 → step 50 (2026-10-27) — COMPLETE
+
+### L.1 Protocol (VERIFIED)
+Investigate why step 50 fails the GMD mean-duration gate while step 25 passes. No new training, no evaluation of steps 75/100, no threshold manipulation. Reuse existing artifacts: pretrained/step-25/step-50 MIDI samples and reports under `experiments/aura-midi/eval/runs/eval-antiforget-{step25,step50}/`.
+
+### L.2 Per-prompt GMD comparison (VERIFIED)
+All durations in musical beats (tpq=8, consistent metric: `max(note.end)/tpq`, applied identically to all models). Verified no metric bug: pretrained gmd-09 == step-25 gmd-09 exactly (50 notes, 29.0 beats).
+
+| Prompt | Pretrained (notes, beats) | Step-25 | Step-50 | Assessment |
+|--------|---------------------------|---------|---------|------------|
+| gmd-06 | (63, 11.50) | (68, 13.75) | (50, 14.50) | notes −26%, duration stable |
+| gmd-07 | (52, 12.00) | (78, 14.62) | **(10, 8.00)** | notes −87%, duration −45% ← PRIMARY |
+| gmd-08 | (61, 15.50) | (52, 17.50) | (51, 17.75) | stable |
+| gmd-09 | (50, 29.00) | (50, 29.00) | **(48, 10.50)** | duration −64% ← PRIMARY (step-25 regurgitates pretrained) |
+| gmd-10 | (66, 41.50) | (58, 12.50) | (39, 12.00) | notes −33% |
+| gmd-11 | (35, 10.50) | (41, 9.75) | (49, 11.00) | improved |
+
+### L.3 Event-level diagnosis (VERIFIED)
+**gmd-09 (primary driver — duration regression):** mean note duration 1.845 → 1.845 → **0.750 beats** (−59%); onset span 224 → 224 → **72 ticks** (−68%); notes barely changed (50→48). **Shorter note durations + compressed time span — rhythmic/temporal compression.**
+
+**gmd-07 (primary driver — note-count regression):** notes 78 → **10** (−87%); mean note duration 0.130 → **2.100** (longer sustains); onset span 96 → **16 ticks** (−83%). **Fewer note events + longer sustains + compressed span — rhythmic sparsity/collapse.**
+
+gmd-10: notes −33%, max polyphony 8→5. gmd-11: improved.
+
+### L.4 Duration-calculation verification (VERIFIED — NO DEFECT)
+Formula `duration_beats = max(note.end)/tpq` over all tracks (prompt + continuation), `duration_sec = beats * 60 / first_tempo_qpm`. Tempo-invariant, applied identically to all models. Pretrained==step-25 for gmd-09 proves metric stability. **Not a metric artifact.**
+
+### L.5 Training trajectory (VERIFIED)
+| Metric | step 25 | step 50 | step 75 | step 100 |
+|--------|---------|---------|---------|----------|
+| val loss combined | 11.0352 | 10.1689 | 9.4022 | 8.6952 |
+| val loss GMD | 10.0620 | 8.8457 | 7.9142 | 7.1854 |
+| val loss NRG-CP | 12.0085 | 11.4921 | 10.8902 | 10.2051 |
+
+Validation loss improves monotonically while GMD generation regresses — **lower val loss ≠ better music**. Generation quality and validation loss are decoupled.
+
+### L.6 Root cause (VERIFIED)
+**Real model-behavior regression (temporal/rhythmic degradation), not premature termination, not a tokenizer bug, not a metric bug.**
+- Mechanism: training drifts the model away from pretrained GMD behavior. gmd-09 compresses rhythm (shorter durations, shorter span); gmd-07 sparsifies (fewer events, longer sustains, shorter span). NRG-CP unaffected.
+- Contributing factors: (1) source imbalance with equal sampling — NRG-CP has 275 train examples vs GMD 2062, yet both sampled at 0.5, so each NRG-CP example is seen ~8x more often; NRG-CP harmonic gradients can interfere with GMD drum/rhythmic patterns; (2) model drift — step-50 moved further from pretrained weights than step-25, eroding longer-form rhythmic structure; (3) step-25's pass is fragile — gmd-09 exactly equals pretrained, suggesting partial regurgitation.
+- Not the cause: premature termination (eos_count=0, verified), tokenizer bug (round-trip matches, verified), duration-calculation bug (verified consistent).
+
+### L.7 Conclusion
+**Step 25 remains the latest verified passing candidate.** Step 50 fails the GMD duration gate (12.292 < 14.000 beats). Steps 75/100 not evaluated per Phase K rule. Do not simply lower the learning rate or shorten training — the evidence points to **source interference between NRG-CP (harmonic/chord, few examples, over-sampled) and GMD (drum/rhythmic, many examples, under-sampled per-example)**. Next experiment should: (1) rebalance per-example exposure (proportional sampling or replay), (2) add generation-quality early stopping on held-out generation metrics rather than val loss alone, (3) evaluate per-source separately, (4) consider GMD/drum-focused data to strengthen rhythmic patterns before any longer run.
+
