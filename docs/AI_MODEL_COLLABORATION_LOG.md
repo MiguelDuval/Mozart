@@ -1560,3 +1560,51 @@ Following the tokenizer compatibility correction (12k BPE verified), execute bou
 3. **Use separate research directory:** `experiments/aura-midi/runs/pilot-YYYYMMDD/`
 4. **Record:** throughput, elapsed time, per-source val loss, fixed-seed generation before/after
 
+
+---
+## 2026-10-27 вЂ” Cline вЂ” Controlled Baseline-vs-Fine-Tuned Evaluation (Phase I)
+
+### Context
+Resume Mozart model development on branch `feature/mmm-v2-decoder-fix-and-docs` (HEAD `150011a`, synced with remote). Immediate objective: evaluate the original pretrained `shikhr/music_maker` checkpoint vs the existing Phase H fine-tuned checkpoint under matched, controlled conditions; investigate the historical duration discrepancy; build reusable evaluation infrastructure; use results to guide the next experiment.
+
+### Executed
+1. **Established repo state:** branch `feature/mmm-v2-decoder-fix-and-docs` @ `150011a` (synced remote); working tree clean except pre-existing `generate_golden_fixtures.py` deletion (left untouched per instruction) and many pre-existing untracked scratch files (preserved). Official model + tokenizer at `experiments/aura-midi/models/shikhr-music-maker-official/`; pilot fine-tuned checkpoint at `experiments/aura-midi/runs/pilot-20261027_145544/checkpoints/checkpoint_best.pt` (step 500, val 2.4509). Validation material: NRG-CP val (96) + GMD val (100). Env `.venv-aura` (torch 2.6.0+cu124, CUDA, GTX 1650) re-verified.
+2. **Built reusable evaluator** `evaluate_models.py` (repo root): loads pretrained (safetensors) and fine-tuned (torch checkpoint, `weights_only=True` + `TorchVersion` safe global per PyTorch 2.6), builds/loads a fixed 12-prompt validation set, generates matched samples per model, writes MIDI + JSON report with full provenance (ckpt sha256, tokenizer revision, prompt identity, seed, decoding settings).
+3. **Ran matched GPU evaluation** (`eval-matched-20261027`): 12 prompts Г— 2 models = 24 generations, max_new=100, temperature=1.0, top_k=40, seed=20261027, models loaded sequentially within 4 GB VRAM. Completed in 35.8s.
+4. **Investigated duration discrepancy:** TPQ-normalized musical-time comparison (beats + seconds) shows fine-tuned model produces shorter, sparser sequences and frequently terminates prematurely вЂ” consistent with degradation, not improvement. Historical single-prompt before/after was not a valid A/B test.
+5. **Separated tokenizer fidelity from model quality:** tokenizer round-trip on 8 validation MIDIs вЂ” note count matches on all 8, token count matches on all 8 (TPQ 96в†’8 rescaling correct in musical time). Degradation is a model-quality problem, not tokenizer.
+6. **Wrote analysis** `experiments/aura-midi/eval/ANALYSIS.md` and added `comparison` section to `evaluation_report.json`.
+7. **Added 14 lightweight unit tests** (all PASS): checkpoint loading (4), generation report/provenance/MIDI reopen (7), TPQ-normalized musical time (3).
+8. **Cleaned session scratch files**; preserved all pre-existing user artifacts and the `generate_golden_fixtures.py` deletion.
+
+### Verified Evidence
+- **VERIFIED:** Pretrained ckpt SHA-256 `38e1083aвЂ¦` matches official; fine-tuned ckpt SHA-256 `aa3fec76вЂ¦`, step 500, best val 2.4509 (matches pilot history).
+- **VERIFIED:** Checkpoint loading integrity вЂ” pretrained: missing `lm_head.weight` only (expected, weight-tied), 0 unexpected, 0 shape mismatches; fine-tuned: 0 missing/0 unexpected; `wte is lm_head: True`.
+- **VERIFIED:** Fine-tuned model DEGRADED generation (avg notes 82.6в†’46.2; density 5.34в†’2.52; GMD notes в€’56.8; 5/12 prompts в‰¤1 note; pitch & velocity ranges narrowed). All 24 MIDIs valid/reopenable.
+- **VERIFIED:** Tokenizer fidelity perfect (8/8 note + token match). Tokenizer not the problem.
+- **VERIFIED:** 14 unit tests pass; TPQ normalization correct (24/96/384/1024 в†’ identical beats/seconds).
+
+### Unverified Claims
+- None from this session; all evaluation claims computed from artifacts in this session.
+
+### Changed Files
+- `evaluate_models.py` вЂ” new baseline-vs-fine-tuned evaluator
+- `experiments/aura-midi/eval/prompts.json` + `.full.json` вЂ” fixed 12-prompt validation set
+- `experiments/aura-midi/eval/runs/eval-matched-20261027/` вЂ” 24 MIDI samples + `evaluation_report.json`
+- `experiments/aura-midi/eval/ANALYSIS.md` вЂ” concise analysis + next-experiment proposal
+- `experiments/aura-midi/eval/tests/test_checkpoint_loading.py` вЂ” 4 tests
+- `experiments/aura-midi/eval/tests/test_generation_report.py` вЂ” 7 tests
+- `experiments/aura-midi/eval/tests/test_musical_time_tpq.py` вЂ” 3 tests
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md` вЂ” appended Phase I section
+- `docs/AI_MODEL_COLLABORATION_LOG.md` вЂ” this entry
+
+### Result
+**CONTROLLED EVALUATION COMPLETE.** The 500-step fine-tune degraded generation (lower val loss в‰  better music); catastrophic forgetting/overfitting on small NRG-CP+GMD data, drums most affected. Next experiment must protect against forgetting and address rhythmic diversity/premature termination before any long run or dataset download.
+
+### Next Action
+1. Update `docs/AI_MODEL_COLLABORATION_LOG.md` after push (commit SHA + branch).
+2. Commit and push task files only to `feature/mmm-v2-decoder-fix-and-docs`; verify remote SHA and CI.
+3. Define next experiment's data mixture, objective, validation strategy, measurable success criteria (generation quality, not loss) before any long training run or dataset download.
+
+### Message for ChatGPT
+Baseline-vs-fine-tuned controlled evaluation complete and verified. Fine-tuned checkpoint degraded generation (drum collapse especially). Tokenizer fidelity confirmed perfect вЂ” the problem is model quality/overfitting, not tokenization. Ready to commit and propose the next experiment.

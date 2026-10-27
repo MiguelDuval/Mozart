@@ -884,3 +884,63 @@ Model forward pass on CPU (12L/8H/512D, batch=1, seq_len=32) exceeds practical t
 3. **Use separate research directory:** `experiments/aura-midi/runs/pilot-YYYYMMDD/`
 4. **Record:** throughput, elapsed time, per-source val loss, fixed-seed generation before/after
 
+
+---
+## Phase I. Controlled Baseline-vs-Fine-Tuned Evaluation (2026-10-27)
+
+**Branch:** `feature/mmm-v2-decoder-fix-and-docs`  
+**Git HEAD:** `150011a` (synced with remote)  
+**Evaluator:** `evaluate_models.py` (new, repo root)  
+**Run:** `experiments/aura-midi/eval/runs/eval-matched-20261027/`
+
+### I.1 Objective
+Compare the original pretrained `shikhr/music_maker` checkpoint against the existing Phase H fine-tuned checkpoint (`pilot-20261027_145544/checkpoints/checkpoint_best.pt`) under *matched, controlled conditions* — same tokenizer, same decoding implementation/config, same fixed prompt set (validation material only), fixed and recorded seeds. Investigate the historical duration discrepancy (before: 117 notes/106 ticks vs after: 119 notes/24 ticks). Separate tokenizer fidelity from model quality.
+
+### I.2 Configuration (VERIFIED)
+| Item | Value |
+|------|-------|
+| Pretrained ckpt SHA-256 | `38e1083aea069e298f40373ebc394211b66b876702df91b2c4488cbd53079319` (matches official) |
+| Fine-tuned ckpt SHA-256 | `aa3fec76db842816dc30b79b0901e0554fa126a7bee62285b48c9818c79cada2` |
+| Fine-tuned step / best val loss | 500 / 2.4509 |
+| Decoding | max_new=100, temperature=1.0, top_k=40, seed=20261027 |
+| Prompts | 12 fixed prompts: 6 NRG-CP (chord) + 6 GMD (drum), validation material only |
+| Seeds | Deterministic per prompt, identical across both models |
+| Device | GTX 1650 CUDA; models loaded sequentially (within 4 GB VRAM) |
+
+### I.3 Results (VERIFIED from `evaluation_report.json`)
+
+**Fine-tuned model DEGRADED generation — lower val loss did NOT mean better music.**
+
+| Metric | Pretrained | Fine-tuned | Delta |
+|--------|-----------|------------|-------|
+| Avg notes | 82.6 | 46.2 | −36.4 |
+| Prompts with 0 notes | 0 | 2 | — |
+| Prompts with ≤1 note | 0 | 5 | — |
+| Avg duration (beats/sec) | 18.2 / 9.5s | 13.4 / 6.8s | −4.8 / −2.7s |
+| Note density (notes/beat) | 5.34 | 2.52 | −2.82 |
+| Avg max polyphony | 6.75 | 6.42 | −0.33 |
+| Avg pitch range | 38–72 | 31–47 | narrower |
+| Avg velocity range | 66–110 | 63–86 | narrower/quieter |
+
+**By source:**
+- **GMD (drums):** catastrophic collapse — avg notes −56.8, density −5.0; five of six drum prompts → 0–1 note (premature termination/silence). E.g. `gmd-08` 54→0, `gmd-10` 43→0.
+- **NRG-CP (chords):** degraded — avg notes −16.0, density −0.59, silence +4.3 beats, velocity band collapsed (e.g. `nrgcp-00` 87–103 → 87–95); max polyphony +7.2 (suspicious sustained notes).
+
+**Duration discrepancy:** confirmed as degradation. Under TPQ-normalized musical time (beats + seconds), the fine-tuned model produces shorter, sparser sequences and frequently terminates prematurely. The historical single-prompt before/after was not a valid A/B test.
+
+### I.4 Tokenizer fidelity vs model quality (separate questions)
+- **Tokenizer fidelity — VERIFIED:** round-trip encode/decode/re-encode on 8 validation MIDIs: note count matches on all 8, token count matches on all 8. TPQ 96→8 rescaling verified correct in musical time (tests at TPQ 24/96/384/1024 → identical beats/seconds).
+- **Model quality — DEGRADED:** generation collapsed despite lower val loss. Tokenizer is NOT the problem; fine-tuning on the small NRG-CP+GMD set caused catastrophic forgetting/overfitting.
+
+All 24 generated MIDI files valid and reopenable. 14 lightweight unit tests pass (checkpoint loading, token IDs, prompt/seed provenance, MIDI save/reopen, TPQ-normalized musical time, provenance recording).
+
+### I.5 Checkpoint loading integrity
+- Pretrained: missing `lm_head.weight` only (expected, weight-tied), 0 unexpected keys, 0 shape mismatches, `wte is lm_head: True` (consistent with Phase H).
+- Fine-tuned: 0 missing, 0 unexpected keys. Step 500, best val 2.4509.
+
+### I.6 Conclusion / next experiment direction
+Do **not** simply run a longer fine-tune. The evidence points to catastrophic forgetting on limited NRG-CP+GMD data, with drum rhythm the weakest capability. Next experiment should:
+1. Protect against forgetting (lower LR, fewer steps, early stopping on *generation quality* not just loss, per-source tracking NRG-CP vs GMD).
+2. Address rhythmic diversity / premature termination (drum collapse is the most urgent measurable limitation).
+3. Broaden the data mixture — NRG-CP+GMD alone do not establish broad electronic-subgenre coverage.
+4. Define data mixture, objective, validation strategy, and measurable success criteria *before* any long run or dataset download. Measure generation quality (density, polyphony, pitch/velocity diversity, silence, premature termination), not validation loss alone.

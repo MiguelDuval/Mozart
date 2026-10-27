@@ -1,0 +1,101 @@
+{
+  "prompts": [
+    {
+      "prompt_id": "gmd-06",
+      "source": "gmd",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\GMD\\extracted\\groove\\drummer7\\session2\\124_hiphop_140_fill_4-4.mid",
+      "prompt_len": 32,
+      "total_tokens": 46,
+      "role_hint": "drum-oriented"
+    },
+    {
+      "prompt_id": "gmd-07",
+      "source": "gmd",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\GMD\\extracted\\groove\\drummer9\\session1\\28_rock_90_beat_4-4.mid",
+      "prompt_len": 32,
+      "total_tokens": 730,
+      "role_hint": "drum-oriented"
+    },
+    {
+      "prompt_id": "gmd-08",
+      "source": "gmd",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\GMD\\extracted\\groove\\drummer7\\session3\\21_pop-soft_83_fill_4-4.mid",
+      "prompt_len": 32,
+      "total_tokens": 62,
+      "role_hint": "drum-oriented"
+    },
+    {
+      "prompt_id": "gmd-09",
+      "source": "gmd",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\GMD\\extracted\\groove\\drummer8\\session1\\28_rock_102_beat_4-4.mid",
+      "prompt_len": 32,
+      "total_tokens": 2893,
+      "role_hint": "drum-oriented"
+    },
+    {
+      "prompt_id": "gmd-10",
+      "source": "gmd",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\GMD\\extracted\\groove\\drummer3\\session1\\21_jazz_120_beat_4-4.mid",
+      "prompt_len": 32,
+      "total_tokens": 92,
+      "role_hint": "drum-oriented"
+    },
+    {
+      "prompt_id": "gmd-11",
+      "source": "gmd",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\GMD\\extracted\\groove\\drummer1\\session2\\16_country_114_fill_4-4.mid",
+      "prompt_len": 32,
+      "total_tokens": 44,
+      "role_hint": "drum-oriented"
+    },
+    {
+      "prompt_id": "nrgcp-00",
+      "source": "nrgcp",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\2185394_nrgcp_dataset.mid",
+      "prompt_len": 32,
+      "total_tokens": 179,
+      "role_hint": "chord-oriented"
+    },
+    {
+      "prompt_id": "nrgcp-01",
+      "source": "nrgcp",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\1141920_nrgcp_dataset.mid",
+      "prompt_len": 32,
+      "total_tokens": 204,
+      "role_hint": "chord-oriented"
+    },
+    {
+      "prompt_id": "nrgcp-02",
+      "source": "nrgcp",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\3829544_nrgcp_dataset.mid",
+      "prompt_len": 32,
+      "total_tokens": 178,
+      "role_hint": "chord-oriented"
+    },
+    {
+      "prompt_id": "nrgcp-03",
+      "source": "nrgcp",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\4906923_nrgcp_dataset.mid",
+      "prompt_len": 32,
+      "total_tokens": 70,
+      "role_hint": "chord-oriented"
+    },
+    {
+      "prompt_id": "nrgcp-04",
+      "source": "nrgcp",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\3532419_nrgcp_dataset.mid",
+      "prompt_len": 32,
+      "total_tokens": 232,
+      "role_hint": "chord-oriented"
+    },
+    {
+      "prompt_id": "nrgcp-05",
+      "source": "nrgcp",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\6315100_nrgcp_dataset.mid",
+      "prompt_len": 32,
+      "total_tokens": 244,
+      "role_hint": "chord-oriented"
+    }
+  ],
+  "note": "prompt_ids omitted here for compactness; evaluator stores them per generation"
+}

@@ -1,0 +1,3434 @@
+{
+  "evaluator": "evaluate_models.py",
+  "created_at": "2026-10-27T16:28:17.969582+00:00",
+  "git_head": "150011afcf8fca2d5b4d0b7dca4ba6706a308600",
+  "branch": "feature/mmm-v2-decoder-fix-and-docs",
+  "command_line": {
+    "pretrained": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\models\\shikhr-music-maker-official",
+    "finetuned": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\runs\\pilot-20261027_145544\\checkpoints\\checkpoint_best.pt",
+    "prompts": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\prompts.json",
+    "output_dir": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027",
+    "runs_dir": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\runs",
+    "prompts_per_source": 6,
+    "prompt_len": 32,
+    "max_new": 100,
+    "temperature": 1.0,
+    "top_k": 40,
+    "seed": 20261027,
+    "device": "cuda"
+  },
+  "tokenizer": {
+    "dir": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\models\\shikhr-music-maker-official",
+    "tokenizer_json": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\models\\shikhr-music-maker-official\\tokenizer.json",
+    "vocab_size": 12000,
+    "revision_sha256": "531aff06800bc484af50b6ddcd719ada57e72b06b90c75c0c6d366adc5cfb3d8"
+  },
+  "models": {
+    "pretrained": {
+      "ckpt_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\models\\shikhr-music-maker-official\\model.safetensors",
+      "ckpt_sha256": "38e1083aea069e298f40373ebc394211b66b876702df91b2c4488cbd53079319",
+      "config": {
+        "vocab_size": 12000,
+        "n_layer": 12,
+        "n_head": 8,
+        "n_embd": 512,
+        "block_size": 1024,
+        "bias": false
+      },
+      "missing_keys": [
+        "transformer.wte.weight"
+      ],
+      "unexpected_keys": []
+    },
+    "finetuned": {
+      "ckpt_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\runs\\pilot-20261027_145544\\checkpoints\\checkpoint_best.pt",
+      "ckpt_sha256": "aa3fec76db842816dc30b79b0901e0554fa126a7bee62285b48c9818c79cada2",
+      "step": 500,
+      "best_val_loss": 2.4508720811367213,
+      "config": {
+        "vocab_size": 12000,
+        "n_layer": 12,
+        "n_head": 8,
+        "n_embd": 512,
+        "block_size": 1024,
+        "bias": false
+      },
+      "missing_keys": [],
+      "unexpected_keys": []
+    }
+  },
+  "decoding": {
+    "max_new": 100,
+    "temperature": 1.0,
+    "top_k": 40,
+    "seed": 20261027
+  },
+  "prompts": [
+    {
+      "prompt_id": "gmd-06",
+      "source": "gmd",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\GMD\\extracted\\groove\\drummer7\\session2\\124_hiphop_140_fill_4-4.mid",
+      "prompt_len": 32,
+      "total_tokens": 46,
+      "role_hint": "drum-oriented",
+      "prompt_ids": [
+        4649,
+        258,
+        7728,
+        258,
+        5661,
+        258,
+        3918,
+        258,
+        2438,
+        258,
+        1620,
+        258,
+        3665,
+        258,
+        2358,
+        258,
+        294,
+        188,
+        258,
+        205,
+        294,
+        190,
+        258,
+        294,
+        192,
+        258,
+        8425,
+        258,
+        371,
+        196,
+        258,
+        205
+      ]
+    },
+    {
+      "prompt_id": "gmd-07",
+      "source": "gmd",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\GMD\\extracted\\groove\\drummer9\\session1\\28_rock_90_beat_4-4.mid",
+      "prompt_len": 32,
+      "total_tokens": 730,
+      "role_hint": "drum-oriented",
+      "prompt_ids": [
+        2184,
+        258,
+        311,
+        258,
+        6218,
+        258,
+        317,
+        258,
+        2355,
+        258,
+        325,
+        258,
+        5449,
+        258,
+        6432,
+        258,
+        368,
+        189,
+        258,
+        339,
+        258,
+        3339,
+        258,
+        207,
+        317,
+        258,
+        311,
+        258,
+        10996,
+        258,
+        7020,
+        258
+      ]
+    },
+    {
+      "prompt_id": "gmd-08",
+      "source": "gmd",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\GMD\\extracted\\groove\\drummer7\\session3\\21_pop-soft_83_fill_4-4.mid",
+      "prompt_len": 32,
+      "total_tokens": 62,
+      "role_hint": "drum-oriented",
+      "prompt_ids": [
+        2424,
+        203,
+        258,
+        413,
+        281,
+        258,
+        317,
+        174,
+        258,
+        8033,
+        258,
+        413,
+        176,
+        258,
+        413,
+        178,
+        258,
+        6535,
+        258,
+        472,
+        181,
+        258,
+        10300,
+        258,
+        413,
+        185,
+        258,
+        2792,
+        258,
+        4639,
+        258,
+        205
+      ]
+    },
+    {
+      "prompt_id": "gmd-09",
+      "source": "gmd",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\GMD\\extracted\\groove\\drummer8\\session1\\28_rock_102_beat_4-4.mid",
+      "prompt_len": 32,
+      "total_tokens": 2893,
+      "role_hint": "drum-oriented",
+      "prompt_ids": [
+        1870,
+        258,
+        5262,
+        258,
+        206,
+        472,
+        181,
+        258,
+        309,
+        258,
+        205,
+        5449,
+        258,
+        206,
+        472,
+        189,
+        258,
+        316,
+        258,
+        206,
+        1003,
+        193,
+        258,
+        206,
+        413,
+        197,
+        258,
+        316,
+        258,
+        4932,
+        258,
+        206
+      ]
+    },
+    {
+      "prompt_id": "gmd-10",
+      "source": "gmd",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\GMD\\extracted\\groove\\drummer3\\session1\\21_jazz_120_beat_4-4.mid",
+      "prompt_len": 32,
+      "total_tokens": 92,
+      "role_hint": "drum-oriented",
+      "prompt_ids": [
+        1484,
+        174,
+        258,
+        294,
+        178,
+        258,
+        768,
+        179,
+        258,
+        3807,
+        258,
+        2245,
+        258,
+        326,
+        192,
+        258,
+        294,
+        196,
+        258,
+        326,
+        198,
+        258,
+        3707,
+        258,
+        2614,
+        258,
+        299,
+        281,
+        258,
+        294,
+        258,
+        5180
+      ]
+    },
+    {
+      "prompt_id": "gmd-11",
+      "source": "gmd",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\GMD\\extracted\\groove\\drummer1\\session2\\16_country_114_fill_4-4.mid",
+      "prompt_len": 32,
+      "total_tokens": 44,
+      "role_hint": "drum-oriented",
+      "prompt_ids": [
+        3012,
+        258,
+        466,
+        258,
+        392,
+        176,
+        258,
+        557,
+        177,
+        258,
+        205,
+        4356,
+        258,
+        466,
+        181,
+        258,
+        466,
+        258,
+        392,
+        183,
+        258,
+        466,
+        185,
+        258,
+        3878,
+        258,
+        466,
+        189,
+        258,
+        392,
+        258,
+        11110
+      ]
+    },
+    {
+      "prompt_id": "nrgcp-00",
+      "source": "nrgcp",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\2185394_nrgcp_dataset.mid",
+      "prompt_len": 32,
+      "total_tokens": 179,
+      "role_hint": "chord-oriented",
+      "prompt_ids": [
+        1484,
+        6684,
+        6577,
+        1540,
+        5294,
+        1488,
+        1310,
+        5294,
+        747,
+        1540,
+        5294,
+        1744,
+        1540,
+        1324,
+        303,
+        1403,
+        1540,
+        5294,
+        1650,
+        1540,
+        5294,
+        2693,
+        577,
+        40,
+        2093,
+        1344,
+        5294,
+        3137,
+        2093,
+        1344,
+        1394,
+        301
+      ]
+    },
+    {
+      "prompt_id": "nrgcp-01",
+      "source": "nrgcp",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\1141920_nrgcp_dataset.mid",
+      "prompt_len": 32,
+      "total_tokens": 204,
+      "role_hint": "chord-oriented",
+      "prompt_ids": [
+        1484,
+        7742,
+        1310,
+        5294,
+        292,
+        1363,
+        1540,
+        1394,
+        301,
+        2707,
+        303,
+        390,
+        1363,
+        1540,
+        6715,
+        365,
+        1363,
+        1540,
+        5294,
+        3944,
+        1937,
+        1540,
+        5294,
+        7933,
+        1540,
+        5294,
+        1689,
+        332,
+        2093,
+        7863,
+        515,
+        3628
+      ]
+    },
+    {
+      "prompt_id": "nrgcp-02",
+      "source": "nrgcp",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\3829544_nrgcp_dataset.mid",
+      "prompt_len": 32,
+      "total_tokens": 178,
+      "role_hint": "chord-oriented",
+      "prompt_ids": [
+        1484,
+        770,
+        4917,
+        1540,
+        8083,
+        1759,
+        4917,
+        1540,
+        8083,
+        6476,
+        4917,
+        1540,
+        8083,
+        2092,
+        4917,
+        1540,
+        1797,
+        303,
+        2012,
+        4917,
+        1540,
+        2051,
+        301,
+        889,
+        3097,
+        2051,
+        8061,
+        1502,
+        3097,
+        2051,
+        2130,
+        301
+      ]
+    },
+    {
+      "prompt_id": "nrgcp-03",
+      "source": "nrgcp",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\4906923_nrgcp_dataset.mid",
+      "prompt_len": 32,
+      "total_tokens": 70,
+      "role_hint": "chord-oriented",
+      "prompt_ids": [
+        1484,
+        467,
+        10523,
+        663,
+        424,
+        595,
+        350,
+        595,
+        943,
+        595,
+        323,
+        595,
+        424,
+        663,
+        350,
+        663,
+        943,
+        595,
+        323,
+        595,
+        424,
+        595,
+        350,
+        663,
+        628,
+        920,
+        417,
+        920,
+        424,
+        920,
+        720,
+        1119
+      ]
+    },
+    {
+      "prompt_id": "nrgcp-04",
+      "source": "nrgcp",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\3532419_nrgcp_dataset.mid",
+      "prompt_len": 32,
+      "total_tokens": 232,
+      "role_hint": "chord-oriented",
+      "prompt_ids": [
+        1484,
+        737,
+        1937,
+        4198,
+        3178,
+        423,
+        5634,
+        303,
+        1614,
+        1937,
+        1470,
+        4460,
+        7743,
+        1540,
+        1324,
+        303,
+        5596,
+        301,
+        291,
+        1363,
+        1436,
+        1230,
+        306,
+        1323,
+        1937,
+        1470,
+        4460,
+        290,
+        1363,
+        1470,
+        4460,
+        671
+      ]
+    },
+    {
+      "prompt_id": "nrgcp-05",
+      "source": "nrgcp",
+      "midi_file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\6315100_nrgcp_dataset.mid",
+      "prompt_len": 32,
+      "total_tokens": 244,
+      "role_hint": "chord-oriented",
+      "prompt_ids": [
+        1484,
+        617,
+        2359,
+        2029,
+        1540,
+        5294,
+        3937,
+        2359,
+        2029,
+        1540,
+        5294,
+        1180,
+        2359,
+        2029,
+        1540,
+        5294,
+        4476,
+        2359,
+        2029,
+        1540,
+        5294,
+        1005,
+        2359,
+        1915,
+        1540,
+        5294,
+        3626,
+        2359,
+        2029,
+        1540,
+        5294,
+        515
+      ]
+    }
+  ],
+  "generations": [
+    {
+      "model": "pretrained",
+      "prompt_id": "gmd-06",
+      "source": "gmd",
+      "role_hint": "drum-oriented",
+      "seed": 1977118228,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        4649,
+        258,
+        7728,
+        258,
+        5661,
+        258,
+        3918,
+        258,
+        2438,
+        258,
+        1620,
+        258,
+        3665,
+        258,
+        2358,
+        258,
+        294,
+        188,
+        258,
+        205,
+        294,
+        190,
+        258,
+        294,
+        192,
+        258,
+        8425,
+        258,
+        371,
+        196,
+        258,
+        205
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_gmd-06.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_gmd-06.mid",
+      "generation_sec": 1.413,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 3,
+        "num_notes": 71,
+        "duration_ticks": 67,
+        "duration_beats": 8.375,
+        "duration_sec": 3.5485,
+        "density_notes_per_beat": 8.4776,
+        "max_polyphony": 8,
+        "pitch_range": [
+          39,
+          75
+        ],
+        "velocity_range": [
+          7,
+          127
+        ],
+        "silence_beats": 3.125,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.3857,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": true,
+            "notes": 3
+          },
+          {
+            "index": 1,
+            "program": 3,
+            "is_drum": false,
+            "notes": 1
+          },
+          {
+            "index": 2,
+            "program": 0,
+            "is_drum": false,
+            "notes": 67
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 3,
+        "notes": 71
+      }
+    },
+    {
+      "model": "pretrained",
+      "prompt_id": "gmd-07",
+      "source": "gmd",
+      "role_hint": "drum-oriented",
+      "seed": 784055393,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        2184,
+        258,
+        311,
+        258,
+        6218,
+        258,
+        317,
+        258,
+        2355,
+        258,
+        325,
+        258,
+        5449,
+        258,
+        6432,
+        258,
+        368,
+        189,
+        258,
+        339,
+        258,
+        3339,
+        258,
+        207,
+        317,
+        258,
+        311,
+        258,
+        10996,
+        258,
+        7020,
+        258
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_gmd-07.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_gmd-07.mid",
+      "generation_sec": 1.084,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 4,
+        "num_notes": 43,
+        "duration_ticks": 61,
+        "duration_beats": 7.625,
+        "duration_sec": 5.2334,
+        "density_notes_per_beat": 5.6393,
+        "max_polyphony": 11,
+        "pitch_range": [
+          44,
+          86
+        ],
+        "velocity_range": [
+          55,
+          111
+        ],
+        "silence_beats": 4.75,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.381,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": true,
+            "notes": 23
+          },
+          {
+            "index": 1,
+            "program": 7,
+            "is_drum": false,
+            "notes": 7
+          },
+          {
+            "index": 2,
+            "program": 0,
+            "is_drum": false,
+            "notes": 11
+          },
+          {
+            "index": 3,
+            "program": 2,
+            "is_drum": false,
+            "notes": 2
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 4,
+        "notes": 43
+      }
+    },
+    {
+      "model": "pretrained",
+      "prompt_id": "gmd-08",
+      "source": "gmd",
+      "role_hint": "drum-oriented",
+      "seed": 324808844,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        2424,
+        203,
+        258,
+        413,
+        281,
+        258,
+        317,
+        174,
+        258,
+        8033,
+        258,
+        413,
+        176,
+        258,
+        413,
+        178,
+        258,
+        6535,
+        258,
+        472,
+        181,
+        258,
+        10300,
+        258,
+        413,
+        185,
+        258,
+        2792,
+        258,
+        4639,
+        258,
+        205
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_gmd-08.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_gmd-08.mid",
+      "generation_sec": 1.081,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 2,
+        "num_notes": 54,
+        "duration_ticks": 83,
+        "duration_beats": 10.375,
+        "duration_sec": 7.7185,
+        "density_notes_per_beat": 5.2048,
+        "max_polyphony": 7,
+        "pitch_range": [
+          40,
+          66
+        ],
+        "velocity_range": [
+          39,
+          95
+        ],
+        "silence_beats": 7.125,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.3396,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": true,
+            "notes": 1
+          },
+          {
+            "index": 1,
+            "program": 1,
+            "is_drum": false,
+            "notes": 53
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 2,
+        "notes": 54
+      }
+    },
+    {
+      "model": "pretrained",
+      "prompt_id": "gmd-09",
+      "source": "gmd",
+      "role_hint": "drum-oriented",
+      "seed": 1576779350,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1870,
+        258,
+        5262,
+        258,
+        206,
+        472,
+        181,
+        258,
+        309,
+        258,
+        205,
+        5449,
+        258,
+        206,
+        472,
+        189,
+        258,
+        316,
+        258,
+        206,
+        1003,
+        193,
+        258,
+        206,
+        413,
+        197,
+        258,
+        316,
+        258,
+        4932,
+        258,
+        206
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_gmd-09.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_gmd-09.mid",
+      "generation_sec": 1.139,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 4,
+        "num_notes": 58,
+        "duration_ticks": 129,
+        "duration_beats": 16.125,
+        "duration_sec": 9.5821,
+        "density_notes_per_beat": 3.5969,
+        "max_polyphony": 10,
+        "pitch_range": [
+          40,
+          80
+        ],
+        "velocity_range": [
+          15,
+          127
+        ],
+        "silence_beats": 10.0,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.3333,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": true,
+            "notes": 9
+          },
+          {
+            "index": 1,
+            "program": 7,
+            "is_drum": false,
+            "notes": 27
+          },
+          {
+            "index": 2,
+            "program": 4,
+            "is_drum": false,
+            "notes": 3
+          },
+          {
+            "index": 3,
+            "program": 3,
+            "is_drum": false,
+            "notes": 19
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 4,
+        "notes": 58
+      }
+    },
+    {
+      "model": "pretrained",
+      "prompt_id": "gmd-10",
+      "source": "gmd",
+      "role_hint": "drum-oriented",
+      "seed": 1812315935,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        174,
+        258,
+        294,
+        178,
+        258,
+        768,
+        179,
+        258,
+        3807,
+        258,
+        2245,
+        258,
+        326,
+        192,
+        258,
+        294,
+        196,
+        258,
+        326,
+        198,
+        258,
+        3707,
+        258,
+        2614,
+        258,
+        299,
+        281,
+        258,
+        294,
+        258,
+        5180
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_gmd-10.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_gmd-10.mid",
+      "generation_sec": 1.477,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 2,
+        "num_notes": 43,
+        "duration_ticks": 112,
+        "duration_beats": 14.0,
+        "duration_sec": 6.9255,
+        "density_notes_per_beat": 3.0714,
+        "max_polyphony": 4,
+        "pitch_range": [
+          35,
+          63
+        ],
+        "velocity_range": [
+          95,
+          127
+        ],
+        "silence_beats": 5.25,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.2143,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 1,
+            "is_drum": false,
+            "notes": 40
+          },
+          {
+            "index": 1,
+            "program": 2,
+            "is_drum": false,
+            "notes": 3
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 2,
+        "notes": 43
+      }
+    },
+    {
+      "model": "pretrained",
+      "prompt_id": "gmd-11",
+      "source": "gmd",
+      "role_hint": "drum-oriented",
+      "seed": 2088723382,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        3012,
+        258,
+        466,
+        258,
+        392,
+        176,
+        258,
+        557,
+        177,
+        258,
+        205,
+        4356,
+        258,
+        466,
+        181,
+        258,
+        466,
+        258,
+        392,
+        183,
+        258,
+        466,
+        185,
+        258,
+        3878,
+        258,
+        466,
+        189,
+        258,
+        392,
+        258,
+        11110
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_gmd-11.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_gmd-11.mid",
+      "generation_sec": 1.137,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 5,
+        "num_notes": 81,
+        "duration_ticks": 91,
+        "duration_beats": 11.375,
+        "duration_sec": 5.9597,
+        "density_notes_per_beat": 7.1209,
+        "max_polyphony": 11,
+        "pitch_range": [
+          40,
+          79
+        ],
+        "velocity_range": [
+          79,
+          119
+        ],
+        "silence_beats": 2.0,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.6,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": true,
+            "notes": 1
+          },
+          {
+            "index": 1,
+            "program": 1,
+            "is_drum": false,
+            "notes": 8
+          },
+          {
+            "index": 2,
+            "program": 5,
+            "is_drum": false,
+            "notes": 12
+          },
+          {
+            "index": 3,
+            "program": 7,
+            "is_drum": false,
+            "notes": 57
+          },
+          {
+            "index": 4,
+            "program": 2,
+            "is_drum": false,
+            "notes": 3
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 5,
+        "notes": 81
+      }
+    },
+    {
+      "model": "pretrained",
+      "prompt_id": "nrgcp-00",
+      "source": "nrgcp",
+      "role_hint": "chord-oriented",
+      "seed": 651931249,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        6684,
+        6577,
+        1540,
+        5294,
+        1488,
+        1310,
+        5294,
+        747,
+        1540,
+        5294,
+        1744,
+        1540,
+        1324,
+        303,
+        1403,
+        1540,
+        5294,
+        1650,
+        1540,
+        5294,
+        2693,
+        577,
+        40,
+        2093,
+        1344,
+        5294,
+        3137,
+        2093,
+        1344,
+        1394,
+        301
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_nrgcp-00.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_nrgcp-00.mid",
+      "generation_sec": 1.156,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 115,
+        "duration_ticks": 198,
+        "duration_beats": 24.75,
+        "duration_sec": 12.2434,
+        "density_notes_per_beat": 4.6465,
+        "max_polyphony": 5,
+        "pitch_range": [
+          24,
+          67
+        ],
+        "velocity_range": [
+          87,
+          103
+        ],
+        "silence_beats": 13.75,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.693,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": false,
+            "notes": 115
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 115
+      }
+    },
+    {
+      "model": "pretrained",
+      "prompt_id": "nrgcp-01",
+      "source": "nrgcp",
+      "role_hint": "chord-oriented",
+      "seed": 1512458076,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        7742,
+        1310,
+        5294,
+        292,
+        1363,
+        1540,
+        1394,
+        301,
+        2707,
+        303,
+        390,
+        1363,
+        1540,
+        6715,
+        365,
+        1363,
+        1540,
+        5294,
+        3944,
+        1937,
+        1540,
+        5294,
+        7933,
+        1540,
+        5294,
+        1689,
+        332,
+        2093,
+        7863,
+        515,
+        3628
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_nrgcp-01.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_nrgcp-01.mid",
+      "generation_sec": 1.022,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 96,
+        "duration_ticks": 145,
+        "duration_beats": 18.125,
+        "duration_sec": 8.9661,
+        "density_notes_per_beat": 5.2966,
+        "max_polyphony": 4,
+        "pitch_range": [
+          31,
+          64
+        ],
+        "velocity_range": [
+          71,
+          103
+        ],
+        "silence_beats": 5.5,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.6421,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": false,
+            "notes": 96
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 96
+      }
+    },
+    {
+      "model": "pretrained",
+      "prompt_id": "nrgcp-02",
+      "source": "nrgcp",
+      "role_hint": "chord-oriented",
+      "seed": 2064983625,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        770,
+        4917,
+        1540,
+        8083,
+        1759,
+        4917,
+        1540,
+        8083,
+        6476,
+        4917,
+        1540,
+        8083,
+        2092,
+        4917,
+        1540,
+        1797,
+        303,
+        2012,
+        4917,
+        1540,
+        2051,
+        301,
+        889,
+        3097,
+        2051,
+        8061,
+        1502,
+        3097,
+        2051,
+        2130,
+        301
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_nrgcp-02.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_nrgcp-02.mid",
+      "generation_sec": 1.072,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 118,
+        "duration_ticks": 138,
+        "duration_beats": 17.25,
+        "duration_sec": 8.5333,
+        "density_notes_per_beat": 6.8406,
+        "max_polyphony": 5,
+        "pitch_range": [
+          40,
+          70
+        ],
+        "velocity_range": [
+          79,
+          95
+        ],
+        "silence_beats": 10.5,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.6581,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": false,
+            "notes": 118
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 118
+      }
+    },
+    {
+      "model": "pretrained",
+      "prompt_id": "nrgcp-03",
+      "source": "nrgcp",
+      "role_hint": "chord-oriented",
+      "seed": 38653597,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        467,
+        10523,
+        663,
+        424,
+        595,
+        350,
+        595,
+        943,
+        595,
+        323,
+        595,
+        424,
+        663,
+        350,
+        663,
+        943,
+        595,
+        323,
+        595,
+        424,
+        595,
+        350,
+        663,
+        628,
+        920,
+        417,
+        920,
+        424,
+        920,
+        720,
+        1119
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_nrgcp-03.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_nrgcp-03.mid",
+      "generation_sec": 1.09,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 81,
+        "duration_ticks": 432,
+        "duration_beats": 54.0,
+        "duration_sec": 26.7128,
+        "density_notes_per_beat": 1.5,
+        "max_polyphony": 5,
+        "pitch_range": [
+          51,
+          68
+        ],
+        "velocity_range": [
+          87,
+          111
+        ],
+        "silence_beats": 0.0,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.4125,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": false,
+            "notes": 81
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 81
+      }
+    },
+    {
+      "model": "pretrained",
+      "prompt_id": "nrgcp-04",
+      "source": "nrgcp",
+      "role_hint": "chord-oriented",
+      "seed": 1036352828,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        737,
+        1937,
+        4198,
+        3178,
+        423,
+        5634,
+        303,
+        1614,
+        1937,
+        1470,
+        4460,
+        7743,
+        1540,
+        1324,
+        303,
+        5596,
+        301,
+        291,
+        1363,
+        1436,
+        1230,
+        306,
+        1323,
+        1937,
+        1470,
+        4460,
+        290,
+        1363,
+        1470,
+        4460,
+        671
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_nrgcp-04.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_nrgcp-04.mid",
+      "generation_sec": 1.196,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 106,
+        "duration_ticks": 140,
+        "duration_beats": 17.5,
+        "duration_sec": 8.6569,
+        "density_notes_per_beat": 6.0571,
+        "max_polyphony": 5,
+        "pitch_range": [
+          41,
+          74
+        ],
+        "velocity_range": [
+          87,
+          103
+        ],
+        "silence_beats": 0.75,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.6381,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": false,
+            "notes": 106
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 106
+      }
+    },
+    {
+      "model": "pretrained",
+      "prompt_id": "nrgcp-05",
+      "source": "nrgcp",
+      "role_hint": "chord-oriented",
+      "seed": 165936567,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        617,
+        2359,
+        2029,
+        1540,
+        5294,
+        3937,
+        2359,
+        2029,
+        1540,
+        5294,
+        1180,
+        2359,
+        2029,
+        1540,
+        5294,
+        4476,
+        2359,
+        2029,
+        1540,
+        5294,
+        1005,
+        2359,
+        1915,
+        1540,
+        5294,
+        3626,
+        2359,
+        2029,
+        1540,
+        5294,
+        515
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_nrgcp-05.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\pretrained_nrgcp-05.mid",
+      "generation_sec": 1.182,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 125,
+        "duration_ticks": 152,
+        "duration_beats": 19.0,
+        "duration_sec": 9.399,
+        "density_notes_per_beat": 6.5789,
+        "max_polyphony": 6,
+        "pitch_range": [
+          33,
+          67
+        ],
+        "velocity_range": [
+          87,
+          95
+        ],
+        "silence_beats": 11.75,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.7742,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": false,
+            "notes": 125
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 125
+      }
+    },
+    {
+      "model": "finetuned",
+      "prompt_id": "gmd-06",
+      "source": "gmd",
+      "role_hint": "drum-oriented",
+      "seed": 1977118228,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        4649,
+        258,
+        7728,
+        258,
+        5661,
+        258,
+        3918,
+        258,
+        2438,
+        258,
+        1620,
+        258,
+        3665,
+        258,
+        2358,
+        258,
+        294,
+        188,
+        258,
+        205,
+        294,
+        190,
+        258,
+        294,
+        192,
+        258,
+        8425,
+        258,
+        371,
+        196,
+        258,
+        205
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_gmd-06.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_gmd-06.mid",
+      "generation_sec": 1.617,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 1,
+        "duration_ticks": 17,
+        "duration_beats": 2.125,
+        "duration_sec": 0.9004,
+        "density_notes_per_beat": 0.4706,
+        "max_polyphony": 1,
+        "pitch_range": [
+          40,
+          40
+        ],
+        "velocity_range": [
+          127,
+          127
+        ],
+        "silence_beats": 1.875,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.0,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": true,
+            "notes": 1
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 1
+      }
+    },
+    {
+      "model": "finetuned",
+      "prompt_id": "gmd-07",
+      "source": "gmd",
+      "role_hint": "drum-oriented",
+      "seed": 784055393,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        2184,
+        258,
+        311,
+        258,
+        6218,
+        258,
+        317,
+        258,
+        2355,
+        258,
+        325,
+        258,
+        5449,
+        258,
+        6432,
+        258,
+        368,
+        189,
+        258,
+        339,
+        258,
+        3339,
+        258,
+        207,
+        317,
+        258,
+        311,
+        258,
+        10996,
+        258,
+        7020,
+        258
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_gmd-07.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_gmd-07.mid",
+      "generation_sec": 1.336,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 1,
+        "duration_ticks": 21,
+        "duration_beats": 2.625,
+        "duration_sec": 1.8016,
+        "density_notes_per_beat": 0.381,
+        "max_polyphony": 1,
+        "pitch_range": [
+          44,
+          44
+        ],
+        "velocity_range": [
+          63,
+          63
+        ],
+        "silence_beats": 2.5,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.0,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": true,
+            "notes": 1
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 1
+      }
+    },
+    {
+      "model": "finetuned",
+      "prompt_id": "gmd-08",
+      "source": "gmd",
+      "role_hint": "drum-oriented",
+      "seed": 324808844,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        2424,
+        203,
+        258,
+        413,
+        281,
+        258,
+        317,
+        174,
+        258,
+        8033,
+        258,
+        413,
+        176,
+        258,
+        413,
+        178,
+        258,
+        6535,
+        258,
+        472,
+        181,
+        258,
+        10300,
+        258,
+        413,
+        185,
+        258,
+        2792,
+        258,
+        4639,
+        258,
+        205
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_gmd-08.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_gmd-08.mid",
+      "generation_sec": 1.094,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 0,
+        "num_notes": 0,
+        "duration_ticks": 0,
+        "duration_beats": 0.0,
+        "duration_sec": 0.0,
+        "density_notes_per_beat": 0.0,
+        "max_polyphony": 0,
+        "pitch_range": [
+          0,
+          0
+        ],
+        "velocity_range": [
+          0,
+          0
+        ],
+        "silence_beats": 0.0,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.0,
+        "tracks": []
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 0,
+        "notes": 0
+      }
+    },
+    {
+      "model": "finetuned",
+      "prompt_id": "gmd-09",
+      "source": "gmd",
+      "role_hint": "drum-oriented",
+      "seed": 1576779350,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1870,
+        258,
+        5262,
+        258,
+        206,
+        472,
+        181,
+        258,
+        309,
+        258,
+        205,
+        5449,
+        258,
+        206,
+        472,
+        189,
+        258,
+        316,
+        258,
+        206,
+        1003,
+        193,
+        258,
+        206,
+        413,
+        197,
+        258,
+        316,
+        258,
+        4932,
+        258,
+        206
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_gmd-09.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_gmd-09.mid",
+      "generation_sec": 1.363,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 6,
+        "duration_ticks": 73,
+        "duration_beats": 9.125,
+        "duration_sec": 5.4224,
+        "density_notes_per_beat": 0.6575,
+        "max_polyphony": 1,
+        "pitch_range": [
+          40,
+          42
+        ],
+        "velocity_range": [
+          15,
+          127
+        ],
+        "silence_beats": 8.375,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.4,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": true,
+            "notes": 6
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 6
+      }
+    },
+    {
+      "model": "finetuned",
+      "prompt_id": "gmd-10",
+      "source": "gmd",
+      "role_hint": "drum-oriented",
+      "seed": 1812315935,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        174,
+        258,
+        294,
+        178,
+        258,
+        768,
+        179,
+        258,
+        3807,
+        258,
+        2245,
+        258,
+        326,
+        192,
+        258,
+        294,
+        196,
+        258,
+        326,
+        198,
+        258,
+        3707,
+        258,
+        2614,
+        258,
+        299,
+        281,
+        258,
+        294,
+        258,
+        5180
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_gmd-10.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_gmd-10.mid",
+      "generation_sec": 1.203,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 0,
+        "num_notes": 0,
+        "duration_ticks": 0,
+        "duration_beats": 0.0,
+        "duration_sec": 0.0,
+        "density_notes_per_beat": 0.0,
+        "max_polyphony": 0,
+        "pitch_range": [
+          0,
+          0
+        ],
+        "velocity_range": [
+          0,
+          0
+        ],
+        "silence_beats": 0.0,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.0,
+        "tracks": []
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 0,
+        "notes": 0
+      }
+    },
+    {
+      "model": "finetuned",
+      "prompt_id": "gmd-11",
+      "source": "gmd",
+      "role_hint": "drum-oriented",
+      "seed": 2088723382,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        3012,
+        258,
+        466,
+        258,
+        392,
+        176,
+        258,
+        557,
+        177,
+        258,
+        205,
+        4356,
+        258,
+        466,
+        181,
+        258,
+        466,
+        258,
+        392,
+        183,
+        258,
+        466,
+        185,
+        258,
+        3878,
+        258,
+        466,
+        189,
+        258,
+        392,
+        258,
+        11110
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_gmd-11.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_gmd-11.mid",
+      "generation_sec": 1.162,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 1,
+        "duration_ticks": 6,
+        "duration_beats": 0.75,
+        "duration_sec": 0.3929,
+        "density_notes_per_beat": 1.3333,
+        "max_polyphony": 1,
+        "pitch_range": [
+          40,
+          40
+        ],
+        "velocity_range": [
+          111,
+          111
+        ],
+        "silence_beats": 0.5,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.0,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": true,
+            "notes": 1
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 1
+      }
+    },
+    {
+      "model": "finetuned",
+      "prompt_id": "nrgcp-00",
+      "source": "nrgcp",
+      "role_hint": "chord-oriented",
+      "seed": 651931249,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        6684,
+        6577,
+        1540,
+        5294,
+        1488,
+        1310,
+        5294,
+        747,
+        1540,
+        5294,
+        1744,
+        1540,
+        1324,
+        303,
+        1403,
+        1540,
+        5294,
+        1650,
+        1540,
+        5294,
+        2693,
+        577,
+        40,
+        2093,
+        1344,
+        5294,
+        3137,
+        2093,
+        1344,
+        1394,
+        301
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_nrgcp-00.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_nrgcp-00.mid",
+      "generation_sec": 1.441,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 106,
+        "duration_ticks": 120,
+        "duration_beats": 15.0,
+        "duration_sec": 7.4202,
+        "density_notes_per_beat": 7.0667,
+        "max_polyphony": 20,
+        "pitch_range": [
+          24,
+          64
+        ],
+        "velocity_range": [
+          87,
+          95
+        ],
+        "silence_beats": 9.25,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.7143,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": false,
+            "notes": 106
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 106
+      }
+    },
+    {
+      "model": "finetuned",
+      "prompt_id": "nrgcp-01",
+      "source": "nrgcp",
+      "role_hint": "chord-oriented",
+      "seed": 1512458076,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        7742,
+        1310,
+        5294,
+        292,
+        1363,
+        1540,
+        1394,
+        301,
+        2707,
+        303,
+        390,
+        1363,
+        1540,
+        6715,
+        365,
+        1363,
+        1540,
+        5294,
+        3944,
+        1937,
+        1540,
+        5294,
+        7933,
+        1540,
+        5294,
+        1689,
+        332,
+        2093,
+        7863,
+        515,
+        3628
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_nrgcp-01.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_nrgcp-01.mid",
+      "generation_sec": 1.252,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 70,
+        "duration_ticks": 234,
+        "duration_beats": 29.25,
+        "duration_sec": 14.4694,
+        "density_notes_per_beat": 2.3932,
+        "max_polyphony": 4,
+        "pitch_range": [
+          31,
+          67
+        ],
+        "velocity_range": [
+          87,
+          95
+        ],
+        "silence_beats": 20.75,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.5652,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": false,
+            "notes": 70
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 70
+      }
+    },
+    {
+      "model": "finetuned",
+      "prompt_id": "nrgcp-02",
+      "source": "nrgcp",
+      "role_hint": "chord-oriented",
+      "seed": 2064983625,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        770,
+        4917,
+        1540,
+        8083,
+        1759,
+        4917,
+        1540,
+        8083,
+        6476,
+        4917,
+        1540,
+        8083,
+        2092,
+        4917,
+        1540,
+        1797,
+        303,
+        2012,
+        4917,
+        1540,
+        2051,
+        301,
+        889,
+        3097,
+        2051,
+        8061,
+        1502,
+        3097,
+        2051,
+        2130,
+        301
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_nrgcp-02.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_nrgcp-02.mid",
+      "generation_sec": 1.317,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 94,
+        "duration_ticks": 246,
+        "duration_beats": 30.75,
+        "duration_sec": 15.2115,
+        "density_notes_per_beat": 3.0569,
+        "max_polyphony": 11,
+        "pitch_range": [
+          39,
+          71
+        ],
+        "velocity_range": [
+          87,
+          111
+        ],
+        "silence_beats": 25.0,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.5054,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": false,
+            "notes": 94
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 94
+      }
+    },
+    {
+      "model": "finetuned",
+      "prompt_id": "nrgcp-03",
+      "source": "nrgcp",
+      "role_hint": "chord-oriented",
+      "seed": 38653597,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        467,
+        10523,
+        663,
+        424,
+        595,
+        350,
+        595,
+        943,
+        595,
+        323,
+        595,
+        424,
+        663,
+        350,
+        663,
+        943,
+        595,
+        323,
+        595,
+        424,
+        595,
+        350,
+        663,
+        628,
+        920,
+        417,
+        920,
+        424,
+        920,
+        720,
+        1119
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_nrgcp-03.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_nrgcp-03.mid",
+      "generation_sec": 1.441,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 77,
+        "duration_ticks": 324,
+        "duration_beats": 40.5,
+        "duration_sec": 20.0346,
+        "density_notes_per_beat": 1.9012,
+        "max_polyphony": 11,
+        "pitch_range": [
+          46,
+          68
+        ],
+        "velocity_range": [
+          7,
+          103
+        ],
+        "silence_beats": 0.75,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.25,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": false,
+            "notes": 77
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 77
+      }
+    },
+    {
+      "model": "finetuned",
+      "prompt_id": "nrgcp-04",
+      "source": "nrgcp",
+      "role_hint": "chord-oriented",
+      "seed": 1036352828,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        737,
+        1937,
+        4198,
+        3178,
+        423,
+        5634,
+        303,
+        1614,
+        1937,
+        1470,
+        4460,
+        7743,
+        1540,
+        1324,
+        303,
+        5596,
+        301,
+        291,
+        1363,
+        1436,
+        1230,
+        306,
+        1323,
+        1937,
+        1470,
+        4460,
+        290,
+        1363,
+        1470,
+        4460,
+        671
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_nrgcp-04.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_nrgcp-04.mid",
+      "generation_sec": 1.835,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 88,
+        "duration_ticks": 134,
+        "duration_beats": 16.75,
+        "duration_sec": 8.2859,
+        "density_notes_per_beat": 5.2537,
+        "max_polyphony": 7,
+        "pitch_range": [
+          36,
+          65
+        ],
+        "velocity_range": [
+          87,
+          103
+        ],
+        "silence_beats": 2.75,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.2529,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": false,
+            "notes": 88
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 88
+      }
+    },
+    {
+      "model": "finetuned",
+      "prompt_id": "nrgcp-05",
+      "source": "nrgcp",
+      "role_hint": "chord-oriented",
+      "seed": 165936567,
+      "decode": {
+        "max_new": 100,
+        "temperature": 1.0,
+        "top_k": 40
+      },
+      "prompt_ids": [
+        1484,
+        617,
+        2359,
+        2029,
+        1540,
+        5294,
+        3937,
+        2359,
+        2029,
+        1540,
+        5294,
+        1180,
+        2359,
+        2029,
+        1540,
+        5294,
+        4476,
+        2359,
+        2029,
+        1540,
+        5294,
+        1005,
+        2359,
+        1915,
+        1540,
+        5294,
+        3626,
+        2359,
+        2029,
+        1540,
+        5294,
+        515
+      ],
+      "prompt_len": 32,
+      "generated_token_count": 132,
+      "new_tokens": 100,
+      "midi_path": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_nrgcp-05.mid",
+      "midi_rel_path": "experiments\\aura-midi\\eval\\runs\\eval-matched-20261027\\midi\\finetuned_nrgcp-05.mid",
+      "generation_sec": 1.378,
+      "metrics": {
+        "tpq": 8,
+        "num_tracks": 1,
+        "num_notes": 110,
+        "duration_ticks": 114,
+        "duration_beats": 14.25,
+        "duration_sec": 7.0492,
+        "density_notes_per_beat": 7.7193,
+        "max_polyphony": 20,
+        "pitch_range": [
+          36,
+          65
+        ],
+        "velocity_range": [
+          87,
+          95
+        ],
+        "silence_beats": 9.5,
+        "trailing_silence_beats": 0.0,
+        "repeat_bigram_fraction": 0.6881,
+        "tracks": [
+          {
+            "index": 0,
+            "program": 0,
+            "is_drum": false,
+            "notes": 110
+          }
+        ]
+      },
+      "reopen": {
+        "valid": true,
+        "reopened": true,
+        "tpq": 8,
+        "tracks": 1,
+        "notes": 110
+      }
+    }
+  ],
+  "tokenizer_fidelity": {
+    "files_checked": 8,
+    "all_note_count_match": true,
+    "all_token_count_match": true,
+    "details": [
+      {
+        "file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\3849491_nrgcp_dataset.mid",
+        "orig_tokens": 244,
+        "orig_notes": 230,
+        "decoded_notes": 230,
+        "reencoded_tokens": 244,
+        "note_match": true,
+        "token_match": true
+      },
+      {
+        "file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\1512509_nrgcp_dataset.mid",
+        "orig_tokens": 146,
+        "orig_notes": 130,
+        "decoded_notes": 130,
+        "reencoded_tokens": 146,
+        "note_match": true,
+        "token_match": true
+      },
+      {
+        "file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\8660561_nrgcp_dataset.mid",
+        "orig_tokens": 62,
+        "orig_notes": 48,
+        "decoded_notes": 48,
+        "reencoded_tokens": 62,
+        "note_match": true,
+        "token_match": true
+      },
+      {
+        "file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\4168491_nrgcp_dataset.mid",
+        "orig_tokens": 275,
+        "orig_notes": 208,
+        "decoded_notes": 208,
+        "reencoded_tokens": 275,
+        "note_match": true,
+        "token_match": true
+      },
+      {
+        "file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\1416817_nrgcp_dataset.mid",
+        "orig_tokens": 234,
+        "orig_notes": 192,
+        "decoded_notes": 192,
+        "reencoded_tokens": 234,
+        "note_match": true,
+        "token_match": true
+      },
+      {
+        "file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\1266779_nrgcp_dataset.mid",
+        "orig_tokens": 76,
+        "orig_notes": 56,
+        "decoded_notes": 56,
+        "reencoded_tokens": 76,
+        "note_match": true,
+        "token_match": true
+      },
+      {
+        "file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\3911926_nrgcp_dataset.mid",
+        "orig_tokens": 119,
+        "orig_notes": 108,
+        "decoded_notes": 108,
+        "reencoded_tokens": 119,
+        "note_match": true,
+        "token_match": true
+      },
+      {
+        "file": "C:\\Users\\migue\\.cline\\data\\workspaces\\chat\\Mozart\\experiments\\aura-midi\\datasets\\NRG-CP\\extracted\\7706420_nrgcp_dataset.mid",
+        "orig_tokens": 87,
+        "orig_notes": 72,
+        "decoded_notes": 72,
+        "reencoded_tokens": 87,
+        "note_match": true,
+        "token_match": true
+      }
+    ]
+  },
+  "elapsed_sec": 35.76,
+  "comparison": {
+    "pretrained": {
+      "count": 12,
+      "avg_notes": 82.58333333333333,
+      "min_notes": 43,
+      "max_notes": 125,
+      "zero_note_prompts": 0,
+      "one_note_prompts": 0,
+      "avg_duration_beats": 18.208333333333332,
+      "avg_duration_sec": 9.4566,
+      "avg_density": 5.335883333333334,
+      "avg_max_polyphony": 6.75,
+      "avg_pitch_lo": 38.166666666666664,
+      "avg_pitch_hi": 71.58333333333333,
+      "avg_vel_lo": 65.66666666666667,
+      "avg_vel_hi": 109.66666666666667,
+      "avg_silence_beats": 6.208333333333333,
+      "avg_trailing_silence_beats": 0.0,
+      "avg_repeat_frac": 0.5059916666666667,
+      "all_reopened": true,
+      "all_valid": true
+    },
+    "finetuned": {
+      "count": 12,
+      "avg_notes": 46.166666666666664,
+      "min_notes": 0,
+      "max_notes": 110,
+      "zero_note_prompts": 2,
+      "one_note_prompts": 5,
+      "avg_duration_beats": 13.427083333333334,
+      "avg_duration_sec": 6.749008333333333,
+      "avg_density": 2.51945,
+      "avg_max_polyphony": 6.416666666666667,
+      "avg_pitch_lo": 31.333333333333332,
+      "avg_pitch_hi": 47.166666666666664,
+      "avg_vel_lo": 63.166666666666664,
+      "avg_vel_hi": 85.83333333333333,
+      "avg_silence_beats": 6.770833333333333,
+      "avg_trailing_silence_beats": 0.0,
+      "avg_repeat_frac": 0.281325,
+      "all_reopened": true,
+      "all_valid": true
+    },
+    "pretrained_by_source": {
+      "nrgcp": {
+        "count": 6,
+        "avg_notes": 106.83333333333333,
+        "min_notes": 81,
+        "max_notes": 125,
+        "zero_note_prompts": 0,
+        "one_note_prompts": 0,
+        "avg_duration_beats": 25.104166666666668,
+        "avg_duration_sec": 12.418583333333332,
+        "avg_density": 5.153283333333333,
+        "avg_max_polyphony": 5.0,
+        "avg_pitch_lo": 36.666666666666664,
+        "avg_pitch_hi": 68.33333333333333,
+        "avg_vel_lo": 83.0,
+        "avg_vel_hi": 101.66666666666667,
+        "avg_silence_beats": 7.041666666666667,
+        "avg_trailing_silence_beats": 0.0,
+        "avg_repeat_frac": 0.6363333333333333,
+        "all_reopened": true,
+        "all_valid": true
+      },
+      "gmd": {
+        "count": 6,
+        "avg_notes": 58.333333333333336,
+        "min_notes": 43,
+        "max_notes": 81,
+        "zero_note_prompts": 0,
+        "one_note_prompts": 0,
+        "avg_duration_beats": 11.3125,
+        "avg_duration_sec": 6.4946166666666665,
+        "avg_density": 5.518483333333333,
+        "avg_max_polyphony": 8.5,
+        "avg_pitch_lo": 39.666666666666664,
+        "avg_pitch_hi": 74.83333333333333,
+        "avg_vel_lo": 48.333333333333336,
+        "avg_vel_hi": 117.66666666666667,
+        "avg_silence_beats": 5.375,
+        "avg_trailing_silence_beats": 0.0,
+        "avg_repeat_frac": 0.37565,
+        "all_reopened": true,
+        "all_valid": true
+      }
+    },
+    "finetuned_by_source": {
+      "nrgcp": {
+        "count": 6,
+        "avg_notes": 90.83333333333333,
+        "min_notes": 70,
+        "max_notes": 110,
+        "zero_note_prompts": 0,
+        "one_note_prompts": 0,
+        "avg_duration_beats": 24.416666666666668,
+        "avg_duration_sec": 12.078466666666666,
+        "avg_density": 4.565166666666667,
+        "avg_max_polyphony": 12.166666666666666,
+        "avg_pitch_lo": 35.333333333333336,
+        "avg_pitch_hi": 66.66666666666667,
+        "avg_vel_lo": 73.66666666666667,
+        "avg_vel_hi": 100.33333333333333,
+        "avg_silence_beats": 11.333333333333334,
+        "avg_trailing_silence_beats": 0.0,
+        "avg_repeat_frac": 0.4959833333333334,
+        "all_reopened": true,
+        "all_valid": true
+      },
+      "gmd": {
+        "count": 6,
+        "avg_notes": 1.5,
+        "min_notes": 0,
+        "max_notes": 6,
+        "zero_note_prompts": 2,
+        "one_note_prompts": 5,
+        "avg_duration_beats": 2.4375,
+        "avg_duration_sec": 1.41955,
+        "avg_density": 0.47373333333333334,
+        "avg_max_polyphony": 0.6666666666666666,
+        "avg_pitch_lo": 27.333333333333332,
+        "avg_pitch_hi": 27.666666666666668,
+        "avg_vel_lo": 52.666666666666664,
+        "avg_vel_hi": 71.33333333333333,
+        "avg_silence_beats": 2.2083333333333335,
+        "avg_trailing_silence_beats": 0.0,
+        "avg_repeat_frac": 0.06666666666666667,
+        "all_reopened": true,
+        "all_valid": true
+      }
+    },
+    "delta_finetuned_minus_pretrained": {
+      "avg_notes": -36.4167,
+      "avg_duration_beats": -4.7812,
+      "avg_duration_sec": -2.7076,
+      "avg_density": -2.8164,
+      "avg_max_polyphony": -0.3333,
+      "avg_silence_beats": 0.5625,
+      "avg_trailing_silence_beats": 0.0,
+      "avg_repeat_frac": -0.2247
+    },
+    "delta_by_source": {
+      "nrgcp": {
+        "avg_notes": -16.0,
+        "avg_duration_beats": -0.6875,
+        "avg_duration_sec": -0.3401,
+        "avg_density": -0.5881,
+        "avg_max_polyphony": 7.1667,
+        "avg_silence_beats": 4.2917,
+        "avg_trailing_silence_beats": 0.0,
+        "avg_repeat_frac": -0.1403
+      },
+      "gmd": {
+        "avg_notes": -56.8333,
+        "avg_duration_beats": -8.875,
+        "avg_duration_sec": -5.0751,
+        "avg_density": -5.0447,
+        "avg_max_polyphony": -7.8333,
+        "avg_silence_beats": -3.1667,
+        "avg_trailing_silence_beats": 0.0,
+        "avg_repeat_frac": -0.309
+      }
+    },
+    "paired": [
+      {
+        "prompt_id": "gmd-06",
+        "source": "gmd",
+        "notes_pre": 71,
+        "notes_ft": 1,
+        "dur_beats_pre": 8.375,
+        "dur_beats_ft": 2.125,
+        "dur_sec_pre": 3.5485,
+        "dur_sec_ft": 0.9004,
+        "density_pre": 8.4776,
+        "density_ft": 0.4706,
+        "poly_pre": 8,
+        "poly_ft": 1,
+        "silence_pre": 3.125,
+        "silence_ft": 1.875,
+        "trail_pre": 0.0,
+        "trail_ft": 0.0,
+        "repeat_pre": 0.3857,
+        "repeat_ft": 0.0,
+        "pitch_pre": [
+          39,
+          75
+        ],
+        "pitch_ft": [
+          40,
+          40
+        ],
+        "vel_pre": [
+          7,
+          127
+        ],
+        "vel_ft": [
+          127,
+          127
+        ]
+      },
+      {
+        "prompt_id": "gmd-07",
+        "source": "gmd",
+        "notes_pre": 43,
+        "notes_ft": 1,
+        "dur_beats_pre": 7.625,
+        "dur_beats_ft": 2.625,
+        "dur_sec_pre": 5.2334,
+        "dur_sec_ft": 1.8016,
+        "density_pre": 5.6393,
+        "density_ft": 0.381,
+        "poly_pre": 11,
+        "poly_ft": 1,
+        "silence_pre": 4.75,
+        "silence_ft": 2.5,
+        "trail_pre": 0.0,
+        "trail_ft": 0.0,
+        "repeat_pre": 0.381,
+        "repeat_ft": 0.0,
+        "pitch_pre": [
+          44,
+          86
+        ],
+        "pitch_ft": [
+          44,
+          44
+        ],
+        "vel_pre": [
+          55,
+          111
+        ],
+        "vel_ft": [
+          63,
+          63
+        ]
+      },
+      {
+        "prompt_id": "gmd-08",
+        "source": "gmd",
+        "notes_pre": 54,
+        "notes_ft": 0,
+        "dur_beats_pre": 10.375,
+        "dur_beats_ft": 0.0,
+        "dur_sec_pre": 7.7185,
+        "dur_sec_ft": 0.0,
+        "density_pre": 5.2048,
+        "density_ft": 0.0,
+        "poly_pre": 7,
+        "poly_ft": 0,
+        "silence_pre": 7.125,
+        "silence_ft": 0.0,
+        "trail_pre": 0.0,
+        "trail_ft": 0.0,
+        "repeat_pre": 0.3396,
+        "repeat_ft": 0.0,
+        "pitch_pre": [
+          40,
+          66
+        ],
+        "pitch_ft": [
+          0,
+          0
+        ],
+        "vel_pre": [
+          39,
+          95
+        ],
+        "vel_ft": [
+          0,
+          0
+        ]
+      },
+      {
+        "prompt_id": "gmd-09",
+        "source": "gmd",
+        "notes_pre": 58,
+        "notes_ft": 6,
+        "dur_beats_pre": 16.125,
+        "dur_beats_ft": 9.125,
+        "dur_sec_pre": 9.5821,
+        "dur_sec_ft": 5.4224,
+        "density_pre": 3.5969,
+        "density_ft": 0.6575,
+        "poly_pre": 10,
+        "poly_ft": 1,
+        "silence_pre": 10.0,
+        "silence_ft": 8.375,
+        "trail_pre": 0.0,
+        "trail_ft": 0.0,
+        "repeat_pre": 0.3333,
+        "repeat_ft": 0.4,
+        "pitch_pre": [
+          40,
+          80
+        ],
+        "pitch_ft": [
+          40,
+          42
+        ],
+        "vel_pre": [
+          15,
+          127
+        ],
+        "vel_ft": [
+          15,
+          127
+        ]
+      },
+      {
+        "prompt_id": "gmd-10",
+        "source": "gmd",
+        "notes_pre": 43,
+        "notes_ft": 0,
+        "dur_beats_pre": 14.0,
+        "dur_beats_ft": 0.0,
+        "dur_sec_pre": 6.9255,
+        "dur_sec_ft": 0.0,
+        "density_pre": 3.0714,
+        "density_ft": 0.0,
+        "poly_pre": 4,
+        "poly_ft": 0,
+        "silence_pre": 5.25,
+        "silence_ft": 0.0,
+        "trail_pre": 0.0,
+        "trail_ft": 0.0,
+        "repeat_pre": 0.2143,
+        "repeat_ft": 0.0,
+        "pitch_pre": [
+          35,
+          63
+        ],
+        "pitch_ft": [
+          0,
+          0
+        ],
+        "vel_pre": [
+          95,
+          127
+        ],
+        "vel_ft": [
+          0,
+          0
+        ]
+      },
+      {
+        "prompt_id": "gmd-11",
+        "source": "gmd",
+        "notes_pre": 81,
+        "notes_ft": 1,
+        "dur_beats_pre": 11.375,
+        "dur_beats_ft": 0.75,
+        "dur_sec_pre": 5.9597,
+        "dur_sec_ft": 0.3929,
+        "density_pre": 7.1209,
+        "density_ft": 1.3333,
+        "poly_pre": 11,
+        "poly_ft": 1,
+        "silence_pre": 2.0,
+        "silence_ft": 0.5,
+        "trail_pre": 0.0,
+        "trail_ft": 0.0,
+        "repeat_pre": 0.6,
+        "repeat_ft": 0.0,
+        "pitch_pre": [
+          40,
+          79
+        ],
+        "pitch_ft": [
+          40,
+          40
+        ],
+        "vel_pre": [
+          79,
+          119
+        ],
+        "vel_ft": [
+          111,
+          111
+        ]
+      },
+      {
+        "prompt_id": "nrgcp-00",
+        "source": "nrgcp",
+        "notes_pre": 115,
+        "notes_ft": 106,
+        "dur_beats_pre": 24.75,
+        "dur_beats_ft": 15.0,
+        "dur_sec_pre": 12.2434,
+        "dur_sec_ft": 7.4202,
+        "density_pre": 4.6465,
+        "density_ft": 7.0667,
+        "poly_pre": 5,
+        "poly_ft": 20,
+        "silence_pre": 13.75,
+        "silence_ft": 9.25,
+        "trail_pre": 0.0,
+        "trail_ft": 0.0,
+        "repeat_pre": 0.693,
+        "repeat_ft": 0.7143,
+        "pitch_pre": [
+          24,
+          67
+        ],
+        "pitch_ft": [
+          24,
+          64
+        ],
+        "vel_pre": [
+          87,
+          103
+        ],
+        "vel_ft": [
+          87,
+          95
+        ]
+      },
+      {
+        "prompt_id": "nrgcp-01",
+        "source": "nrgcp",
+        "notes_pre": 96,
+        "notes_ft": 70,
+        "dur_beats_pre": 18.125,
+        "dur_beats_ft": 29.25,
+        "dur_sec_pre": 8.9661,
+        "dur_sec_ft": 14.4694,
+        "density_pre": 5.2966,
+        "density_ft": 2.3932,
+        "poly_pre": 4,
+        "poly_ft": 4,
+        "silence_pre": 5.5,
+        "silence_ft": 20.75,
+        "trail_pre": 0.0,
+        "trail_ft": 0.0,
+        "repeat_pre": 0.6421,
+        "repeat_ft": 0.5652,
+        "pitch_pre": [
+          31,
+          64
+        ],
+        "pitch_ft": [
+          31,
+          67
+        ],
+        "vel_pre": [
+          71,
+          103
+        ],
+        "vel_ft": [
+          87,
+          95
+        ]
+      },
+      {
+        "prompt_id": "nrgcp-02",
+        "source": "nrgcp",
+        "notes_pre": 118,
+        "notes_ft": 94,
+        "dur_beats_pre": 17.25,
+        "dur_beats_ft": 30.75,
+        "dur_sec_pre": 8.5333,
+        "dur_sec_ft": 15.2115,
+        "density_pre": 6.8406,
+        "density_ft": 3.0569,
+        "poly_pre": 5,
+        "poly_ft": 11,
+        "silence_pre": 10.5,
+        "silence_ft": 25.0,
+        "trail_pre": 0.0,
+        "trail_ft": 0.0,
+        "repeat_pre": 0.6581,
+        "repeat_ft": 0.5054,
+        "pitch_pre": [
+          40,
+          70
+        ],
+        "pitch_ft": [
+          39,
+          71
+        ],
+        "vel_pre": [
+          79,
+          95
+        ],
+        "vel_ft": [
+          87,
+          111
+        ]
+      },
+      {
+        "prompt_id": "nrgcp-03",
+        "source": "nrgcp",
+        "notes_pre": 81,
+        "notes_ft": 77,
+        "dur_beats_pre": 54.0,
+        "dur_beats_ft": 40.5,
+        "dur_sec_pre": 26.7128,
+        "dur_sec_ft": 20.0346,
+        "density_pre": 1.5,
+        "density_ft": 1.9012,
+        "poly_pre": 5,
+        "poly_ft": 11,
+        "silence_pre": 0.0,
+        "silence_ft": 0.75,
+        "trail_pre": 0.0,
+        "trail_ft": 0.0,
+        "repeat_pre": 0.4125,
+        "repeat_ft": 0.25,
+        "pitch_pre": [
+          51,
+          68
+        ],
+        "pitch_ft": [
+          46,
+          68
+        ],
+        "vel_pre": [
+          87,
+          111
+        ],
+        "vel_ft": [
+          7,
+          103
+        ]
+      },
+      {
+        "prompt_id": "nrgcp-04",
+        "source": "nrgcp",
+        "notes_pre": 106,
+        "notes_ft": 88,
+        "dur_beats_pre": 17.5,
+        "dur_beats_ft": 16.75,
+        "dur_sec_pre": 8.6569,
+        "dur_sec_ft": 8.2859,
+        "density_pre": 6.0571,
+        "density_ft": 5.2537,
+        "poly_pre": 5,
+        "poly_ft": 7,
+        "silence_pre": 0.75,
+        "silence_ft": 2.75,
+        "trail_pre": 0.0,
+        "trail_ft": 0.0,
+        "repeat_pre": 0.6381,
+        "repeat_ft": 0.2529,
+        "pitch_pre": [
+          41,
+          74
+        ],
+        "pitch_ft": [
+          36,
+          65
+        ],
+        "vel_pre": [
+          87,
+          103
+        ],
+        "vel_ft": [
+          87,
+          103
+        ]
+      },
+      {
+        "prompt_id": "nrgcp-05",
+        "source": "nrgcp",
+        "notes_pre": 125,
+        "notes_ft": 110,
+        "dur_beats_pre": 19.0,
+        "dur_beats_ft": 14.25,
+        "dur_sec_pre": 9.399,
+        "dur_sec_ft": 7.0492,
+        "density_pre": 6.5789,
+        "density_ft": 7.7193,
+        "poly_pre": 6,
+        "poly_ft": 20,
+        "silence_pre": 11.75,
+        "silence_ft": 9.5,
+        "trail_pre": 0.0,
+        "trail_ft": 0.0,
+        "repeat_pre": 0.7742,
+        "repeat_ft": 0.6881,
+        "pitch_pre": [
+          33,
+          67
+        ],
+        "pitch_ft": [
+          36,
+          65
+        ],
+        "vel_pre": [
+          87,
+          95
+        ],
+        "vel_ft": [
+          87,
+          95
+        ]
+      }
+    ]
+  }
+}
