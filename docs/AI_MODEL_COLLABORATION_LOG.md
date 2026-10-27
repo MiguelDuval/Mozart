@@ -1739,3 +1739,50 @@ Per Phase L: diagnose why step 50 fails the GMD mean-duration gate while step 25
 ### Message for ChatGPT
 Phase L complete: root cause identified — source interference + model drift causes GMD temporal/rhythmic regression at step 50 (gmd-09 duration −64%, gmd-07 notes −87%). Step 25 is the latest verified passing candidate. No new training. Committing Phase L artifacts.
 
+
+## 2026-10-27 — Cline — Phase M: Controlled sampling-policy experiment (VERIFIED — STOP AT STEP 25 FAILURE)
+
+### Context
+Per Phase M: test the source-exposure-imbalance hypothesis with ONE controlled run from the ORIGINAL pretrained checkpoint (not step-25, not the degraded 500-step pilot). Same config as anti-forgetting (max 100 steps, lr 1e-6, seed 20261028, batch 1, seq 128, AdamW, eval every 25 steps) but sample training windows proportional to actual eligible window counts per source (equalizing per-example exposure). Evaluate steps 25→100, stop at first gate failure.
+
+### Executed
+1. **Cache counts verified (VERIFIED):** token_cache.json has nrgcp_train=275, gmd_train=2062, total=2337, seq_len=128.
+2. **Proportional sampling computed (VERIFIED):** p_nrgcp = 275/2337 = 0.1177 (11.77%), p_gmd = 2062/2337 = 0.8823 (88.23%). Expected per-window exposure = 1/2337 per step (equalized).
+3. **train_sampling_balanced.py (new):** bounded 100-step training from ORIGINAL pretrained checkpoint, proportional sampling, per-step checkpoints (25/50/75/100), finite-loss/grad/param safety, atomic best/latest + per-step checkpoints, records sampling probabilities and observed vs expected source steps.
+4. **Bounded experiment run (VERIFIED):** completed 100/100 steps. Sampling observed: nrgcp=9, gmd=91 (expected 11.8/88.2 — matches proportional). Best val loss improved monotonically. All safety checks finite. Peak VRAM 886.2 MB.
+5. **Step-25 generation evaluation (VERIFIED — FAIL):** matched 12-prompt set, identical decoding.
+   - NRG-CP: notes 101.833 (≥72.567 ✓), dur 25.958 (≥19.090 ✓), le1=0 ✓ → PASS
+   - GMD: notes 46.167 (≥38.150 ✓), **dur 11.146 (<14.000 ✗ FAIL)**, le1=0 ✓ → FAIL
+   - All 12 MIDI parse.
+
+### Verified Evidence — Step-25 sampling-balanced vs antiforgetting step-25 (same seed 20261028):
+| Metric | Antiforgetting step-25 | Sampling step-25 | Change |
+|--------|-----------------------|------------------|--------|
+| NRG-CP mean notes | 101.667 | 101.833 | +0.2% |
+| NRG-CP mean duration (beats) | 28.271 | 25.958 | −8.2% |
+| GMD mean notes | 57.833 | 46.167 | −20.2% |
+| GMD mean duration (beats) | 16.188 | **11.146** | **−31.1%** |
+
+Proportional sampling made GMD duration WORSE (−31.1% vs antiforgetting step-25; −44.3% vs pretrained 20.0).
+
+### Changed Files
+- `train_sampling_balanced.py` (new) — bounded sampling-policy training script
+- `experiments/aura-midi/runs/sampling-balanced-20261028-20261027_204951/` (new) — run dir with training_metrics.json, training_state.json, checkpoints (step_25/50/75/100/latest/best)
+- `experiments/aura-midi/eval/runs/eval-sampling-step25/midi/` (new) — 12 step-25 MIDI samples
+- `experiments/aura-midi/eval/runs/eval-sampling-step25/metrics_from_midi.json` (new) — step-25 metrics
+- `experiments/aura-midi/eval/runs/eval-sampling-step25/comparison_report.json` (new) — machine-readable report
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md` — appended Phase M
+- `docs/AI_MODEL_COLLABORATION_LOG.md` — this entry
+
+### Result
+**STEP 25 FAILS** — GMD mean duration 11.146 beats (55.7% of pretrained 20.000) below the 14.000 gate. Per Phase M stop-at-first-failure rule: steps 50/75/100 NOT evaluated. Do NOT extend training.
+
+**Source-imbalance hypothesis NOT supported.** Proportional sampling degraded GMD duration vs both pretrained and antiforgetting step-25. GMD rhythmic degradation is NOT explained by per-example exposure imbalance alone.
+
+### Next Action
+1. Commit + push Phase M files (training script, reports, docs) — NO checkpoints, caches, MIDI samples.
+2. Verify remote SHA and CI status.
+3. Recommend against proportional sampling as the remedy; investigate other mechanisms for GMD rhythmic degradation before any longer run.
+
+### Message for ChatGPT
+Phase M complete: controlled sampling experiment — proportional source sampling step-25 FAILS GMD duration gate (11.146 < 14.000 beats), worse than antiforgetting step-25 (16.188). Source-imbalance hypothesis NOT supported. Step 25 (antiforgetting) remains the latest verified passing candidate. Steps 50/75/100 not evaluated. No new training beyond the one bounded run. Committing Phase M artifacts.

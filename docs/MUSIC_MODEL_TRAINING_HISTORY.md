@@ -1104,3 +1104,74 @@ Validation loss improves monotonically while GMD generation regresses — **lowe
 ### L.7 Conclusion
 **Step 25 remains the latest verified passing candidate.** Step 50 fails the GMD duration gate (12.292 < 14.000 beats). Steps 75/100 not evaluated per Phase K rule. Do not simply lower the learning rate or shorten training — the evidence points to **source interference between NRG-CP (harmonic/chord, few examples, over-sampled) and GMD (drum/rhythmic, many examples, under-sampled per-example)**. Next experiment should: (1) rebalance per-example exposure (proportional sampling or replay), (2) add generation-quality early stopping on held-out generation metrics rather than val loss alone, (3) evaluate per-source separately, (4) consider GMD/drum-focused data to strengthen rhythmic patterns before any longer run.
 
+
+## Phase M. Controlled sampling-policy experiment (2026-10-27) — COMPLETE
+
+### M.1 Protocol (VERIFIED)
+Test the source-exposure-imbalance hypothesis with ONE controlled run:
+- Start from the ORIGINAL pretrained checkpoint (not step-25, not the degraded 500-step pilot).
+- Same config as anti-forgetting otherwise: max 100 steps, lr 1e-6, seed 20261028, batch 1, seq len 128, AdamW, wd 0.01, grad clip 1.0, eval every 25 steps.
+- Change ONLY the sampling policy: sample training windows proportional to actual eligible window counts per source (p_source = n_windows_source / total), equalizing expected per-window exposure.
+- Evaluate steps 25, 50, 75, 100 against the same gates; stop at first failure.
+- Reuse existing prompts (max_new=100, temp=1.0, top_k=40, seed=20261027), metrics_from_midi.py, gen_checkpoint.py.
+
+### M.2 Experiment configuration (VERIFIED)
+| Parameter | Value |
+|-----------|-------|
+| Run name | `sampling-balanced-20261028-20261027_204951` |
+| Git HEAD | `3956d09a3552038de40a2d484aa5418fd7de091c` |
+| Start checkpoint | ORIGINAL pretrained (`model.safetensors`, sha `38e1083a…`) |
+| Max steps | 100 |
+| Learning rate | 1e-6 |
+| Seed | 20261028 |
+| Batch size / seq len | 1 / 128 |
+| Optimizer | AdamW, weight_decay 0.01, grad_clip 1.0 |
+| Token cache | `experiments/aura-midi/runs/pilot-20261027_145544/token_cache.json` |
+| Cache counts | NRG-CP train=275, GMD train=2062, total=2337 |
+| Sampling probabilities | p_nrgcp = 275/2337 = 0.1177 (11.77%), p_gmd = 2062/2337 = 0.8823 (88.23%) |
+| Expected per-window exposure | 1/2337 per step (equalized across sources) |
+| Observed sampling (100 steps) | nrgcp_steps=9, gmd_steps=91 (expected 11.8/88.2) |
+
+### M.3 Step-25 evaluation (VERIFIED — FAIL)
+All 12 validation MIDI files generated and parsed. Metrics via `metrics_from_midi.py`:
+
+| Source | Metric | Pretrained baseline | Sampling step-25 | 70% gate | Pass? |
+|--------|--------|--------------------|------------------|----------|-------|
+| NRG-CP | mean notes | 103.667 | 101.833 | 72.567 | YES |
+| NRG-CP | mean duration (beats) | 27.271 | 25.958 | 19.090 | YES |
+| NRG-CP | prompts ≤1 note | 0 | 0 | ≤1 | YES |
+| GMD | mean notes | 54.500 | 46.167 | 38.150 | YES |
+| GMD | mean duration (beats) | 20.000 | **11.146** | 14.000 | **NO** |
+| GMD | prompts ≤1 note | 0 | 0 | ≤1 | YES |
+| All | MIDI files parse/reopen | yes | yes | yes | YES |
+
+**Result: step 25 FAILS** — GMD mean duration 11.146 beats (55.7% of pretrained 20.000) is below the 14.000 gate. All 12 MIDI files parse; 0 prompts ≤1 note in either source; NRG-CP passes all gates.
+
+### M.4 Sampling-balanced step-25 vs antiforgetting step-25 (VERIFIED — same seed)
+Same seed (20261028), same config except sampling policy — directly comparable:
+
+| Metric | Antiforgetting step-25 | Sampling step-25 | Change |
+|--------|-----------------------|------------------|--------|
+| NRG-CP mean notes | 101.667 | 101.833 | +0.2% |
+| NRG-CP mean duration (beats) | 28.271 | 25.958 | −8.2% |
+| GMD mean notes | 57.833 | 46.167 | −20.2% |
+| GMD mean duration (beats) | 16.188 | **11.146** | **−31.1%** |
+
+Proportional sampling made GMD duration WORSE (−31.1% vs antiforgetting step-25) and worse than pretrained (20.0 → 11.146, −44.3%). The source-imbalance hypothesis is NOT supported: rebalancing per-example exposure did not preserve GMD rhythmic structure; it degraded it.
+
+### M.5 Sequential evaluation decision (PER RULES)
+- Step 25 FAILS → **STOP immediately**.
+- Steps 50, 75, 100 are **NOT evaluated** (per Phase M stop-at-first-failure rule).
+- No further training is extended for this experiment.
+
+### M.6 Conclusion
+**Step 25 (antiforgetting run) remains the latest verified passing candidate.** The sampling-balanced step-25 checkpoint FAILS the GMD duration gate and is not a viable improvement.
+
+**Root-cause hypothesis NOT supported.** The evidence does NOT support the hypothesis that NRG-CP/GMD sampling imbalance (0.5/0.5 with 275 vs 2062 examples) is the cause of the GMD collapse. Equalizing per-example exposure via proportional sampling degraded GMD duration further. The GMD rhythmic degradation is therefore not explained by per-example exposure imbalance alone; other mechanisms (data quality, model capacity, architecture, or a different rebalancing/replay scheme) must be investigated.
+
+Do not simply lower the learning rate or shorten training. Any further training must:
+- Evaluate per-source generation quality (NRG-CP vs GMD) separately.
+- Use generation-quality early stopping on held-out generation metrics, not val loss alone.
+- Investigate why proportional sampling harms GMD rhythm (e.g., whether GMD needs MORE relative exposure, not proportional, or whether the issue is architectural/data).
+- Consider GMD/drum-focused data to strengthen rhythmic patterns before any longer run.
+- Reconfirm that validation loss and generation quality are decoupled (lower val loss ≠ better music).
