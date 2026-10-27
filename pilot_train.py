@@ -5,7 +5,7 @@ import sys, os, json, time, hashlib, shutil, random, signal
 from pathlib import Path
 from datetime import datetime
 
-REPO_ROOT = Path(r"C:\Users\migue\.cline\data\workspaces\chat\Mozart")
+REPO_ROOT = Path(__file__).resolve().parent
 MODEL_DIR = REPO_ROOT / "experiments" / "aura-midi" / "models" / "shikhr-music-maker-official"
 RUNS_DIR = REPO_ROOT / "experiments" / "aura-midi" / "runs"
 RUN_DIR = RUNS_DIR / "pilot-20261027_145544"
@@ -112,7 +112,19 @@ for k, v in ckpt.items():
     new_sd[k] = v
 missing, unexpected = model.load_state_dict(new_sd, strict=False)
 log(f"Checkpoint keys: {len(ckpt)}, Model keys: {len(model.state_dict())}")
-log(f"Missing keys: {len(missing)}, Unexpected keys: {len(unexpected)}")
+log(f"Missing keys: {len(missing)}: {missing}")
+log(f"Unexpected keys: {len(unexpected)}: {unexpected}")
+
+# Validate checkpoint loading integrity
+expected_missing = {"lm_head.weight"}  # Weight-tied with wte, not stored separately
+unexplained_missing = set(missing) - expected_missing
+if unexpected:
+    log_err(f"UNEXPECTED checkpoint keys: {unexpected}")
+if unexplained_missing:
+    log_err(f"UNEXPLAINED missing keys: {unexplained_missing}")
+if not unexpected and not unexplained_missing:
+    log("Checkpoint loading integrity: ALL EXPECTED KEYS LOADED (missing lm_head.weight is expected due to weight tying)")
+
 log(f"Weight tying: wte is lm_head: {model.transformer.wte.weight is model.lm_head.weight}")
 
 device = torch.device(CONFIG["device"])

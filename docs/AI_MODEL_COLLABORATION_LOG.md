@@ -1170,6 +1170,49 @@ GPU smoke test passed on 2026-10-27. `.venv-aura` environment confirmed working 
 - `gpu_smoke_test.py` — GPU smoke test script (created earlier)
 - `gpu_smoke_test_results.json` — Smoke test results (created earlier)
 
+
+---
+## 2026-10-27 — Cline — Pilot Fine-Tuning Validation & Architecture Verification
+
+### Context
+The 500-step pilot (commit 18e17eb) was reported complete. Before accepting results, need to verify:
+1. Whether 500 steps represent 500 genuine optimizer.step() calls
+2. Whether the model architecture correctly loads the official pretrained weights
+3. Whether workspace paths are consistent
+4. Whether before/after MIDI files parse correctly
+
+### Executed
+1. **Pilot log inspection**: training.log confirms 500 steps, each with loss.backward() + optimizer.step(), all losses finite. training_state.json confirms step=500, best_val_loss=2.4509, final_train_loss=2.3417.
+2. **Architecture validation**: config.json has `"bias": false`, matching pilot_train.py's `bias=False`. Missing keys: 1 (`lm_head.weight`, expected due to weight tying). Unexpected keys: 0. Shape mismatches: 0. Weight tying verified: `wte is lm_head: True`.
+3. **Workspace path check**: `C:\Users\migue\.cline\data\workspaces\chat\Mozart` EXISTS. `C:\Users\migue\.cline\.cline\data\workspaces\chat\Mozart` does NOT exist.
+4. **pilot_train.py fix**: Changed `REPO_ROOT` from hardcoded path to `Path(__file__).resolve().parent`. Added explicit missing/unexpected key validation.
+5. **MIDI verification**: sample_before.mid (117 notes, pitch 43-67) and sample_after.mid (119 notes, pitch 44-65) both parse correctly at TPQ=8.
+
+### Verified Evidence
+- **VERIFIED:** 500/500 optimizer.step() calls completed, all with finite loss
+- **VERIFIED:** All pretrained weights loaded correctly (1 expected missing key due to weight tying)
+- **VERIFIED:** Per-source val loss at step 500: NRG-CP=2.2906, GMD=2.6112, Combined=2.4509
+- **VERIFIED:** Atomic checkpoints saved (best: aa3fec76..., latest: ec10b247...)
+- **VERIFIED:** Checkpoint SHA-256: 38e1083aea069e298f40373ebc394211b66b876702df91b2c4488cbd53079319
+- **VERIFIED:** Both MIDI files parse correctly
+
+### Classification
+**PILOT: VALID** — The pilot genuinely fine-tuned the official shikhr/music_maker pretrained model with all weights loaded correctly.
+
+### Changed Files
+- `pilot_train.py` — Fixed hardcoded path → `Path(__file__).resolve().parent`; added explicit missing/unexpected key validation
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md` — Added architecture validation, path consistency, pilot classification, MIDI observations
+- `docs/AI_MODEL_COLLABORATION_LOG.md` — This entry
+- `verify_checkpoint_keys.py` — Checkpoint key mapping verification script (new)
+- `verify_midi_outputs.py` — MIDI file verification script (new)
+
+### Result
+**All checks passed. Pilot is VALID.** No corrected pilot needed. Proceed to commit and push.
+
+### Next Action
+1. Commit path fix and documentation updates
+2. Push to remote
+3. Verify CI status
 ### Result
 **PILOT: ✅ COMPLETED** — All 500 optimizer steps executed successfully on GPU. Per-source validation metrics recorded. Atomic checkpoints saved. Fixed-seed generations before/after produced. Original pretrained checkpoint preserved unmodified.
 
