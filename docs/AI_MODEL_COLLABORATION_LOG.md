@@ -1436,6 +1436,48 @@ The official `shikhr/music_maker` model is a valid, loadable GPT-2 style model (
 Message for ChatGPT: Official shikhr/music_maker verification complete. Model loads (44.43M, GPT-2, tied, 12k config) but tokenizer is 441-token MIDI REMI — fundamental vocab mismatch. Phase 1 config matches model arch but not tokenizer. auramidi_v1.pt is 10k nn.TransformerEncoder — incompatible with both. Blocker documented. No training, no reboot.
 ---
 
+
+## 2026-10-27 — Cline — Phase O: source-mixture ratio experiments (final series)
+
+### Context
+Check whether another NRG-CP/GMD source-mixture ratio preserves GMD rhythmic structure without destroying NRG-CP, starting from the original pretrained checkpoint. Stop rule: 20/80 (25 steps); if it passes all criteria, stop; otherwise 80/20 (25 steps) and stop regardless. No further ratios.
+
+### Executed
+1. **Training-safety fix (VERIFIED):** `train_antiforgetting.py` and `train_sampling_balanced.py` now follow forward → check loss → backward → check gradients → clip → check gradients after clip → optimizer.step → check parameters after step → zero_grad → guarded checkpoint save (blocked if `safety_violation`). Removed duplicate `safety_violation` keys and duplicate `check_parameters_finite`.
+2. **Safety tests (VERIFIED):** `tests/test_training_safety.py` — 13 tests PASS (loss before backward, gradients after backward, gradients after clip, parameters after step).
+3. **Reproducibility fix (VERIFIED):** per-prompt seed changed from `hash(prompt_id)` (random per Python process) to deterministic `sha256(prompt_id)` in `eval_ckpt_metrics.py` and `evaluate_models.py`. Earlier "pass" (GMD 14.04) was non-reproducible; deterministic re-evaluation gives GMD 10.35 beats.
+4. **Experiment 1 — NRG-CP/GMD 20/80 (VERIFIED):** 25 steps from original pretrained checkpoint (SHA `38e1083a...`), seed 20261028, lr 1e-6, batch 1, seq 128, AdamW, wd 0.01, clip 1.0. p(NRG-CP)=0.2, actual 2 NRG-CP / 23 GMD. Safety clean. GMD mean duration **10.354 < 14.000 FAIL** (NRG-CP passes all gates).
+5. **Experiment 2 — NRG-CP/GMD 80/20 (VERIFIED):** launched only because Exp 1 failed. 25 steps, p(NRG-CP)=0.8. GMD mean duration **10.19 < 14.000 FAIL** (NRG-CP passes).
+6. **Stop:** both experiments fail the mandatory GMD mean duration gate; series stopped per stop rule.
+
+### Verified Evidence
+- Pretrained ckpt SHA-256 `38e1083aea069e298f40373ebc394211b66b876702df91b2c4488cbd53079319` verified before both runs.
+- Experiment 1 checkpoint: `experiments/aura-midi/runs/exp-20-80-20261028-20261027_233033/checkpoints/checkpoint_step_25.pt` (SHA `63f1e47bbe07b4ec32685b677dafd22c7ca307f6cf60696d25771298518b657e`).
+- Experiment 2 checkpoint: `experiments/aura-midi/runs/exp-80-20-20261028-20261027_234603/checkpoints/checkpoint_step_25.pt` (SHA `3f421bc9cc70b72167e9e761782103fe79cebc096484f759618cd62b9627b290`).
+- All 12 MIDI per experiment valid/reopenable; no prompt with <= 1 note.
+- Report: `source_mixture_phaseO_report.json` (per-prompt notes, duration, mean note duration, onset span, MIDI validity; per-source criteria results).
+
+### Unverified Claims
+- None for the executed runs; all metrics computed with the deterministic evaluator on generated MIDI.
+
+### Changed Files
+- `train_antiforgetting.py` — CLI args (--source-balance, --max-steps, --run-name), two independent RNG streams, source step tracking, safety loop already correct.
+- `train_sampling_balanced.py` — safety loop fixed to mandatory sequence, guarded checkpoint save, duplicate `safety_violation` removed.
+- `tests/test_training_safety.py` — added post-clip gradient checks (13 tests total).
+- `eval_ckpt_metrics.py` — deterministic per-prompt seed (sha256).
+- `evaluate_models.py` — deterministic per-prompt seed (sha256).
+- `source_mixture_phaseO_report.json` — compact experiment report.
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md` — appended Phase O.
+- `docs/AI_MODEL_COLLABORATION_LOG.md` — this entry.
+
+### Result
+**Both experiments fail the mandatory GMD mean duration gate (>= 14.000 beats): Exp1 10.354, Exp2 10.19.** `antiforgetting step 25` remains the last verified passing candidate. No further source-mixture runs.
+
+### Next Action
+Commit + push sources, tests, report and docs (NO checkpoints, caches, MIDI samples) on `feature/mmm-v2-decoder-fix-and-docs`; verify remote SHA and await CI (Android Build + AuraMIDI Metadata Sidecar Tests). Do not continue the source-mixture sweep; investigate other GMD rhythmic-degradation mechanisms before any longer run.
+
+### Message for ChatGPT
+Phase O complete: deterministic source-mixture experiments 20/80 and 80/20 (25 steps each, from pretrained checkpoint) both fail the GMD mean-duration gate (14.000 beats). Training-safety protection verified (13 tests pass). Reproducibility bug in per-prompt seeding fixed (hash -> sha256). antiforgetting step 25 remains the last verified candidate. Committing and pushing; awaiting CI.
 ## 2026-10-26 — Cline — CRITICAL CORRECTION: Official Tokenizer Has 12k BPE Vocab (VERIFIED)
 
 ### Context

@@ -11,6 +11,7 @@ Usage (from repo root, .venv-aura activated):
     .venv-aura\Scripts\python.exe train_antiforgetting.py
 """
 
+import argparse
 import hashlib
 import json
 import math
@@ -175,6 +176,21 @@ def evaluate(model, dataset, source_name, device, log_path):
     log(f"  Val {source_name}: loss={avg_loss:.4f} ({num_batches} batches)", log_path)
     return avg_loss, num_batches
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--source-balance", type=float, default=None,
+                    help="p(NRG-CP) source probability, 0..1 (default: config.source_balance)")
+    ap.add_argument("--max-steps", type=int, default=None,
+                    help="max training steps (default: config.max_steps)")
+    ap.add_argument("--run-name", type=str, default=None,
+                    help="run name prefix (default: config.run_name)")
+    args = ap.parse_args()
+    if args.source_balance is not None:
+        config.source_balance = args.source_balance
+    if args.max_steps is not None:
+        config.max_steps = args.max_steps
+    if args.run_name is not None:
+        config.run_name = args.run_name
+
     run_tag = f"{config.run_name}-{time.strftime('%Y%m%d_%H%M%S')}"
     run_dir = RUNS_DIR / run_tag
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -295,11 +311,22 @@ def main():
             "non_finite_grad_steps": 0,
             "non_finite_param_steps": 0,
         },
+        "sampling": {
+            "nrgcp_steps": 0,
+            "gmd_steps": 0,
+            "expected_nrgcp_steps": 0.0,
+            "expected_gmd_steps": 0.0,
+        },
         "safety_violation": False,
     }
 
     start_time = time.time()
     interrupted = False
+
+    # Independent reproducible RNG streams: one for source selection, one for
+    # window selection within the chosen source. Both derived from the seed.
+    rng_source = random.Random(config.seed)
+    rng_window = random.Random(config.seed + 1)
 
     def signal_handler(signum, frame):
         nonlocal interrupted
@@ -387,8 +414,11 @@ def main():
             step = state["step"]
             step_start = time.time()
 
-            dataset, source = balanced_sample(train_nrgcp, train_gmd, config.source_balance, rng)
-            idx = rng.randint(0, len(dataset) - 1)
+            dataset, source = balanced_sample(train_nrgcp, train_gmd, config.source_balance, rng_source)
+            state["sampling"][f"{source}_steps"] += 1
+            state["sampling"]["expected_nrgcp_steps"] += config.source_balance
+            state["sampling"]["expected_gmd_steps"] += 1.0 - config.source_balance
+            idx = rng_window.randint(0, len(dataset) - 1)
             input_ids, targets = dataset[idx]
             input_ids = input_ids.unsqueeze(0).to(device)
             targets = targets.unsqueeze(0).to(device)

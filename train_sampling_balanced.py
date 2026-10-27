@@ -141,6 +141,36 @@ def check_gradients_and_params_finite(model, step, log_path, state):
     return ok
 
 
+def check_gradients_finite(model, step, log_path, state):
+    """Check gradient finiteness AFTER backward, BEFORE clip_grad_norm."""
+    ok = True
+    total_grad_norm = 0.0
+    for p in model.parameters():
+        if p.grad is not None:
+            total_grad_norm += p.grad.data.norm(2).item() ** 2
+    total_grad_norm = math.sqrt(total_grad_norm)
+    if not math.isfinite(total_grad_norm):
+        log_err(f"Non-finite gradient norm at step {step} (before clip)", log_path)
+        state["safety"]["non_finite_grad_steps"] += 1
+        ok = False
+    return ok
+
+
+def check_gradients_after_clip(model, step, log_path, state):
+    """Check gradient finiteness AFTER clip_grad_norm, BEFORE optimizer.step."""
+    ok = True
+    total_grad_norm = 0.0
+    for p in model.parameters():
+        if p.grad is not None:
+            total_grad_norm += p.grad.data.norm(2).item() ** 2
+    total_grad_norm = math.sqrt(total_grad_norm)
+    if not math.isfinite(total_grad_norm):
+        log_err(f"Non-finite gradient norm at step {step} (after clip)", log_path)
+        state["safety"]["non_finite_grad_steps"] += 1
+        ok = False
+    return ok
+
+
 def check_parameters_finite(model, step, log_path, state):
     """Check that all model parameters are finite."""
     bad = []
@@ -362,8 +392,6 @@ def main():
             "non_finite_param_steps": 0,
         },
         "safety_violation": False,
-        "safety_violation": False,
-        "safety_violation": False,
         "sampling": {
             "nrgcp_steps": 0,
             "gmd_steps": 0,
@@ -423,18 +451,32 @@ def main():
 
             logits, loss = model(input_ids, targets=targets)
 
-            if not check_loss_finite(loss, step):
+            if not check_loss_finite(loss, step, log_path, state):
                 state["stop_reason"] = f"safety check failed at step {step}"
+                state["safety_violation"] = True
                 break
 
             loss.backward()
 
-            if not check_gradients_and_params_finite(step):
+            if not check_gradients_finite(model, step, log_path, state):
                 state["stop_reason"] = f"safety check failed at step {step}"
+                state["safety_violation"] = True
                 break
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
+
+            if not check_gradients_after_clip(model, step, log_path, state):
+                state["stop_reason"] = f"safety check failed at step {step}"
+                state["safety_violation"] = True
+                break
+
             optimizer.step()
+
+            if not check_parameters_finite(model, step, log_path, state):
+                state["stop_reason"] = f"safety check failed at step {step}"
+                state["safety_violation"] = True
+                break
+
             optimizer.zero_grad()
 
             state["train_losses"].append(loss.item())
@@ -486,7 +528,8 @@ def main():
         state["interrupted"] = True
 
     # --- Finalize ---
-    save_checkpoint("latest", is_best=False)
+    if not state.get("safety_violation", False):
+        save_checkpoint("latest", is_best=False)
     state_path = run_dir / "training_state.json"
     tmp_state = str(state_path) + ".tmp"
     with open(tmp_state, "w") as f:

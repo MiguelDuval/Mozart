@@ -85,7 +85,9 @@ def main():
 
     for p in prompts:
         prompt_id = p["prompt_id"]
-        seed = args.seed + (hash(prompt_id) % (2 ** 31))
+        seed = args.seed + (
+            int(__import__("hashlib").sha256(prompt_id.encode("utf-8")).hexdigest(), 16) % (2 ** 31)
+        )
         prompt_ids = prompt_id_map.get(prompt_id)
         if not prompt_ids:
             print(f"  WARNING: no prompt_ids for {prompt_id}, skipping")

@@ -1020,6 +1020,45 @@ The conservative step-25 update passes all generation-quality gates and recovers
 
 ## Phase K. Sequential checkpoint gate evaluation (2026-10-27) — COMPLETE
 
+## Phase O. Source-mixture ratio experiments (2026-10-27)
+
+### O.1 Context (VERIFIED)
+Short series to test whether a different NRG-CP/GMD source-mixture ratio preserves GMD rhythmic structure without destroying NRG-CP, starting from the original pretrained checkpoint. Stop rule: run 20/80 (25 steps); if it passes all criteria, stop; otherwise run 80/20 (25 steps) and then stop regardless. No further ratios.
+
+Branch: `feature/mmm-v2-decoder-fix-and-docs`, HEAD `6e5109e221c4c659f7b45b5abba814716fd87c4a`.
+Model: `shikhr/music_maker` official, 44,429,824 params, vocab 12,000, pretrained ckpt SHA-256 `38e1083aea069e298f40373ebc394211b66b876702df91b2c4488cbd53079319` (VERIFIED).
+Config: seed 20261028, lr 1e-6, batch 1, seq 128, AdamW, wd 0.01, grad_clip 1.0, val_every 25, decode max_new=100, t=1.0, top_k=40, seed 20261027.
+Token cache: `experiments/aura-midi/runs/pilot-20261027_145544/token_cache.json` (sha256 `1f0df253e1fe49d5db20cb1bba9b346c821129279b49f0eff484cd403e962551`, seq_len=128; nrgcp_train=275, gmd_train=2062).
+
+### O.2 Training-safety fix (VERIFIED)
+Both training scripts (`train_antiforgetting.py`, `train_sampling_balanced.py`) now follow the mandatory sequence:
+forward → check loss finiteness (BEFORE backward) → loss.backward() → check gradients → clip_grad_norm → check gradients AFTER clip → optimizer.step() → check parameters AFTER step → optimizer.zero_grad() → guarded checkpoint save.
+`tests/test_training_safety.py`: 13 tests PASS (loss before backward, gradients after backward, gradients after clip, parameters after step). Checkpoint save is blocked when `safety_violation` is True.
+
+### O.3 Reproducibility fix (VERIFIED)
+Per-prompt generation seed was `args.seed + hash(prompt_id) % 2**31`; Python `hash()` of a string is randomised per process, so the same checkpoint produced different generations across runs (e.g. GMD mean duration 14.04 vs 10.35 beats). Changed to `args.seed + int(sha256(prompt_id.encode()) , 16) % 2**31` in `eval_ckpt_metrics.py` and `evaluate_models.py`. Deterministic across processes.
+
+### O.4 Experiment 1: NRG-CP/GMD = 20/80 (VERIFIED)
+- 25 steps from original pretrained checkpoint; p(NRG-CP)=0.2, actual 2 NRG-CP / 23 GMD steps.
+- Safety: all 25 losses finite, 0 non-finite grads/params, safety_violation=false. Checkpoint saved.
+- Checkpoint: `experiments/aura-midi/runs/exp-20-80-20261028-20261027_233033/checkpoints/checkpoint_step_25.pt` (SHA `63f1e47bbe07b4ec32685b677dafd22c7ca307f6cf60696d25771298518b657e`).
+- Generation (12 prompts): all 12 MIDI valid/reopenable; <=1-note prompts: 0 per source.
+- Criteria: NRG-CP mean_notes 96.167 >= 72.567 PASS; NRG-CP mean_duration 53.104 >= 19.090 PASS; GMD mean_notes 44.667 >= 38.150 PASS; **GMD mean_duration 10.354 < 14.000 FAIL**.
+- Result: NOT all criteria passed.
+
+### O.5 Experiment 2: NRG-CP/GMD = 80/20 (VERIFIED)
+- Launched only because Experiment 1 failed. 25 steps, p(NRG-CP)=0.8, same config otherwise.
+- Checkpoint: `experiments/aura-midi/runs/exp-80-20-20261028-20261027_234603/checkpoints/checkpoint_step_25.pt` (SHA `3f421bc9cc70b72167e9e761782103fe79cebc096484f759618cd62b9627b290`).
+- Criteria: NRG-CP mean_notes 101.0 PASS; NRG-CP mean_duration 28.4 PASS; GMD mean_notes 50.0 PASS; **GMD mean_duration 10.19 < 14.000 FAIL**.
+- Result: NOT all criteria passed.
+
+### O.6 Stop and outcome (VERIFIED)
+Both experiments fail the mandatory GMD mean duration gate (>= 14.000 beats). Per the stop rule, no further source-mixture runs. `antiforgetting step 25` remains the last verified passing candidate.
+
+### O.7 Next direction
+Do not continue the source-mixture sweep. Investigate other mechanisms for GMD rhythmic degradation before any longer training run.
+
+
 ### K.1 Protocol (VERIFIED)
 Evaluate saved checkpoints in order (step 50 → 75 → 100), stopping at the first quality-gate failure. Gates: all MIDI parse; ≤1 of 6 prompts per source with ≤1 note; mean notes ≥70% of pretrained baseline per source; mean duration ≥70% of pretrained baseline per source. Identical decoding (max_new=100, temp=1.0, top_k=40, seed=20261027) and the matched 12-prompt validation set (6 NRG-CP + 6 GMD) used for every checkpoint.
 

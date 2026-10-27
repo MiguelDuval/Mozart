@@ -28,6 +28,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from train_sampling_balanced import (  # noqa: E402
     check_loss_finite,
     check_gradients_and_params_finite,
+    check_gradients_after_clip,
     check_parameters_finite,
 )
 
@@ -119,6 +120,44 @@ class TestGradientFinitenessCheck(unittest.TestCase):
         model = FakeModel()
         # No backward() called yet -> all grads are None
         self.assertTrue(check_gradients_and_params_finite(model, 1, None, state))
+
+
+class TestGradientsAfterClipCheck(unittest.TestCase):
+    """check_gradients_after_clip must detect non-finite gradients AFTER clipping."""
+
+    def test_finite_gradients_after_clip_pass(self):
+        state = _make_state()
+        model = FakeModel()
+        x = torch.randn(2, 4)
+        y = model.linear(x)
+        loss = y.sum()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        self.assertTrue(check_gradients_after_clip(model, 1, None, state))
+
+    def test_non_finite_gradients_after_clip_detected(self):
+        state = _make_state()
+        model = FakeModel()
+        x = torch.randn(2, 4)
+        y = model.linear(x)
+        loss = y.sum()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        model.linear.weight.grad.data[0, 0] = float("nan")
+        self.assertFalse(check_gradients_after_clip(model, 1, None, state))
+        self.assertEqual(state["safety"]["non_finite_grad_steps"], 1)
+
+    def test_inf_gradients_after_clip_detected(self):
+        state = _make_state()
+        model = FakeModel()
+        x = torch.randn(2, 4)
+        y = model.linear(x)
+        loss = y.sum()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        model.linear.weight.grad.data[0, 0] = float("inf")
+        self.assertFalse(check_gradients_after_clip(model, 1, None, state))
+        self.assertEqual(state["safety"]["non_finite_grad_steps"], 1)
 
 
 class TestParameterFinitenessCheck(unittest.TestCase):

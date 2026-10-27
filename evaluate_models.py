@@ -600,7 +600,9 @@ def main():
         model = loaded["model"]
         for p in prompts:
             prompt_id = p["prompt_id"]
-            seed = args.seed + (hash(prompt_id) % (2 ** 31))  # deterministic per-prompt seed
+            seed = args.seed + (
+                int(hashlib.sha256(prompt_id.encode("utf-8")).hexdigest(), 16) % (2 ** 31)
+            )  # deterministic per-prompt seed
             print(f"  [{model_name}] {prompt_id} (seed={seed}) ...")
             t0 = time.time()
             ids, score, gen_info = generate(model, tokenizer, p["prompt_ids"], device,
