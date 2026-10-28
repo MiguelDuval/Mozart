@@ -55,6 +55,16 @@ The universal selection path is `modelId -> ModelCatalog -> TokenInferenceBacken
 
 The neural provider is split into two responsibilities: a generic `TokenInferenceBackend` owns model-runtime interaction, while `LocalNeuralPatternProvider` owns detokenization and the common Mozart validation gate. LiteRT will implement the backend interface; it must not be embedded into the musical-domain classes.
 
+### Separate experimental MidiTok REMI/BPE path
+
+The repository now has a typed `RemiBpeInferenceBackend` capability for a backend that returns raw `std::uint32_t` MidiTok token IDs. It is a separate output contract, not a reinterpretation of Mozart's frozen `mozart-midi-events-v1` 512-token ABI.
+
+On the generation worker, `RemiBpePatternProvider` loads and caches the backend's paired tokenizer/config, checks the BOS/EOS-terminated token stream, expands BPE pieces into semantic REMI tokens, decodes them to a structured proposal, converts ticks to Link beats, then runs the common request-aware `PatternProposalValidator`. The existing `GenerationService` still assigns the model-selection/lifecycle ticket, and `MozartRuntime::queueGeneratedResult()` remains the guarded runtime admission boundary.
+
+This is currently a **tested provider contract, not a completed model runtime integration**. Tests use a small checked-in MidiTok-shaped tokenizer fixture and a fake backend; they do not prove compatibility with the full `shikhr/music_maker` tokenizer/checkpoint or real model inference. The existing Android `OnnxTokenInferenceBackend` and `OnnxRuntimeBridge` still accept only Mozart's frozen 512-token vocabulary; neither is a REMI/BPE backend. Do not register a third-party model through the legacy backend or remap its token IDs.
+
+The current scheduler is note-only. REMI control-change events and non-default instrument programs are rejected atomically rather than silently discarded or scheduled with incorrect semantics. Program/instrument routing, drum-track handling, and a concrete backend/export for a real REMI checkpoint remain separate work.
+
 ## Request
 
 Key/scale context should normally come from Mozart's local musical-domain state.
