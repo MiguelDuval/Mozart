@@ -92,6 +92,27 @@ The published card also describes training from Lakh Clean MIDI, MAESTRO and
 additional multi-genre stems. That provenance remains an experimental review
 item and is not, by itself, production redistribution approval.
 
+## Separate REMI/BPE export contract
+
+A separate offline exporter is available for a local MidiTok REMI/BPE model. It does not change the existing Mozart-token ONNX graph, Android Java bridge, or 512-token validator.
+
+1. Review the upstream model Python code and place one immutable checkpoint revision, its paired `config.json`, `tokenizer.json`, weights, and local Python modules in a private directory outside the repository.
+2. Install the separate exporter dependencies using `python -m pip install -r tools/requirements-remi-onnx-export.txt`.
+3. Run the exporter with the exact 40-character source revision SHA, explicit output paths outside the repo, and `--trust-model-code` only after reviewing that local code. Example:
+
+```bash
+python tools/export_remi_bpe_onnx.py \
+  --model-dir /private/models/music_maker/<revision> \
+  --output /private/exports/music-maker-remi.onnx \
+  --manifest /private/exports/music-maker-remi.manifest.json \
+  --model-revision <40-character-commit-sha> \
+  --trust-model-code
+```
+
+The script is local-only: it never downloads model code or weights. It verifies model type and vocabulary against the embedded MidiTok tokenizer, disables the upstream SDPA/flash path for portable export, exports an `input_ids -> last-token logits` graph, runs ONNX Runtime against eager logits at several sequence lengths, copies the paired tokenizer beside the graph, hashes the checkpoint/code/tokenizer sources and emits a `remi_bpe` manifest. The exported contract is still a private experimental piano checkpoint, not a broad EDM model.
+
+This exporter is only the **export compatibility** slice. It does not register the file in Experimental Model Lab and does not make the current 512-token Android bridge accept REMI IDs. A separate Android/JNI backend and artifact-backed device smoke test remain required.
+
 ## Separate REMI/BPE provider contract
 
 The experimental `RemiBpeInferenceBackend` and `RemiBpePatternProvider` form a separate typed path for raw MidiTok REMI/BPE IDs. They do **not** change this ONNX adapter's 512-token ABI and are not backed by a concrete Android REMI runtime yet.

@@ -12,6 +12,12 @@ The manifest is part of the model artifact contract. A model is not releasable w
 
 `template-not-frozen`
 
+### Separate experimental REMI/BPE mode
+
+The primary production manifest remains the Mozart 512-token contract described in `docs/MODEL-ABI.md`. For a deliberately separate experimental ONNX graph that accepts actual MidiTok REMI/BPE IDs, `tools/validate_model_manifest.py` also accepts `runtime.token_mode = "remi_bpe"` with `vocabulary_id = "miditok-remi-bpe-v1"`. This mode requires a single `int64 input_ids` tensor, `float32 logits` with one score per external vocabulary entry, actual PAD/BOS/EOS IDs, and a paired tokenizer file plus SHA-256. It does not relax the legacy 512-token manifest or Android bridge.
+
+`docs/remi-bpe-onnx-manifest.example.json` is a schema template, not evidence that a particular checkpoint is exportable. `tools/export_remi_bpe_onnx.py` builds a frozen manifest only after it loads a local checkpoint, resolves the tokenizer's actual vocabulary and special-token IDs, exports the graph, and compares ONNX Runtime logits against eager model logits at several sequence lengths.
+
 The runtime-neutral symbolic token ABI is already frozen in `docs/MODEL-ABI.md`. The model-dependent tensor ABI remains open until the production checkpoint/export is selected and inspected.
 
 ## Required manifest fields
