@@ -803,11 +803,11 @@ int main() {
         testDurationTokenThroughFullPipeline();
         testInvalidTokenIdsTrackedAsDropped();
         // Temporarily disabled pending CI investigation:
-        // testBpeTokenizerMergedTokenExpands();
         // testDurationTokenZeroBeats();
         testPositionBinAtUpperBoundary();
         testSecondTempoIsIgnored();
         testNoteOnWithVelocityZero();
+        testBpeTokenizerMergedTokenExpands();
         std::cout << "\n=== ALL TESTS PASSED (Part 2) ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {
