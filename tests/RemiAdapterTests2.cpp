@@ -633,6 +633,146 @@ void testInvalidTokenIdsTrackedAsDropped() {
     std::cout << "  Invalid token IDs tracked as dropped: PASSED (dropped=" << report.droppedTokens << ")" << std::endl;
 }
 
+void testPositionBinAtUpperBoundary() {
+    std::cout << "Testing position bin at upper boundary..." << std::endl;
+    auto config = RemiDecoderConfig::defaultConfig();
+    RemiEventAdapter adapter(config);
+
+    const std::uint32_t ticksPerPosition = config.ticksPerBeat / 8;
+    const std::uint32_t positionsPerBar = config.ticksPerBar / ticksPerPosition;
+
+    assert(adapter.positionBinToTicks(positionsPerBar - 1) == (positionsPerBar - 1) * ticksPerPosition);
+
+    std::vector<RemiEvent> events;
+    events.push_back(RemiBarEvent{0});
+    events.push_back(RemiPositionEvent{positionsPerBar});
+    events.push_back(RemiNoteOnEvent{60, 100, 0, 0});
+
+    GenerationRequest request;
+    request.barCount = 1;
+    auto [proposal, report] = adapter.decodeEventsToProposal(events, request, "test", "test-model");
+    assert(report.droppedTokens > 0);
+    assert(proposal.notes().size() == 1);
+    std::cout << "  Position bin at upper boundary: PASSED" << std::endl;
+}
+
+void testSecondTempoIsIgnored() {
+    std::cout << "Testing second tempo event is ignored..." << std::endl;
+    auto config = RemiDecoderConfig::defaultConfig();
+    RemiEventAdapter adapter(config);
+
+    std::vector<RemiEvent> events;
+    events.push_back(RemiBarEvent{0});
+    events.push_back(RemiTempoEvent{100.0});
+    events.push_back(RemiTempoEvent{200.0});
+    events.push_back(RemiPositionEvent{0});
+    events.push_back(RemiNoteOnEvent{60, 100, 0, 0});
+
+    GenerationRequest request;
+    request.barCount = 1;
+    auto [proposal, report] = adapter.decodeEventsToProposal(events, request, "test", "test-model");
+    assert(report.isOk() || report.result == RemiDecodeResult::Truncated);
+    auto tempo = proposal.firstTempo();
+    assert(tempo.has_value());
+    assert(tempo->bpm == 100.0);
+    std::cout << "  Second tempo is ignored: PASSED (bpm=" << tempo->bpm << ")" << std::endl;
+}
+
+void testNoteOnWithVelocityZero() {
+    std::cout << "Testing NoteOn with velocity zero..." << std::endl;
+    auto config = RemiDecoderConfig::defaultConfig();
+    RemiEventAdapter adapter(config);
+
+    std::vector<RemiEvent> events;
+    events.push_back(RemiBarEvent{0});
+    events.push_back(RemiPositionEvent{0});
+    events.push_back(RemiNoteOnEvent{60, 0, 0, 0});
+
+    GenerationRequest request;
+    request.barCount = 1;
+    auto [proposal, report] = adapter.decodeEventsToProposal(events, request, "test", "test-model");
+    assert(report.isOk() || report.result == RemiDecodeResult::Truncated);
+    auto notes = proposal.notes();
+    assert(notes.size() == 1);
+    // Velocity 0 на NoteOn означает "использовать текущую скорость" (64 по умолчанию),
+    // а не буквальный 0.
+    assert(notes[0].velocity == 64);
+    std::cout << "  NoteOn with velocity zero: PASSED" << std::endl;
+}
+
+void testBpeTokenizerMergedTokenExpands() {
+    std::cout << "Testing BPE tokenizer merged-token expansion..." << std::endl;
+    const auto fixturePath =
+        std::filesystem::temp_directory_path() / "mozart_remi_adapter_bpe_merged_fixture.json";
+    {
+        std::ofstream fixture(fixturePath);
+        assert(fixture.is_open());
+        fixture << R"json({
+  "_vocab_base_byte_to_token": {
+    "a": "Bar_None",
+    "x": "Pitch_60",
+    "y": "Position_0"
+  },
+  "_model": "{\"model\":{\"vocab\":{\"PAD_None\":0,\"BOS_None\":1,\"EOS_None\":2,\"MASK_None\":3,\"a\":4,\"xy\":5},\"merges\":[]}}",
+  "config": {}
+})json";
+    }
+    auto tokenizer = BpeTokenizer::loadFromJson(fixturePath.string());
+    std::error_code ignored;
+    std::filesystem::remove(fixturePath, ignored);
+    assert(tokenizer.has_value());
+
+    auto names = tokenizer->decodeTokens({5});
+    assert(names.size() == 2);
+    assert(names[0] == "Pitch_60");
+    assert(names[1] == "Position_0");
+    assert(!tokenizer->decodeToken(5).has_value());
+    std::cout << "  BPE tokenizer merged-token expansion: PASSED" << std::endl;
+}
+
+void testDurationTokenZeroBeats() {
+    std::cout << "Testing Duration_ token with zero beats..." << std::endl;
+    const auto fixturePath =
+        std::filesystem::temp_directory_path() / "mozart_remi_adapter_bpe_zero_dur_fixture.json";
+    {
+        std::ofstream fixture(fixturePath);
+        assert(fixture.is_open());
+        fixture << R"json({
+  "_vocab_base_byte_to_token": {
+    "a": "Bar_None",
+    "b": "Pitch_60",
+    "z": "Duration_0.0.8"
+  },
+  "_model": "{\"model\":{\"vocab\":{\"PAD_None\":0,\"BOS_None\":1,\"EOS_None\":2,\"MASK_None\":3,\"a\":4,\"b\":5,\"z\":6},\"merges\":[]}}",
+  "config": {}
+})json";
+    }
+    auto tokenizer = BpeTokenizer::loadFromJson(fixturePath.string());
+    std::error_code ignored;
+    std::filesystem::remove(fixturePath, ignored);
+    assert(tokenizer.has_value());
+
+    auto config = RemiDecoderConfig::defaultConfig();
+    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
+    RemiEventAdapter adapter(config, sharedTokenizer);
+
+    const auto barId = tokenIdForName(*tokenizer, "Bar_None");
+    const auto positionId = tokenIdForName(*tokenizer, "Position_0");
+    const auto pitchId = tokenIdForName(*tokenizer, "Pitch_60");
+    const auto durationId = tokenIdForName(*tokenizer, "Duration_0.0.8");
+
+    std::vector<std::uint32_t> tokenIds = {barId, positionId, pitchId, durationId};
+    GenerationRequest request;
+    request.barCount = 1;
+    auto [proposal, report] = adapter.decodeTokensToProposal(tokenIds, request, "test", "test-model");
+    assert(report.isOk());
+    auto notes = proposal.notes();
+    assert(notes.size() == 1);
+    assert(notes[0].pitch == 60);
+    assert(notes[0].duration == config.ticksPerBeat / 4);
+    std::cout << "  Duration_ token with zero beats: PASSED (duration=" << notes[0].duration << ")" << std::endl;
+}
+
 int main() {
     try {
         testRemiEventAdapterDecoding();
@@ -657,6 +797,11 @@ int main() {
         testBarNoneAdvancesThroughFullPipeline();
         testDurationTokenThroughFullPipeline();
         testInvalidTokenIdsTrackedAsDropped();
+        testPositionBinAtUpperBoundary();
+        testSecondTempoIsIgnored();
+        testNoteOnWithVelocityZero();
+        testBpeTokenizerMergedTokenExpands();
+        testDurationTokenZeroBeats();
         std::cout << "\n=== ALL TESTS PASSED (Part 2) ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {
