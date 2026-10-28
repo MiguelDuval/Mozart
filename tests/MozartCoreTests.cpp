@@ -48,8 +48,9 @@ int main() {
         assert(std::abs(b2 - 4.0) < 1.0e-12);
 
         // Time before reference: negative delta.
+        // 5.0 + (8.0 - 10.0) * 120/60 = 5.0 - 4.0 = 1.0
         const auto b3 = mozart::timing::beatAtTime(5.0, 10.0, 120.0, 8.0);
-        assert(std::abs(b3 - 3.0) < 1.0e-9); // 2 seconds earlier at 120 BPM = -2 beats
+        assert(std::abs(b3 - 1.0) < 1.0e-9);
     }
 
     {
