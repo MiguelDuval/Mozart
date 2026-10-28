@@ -335,7 +335,8 @@ void testRemiAdapterPositionAndVelocity() {
     assert(proposal.events.size() > 0);
     const auto notes = proposal.notes();
     assert(notes.size() == 1);
-    assert(notes[0].position == 240);
+    // Default MidiTok resolution is 8 positions per beat: Position_8 = one beat.
+    assert(notes[0].position == 480);
     assert(notes[0].velocity == 127);
 
     std::cout << "  RemiEventAdapter position and velocity: PASSED" << std::endl;
