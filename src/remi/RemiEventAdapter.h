@@ -66,7 +66,14 @@ struct RemiTimeSignatureEvent {
 };
 
 struct RemiProgramEvent {
-    std::uint8_t program = 0;
+    // Signed because MidiTok reserves Program_-1 for drums.
+    std::int16_t program = 0;
+    std::uint8_t track = 0;
+};
+
+struct RemiControlChangeEvent {
+    std::uint8_t controller = 0;
+    std::uint8_t value = 0;
     std::uint8_t track = 0;
 };
 
@@ -78,7 +85,7 @@ struct RemiChordEvent {
 using RemiEvent = std::variant<
     RemiNoteOnEvent, RemiNoteOffEvent, RemiVelocityEvent, RemiPositionEvent,
     RemiBarEvent, RemiTempoEvent, RemiTimeSignatureEvent, RemiProgramEvent,
-    RemiDurationEvent, RemiChordEvent
+    RemiControlChangeEvent, RemiDurationEvent, RemiChordEvent
 >;
 
 struct RemiDecodeReport {

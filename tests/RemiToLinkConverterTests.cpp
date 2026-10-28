@@ -46,7 +46,7 @@ void testBpeTokenizerLoadsFixture() {
     auto tokenizer = BpeTokenizer::loadFromJson(path.string());
 
     assert(tokenizer.has_value());
-    assert(tokenizer->vocabSize() == 18);
+    assert(tokenizer->vocabSize() == 23);
     assert(tokenizer->padToken() == 0);
     assert(tokenizer->bosToken() == 1);
     assert(tokenizer->eosToken() == 2);
@@ -77,6 +77,11 @@ void testBpeTokenizerDecodeKnownIds() {
     assert(tokenizer->decodeTokens({15}) == std::vector<std::string>{"Bar_None"});
     assert(tokenizer->decodeTokens({16}) == std::vector<std::string>{"Bar_None"});
     assert(tokenizer->decodeTokens({17}) == std::vector<std::string>{"Pitch_21"});
+    assert(tokenizer->decodeTokens({18}) == std::vector<std::string>{"Chord_min"});
+    assert(tokenizer->decodeTokens({19}) == std::vector<std::string>{"Program_0"});
+    assert(tokenizer->decodeTokens({20}) == std::vector<std::string>{"PitchDrum_35"});
+    assert(tokenizer->decodeTokens({21}) == std::vector<std::string>{"TimeSig_4/4"});
+    assert(tokenizer->decodeTokens({22}) == std::vector<std::string>{"KeySig_0:0"});
     assert(!tokenizer->decodeToken(14).has_value());
 
     auto report = tokenizer->decodeTokensWithReport({999, 4});
@@ -89,7 +94,7 @@ void testBpeTokenizerDecodeKnownIds() {
 void testRemiDecoderConfigLoadsTokenizerArtifactFields() {
     std::cout << "Testing RemiDecoderConfig loads MidiTok fields..." << std::endl;
     const auto config = RemiDecoderConfig::fromTokenizerJson(fixtureTokenizerPath().string());
-    assert(config.vocabSize == 18);
+    assert(config.vocabSize == 23);
     assert(config.pitchMin == 21);
     assert(config.pitchMax == 109);
     assert(config.numVelocities == 32);
@@ -446,7 +451,7 @@ void testEndToEndTokenIdsToLink() {
     const auto config = RemiDecoderConfig::fromTokenizerJson(path.string());
     RemiEventAdapter adapter(config, sharedTokenizer);
 
-    std::vector<std::uint32_t> tokenIds = {8, 6, 10, 7};
+    std::vector<std::uint32_t> tokenIds = {19, 8, 18, 6, 10, 7};
 
     GenerationRequest request;
     request.seed = 42;
@@ -472,6 +477,38 @@ void testEndToEndTokenIdsToLink() {
     std::cout << "  End-to-end token IDs to link: PASSED" << std::endl;
 }
 
+void testUnsupportedMidiTokProgramRejectsAtomically() {
+    const auto path = fixtureTokenizerPath();
+    auto tokenizer = BpeTokenizer::loadFromJson(path.string());
+    assert(tokenizer.has_value());
+    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
+    const auto config = RemiDecoderConfig::fromTokenizerJson(path.string());
+    RemiEventAdapter adapter(config, sharedTokenizer);
+
+    // Program_10 is in the fixture vocabulary but cannot be represented by the
+    // note-only runtime. A valid note before it must not escape as partial output.
+    const auto [proposal, report] = adapter.decodeTokensToProposal(
+        {8, 6, 10, 7, 13}, {}, "fixture", "fixture");
+    assert(!report.isOk());
+    assert(proposal.events.empty());
+}
+
+void testUnsupportedRemiTokenRejectsAtomically() {
+    const auto path = fixtureTokenizerPath();
+    auto tokenizer = BpeTokenizer::loadFromJson(path.string());
+    assert(tokenizer.has_value());
+    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
+    const auto config = RemiDecoderConfig::fromTokenizerJson(path.string());
+    RemiEventAdapter adapter(config, sharedTokenizer);
+
+    // KeySig_0:0 is decodable as a semantic token but this target tokenizer
+    // configuration does not enable key-signature events. It must not be dropped.
+    const auto [proposal, report] = adapter.decodeTokensToProposal(
+        {8, 6, 10, 7, 22}, {}, "fixture", "fixture");
+    assert(!report.isOk());
+    assert(proposal.events.empty());
+}
+
 } // namespace
 
 int main() {
@@ -492,6 +529,8 @@ int main() {
     testRemiAdapterDurationAfterNoteOn();
     testRemiAdapterDurationAppliesToPrecedingNoteOnly();
     testEndToEndTokenIdsToLink();
+    testUnsupportedMidiTokProgramRejectsAtomically();
+    testUnsupportedRemiTokenRejectsAtomically();
     testEndToEndRemiToLink();
     std::cout << "ALL REMI-TO-LINK CONVERTER TESTS PASSED" << std::endl;
     return 0;

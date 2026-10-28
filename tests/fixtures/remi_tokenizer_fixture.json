@@ -13,8 +13,12 @@
     "Position_8": 9,
     "Velocity_127": 10,
     "Tempo_120": 11,
-    "TimeSig_4/4": 12,
-    "Program_10": 13
+    "TimeSig_4/4": 21,
+    "Program_10": 13,
+    "Chord_min": 18,
+    "Program_0": 19,
+    "PitchDrum_35": 20,
+    "KeySig_0:0": 22
   },
   "_vocab_base_byte_to_token": {
     "!": "PAD_None",
@@ -30,9 +34,14 @@
     "+": "Velocity_127",
     ",": "Tempo_120",
     "-": "TimeSig_4/4",
-    ".": "Program_10"
+    ".": "Program_10",
+    ";": "Chord_min",
+    "<": "Program_0",
+    "=": "PitchDrum_35",
+    ">": "TimeSig_4/4",
+    "?": "KeySig_0:0"
   },
-  "_model": "{\"version\":\"1.0\",\"truncation\":null,\"padding\":null,\"added_tokens\":[],\"normalizer\":null,\"pre_tokenizer\":{\"type\":\"Metaspace\",\"replacement\":\"▁\",\"prepend_scheme\":\"always\"},\"post_processor\":null,\"decoder\":{\"type\":\"Metaspace\",\"replacement\":\"▁\",\"prepend_scheme\":\"always\"},\"model\":{\"type\":\"BPE\",\"dropout\":null,\"unk_token\":null,\"continuing_subword_prefix\":\"##\",\"end_of_word_suffix\":\"</w>\",\"fuse_unk\":false,\"byte_fallback\":false,\"ignore_merges\":false,\"vocab\":{\"!\":0,\"\\\"\":1,\"#\":2,\"$\":3,\"%\":4,\"&\":5,\"'\":6,\"(\":7,\")\":8,\"*\":9,\"+\":10,\",\":11,\"-\":12,\".\":13,\"%&\":14,\"##%\":15,\"%</w>\":16,\"▁&\":17},\"merges\":[\"% &\"]}}",
+  "_model": "{\"version\":\"1.0\",\"truncation\":null,\"padding\":null,\"added_tokens\":[],\"normalizer\":null,\"pre_tokenizer\":{\"type\":\"Metaspace\",\"replacement\":\"▁\",\"prepend_scheme\":\"always\"},\"post_processor\":null,\"decoder\":{\"type\":\"Metaspace\",\"replacement\":\"▁\",\"prepend_scheme\":\"always\"},\"model\":{\"type\":\"BPE\",\"dropout\":null,\"unk_token\":null,\"continuing_subword_prefix\":\"##\",\"end_of_word_suffix\":\"</w>\",\"fuse_unk\":false,\"byte_fallback\":false,\"ignore_merges\":false,\"vocab\":{\"!\":0,\"\\\"\":1,\"#\":2,\"$\":3,\"%\":4,\"&\":5,\"'\":6,\"(\":7,\")\":8,\"*\":9,\"+\":10,\",\":11,\"-\":12,\".\":13,\"%&\":14,\"##%\":15,\"%</w>\":16,\"▁&\":17,\";\":18,\"<\":19,\"=\":20,\">\":21,\"?\":22},\"merges\":[\"% &\"]}}",
   "config": {
     "pitch_range": [
       21,
@@ -62,6 +71,10 @@
       0,
       10,
       127
-    ]
+    ],
+    "use_chords": true,
+    "use_programs": true,
+    "one_token_stream_for_programs": true,
+    "program_changes": false
   }
 }

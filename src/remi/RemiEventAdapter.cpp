@@ -180,16 +180,38 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
             }
             else if constexpr (std::is_same_v<T, RemiProgramEvent>) {
                 durationTargetIndex.reset();
-                if (e.track < config_.maxTracks) {
-                    ProgramChangeEvent pce;
-                    pce.position = currentTick;
-                    pce.channel = e.track % 16;
-                    pce.program = e.program;
-                    events_out.push_back(pce);
-                } else {
+                // The selected MusicMaker checkpoint is piano-only. Program_0 is
+                // its expected acoustic-piano track marker, not a MIDI program
+                // change to schedule. Reject other programs rather than silently
+                // outputting notes with the wrong instrument.
+                if (e.track >= config_.maxTracks) {
                     warnings.push_back("Program event track index is out of range");
                     droppedTokens++;
+                } else if (e.program != 0) {
+                    warnings.push_back("Unsupported instrument program for piano-only runtime: " +
+                                       std::to_string(e.program));
+                    droppedTokens++;
                 }
+            }
+            else if constexpr (std::is_same_v<T, RemiControlChangeEvent>) {
+                durationTargetIndex.reset();
+                if (e.track >= config_.maxTracks || e.controller > 127 || e.value > 127) {
+                    warnings.push_back("ControlChange event is outside supported range");
+                    droppedTokens++;
+                } else {
+                    events_out.push_back(ControlChangeEvent{
+                        currentTick,
+                        static_cast<std::uint8_t>(e.track % 16),
+                        e.controller,
+                        e.value
+                    });
+                }
+            }
+            else if constexpr (std::is_same_v<T, RemiChordEvent>) {
+                // Chord tokens are annotations in this REMI+ tokenizer. The
+                // actual pitches are emitted independently and remain the
+                // scheduled source of truth, so this metadata token is accepted.
+                durationTargetIndex.reset();
             }
             else if constexpr (std::is_same_v<T, RemiVelocityEvent>) {
                 // MidiTok labels Velocity tokens with the quantized MIDI value
@@ -276,32 +298,70 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
     report.droppedTokens = droppedTokens;
     report.warnings = std::move(warnings);
 
-    return {proposal, report};
+    if (!report.isOk()) {
+        proposal.clear();
+        report.message = "REMI event stream rejected atomically";
+        return {std::move(proposal), std::move(report)};
+    }
+    return {std::move(proposal), std::move(report)};
 }
 std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeTokensToProposal(
         const std::vector<std::uint32_t>& tokenIds,
         const GenerationRequest& request,
         const std::string& providerId,
         const std::string& modelId) const noexcept {
-
     if (!tokenizer_) {
         PatternProposal empty;
         RemiDecodeReport report;
         report.message = "No tokenizer available";
-        return {empty, report};
+        report.processedTokens = tokenIds.size();
+        report.droppedTokens = tokenIds.size();
+        report.warnings.push_back(report.message);
+        return {std::move(empty), std::move(report)};
     }
 
-    auto decoded = tokenizer_->decodeTokens(tokenIds);
+    const auto tokenReport = tokenizer_->decodeTokensWithReport(tokenIds);
+    if (tokenReport.droppedTokenIds != 0) {
+        PatternProposal empty;
+        RemiDecodeReport report;
+        report.message = "BPE token stream contains undecodable IDs";
+        report.processedTokens = tokenIds.size();
+        report.droppedTokens = tokenReport.droppedTokenIds;
+        report.warnings = tokenReport.warnings;
+        return {std::move(empty), std::move(report)};
+    }
 
     std::vector<RemiEvent> remiEvents;
-    for (const auto& name : decoded) {
-        auto event = tokenNameToEvent(name);
-        if (event.has_value()) {
-            remiEvents.push_back(*event);
+    remiEvents.reserve(tokenReport.tokenNames.size());
+    for (const auto& name : tokenReport.tokenNames) {
+        if (name == "PAD_None" || name == "BOS_None" || name == "MASK_None") {
+            continue;
         }
+        if (name == "EOS_None") {
+            break;
+        }
+
+        const auto event = tokenNameToEvent(name);
+        if (!event.has_value()) {
+            PatternProposal empty;
+            RemiDecodeReport report;
+            report.message = "Unsupported REMI token: " + name;
+            report.processedTokens = tokenIds.size();
+            report.droppedTokens = 1;
+            report.warnings.push_back(report.message);
+            return {std::move(empty), std::move(report)};
+        }
+        remiEvents.push_back(*event);
     }
 
-    return decodeEventsToProposal(remiEvents, request, providerId, modelId);
+    auto [proposal, report] =
+        decodeEventsToProposal(remiEvents, request, providerId, modelId);
+    report.processedTokens = tokenIds.size();
+    if (!report.isOk()) {
+        proposal.clear();
+        report.message = "REMI token stream rejected atomically";
+    }
+    return {std::move(proposal), std::move(report)};
 }
 
 std::optional<PatternEvent> RemiEventAdapter::convertEvent(
@@ -314,49 +374,130 @@ std::optional<PatternEvent> RemiEventAdapter::convertEvent(
     return std::nullopt;
 }
 
-std::optional<RemiEvent> RemiEventAdapter::tokenNameToEvent(const std::string& tokenName) const noexcept {
-    if (tokenName.rfind("Pitch_", 0) == 0) {
+std::optional<RemiEvent> RemiEventAdapter::tokenNameToEvent(
+        const std::string& tokenName) const noexcept {
+    const auto parseUnsigned = [](const std::string& text, const std::uint32_t maximum)
+        -> std::optional<std::uint32_t> {
         try {
-            std::uint8_t pitch = static_cast<std::uint8_t>(std::stoi(tokenName.substr(6)));
-            return RemiNoteOnEvent{pitch, 64, 0, 0};
-        } catch (...) { return std::nullopt; }
+            std::size_t used = 0;
+            const auto value = std::stoull(text, &used, 10);
+            if (used != text.size() || value > maximum) return std::nullopt;
+            return static_cast<std::uint32_t>(value);
+        } catch (...) {
+            return std::nullopt;
+        }
+    };
+
+    if (tokenName.rfind("Pitch_", 0) == 0 ||
+        tokenName.rfind("PitchDrum_", 0) == 0) {
+        const std::size_t prefixLength =
+            tokenName.rfind("Pitch_", 0) == 0 ? 6U : 10U;
+        const auto pitch = parseUnsigned(tokenName.substr(prefixLength), 127);
+        if (!pitch.has_value()) return std::nullopt;
+        return RemiNoteOnEvent{static_cast<std::uint8_t>(*pitch), 64, 0, 0};
     }
-    if (tokenName == "Bar_None") {
-        return RemiBarEvent{std::nullopt};
-    }
+    if (tokenName == "Bar_None") return RemiBarEvent{std::nullopt};
+
     if (tokenName.rfind("Position_", 0) == 0) {
-        try {
-            std::uint32_t pos = static_cast<std::uint32_t>(std::stoi(tokenName.substr(9)));
-            return RemiPositionEvent{pos};
-        } catch (...) { return std::nullopt; }
+        const auto position = parseUnsigned(tokenName.substr(9),
+            std::numeric_limits<std::uint32_t>::max());
+        if (!position.has_value()) return std::nullopt;
+        return RemiPositionEvent{*position};
     }
     if (tokenName.rfind("Velocity_", 0) == 0) {
-        try {
-            std::uint8_t vel = static_cast<std::uint8_t>(std::stoi(tokenName.substr(9)));
-            return RemiVelocityEvent{vel};
-        } catch (...) { return std::nullopt; }
+        const auto velocity = parseUnsigned(tokenName.substr(9), 127);
+        if (!velocity.has_value()) return std::nullopt;
+        return RemiVelocityEvent{static_cast<std::uint8_t>(*velocity)};
     }
     if (tokenName.rfind("Tempo_", 0) == 0) {
         try {
-            double bpm = std::stod(tokenName.substr(6));
+            const std::string value = tokenName.substr(6);
+            std::size_t used = 0;
+            const double bpm = std::stod(value, &used);
+            if (used != value.size() || !std::isfinite(bpm) || bpm <= 0.0 || bpm > 500.0) {
+                return std::nullopt;
+            }
             return RemiTempoEvent{bpm};
-        } catch (...) { return std::nullopt; }
+        } catch (...) {
+            return std::nullopt;
+        }
     }
     if (tokenName.rfind("Duration_", 0) == 0) {
         try {
             const std::string body = tokenName.substr(9);
             const std::size_t dot1 = body.find('.');
-            const std::size_t dot2 = body.find('.', dot1 + 1);
-            if (dot1 == std::string::npos || dot2 == std::string::npos) {
-                return std::nullopt;
-            }
-            RemiDurationEvent dur;
-            dur.beats = std::stod(body.substr(0, dot1));
-            dur.subdivision = static_cast<std::uint32_t>(std::stoul(body.substr(dot1 + 1, dot2 - dot1 - 1)));
-            dur.resolution = static_cast<std::uint32_t>(std::stoul(body.substr(dot2 + 1)));
-            return dur;
-        } catch (...) { return std::nullopt; }
+            const std::size_t dot2 = dot1 == std::string::npos
+                ? std::string::npos : body.find('.', dot1 + 1);
+            if (dot1 == std::string::npos || dot2 == std::string::npos) return std::nullopt;
+
+            const std::string beatsText = body.substr(0, dot1);
+            std::size_t beatsUsed = 0;
+            const double beats = std::stod(beatsText, &beatsUsed);
+            const auto subdivision = parseUnsigned(
+                body.substr(dot1 + 1, dot2 - dot1 - 1),
+                std::numeric_limits<std::uint32_t>::max());
+            const auto resolution = parseUnsigned(body.substr(dot2 + 1),
+                std::numeric_limits<std::uint32_t>::max());
+            if (beatsUsed != beatsText.size() || !std::isfinite(beats) || beats < 0.0 ||
+                !subdivision.has_value() || !resolution.has_value() ||
+                *resolution == 0 || *subdivision >= *resolution) return std::nullopt;
+            return RemiDurationEvent{beats, *subdivision, *resolution};
+        } catch (...) {
+            return std::nullopt;
+        }
     }
+    if (tokenName.rfind("TimeSig_", 0) == 0) {
+        const std::string value = tokenName.substr(8);
+        const auto slash = value.find('/');
+        if (slash == std::string::npos) return std::nullopt;
+        const auto numerator = parseUnsigned(value.substr(0, slash), 255);
+        const auto denominator = parseUnsigned(value.substr(slash + 1), 255);
+        if (!numerator.has_value() || !denominator.has_value() ||
+            *numerator == 0 || *denominator == 0 ||
+            ((*denominator & (*denominator - 1U)) != 0)) return std::nullopt;
+        return RemiTimeSignatureEvent{
+            static_cast<std::uint8_t>(*numerator),
+            static_cast<std::uint8_t>(*denominator)
+        };
+    }
+    if (tokenName.rfind("Program_", 0) == 0) {
+        const std::string value = tokenName.substr(8);
+        try {
+            std::size_t used = 0;
+            const long program = std::stol(value, &used, 10);
+            if (used != value.size() || program < -1 || program > 127) return std::nullopt;
+            return RemiProgramEvent{static_cast<std::int16_t>(program), 0};
+        } catch (...) {
+            return std::nullopt;
+        }
+    }
+    if (tokenName.rfind("ControlChange_", 0) == 0) {
+        const std::string value = tokenName.substr(14);
+        const auto separator = value.find('-');
+        if (separator == std::string::npos) return std::nullopt;
+        const auto controller = parseUnsigned(value.substr(0, separator), 127);
+        const auto ccValue = parseUnsigned(value.substr(separator + 1), 127);
+        if (!controller.has_value() || !ccValue.has_value()) return std::nullopt;
+        return RemiControlChangeEvent{
+            static_cast<std::uint8_t>(*controller),
+            static_cast<std::uint8_t>(*ccValue),
+            0
+        };
+    }
+    if (tokenName.rfind("Chord_", 0) == 0) {
+        const std::string value = tokenName.substr(6);
+        const auto separator = value.find(':');
+        if (separator == std::string::npos) {
+            if (value.empty()) return std::nullopt;
+            return RemiChordEvent{"", value};
+        }
+        if (separator == 0 || separator + 1 >= value.size()) return std::nullopt;
+        return RemiChordEvent{
+            value.substr(0, separator), value.substr(separator + 1)
+        };
+    }
+
+    // Unknown token types fail closed in decodeTokensToProposal.
     return std::nullopt;
 }
 
