@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
+import re
 from pathlib import Path
 import shutil
 import sys
@@ -435,8 +435,8 @@ def export_local_model(
         raise ValueError("sample sequence length is outside model context")
     if max_generated_tokens < 2 or max_generated_tokens > context_length:
         raise ValueError("max generated tokens is outside model context")
-    if not model_revision.strip():
-        raise ValueError("--model-revision must pin the source model revision")
+    if not re.fullmatch(r"[0-9a-fA-F]{40}", model_revision):
+        raise ValueError("--model-revision must be a full immutable 40-character commit SHA")
     if not trust_model_code:
         raise ValueError(
             "upstream custom model code is executable Python; pass --trust-model-code only after reviewing it"
@@ -500,6 +500,7 @@ def export_local_model(
         source_code_files_sha256=code_hashes,
         source_checkpoint_files_sha256=source_weight_hashes,
     )
+    manifest["source_config_sha256"] = sha256_file(config_path)
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -537,7 +538,7 @@ def main() -> int:
             opset=args.opset,
             trust_model_code=args.trust_model_code,
         )
-    except (OSError, ValueError, RuntimeError, ImportError) as exc:
+    except (OSError, ValueError, RuntimeError, ImportError, AssertionError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
