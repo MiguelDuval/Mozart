@@ -9,6 +9,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <fstream>
+#include "json.hpp"
 
 #include "core/MidiEndpoint.h"
 #include "core/MidiTypes.h"
@@ -20,6 +22,7 @@
 #include "platform/android/AndroidMidiOutput.h"
 #include "platform/android/OnnxRuntimeBridge.h"
 #include "generation/OnnxTokenInferenceBackend.h"
+#include "generation/RemiBpeInferenceBackend.h"
 #include "generation/GenerationRequestFactory.h"
 #include "generation/GenerationRequestTicket.h"
 #include "generation/PatternDensity.h"
@@ -33,6 +36,7 @@ namespace {
 mozart::platform::android::AndroidMidiOutput g_midiOutput;
 std::unique_ptr<mozart::platform::android::OnnxRuntimeBridge> g_onnxBridge;
 std::vector<std::unique_ptr<mozart::generation::OnnxTokenInferenceBackend>> g_onnxBackends;
+std::vector<std::unique_ptr<mozart::generation::RemiBpeOnnxTokenInferenceBackend>> g_remiBpeOnnxBackends;
 std::unique_ptr<mozart::runtime::MozartRuntime> g_runtime;
 std::mutex g_runtimeMutex;
 std::mutex g_generationMutex;
@@ -268,28 +272,81 @@ Java_com_miguelduval_mozart_MainActivity_nativeRegisterExperimentalModel(
     }
 
     if (entry.backendId == "onnxruntime-android") {
+        // Select a decoder from the checked manifest token mode. Never route
+        // an external REMI vocabulary through the frozen Mozart 512-token ABI.
+        std::string tokenMode;
+        std::string tokenizerName;
+        try {
+            std::ifstream manifestStream(entry.manifestPath);
+            if (!manifestStream.is_open()) return JNI_FALSE;
+            nlohmann::json manifestJson;
+            manifestStream >> manifestJson;
+            const auto runtimeJson = manifestJson.at("runtime");
+            tokenMode = runtimeJson.at("token_mode").get<std::string>();
+            if (tokenMode == "remi_bpe") {
+                tokenizerName = runtimeJson.at("tokenizer_file").get<std::string>();
+                if (tokenizerName.empty() || tokenizerName == "." ||
+                    tokenizerName == ".." ||
+                    tokenizerName.find('/') != std::string::npos ||
+                    tokenizerName.find('\\\\') != std::string::npos) {
+                    return JNI_FALSE;
+                }
+            }
+        } catch (...) {
+            return JNI_FALSE;
+        }
+
         if (!g_onnxBridge) {
             g_onnxBridge =
                     std::make_unique<mozart::platform::android::OnnxRuntimeBridge>(
                             env);
         }
 
-        const std::string concreteBackendId =
-                "onnxruntime-android:" + entry.modelId;
+        if (tokenMode == "remi_bpe") {
+            const auto separator = entry.manifestPath.find_last_of("/\\\\");
+            const std::string manifestDirectory = separator == std::string::npos
+                    ? std::string(".")
+                    : entry.manifestPath.substr(0, separator);
+            const std::string tokenizerPath =
+                    manifestDirectory + "/" + tokenizerName;
+            std::ifstream tokenizerCheck(tokenizerPath, std::ios::binary);
+            if (!tokenizerCheck.is_open()) return JNI_FALSE;
 
-        auto backend =
-                std::make_unique<mozart::generation::OnnxTokenInferenceBackend>(
-                        concreteBackendId,
-                        entry.artifactPath,
-                        entry.manifestPath,
-                        *g_onnxBridge);
-
-        if (runtime()->registerModelBackend(*backend)) {
-            entry.backendId = concreteBackendId;
-            g_onnxBackends.push_back(std::move(backend));
+            const std::string concreteBackendId =
+                    "remi-bpe-onnxruntime-android:" + entry.modelId;
+            auto backend =
+                    std::make_unique<mozart::generation::RemiBpeOnnxTokenInferenceBackend>(
+                            concreteBackendId,
+                            entry.artifactPath,
+                            entry.manifestPath,
+                            tokenizerPath,
+                            *g_onnxBridge);
+            if (runtime()->registerModelBackend(*backend)) {
+                entry.backendId = concreteBackendId;
+                g_remiBpeOnnxBackends.push_back(std::move(backend));
+            } else {
+                // A prior lab opening already registered the same backend.
+                entry.backendId = concreteBackendId;
+            }
+        } else if (tokenMode == "mozart_ids") {
+            const std::string concreteBackendId =
+                    "onnxruntime-android:" + entry.modelId;
+            auto backend =
+                    std::make_unique<mozart::generation::OnnxTokenInferenceBackend>(
+                            concreteBackendId,
+                            entry.artifactPath,
+                            entry.manifestPath,
+                            *g_onnxBridge);
+            if (runtime()->registerModelBackend(*backend)) {
+                entry.backendId = concreteBackendId;
+                g_onnxBackends.push_back(std::move(backend));
+            } else {
+                entry.backendId = concreteBackendId;
+            }
         } else {
-            // Re-opening the lab for an already registered model is harmless;
-            // the original backend remains owned by g_onnxBackends.
+            // Unknown ABI: reject registration, rather than allowing a catalog
+            // entry that can never be generated safely.
+            return JNI_FALSE;
         }
     }
 
