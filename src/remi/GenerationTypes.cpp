@@ -1,40 +1,30 @@
 #include "GenerationTypes.h"
 
 #include <algorithm>
+#include <cmath>
 #include <sstream>
+#include <type_traits>
+#include <utility>
 
 namespace mozart::remi {
 
 bool PatternProposal::isValid() const noexcept {
-    if (events.empty()) return false;
-    if (totalTicks == 0) return false;
-    for (const auto& event : events) {
-        std::uint32_t pos = 0;
-        std::visit([&pos](const auto& e) { pos = e.position; }, event);
-        if (pos > totalTicks) return false;
-    }
-    return true;
+    return PatternProposalValidator{}.validate(*this).isOk();
 }
 
 std::optional<std::string> PatternProposal::validationError() const noexcept {
-    if (events.empty()) return "No events in proposal";
-    if (totalTicks == 0) return "Total ticks is zero";
-    for (std::size_t i = 0; i < events.size(); ++i) {
-        std::uint32_t pos = 0;
-        std::visit([&pos](const auto& e) { pos = e.position; }, events[i]);
-        if (pos > totalTicks) {
-            return "Event at index " + std::to_string(i) + " exceeds totalTicks";
-        }
+    const auto report = PatternProposalValidator{}.validate(*this);
+    if (report.isOk()) {
+        return std::nullopt;
     }
-    return std::nullopt;
+    return report.message;
 }
 
 std::vector<NoteEvent> PatternProposal::notes() const noexcept {
     std::vector<NoteEvent> result;
-    result.reserve(events.size());
     for (const auto& event : events) {
-        if (std::holds_alternative<NoteEvent>(event)) {
-            result.push_back(std::get<NoteEvent>(event));
+        if (const auto* note = std::get_if<NoteEvent>(&event)) {
+            result.push_back(*note);
         }
     }
     return result;
@@ -42,8 +32,8 @@ std::vector<NoteEvent> PatternProposal::notes() const noexcept {
 
 std::optional<TempoEvent> PatternProposal::firstTempo() const noexcept {
     for (const auto& event : events) {
-        if (std::holds_alternative<TempoEvent>(event)) {
-            return std::get<TempoEvent>(event);
+        if (const auto* tempo = std::get_if<TempoEvent>(&event)) {
+            return *tempo;
         }
     }
     return std::nullopt;
@@ -51,153 +41,8 @@ std::optional<TempoEvent> PatternProposal::firstTempo() const noexcept {
 
 std::optional<TimeSignatureEvent> PatternProposal::firstTimeSignature() const noexcept {
     for (const auto& event : events) {
-        if (std::holds_alternative<TimeSignatureEvent>(event)) {
-std::string ValidationReport::toString() const noexcept {
-    std::ostringstream oss;
-    oss << "ValidationResult: ";
-    switch (result) {
-        case ValidationResult::Ok: oss << "Ok"; break;
-        case ValidationResult::EmptyProposal: oss << "EmptyProposal"; break;
-        case ValidationResult::TooManyEvents: oss << "TooManyEvents"; break;
-        case ValidationResult::InvalidPitch: oss << "InvalidPitch"; break;
-        case ValidationResult::InvalidVelocity: oss << "InvalidVelocity"; break;
-        case ValidationResult::InvalidPosition: oss << "InvalidPosition"; break;
-        case ValidationResult::InvalidDuration: oss << "InvalidDuration"; break;
-        case ValidationResult::InvalidChannel: oss << "InvalidChannel"; break;
-        case ValidationResult::UnsupportedEvent: oss << "UnsupportedEvent"; break;
-        case ValidationResult::ExceedsMaxTicks: oss << "ExceedsMaxTicks"; break;
-        case ValidationResult::ProviderError: oss << "ProviderError"; break;
-    }
-    if (!message.empty()) oss << " - " << message;
-    if (offendingEventIndex > 0) oss << " (event index: " << offendingEventIndex << ")";
-    return oss.str();
-}
-
-ValidationReport PatternProposalValidator::validate(const PatternProposal& proposal) const noexcept {
-    if (proposal.events.empty()) {
-        return {ValidationResult::EmptyProposal, "Proposal has no events"};
-    }
-    if (proposal.events.size() > limits_.maxEvents) {
-        return {ValidationResult::TooManyEvents,
-                "Proposal has " + std::to_string(proposal.events.size()) +
-                " events, max is " + std::to_string(limits_.maxEvents),
-                limits_.maxEvents};
-    }
-    if (proposal.totalTicks > limits_.maxTicks) {
-        return {ValidationResult::ExceedsMaxTicks,
-                "Proposal length " + std::to_string(proposal.totalTicks) +
-                " ticks exceeds max " + std::to_string(limits_.maxTicks),
-                0};
-    }
-    for (std::size_t i = 0; i < proposal.events.size(); ++i) {
-        const auto& event = proposal.events[i];
-        try {
-            std::visit([&](const auto& e) {
-                using T = std::decay_t<decltype(e)>;
-                if constexpr (std::is_same_v<T, NoteEvent>) {
-                    if (e.pitch > 127) throw ValidationResult::InvalidPitch;
-                    if (e.velocity > 127) throw ValidationResult::InvalidVelocity;
-                    if (e.position > proposal.totalTicks) throw ValidationResult::InvalidPosition;
-                    if (e.duration == 0) throw ValidationResult::InvalidDuration;
-                    if (e.channel >= limits_.maxChannels) throw ValidationResult::InvalidChannel;
-                    if (e.track >= limits_.maxTracks) throw ValidationResult::UnsupportedEvent;
-                } else if constexpr (std::is_same_v<T, TempoEvent>) {
-                    if (e.position > proposal.totalTicks) throw ValidationResult::InvalidPosition;
-                    if (e.bpm <= 0.0 || e.bpm > 500.0) throw ValidationResult::UnsupportedEvent;
-                } else if constexpr (std::is_same_v<T, TimeSignatureEvent>) {
-                    if (e.position > proposal.totalTicks) throw ValidationResult::InvalidPosition;
-                    if (e.denominator == 0 || (e.denominator & (e.denominator - 1)) != 0) {
-                        throw ValidationResult::UnsupportedEvent;
-                    }
-                } else if constexpr (std::is_same_v<T, ProgramChangeEvent>) {
-                    if (e.position > proposal.totalTicks) throw ValidationResult::InvalidPosition;
-                    if (e.channel >= limits_.maxChannels) throw ValidationResult::InvalidChannel;
-                    if (e.program > 127) throw ValidationResult::UnsupportedEvent;
-                } else if constexpr (std::is_same_v<T, ControlChangeEvent>) {
-                    if (e.position > proposal.totalTicks) throw ValidationResult::InvalidPosition;
-                    if (e.channel >= limits_.maxChannels) throw ValidationResult::InvalidChannel;
-                    if (e.controller > 127 || e.value > 127) throw ValidationResult::UnsupportedEvent;
-                }
-            }, event);
-        } catch (ValidationResult err) {
-            return {err, "Validation failed at event index " + std::to_string(i), i};
-        }
-std::pair<PatternProposal, ValidationReport> PatternProposalValidator::sanitize(
-        const PatternProposal& proposal) const noexcept {
-    PatternProposal sanitized = proposal;
-    sanitized.events.clear();
-    sanitized.warnings.clear();
-    sanitized.truncated = false;
-
-    ValidationReport report = validate(proposal);
-    if (report.isOk()) return {proposal, report};
-
-    if (report.result == ValidationResult::TooManyEvents) {
-        sanitized.events.assign(proposal.events.begin(),
-                               proposal.events.begin() + limits_.maxEvents);
-        sanitized.truncated = true;
-        sanitized.warnings.push_back("Truncated to " + std::to_string(limits_.maxEvents) + " events");
-        return {sanitized, {ValidationResult::Ok, "Truncated to fit limits"}};
-    }
-
-    if (report.result == ValidationResult::ExceedsMaxTicks) {
-        sanitized.totalTicks = limits_.maxTicks;
-        for (const auto& event : proposal.events) {
-            std::uint32_t pos = 0;
-            std::visit([&pos](const auto& e) { pos = e.position; }, event);
-            if (pos <= limits_.maxTicks) sanitized.events.push_back(event);
-        }
-        sanitized.truncated = true;
-        sanitized.warnings.push_back("Clamped to " + std::to_string(limits_.maxTicks) + " ticks");
-        return {sanitized, {ValidationResult::Ok, "Clamped to fit limits"}};
-    }
-
-    for (std::size_t i = 0; i < proposal.events.size(); ++i) {
-        const auto& event = proposal.events[i];
-        bool valid = true;
-        std::visit([&](const auto& e) {
-            using T = std::decay_t<decltype(e)>;
-            if constexpr (std::is_same_v<T, NoteEvent>) {
-                if (e.pitch > 127 || e.velocity > 127 || e.position > limits_.maxTicks ||
-                    e.duration == 0 || e.channel >= limits_.maxChannels ||
-                    e.track >= limits_.maxTracks) valid = false;
-            } else if constexpr (std::is_same_v<T, TempoEvent>) {
-                if (e.position > limits_.maxTicks || e.bpm <= 0.0 || e.bpm > 500.0) valid = false;
-            } else if constexpr (std::is_same_v<T, TimeSignatureEvent>) {
-                if (e.position > limits_.maxTicks || e.denominator == 0 ||
-                    (e.denominator & (e.denominator - 1)) != 0) valid = false;
-            } else if constexpr (std::is_same_v<T, ProgramChangeEvent>) {
-                if (e.position > limits_.maxTicks || e.channel >= limits_.maxChannels ||
-                    e.program > 127) valid = false;
-            } else if constexpr (std::is_same_v<T, ControlChangeEvent>) {
-                if (e.position > limits_.maxTicks || e.channel >= limits_.maxChannels ||
-                    e.controller > 127 || e.value > 127) valid = false;
-            }
-        }, event);
-        if (valid) sanitized.events.push_back(event);
-        else sanitized.warnings.push_back("Dropped invalid event at index " + std::to_string(i));
-    }
-
-    if (sanitized.events.empty()) {
-        return {sanitized, {ValidationResult::EmptyProposal, "All events were invalid"}};
-    }
-
-    std::uint32_t maxPos = 0;
-    for (const auto& event : sanitized.events) {
-        std::uint32_t pos = 0;
-        std::visit([&pos](const auto& e) { pos = e.position; }, event);
-        maxPos = std::max(maxPos, pos);
-    }
-    sanitized.totalTicks = std::max(maxPos, std::uint32_t(480));
-    return {sanitized, {ValidationResult::Ok, "Sanitized with " +
-                        std::to_string(sanitized.warnings.size()) + " warnings"}};
-}
-
-    }
-    return {ValidationResult::Ok, "Valid"};
-}
-
-            return std::get<TimeSignatureEvent>(event);
+        if (const auto* signature = std::get_if<TimeSignatureEvent>(&event)) {
+            return *signature;
         }
     }
     return std::nullopt;
@@ -214,3 +59,187 @@ void PatternProposal::clear() noexcept {
     warnings.clear();
     truncated = false;
 }
+
+std::string ValidationReport::toString() const noexcept {
+    std::ostringstream out;
+    out << "ValidationResult: ";
+    switch (result) {
+        case ValidationResult::Ok: out << "Ok"; break;
+        case ValidationResult::EmptyProposal: out << "EmptyProposal"; break;
+        case ValidationResult::TooManyEvents: out << "TooManyEvents"; break;
+        case ValidationResult::InvalidPitch: out << "InvalidPitch"; break;
+        case ValidationResult::InvalidVelocity: out << "InvalidVelocity"; break;
+        case ValidationResult::InvalidPosition: out << "InvalidPosition"; break;
+        case ValidationResult::InvalidDuration: out << "InvalidDuration"; break;
+        case ValidationResult::InvalidChannel: out << "InvalidChannel"; break;
+        case ValidationResult::UnsupportedEvent: out << "UnsupportedEvent"; break;
+        case ValidationResult::ExceedsMaxTicks: out << "ExceedsMaxTicks"; break;
+        case ValidationResult::ProviderError: out << "ProviderError"; break;
+    }
+    if (!message.empty()) {
+        out << " - " << message;
+    }
+    if (offendingEventIndex > 0) {
+        out << " (event index: " << offendingEventIndex << ")";
+    }
+    return out.str();
+}
+
+ValidationReport PatternProposalValidator::validate(
+        const PatternProposal& proposal) const noexcept {
+    if (proposal.events.empty()) {
+        return {ValidationResult::EmptyProposal, "Proposal has no events"};
+    }
+    if (proposal.events.size() > limits_.maxEvents) {
+        return {
+            ValidationResult::TooManyEvents,
+            "Proposal event count exceeds configured maximum",
+            limits_.maxEvents
+        };
+    }
+    if (proposal.totalTicks == 0) {
+        return {ValidationResult::InvalidPosition, "Proposal totalTicks is zero"};
+    }
+    if (proposal.totalTicks > limits_.maxTicks) {
+        return {
+            ValidationResult::ExceedsMaxTicks,
+            "Proposal length exceeds configured maximum"
+        };
+    }
+    if (proposal.trackCount == 0 || proposal.trackCount > limits_.maxTracks) {
+        return {ValidationResult::UnsupportedEvent, "Proposal track count is out of range"};
+    }
+
+    for (std::size_t i = 0; i < proposal.events.size(); ++i) {
+        const auto& event = proposal.events[i];
+        ValidationResult error = ValidationResult::Ok;
+        const char* detail = "Valid";
+
+        std::visit([&](const auto& item) {
+            using T = std::decay_t<decltype(item)>;
+
+            if (item.position > proposal.totalTicks) {
+                error = ValidationResult::InvalidPosition;
+                detail = "Event position exceeds proposal length";
+                return;
+            }
+
+            if constexpr (std::is_same_v<T, NoteEvent>) {
+                if (item.pitch > 127) {
+                    error = ValidationResult::InvalidPitch;
+                    detail = "Note pitch is outside MIDI range";
+                } else if (item.velocity > 127) {
+                    error = ValidationResult::InvalidVelocity;
+                    detail = "Note velocity is outside MIDI range";
+                } else if (item.duration == 0 ||
+                           static_cast<std::uint64_t>(item.position) + item.duration >
+                               proposal.totalTicks) {
+                    error = ValidationResult::InvalidDuration;
+                    detail = "Note duration is zero or extends beyond proposal length";
+                } else if (item.channel >= limits_.maxChannels) {
+                    error = ValidationResult::InvalidChannel;
+                    detail = "Note channel is outside configured range";
+                } else if (item.track >= limits_.maxTracks) {
+                    error = ValidationResult::UnsupportedEvent;
+                    detail = "Note track is outside configured range";
+                }
+            } else if constexpr (std::is_same_v<T, TempoEvent>) {
+                if (!std::isfinite(item.bpm) || item.bpm <= 0.0 || item.bpm > 500.0) {
+                    error = ValidationResult::UnsupportedEvent;
+                    detail = "Tempo is outside supported range";
+                }
+            } else if constexpr (std::is_same_v<T, TimeSignatureEvent>) {
+                if (item.numerator == 0 || item.denominator == 0 ||
+                    (item.denominator & (item.denominator - 1)) != 0) {
+                    error = ValidationResult::UnsupportedEvent;
+                    detail = "Time signature is invalid";
+                }
+            } else if constexpr (std::is_same_v<T, ProgramChangeEvent>) {
+                if (item.channel >= limits_.maxChannels || item.program > 127) {
+                    error = ValidationResult::UnsupportedEvent;
+                    detail = "Program change is outside supported MIDI range";
+                }
+            } else if constexpr (std::is_same_v<T, ControlChangeEvent>) {
+                if (item.channel >= limits_.maxChannels ||
+                    item.controller > 127 || item.value > 127) {
+                    error = ValidationResult::UnsupportedEvent;
+                    detail = "Control change is outside supported MIDI range";
+                }
+            }
+        }, event);
+
+        if (error != ValidationResult::Ok) {
+            return {
+                error,
+                std::string(detail) + " at event index " + std::to_string(i),
+                i
+            };
+        }
+    }
+
+    return {ValidationResult::Ok, "Valid"};
+}
+
+std::pair<PatternProposal, ValidationReport> PatternProposalValidator::sanitize(
+        const PatternProposal& proposal) const noexcept {
+    PatternProposal sanitized = proposal;
+    sanitized.warnings.clear();
+
+    if (sanitized.events.size() > limits_.maxEvents) {
+        sanitized.events.resize(limits_.maxEvents);
+        sanitized.truncated = true;
+        sanitized.warnings.push_back("Truncated to configured maximum event count");
+    }
+
+    if (limits_.maxTicks == 0) {
+        sanitized.clear();
+        return {sanitized, {
+            ValidationResult::ExceedsMaxTicks,
+            "Configured maximum pattern length is zero"
+        }};
+    }
+
+    if (sanitized.totalTicks == 0) {
+        sanitized.totalTicks = std::min<std::uint32_t>(480, limits_.maxTicks);
+        sanitized.warnings.push_back("Set missing pattern length to a safe minimum");
+    } else if (sanitized.totalTicks > limits_.maxTicks) {
+        sanitized.totalTicks = limits_.maxTicks;
+        sanitized.truncated = true;
+        sanitized.warnings.push_back("Clamped pattern length to configured maximum");
+    }
+
+    std::vector<PatternEvent> accepted;
+    accepted.reserve(sanitized.events.size());
+    for (std::size_t i = 0; i < sanitized.events.size(); ++i) {
+        PatternProposal candidate = sanitized;
+        candidate.events.assign(1, sanitized.events[i]);
+        const auto report = validate(candidate);
+        if (report.isOk()) {
+            accepted.push_back(sanitized.events[i]);
+        } else {
+            sanitized.warnings.push_back(
+                "Dropped invalid event at index " + std::to_string(i) +
+                ": " + report.message
+            );
+        }
+    }
+    sanitized.events = std::move(accepted);
+
+    if (sanitized.events.empty()) {
+        return {sanitized, {
+            ValidationResult::EmptyProposal,
+            "No valid events remained after sanitization"
+        }};
+    }
+
+    const auto finalReport = validate(sanitized);
+    if (!finalReport.isOk()) {
+        return {sanitized, finalReport};
+    }
+    return {sanitized, {
+        ValidationResult::Ok,
+        "Sanitized with " + std::to_string(sanitized.warnings.size()) + " warning(s)"
+    }};
+}
+
+} // namespace mozart::remi
