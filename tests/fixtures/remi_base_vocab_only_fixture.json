@@ -1,0 +1,48 @@
+{
+  "tokenization": "REMI",
+  "config": {
+    "pitch_range": [
+      21,
+      109
+    ],
+    "beat_res": {
+      "0_4": 8,
+      "4_12": 4
+    },
+    "num_velocities": 16,
+    "default_note_duration": 0.5,
+    "special_tokens": [
+      "PAD_None",
+      "BOS_None",
+      "EOS_None",
+      "MASK_None"
+    ],
+    "num_tempos": 32,
+    "tempo_range": [
+      40,
+      250
+    ],
+    "programs": [
+      -1,
+      0,
+      1,
+      127
+    ]
+  },
+  "_vocab_base": {
+    "PAD_None": 0,
+    "BOS_None": 1,
+    "EOS_None": 2,
+    "MASK_None": 3,
+    "Bar_None": 4,
+    "Pitch_60": 5
+  },
+  "_vocab_base_byte_to_token": {
+    "!": "PAD_None",
+    "\"": "BOS_None",
+    "#": "EOS_None",
+    "$": "MASK_None",
+    "%": "Bar_None",
+    "&": "Pitch_60"
+  }
+}
