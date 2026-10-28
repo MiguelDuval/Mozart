@@ -24,11 +24,12 @@ rm -f "$LOGCAT_FILE" "$START_FILE" "$START_STATUS_FILE" "$START_HOST_PID_FILE" "
 write_logcat() {
   # Keep startup/runtime assertions focused on Mozart's own tagged logs.
   # The old global tail could evict early startup markers on a busy emulator.
-  timeout 20s adb shell logcat -d -v brief -t 5000 -s MozartStartup:I "*:S" > "$LOGCAT_FILE" 2>/dev/null || true
+  # A stalled adb/logcat must not multiply into minutes across every poll loop.
+  timeout 5s adb shell logcat -d -v brief -t 5000 -s MozartStartup:I "*:S" > "$LOGCAT_FILE" 2>/dev/null || true
 }
 
 write_crash_logcat() {
-  timeout 20s adb shell logcat -b crash -d -v threadtime -t 1000 > "$CRASH_LOGCAT_FILE" 2>/dev/null || true
+  timeout 5s adb shell logcat -b crash -d -v threadtime -t 1000 > "$CRASH_LOGCAT_FILE" 2>/dev/null || true
 }
 
 mozart_crash_signature_detected() {
@@ -90,7 +91,10 @@ start_app() {
 }
 
 wait_for_startup() {
-  for _ in $(seq 1 60); do
+  # START_WINDOW is a wall-clock deadline, not a count of polls: each logcat
+  # snapshot can itself take several seconds if the emulator/ADB is unhealthy.
+  local deadline=$((SECONDS + START_WINDOW))
+  while (( SECONDS < deadline )); do
     write_logcat
     if fatal_mozart_exception; then
       return 2
@@ -101,13 +105,15 @@ wait_for_startup() {
     if system_anr_detected; then
       return 3
     fi
+    (( SECONDS < deadline )) || break
     sleep 2
   done
   return 1
 }
 
 wait_for_runtime_smoke_started() {
-  for _ in $(seq 1 20); do
+  local deadline=$((SECONDS + 8))
+  while (( SECONDS < deadline )); do
     write_logcat
     if fatal_mozart_exception; then
       return 2
@@ -115,13 +121,18 @@ wait_for_runtime_smoke_started() {
     if grep -Fq "RUNTIME: Link snapshot initial enabled=true" "$LOGCAT_FILE"; then
       return 0
     fi
+    (( SECONDS < deadline )) || break
     sleep 0.25
   done
   return 1
 }
 
 wait_for_runtime_smoke() {
-  for _ in $(seq 1 40); do
+  # These markers are emitted within a few seconds. Bound the whole wait, not
+  # just its nominal iteration count, so repeated slow logcat calls cannot
+  # turn a 10-second assertion into a multi-minute CI step.
+  local deadline=$((SECONDS + 12))
+  while (( SECONDS < deadline )); do
     write_logcat
     if fatal_mozart_exception; then
       return 2
@@ -137,6 +148,7 @@ wait_for_runtime_smoke() {
        link_clock_advanced; then
       return 0
     fi
+    (( SECONDS < deadline )) || break
     sleep 0.25
   done
   return 1
@@ -144,13 +156,14 @@ wait_for_runtime_smoke() {
 
 
 activity_is_resumed() {
-  adb shell dumpsys activity activities 2>/dev/null |
+  timeout 5s adb shell dumpsys activity activities 2>/dev/null |
     grep -F "mResumedActivity" |
     grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"
 }
 
 wait_for_activity_to_stop() {
-  for _ in $(seq 1 20); do
+  local deadline=$((SECONDS + 8))
+  while (( SECONDS < deadline )); do
     if ! activity_is_resumed; then
       return 0
     fi
@@ -160,12 +173,13 @@ wait_for_activity_to_stop() {
 }
 
 power_is_interactive() {
-  adb shell dumpsys power 2>/dev/null |
+  timeout 5s adb shell dumpsys power 2>/dev/null |
     grep -Eq 'mInteractive=true|mWakefulness=Awake'
 }
 
 wait_for_power_interactive() {
-  for _ in $(seq 1 20); do
+  local deadline=$((SECONDS + 8))
+  while (( SECONDS < deadline )); do
     if power_is_interactive; then
       return 0
     fi
@@ -175,8 +189,9 @@ wait_for_power_interactive() {
 }
 
 wait_for_power_sleep() {
-  for _ in $(seq 1 20); do
-    if adb shell dumpsys power 2>/dev/null |
+  local deadline=$((SECONDS + 8))
+  while (( SECONDS < deadline )); do
+    if timeout 5s adb shell dumpsys power 2>/dev/null |
       grep -Eq 'mInteractive=false|mWakefulness=(Asleep|Dozing)'; then
       return 0
     fi
@@ -188,7 +203,7 @@ wait_for_power_sleep() {
 exercise_runtime_smoke_recreate_guard() {
   echo "=== Runtime smoke stale-callback recreate guard ==="
 
-  adb shell input keyevent 4 >/dev/null 2>&1 || true
+  timeout 10s adb shell input keyevent 4 >/dev/null 2>&1 || true
 
   if ! wait_for_activity_to_stop; then
     echo "MainActivity remained resumed after BACK." >&2
@@ -198,7 +213,7 @@ exercise_runtime_smoke_recreate_guard() {
   # The previous Activity deliberately had runtime smoke enabled. Clear logs
   # after BACK once the Activity is no longer resumed, so late callbacks from
   # that stopped instance are observable without a task-manager assumption.
-  adb logcat -c
+  timeout 5s timeout 5s adb logcat -c || true
   start_app false
 
   local startup_rc=0
@@ -225,7 +240,7 @@ exercise_runtime_smoke_recreate_guard() {
 exercise_activity_background_resume_guard() {
   echo "=== Activity background/resume lifecycle guard ==="
 
-  adb logcat -c
+  timeout 5s adb logcat -c || true
   start_app true
 
   local startup_rc=0
@@ -235,7 +250,7 @@ exercise_activity_background_resume_guard() {
     return 1
   fi
 
-  adb shell input keyevent 3 >/dev/null 2>&1 || true
+  timeout 10s adb shell input keyevent 3 >/dev/null 2>&1 || true
 
   local resumed_activity=""
   for _ in $(seq 1 20); do
@@ -254,7 +269,7 @@ exercise_activity_background_resume_guard() {
 
   # Clear pre-background logs so only a callback escaping onStop can appear
   # alongside the resumed Activity's fresh startup markers.
-  adb logcat -c
+  timeout 5s adb logcat -c || true
   start_app false
 
   local resume_rc=0
@@ -279,7 +294,7 @@ exercise_activity_background_resume_guard() {
 exercise_android_sleep_resume_guard() {
   echo "=== Android sleep/resume power-state guard ==="
 
-  adb logcat -c
+  timeout 5s adb logcat -c || true
   start_app false
 
   local startup_rc=0
@@ -296,7 +311,7 @@ exercise_android_sleep_resume_guard() {
 
   # KEYCODE_POWER is used as a screen sleep/wake toggle. Unlike HOME/BACK,
   # this exercises the emulator's actual interactive power state.
-  adb shell input keyevent 26 >/dev/null 2>&1 || true
+  timeout 10s adb shell input keyevent 26 >/dev/null 2>&1 || true
 
   if ! wait_for_power_sleep; then
     echo "Emulator did not enter a non-interactive sleep state after POWER." >&2
@@ -311,7 +326,7 @@ exercise_android_sleep_resume_guard() {
     return 1
   fi
 
-  adb shell input keyevent 26 >/dev/null 2>&1 || true
+  timeout 10s adb shell input keyevent 26 >/dev/null 2>&1 || true
 
   if ! wait_for_power_interactive; then
     echo "Emulator did not return to an interactive state after POWER wake." >&2
@@ -331,14 +346,14 @@ exercise_activity_recreate_cycle() {
   local cycle="$1"
 
   echo "=== Activity lifecycle recreate cycle ${cycle} ==="
-  adb shell input keyevent 4 >/dev/null 2>&1 || true
+  timeout 10s adb shell input keyevent 4 >/dev/null 2>&1 || true
 
   if ! wait_for_activity_to_stop; then
     echo "MainActivity remained resumed after BACK during recreate cycle ${cycle}." >&2
     return 1
   fi
 
-  adb logcat -c
+  timeout 5s adb logcat -c || true
   start_app false
 
   local startup_rc=0
@@ -364,12 +379,14 @@ collect_diagnostics() {
   timeout 10s adb exec-out cat /sdcard/mozart-ui.xml > "$UI_FILE" 2>/dev/null || true
 }
 
-adb start-server
+timeout 10s adb start-server || true
 
 wait_for_adb_device() {
   local state=""
+  local deadline=$((SECONDS + 60))
   for _ in $(seq 1 60); do
-    state="$(adb get-state 2>/dev/null || true)"
+    (( SECONDS < deadline )) || break
+    state="$(timeout 3s adb get-state 2>/dev/null || true)"
     if [[ "$state" == "device" ]]; then
       return 0
     fi
@@ -385,7 +402,7 @@ wait_for_adb_device() {
 install_apk_with_retry() {
   local attempt
   for attempt in $(seq 1 4); do
-    if adb install -r android/app/build/outputs/apk/debug/app-debug.apk; then
+    if timeout 90s adb install -r android/app/build/outputs/apk/debug/app-debug.apk; then
       return 0
     fi
 
@@ -406,8 +423,8 @@ wait_for_adb_device
 timeout 30s adb shell getprop sys.boot_completed | grep -q "1"
 wait_for_adb_device
 install_apk_with_retry
-adb shell am force-stop "$PACKAGE"
-adb logcat -c
+timeout 10s adb shell am force-stop "$PACKAGE" || true
+timeout 5s adb logcat -c || true
 
 start_app
 startup_rc=0
@@ -422,8 +439,8 @@ fi
 if [[ "$startup_rc" -eq 3 ]]; then
   cp "$LOGCAT_FILE" "$RETRY_LOGCAT_FILE" 2>/dev/null || true
   echo "Android system_server ANR detected before Mozart completed startup; retrying launch once."
-  timeout 20s adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
-  adb logcat -c || true
+  timeout 20s timeout 10s adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
+  timeout 5s adb logcat -c || true
   start_app
   startup_rc=0
   wait_for_startup || startup_rc=$?
@@ -448,8 +465,8 @@ fi
 # stale-callback check is isolated. Start a fresh instance for the normal
 # Link start/tick/stop evidence afterward.
 if [[ "$stale_runtime_smoke_rc" -eq 0 ]]; then
-  adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
-  adb logcat -c
+  timeout 10s adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
+  timeout 5s adb logcat -c || true
   start_app true
   fresh_startup_rc=0
   wait_for_startup || fresh_startup_rc=$?
@@ -471,8 +488,8 @@ if [[ "$runtime_smoke_rc" -eq 0 ]]; then
   # The background/resume guard leaves a fresh foreground Activity without
   # runtime smoke enabled. Start a separate clean runtime-smoke instance so
   # the normal Link assertions remain independent from lifecycle guards.
-  adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
-  adb logcat -c
+  timeout 10s adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
+  timeout 5s adb logcat -c || true
   start_app true
   runtime_startup_rc=0
   wait_for_startup || runtime_startup_rc=$?
