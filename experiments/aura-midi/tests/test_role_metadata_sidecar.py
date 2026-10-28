@@ -67,6 +67,80 @@ class RoleMetadataSidecarTests(unittest.TestCase):
         self.assertEqual(MODULE.weak_role_candidate("Piano"), (None, None))
         self.assertEqual(MODULE.weak_role_candidate("Guitar"), (None, None))
 
+    def test_make_record_piano_has_no_weak_role_candidate(self):
+        row = MODULE.make_record(
+            source_id="maestro", composition_id="c1", asset_id="a1.mid",
+            midi_path="a1.mid", asset_exists=True, split="train",
+            license_name="CC BY-NC-SA 4.0", source_domain="classical_solo_piano",
+            source_role="Piano", role_origin="dataset_semantics",
+            role_kind="instrument_identity_not_functional_role", role_confidence=1.0,
+            instrument_class="Piano",
+        )
+        self.assertIsNone(row["weak_role_candidate"])
+        self.assertIsNone(row["weak_role_confidence"])
+        self.assertIsNone(row["heuristic_rule_version"])
+        self.assertEqual(row["source_role_label"], "Piano")
+        self.assertEqual(row["source_role_kind"], "instrument_identity_not_functional_role")
+
+    def test_asset_id_collision_does_not_merge_different_compositions(self):
+        """Same asset_id under different composition_id must remain separate rows."""
+        rows = [
+            MODULE.make_record(
+                source_id="slakh2100_samples", composition_id="Track00001", asset_id="S00",
+                midi_path="/fixture/S00.mid", asset_exists=True, split="train",
+                license_name="CC BY-NC 4.0", source_domain="multitrack_midi_stems",
+                instrument_class="Electric Bass", is_drum=False,
+            ),
+            MODULE.make_record(
+                source_id="slakh2100_samples", composition_id="Track00002", asset_id="S00",
+                midi_path="/fixture/S00.mid", asset_exists=True, split="train",
+                license_name="CC BY-NC 4.0", source_domain="multitrack_midi_stems",
+                instrument_class="Drums", is_drum=True,
+            ),
+        ]
+        deduped, duplicates = MODULE.deduplicate_asset_rows(rows)
+        self.assertEqual(duplicates, 0)
+        self.assertEqual(len(deduped), 2)
+        self.assertEqual({r["composition_id"] for r in deduped}, {"Track00001", "Track00002"})
+
+    def test_rebuild_is_reproducible_without_source_changes(self):
+        """Running dedup on the same inputs yields identical rows."""
+        base = [
+            MODULE.make_record(
+                source_id="nrgcp", composition_id="c1", asset_id="a1.mid",
+                midi_path="/f/a1.mid", asset_exists=True, split="train",
+                license_name="CC BY 4.0", source_domain="chords",
+                source_role="Chords/Harmony", role_origin="dataset_semantics",
+                role_kind="musical_function", role_confidence=1.0,
+            ),
+            MODULE.make_record(
+                source_id="gmd", composition_id="g1", asset_id="g1.mid",
+                midi_path="/f/g1.mid", asset_exists=True, split="train",
+                license_name="CC BY 4.0", source_domain="drums",
+                source_role="Drums", role_origin="dataset_semantics",
+                role_kind="musical_function", role_confidence=1.0,
+                source_style="dance/disco",
+            ),
+        ]
+        deduped1, _ = MODULE.deduplicate_asset_rows(list(base))
+        deduped2, _ = MODULE.deduplicate_asset_rows(list(base))
+        self.assertEqual(deduped1, deduped2)
+
+    def test_incomplete_record_preserves_missing_values(self):
+        """Records with missing optional fields keep None/absent rather than guessing."""
+        row = MODULE.make_record(
+            source_id="unknown", composition_id="c1", asset_id="a1.mid",
+            midi_path=None, asset_exists=False, split="unknown",
+            license_name="Unknown", source_domain="unknown",
+        )
+        self.assertIsNone(row["midi_path"])
+        self.assertFalse(row["asset_exists"])
+        self.assertIsNone(row["source_role_label"])
+        self.assertIsNone(row["weak_role_candidate"])
+        self.assertIsNone(row["genre_label"])
+        self.assertIsNone(row["section_label"])
+
+    def test_asset_deduplication_keeps_all_stems_and_performances(self):
     def test_asset_deduplication_keeps_all_stems_and_performances(self):
         def record(source, composition, asset):
             return MODULE.make_record(
