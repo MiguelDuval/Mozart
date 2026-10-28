@@ -38,6 +38,72 @@ void clearJniException(JNIEnv* env) noexcept {
     return result;
 }
 
+[[nodiscard]] generation::RemiBpeTokenInferenceResult parseRemiBpeResponse(
+        const std::string& response) {
+    std::istringstream stream(response);
+    std::string status, confidence, generationMs, tokens, message;
+    if (!std::getline(stream, status, '|') ||
+        !std::getline(stream, confidence, '|') ||
+        !std::getline(stream, generationMs, '|') ||
+        !std::getline(stream, tokens, '|')) {
+        return {generation::TokenInferenceStatus::Failed, {}, 0.0, 0,
+                "malformed REMI/BPE ONNX bridge response"};
+    }
+    (void)std::getline(stream, message);
+    std::uint64_t confidenceMicro = 0, elapsedMs = 0;
+    try {
+        std::size_t usedConfidence = 0, usedElapsed = 0;
+        confidenceMicro = std::stoull(confidence, &usedConfidence);
+        elapsedMs = std::stoull(generationMs, &usedElapsed);
+        if (usedConfidence != confidence.size() || usedElapsed != generationMs.size() ||
+            confidenceMicro > 1'000'000ULL) {
+            throw std::invalid_argument("invalid response metadata");
+        }
+    } catch (...) {
+        return {generation::TokenInferenceStatus::Failed, {}, 0.0, 0,
+                "malformed REMI/BPE bridge metadata"};
+    }
+    const auto duration = elapsedMs > 0xFFFFFFFFULL
+        ? 0xFFFFFFFFU : static_cast<std::uint32_t>(elapsedMs);
+    if (status == "UNAVAILABLE") {
+        return {generation::TokenInferenceStatus::Unavailable, {}, 0.0, duration, message};
+    }
+    if (status != "OK") {
+        return {generation::TokenInferenceStatus::Failed, {}, 0.0, duration,
+                message.empty() ? "REMI/BPE ONNX inference failed" : message};
+    }
+    if (tokens.empty()) {
+        return {generation::TokenInferenceStatus::Failed, {}, 0.0, duration,
+                "REMI/BPE bridge returned no tokens"};
+    }
+    std::vector<std::uint32_t> tokenIds;
+    std::istringstream tokenStream(tokens);
+    std::string token;
+    while (std::getline(tokenStream, token, ',')) {
+        if (token.empty()) {
+            return {generation::TokenInferenceStatus::Failed, {}, 0.0, duration,
+                    "REMI/BPE bridge returned an empty token"};
+        }
+        try {
+            std::size_t used = 0;
+            const auto parsed = std::stoull(token, &used);
+            if (used != token.size() || parsed > 0xFFFFFFFFULL) {
+                throw std::out_of_range("token id");
+            }
+            tokenIds.push_back(static_cast<std::uint32_t>(parsed));
+        } catch (...) {
+            return {generation::TokenInferenceStatus::Failed, {}, 0.0, duration,
+                    "REMI/BPE bridge returned a malformed token ID"};
+        }
+    }
+    if (tokenIds.size() < 2) {
+        return {generation::TokenInferenceStatus::Failed, {}, 0.0, duration,
+                "REMI/BPE bridge returned a truncated token stream"};
+    }
+    return {generation::TokenInferenceStatus::Ok, std::move(tokenIds),
+            static_cast<double>(confidenceMicro) / 1'000'000.0, duration, message};
+}
+
 [[nodiscard]] generation::TokenInferenceResult parseResponse(
         const std::string& response) {
     std::istringstream stream(response);
@@ -209,8 +275,14 @@ OnnxRuntimeBridge::OnnxRuntimeBridge(JNIEnv* env) noexcept {
                     bridgeClass_,
                     "generate",
                     "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/String;");
+    generateRemiBpeMethod_ =
+            env->GetStaticMethodID(
+                    bridgeClass_,
+                    "generateRemiBpe",
+                    "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/String;");
     if (runtimeAvailableMethod_ == nullptr ||
-        generateMethod_ == nullptr) {
+        generateMethod_ == nullptr ||
+        generateRemiBpeMethod_ == nullptr) {
         clearJniException(env);
         return;
     }
@@ -367,6 +439,62 @@ generation::TokenInferenceResult OnnxRuntimeBridge::infer(
         vm_->DetachCurrentThread();
     }
 
+    return result;
+}
+
+generation::RemiBpeTokenInferenceResult OnnxRuntimeBridge::inferRemiBpe(
+        const std::string& artifactPath,
+        const std::string& manifestPath,
+        const std::string& tokenizerPath,
+        const std::size_t maxTokens) {
+    if (!isRuntimeAvailable()) {
+        return {generation::TokenInferenceStatus::Unavailable, {}, 0.0, 0,
+                "REMI/BPE ONNX Runtime backend is unavailable"};
+    }
+    if (vm_ == nullptr || bridgeClass_ == nullptr || generateRemiBpeMethod_ == nullptr) {
+        return {generation::TokenInferenceStatus::Unavailable, {}, 0.0, 0,
+                "REMI/BPE ONNX JNI bridge is unavailable"};
+    }
+    JNIEnv* env = nullptr;
+    bool attached = false;
+    const auto status = vm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
+    if (status == JNI_EDETACHED) {
+        if (vm_->AttachCurrentThread(&env, nullptr) != JNI_OK) {
+            return {generation::TokenInferenceStatus::Unavailable, {}, 0.0, 0,
+                    "REMI/BPE JNI thread attach failed"};
+        }
+        attached = true;
+    } else if (status != JNI_OK || env == nullptr) {
+        return {generation::TokenInferenceStatus::Unavailable, {}, 0.0, 0,
+                "REMI/BPE JNI environment unavailable"};
+    }
+
+    const auto artifact = env->NewStringUTF(artifactPath.c_str());
+    const auto manifest = env->NewStringUTF(manifestPath.c_str());
+    const auto tokenizer = env->NewStringUTF(tokenizerPath.c_str());
+    generation::RemiBpeTokenInferenceResult result;
+    if (artifact == nullptr || manifest == nullptr || tokenizer == nullptr) {
+        clearJniException(env);
+        result = {generation::TokenInferenceStatus::Failed, {}, 0.0, 0,
+                  "REMI/BPE JNI string allocation failed"};
+    } else {
+        const auto response = static_cast<jstring>(env->CallStaticObjectMethod(
+                bridgeClass_, generateRemiBpeMethod_, artifact, manifest, tokenizer,
+                static_cast<jint>(std::min<std::size_t>(
+                    maxTokens, static_cast<std::size_t>(0x7FFFFFFF)))));
+        if (env->ExceptionCheck() || response == nullptr) {
+            clearJniException(env);
+            result = {generation::TokenInferenceStatus::Failed, {}, 0.0, 0,
+                      "REMI/BPE ONNX bridge call failed"};
+        } else {
+            result = parseRemiBpeResponse(fromJavaString(env, response));
+            env->DeleteLocalRef(response);
+        }
+    }
+    if (artifact != nullptr) env->DeleteLocalRef(artifact);
+    if (manifest != nullptr) env->DeleteLocalRef(manifest);
+    if (tokenizer != nullptr) env->DeleteLocalRef(tokenizer);
+    if (attached) vm_->DetachCurrentThread();
     return result;
 }
 
