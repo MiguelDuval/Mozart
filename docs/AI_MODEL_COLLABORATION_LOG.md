@@ -564,3 +564,15 @@ The real-checkpoint runner now compiles the existing production `RemiDecoderConf
 ## 2026-10-28 — ChatGPT — Fix the real-output adapter smoke's tokenizer ownership type
 
 The first compile of the new real-output adapter diagnostic failed at the test harness boundary: production `BpeTokenizer::loadFromJson` returns `std::optional<BpeTokenizer>`, while `RemiEventAdapter` intentionally accepts an owned `std::shared_ptr<BpeTokenizer>`. Updated the smoke harness to construct a shared copy for the adapter instead of passing the optional wrapper. This is confined to the test harness; production tokenizer ownership and validation contracts are unchanged. Exact-SHA real-checkpoint workflow rerun is pending.
+
+
+## 2026-10-28 — ChatGPT — Extend real ONNX generation window to exercise EOS/provider readiness
+
+The real-checkpoint workflow at exact SHA `3e4bb6cec1b59d106b7ad2a45c3de43aaa4fc6d1` succeeded in the new C++ semantic-stage diagnostic. Run [40783177285](https://github.com/MiguelDuval/Mozart/actions/runs/40783177285) produced an artifact-backed report with:
+- 20,000-token learned vocabulary; every vocabulary entry independently decodable; zero generated token IDs dropped.
+- 17 generated IDs including BOS; the model had not produced EOS yet, so `provider_ready=false`.
+- Mozart `RemiEventAdapter` accepted that actual model-generated prefix as a valid typed proposal containing 8 notes.
+- Mozart `RemiToLinkPatternConverter` accepted the proposal and emitted 8 Link note events with no control events; no ProgramChange events were present in this generated prefix.
+- The 902-byte report artifact is [here](https://github.com/MiguelDuval/Mozart/actions/runs/40783177285/artifacts/12857927406). Model weights, tokenizer JSON and ONNX graph were not uploaded.
+
+To test whether a complete provider-ready stream can be produced rather than stopping at a valid prefix, the workflow now permits up to 400 generated tokens and sets the exported manifest's generation limit to the same 400. If EOS is still absent or the longer output contains malformed events, the report will preserve that state explicitly; no EOS is synthesized and unsupported events are not filtered.
