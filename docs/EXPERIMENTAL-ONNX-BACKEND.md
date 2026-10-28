@@ -92,6 +92,14 @@ The published card also describes training from Lakh Clean MIDI, MAESTRO and
 additional multi-genre stems. That provenance remains an experimental review
 item and is not, by itself, production redistribution approval.
 
+## Separate REMI/BPE provider contract
+
+The experimental `RemiBpeInferenceBackend` and `RemiBpePatternProvider` form a separate typed path for raw MidiTok REMI/BPE IDs. They do **not** change this ONNX adapter's 512-token ABI and are not backed by a concrete Android REMI runtime yet.
+
+The worker-side provider loads the backend-paired tokenizer, requires a complete BOS/EOS-terminated ID sequence, expands BPE IDs into semantic tokens, rejects undecodable/unsupported events atomically, converts note events to the shared Link proposal representation, and applies the common request-aware proposal validator. A fake-backend test exercises worker routing, tokenizer caching, output validation, and lifecycle-ticket propagation. It does not prove that the `shikhr/music_maker` checkpoint runs on Android or that its full tokenizer artifact is compatible.
+
+The note-only scheduler rejects controls and unsupported instrument programs; those events are not mapped to a different sound or silently dropped. A concrete REMI/BPE inference backend, model/export compatibility test against the actual checkpoint, and any required program/drum scheduling support remain open.
+
 ## Manifest extension
 
 Private experimental ONNX manifests may add:
