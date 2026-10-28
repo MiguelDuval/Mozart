@@ -156,17 +156,27 @@ wait_for_runtime_smoke() {
 
 
 activity_is_resumed() {
-  timeout 5s adb shell dumpsys activity activities 2>/dev/null |
-    grep -F "mResumedActivity" |
+  local activity_dump
+  local resumed_line
+  activity_dump="$(timeout 5s adb shell dumpsys activity activities 2>/dev/null)" || return 2
+  [[ -n "$activity_dump" ]] || return 2
+  resumed_line="$(printf '%s\n' "$activity_dump" | grep -F "mResumedActivity" || true)"
+  [[ -n "$resumed_line" ]] || return 2
+  printf '%s\n' "$resumed_line" |
     grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"
 }
 
 wait_for_activity_to_stop() {
   local deadline=$((SECONDS + 8))
+  local resumed_rc=0
   while (( SECONDS < deadline )); do
-    if ! activity_is_resumed; then
+    resumed_rc=0
+    activity_is_resumed || resumed_rc=$?
+    if [[ "$resumed_rc" -eq 1 ]]; then
       return 0
     fi
+    # rc=2 means ADB/activity state was unavailable, not that the Activity
+    # stopped. Retry until the bounded deadline instead of false-passing smoke.
     sleep 0.25
   done
   return 1
@@ -253,17 +263,20 @@ exercise_activity_background_resume_guard() {
   timeout 10s adb shell input keyevent 3 >/dev/null 2>&1 || true
 
   local resumed_activity=""
-  for _ in $(seq 1 20); do
-    resumed_activity="$(adb shell dumpsys activity activities 2>/dev/null |
+  local resume_deadline=$((SECONDS + 8))
+  while (( SECONDS < resume_deadline )); do
+    resumed_activity="$(timeout 5s adb shell dumpsys activity activities 2>/dev/null |
       grep -F "mResumedActivity" | head -n 1 || true)"
-    if [[ "$resumed_activity" != *"com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"* ]]; then
+    if [[ -n "$resumed_activity" &&
+          "$resumed_activity" != *"com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"* ]]; then
       break
     fi
     sleep 0.25
   done
 
-  if [[ "$resumed_activity" == *"com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"* ]]; then
-    echo "MainActivity remained resumed after HOME; background transition was not observed." >&2
+  if [[ -z "$resumed_activity" ||
+        "$resumed_activity" == *"com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"* ]]; then
+    echo "MainActivity background transition was not positively observed before the deadline." >&2
     return 1
   fi
 
