@@ -156,12 +156,12 @@ class PatternProposalValidator final {
 public:
     struct Limits {
         std::uint32_t maxEvents;
-        std::uint32_t maxTicks;  // 32 bars at 480 ticks/beat
+        std::uint32_t maxTicks;  // 32 bars in 4/4 at 480 ticks/quarter-note
         std::uint8_t maxTracks;
         std::uint8_t maxChannels;
 
         constexpr Limits(std::uint32_t maxEvents_ = 1024,
-                         std::uint32_t maxTicks_ = 480 * 32,
+                         std::uint32_t maxTicks_ = 480 * 4 * 32,
                          std::uint8_t maxTracks_ = 8,
                          std::uint8_t maxChannels_ = 16) noexcept
             : maxEvents(maxEvents_), maxTicks(maxTicks_),

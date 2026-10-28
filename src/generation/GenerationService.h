@@ -10,9 +10,14 @@
 #include <deque>
 #include <future>
 #include <mutex>
+#include <memory>
 #include <thread>
+#include <unordered_map>
 
 namespace mozart::generation {
+
+class RemiBpeInferenceBackend;
+class RemiBpePatternProvider;
 
 class GenerationService final {
 public:
@@ -65,6 +70,8 @@ private:
     mutable std::mutex queueMutex_;
     std::condition_variable wakeCondition_;
     std::deque<Job> queue_;
+    // Accessed exclusively by run(); tokenizer I/O stays on the worker.
+    std::unordered_map<RemiBpeInferenceBackend*, std::unique_ptr<RemiBpePatternProvider>> remiProviders_;
     bool running_ = false;
     std::uint64_t lifecycleGeneration_ = 0;
     std::thread worker_;
