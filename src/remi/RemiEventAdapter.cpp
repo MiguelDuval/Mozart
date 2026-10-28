@@ -150,7 +150,10 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                 }
             }
             else if constexpr (std::is_same_v<T, RemiVelocityEvent>) {
-                currentVelocity = e.velocity;
+                // REMI Velocity_N is a quantized velocity bin, not a raw MIDI
+                // velocity. Map it through the configured bin count so the
+                // highest bin reaches MIDI 127 and the lowest bin remains valid.
+                currentVelocity = velocityBinToMidi(e.velocity);
             }
             else if constexpr (std::is_same_v<T, RemiDurationEvent>) {
                 // Duration_ beats.subdivision.resolution: length of the next note.
