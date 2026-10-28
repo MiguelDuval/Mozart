@@ -64,6 +64,8 @@ public:
     bool available = true;
     std::size_t inferenceCalls = 0;
     std::size_t lastMaxTokens = 0;
+    std::size_t declaredVocabularySize = 23;
+    std::string tokenizerPathOverride{};
     mutable std::size_t tokenizerPathReads = 0;
     mutable std::thread::id availabilityThread{};
     std::thread::id inferenceThread{};
@@ -90,8 +92,13 @@ public:
     [[nodiscard]] std::string tokenizerArtifactPath() const override {
         ++tokenizerPathReads;
         tokenizerPathThread = std::this_thread::get_id();
+        if (!tokenizerPathOverride.empty()) return tokenizerPathOverride;
         return (std::filesystem::path(MOZART_TEST_SOURCE_DIR) /
                 "fixtures" / "remi_tokenizer_fixture.json").string();
+    }
+
+    [[nodiscard]] std::size_t expectedVocabularySize() const noexcept override {
+        return declaredVocabularySize;
     }
 };
 
@@ -252,6 +259,55 @@ void testRemiBpeInferenceUsesWorkerAndSharedValidation() {
     assert(backend.inferenceCalls == 2);
     assert(backend.tokenizerPathReads == 1);
 
+    service.stop();
+}
+
+void testRemiProviderRejectsBaseOnlyTokenizerBeforeInference() {
+    ModelCatalog catalog;
+    RemiFixtureBackend backend;
+    backend.declaredVocabularySize = 12000;
+    backend.tokenizerPathOverride =
+        (std::filesystem::path(MOZART_TEST_SOURCE_DIR) /
+         "fixtures" / "remi_base_vocab_only_fixture.json").string();
+    assert(catalog.registerBackend(backend));
+    const auto entry = remiFixtureEntry(backend);
+    assert(catalog.registerModel(entry));
+    assert(catalog.selectModel(entry.modelId));
+
+    GenerationService service(catalog);
+    service.start();
+    auto future = service.submit(GenerationRequest{});
+    assert(future.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+    const auto result = future.get();
+
+    assert(result.status == GenerationStatus::Failed);
+    assert(result.message.find("learned BPE model vocabulary is missing") != std::string::npos);
+    assert(result.proposal.noteEvents.empty());
+    assert(result.proposal.controlEvents.empty());
+    assert(backend.inferenceCalls == 0);
+    assert(backend.tokenizerPathReads == 1);
+    service.stop();
+}
+
+void testRemiProviderRejectsModelTokenizerVocabularyMismatch() {
+    ModelCatalog catalog;
+    RemiFixtureBackend backend;
+    backend.declaredVocabularySize = 12000; // Model manifest says 12k, fixture BPE has 23 IDs.
+    assert(catalog.registerBackend(backend));
+    const auto entry = remiFixtureEntry(backend);
+    assert(catalog.registerModel(entry));
+    assert(catalog.selectModel(entry.modelId));
+
+    GenerationService service(catalog);
+    service.start();
+    auto future = service.submit(GenerationRequest{});
+    assert(future.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+    const auto result = future.get();
+
+    assert(result.status == GenerationStatus::Failed);
+    assert(result.message.find("model output vocabulary size does not match") != std::string::npos);
+    assert(result.proposal.noteEvents.empty());
+    assert(backend.inferenceCalls == 0);
     service.stop();
 }
 
@@ -788,6 +844,8 @@ void testBackendExceptionResolvesFutureAndKeepsWorkerAlive() {
 
 int main() {
     testRemiBpeInferenceUsesWorkerAndSharedValidation();
+    testRemiProviderRejectsBaseOnlyTokenizerBeforeInference();
+    testRemiProviderRejectsModelTokenizerVocabularyMismatch();
     testLifecycleGenerationChangesAtSessionBoundaries();
     testStopWaitsForActiveInference();
     testGenerationRunsOffCallerThread();
