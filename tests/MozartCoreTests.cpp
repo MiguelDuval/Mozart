@@ -1,4 +1,5 @@
 #include "core/MidiTypes.h"
+#include "core/MozartEngine.h"
 #include "core/TransportMath.h"
 #include "generation/RhythmGenerator.h"
 
@@ -74,6 +75,14 @@ int main() {
         const auto b = mozart::generation::RhythmGenerator::seededVelocityPattern(32, 42);
         assert(a == b);
         assert(a.size() == 32);
+    }
+
+    {
+        const mozart::MozartEngine engine;
+        const auto info = engine.info();
+        assert(!info.empty());
+        assert(info.find("C++20 core ready") != std::string::npos);
+        assert(info.find("MIDI foundation") != std::string::npos);
     }
 
     return 0;
