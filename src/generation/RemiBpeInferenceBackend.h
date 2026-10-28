@@ -23,6 +23,8 @@ public:
     [[nodiscard]] virtual RemiBpeTokenInferenceResult generateRemiTokens(
         const GenerationRequest& request, std::size_t maxTokens) = 0;
     [[nodiscard]] virtual std::string tokenizerArtifactPath() const = 0;
+    // Declared model output vocabulary from its manifest. Zero means unavailable/invalid.
+    [[nodiscard]] virtual std::size_t expectedVocabularySize() const noexcept { return 0; }
 
     [[nodiscard]] TokenInferenceResult generateTokens(
         const GenerationRequest&, std::size_t) final {
