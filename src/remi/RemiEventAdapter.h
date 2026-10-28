@@ -13,6 +13,7 @@
 #include <chrono>
 #include <memory>
 #include <variant>
+#include <utility>
 
 namespace mozart::remi {
 
@@ -111,6 +112,9 @@ public:
     [[nodiscard]] double tempoBinToBpm(std::uint8_t bin) const noexcept;
 
 private:
+    [[nodiscard]] std::optional<RemiEvent> tokenNameToEvent(
+        const std::string& tokenName) const noexcept;
+
     RemiDecoderConfig config_;
     std::shared_ptr<BpeTokenizer> tokenizer_;
 };
