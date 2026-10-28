@@ -55,6 +55,17 @@ class RemiBpeOnnxExportTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate JSON key"):
                 inspect_miditok_tokenizer(path)
 
+    def test_missing_learned_bpe_model_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "base-vocabulary-only-tokenizer.json"
+            payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
+            payload.pop("_model", None)
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(
+                ValueError, "missing the serialized _model"
+            ):
+                inspect_miditok_tokenizer(path)
+
     def test_non_remi_tokenizer_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "tokenizer.json"
