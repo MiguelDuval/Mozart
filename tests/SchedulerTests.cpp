@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <vector>
 
 using namespace mozart::generation;
@@ -45,6 +46,15 @@ void testMidiSendQueuePushPopOrdering() {
     assert(queue.empty());
     assert(queue.size() == 0);
     assert(!queue.tryPop(popped));
+
+    // Equal timestamps must retain insertion order for deterministic MIDI ties.
+    queue.push(MidiShortMessage{0x90, 60, 100, 3, 4000, 0});
+    queue.push(MidiShortMessage{0x90, 61, 100, 3, 4000, 0});
+    queue.push(MidiShortMessage{0x90, 62, 100, 3, 4000, 0});
+    assert(queue.tryPop(popped) && popped.data1 == 60);
+    assert(queue.tryPop(popped) && popped.data1 == 61);
+    assert(queue.tryPop(popped) && popped.data1 == 62);
+    assert(queue.empty());
 
     std::cout << "  MidiSendQueue push/pop ordering: PASSED" << std::endl;
 }
@@ -150,6 +160,32 @@ void testScheduleInvalidProposal() {
     assert(queue.empty());
     std::cout << "  AccompanimentScheduler rejects invalid proposals: PASSED" << std::endl;
 }
+void testScheduleInvalidEventsDoNotPartiallyQueue() {
+    std::cout << "Testing AccompanimentScheduler preflight is atomic..." << std::endl;
+    MidiSendQueue queue;
+    AccompanimentScheduler scheduler(queue);
+    PatternProposal proposal;
+    proposal.providerId = "test";
+    proposal.modelId = "test";
+    proposal.totalTicks = 1920;
+    proposal.trackCount = 1;
+    proposal.events.push_back(NoteEvent{60, 100, 0, 480, 0, 0});
+    proposal.events.push_back(NoteEvent{61, 100, 480, 0, 0, 0});
+    assert(!scheduler.schedule(proposal));
+    assert(queue.empty());
+
+    PatternProposal overflow;
+    overflow.providerId = "test";
+    overflow.modelId = "test";
+    overflow.totalTicks = std::numeric_limits<std::uint32_t>::max();
+    overflow.trackCount = 1;
+    overflow.events.push_back(NoteEvent{
+        60, 100, std::numeric_limits<std::uint32_t>::max() - 10, 20, 0, 0});
+    assert(!scheduler.schedule(overflow));
+    assert(queue.empty());
+    std::cout << "  AccompanimentScheduler preflight is atomic: PASSED" << std::endl;
+}
+
 void testScheduleTempoEvent() {
     std::cout << "Testing AccompanimentScheduler tempo event handling..." << std::endl;
     MidiSendQueue queue;
@@ -178,6 +214,37 @@ void testScheduleTempoEvent() {
     assert(msg.timestampNanos == 1200000000ULL);
     std::cout << "  AccompanimentScheduler tempo event handling: PASSED" << std::endl;
 }
+void testScheduleTempoChangeAtNonzeroTick() {
+    std::cout << "Testing AccompanimentScheduler piecewise tempo map..." << std::endl;
+    MidiSendQueue queue;
+    AccompanimentScheduler scheduler(queue);
+    SchedulerConfig config;
+    config.ticksPerBeat = 480;
+    config.bpm = 120.0;
+    config.startHostTimeNanos = 0;
+    scheduler.configure(config);
+
+    PatternProposal proposal;
+    proposal.providerId = "test";
+    proposal.modelId = "test";
+    proposal.totalTicks = 1920;
+    proposal.trackCount = 1;
+    // Intentionally put the later note first to prove tempo mapping and event
+    // scheduling do not depend on the proposal's vector order.
+    proposal.events.push_back(NoteEvent{60, 100, 960, 480, 0, 0});
+    proposal.events.push_back(TempoEvent{480, 60.0});
+
+    assert(scheduler.schedule(proposal));
+    assert(queue.size() == 2);
+    MidiShortMessage msg;
+    assert(queue.tryPop(msg));
+    assert(msg.status == 0x90 && msg.timestampNanos == 1500000000ULL);
+    assert(queue.tryPop(msg));
+    assert(msg.status == 0x80 && msg.timestampNanos == 2500000000ULL);
+    assert(scheduler.config().bpm == 60.0);
+    std::cout << "  AccompanimentScheduler piecewise tempo map: PASSED" << std::endl;
+}
+
 void testScheduleProgramChange() {
     std::cout << "Testing AccompanimentScheduler program change..." << std::endl;
     MidiSendQueue queue;
@@ -257,7 +324,9 @@ int main() {
         testTickToHostTime();
         testScheduleNoteEvent();
         testScheduleInvalidProposal();
+        testScheduleInvalidEventsDoNotPartiallyQueue();
         testScheduleTempoEvent();
+        testScheduleTempoChangeAtNonzeroTick();
         testScheduleProgramChange();
         testScheduleControlChange();
         testSetStartHostTime();

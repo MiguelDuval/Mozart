@@ -4,7 +4,7 @@ namespace mozart::scheduler {
 
 void MidiSendQueue::push(const midi::MidiShortMessage& message) noexcept {
     std::lock_guard<std::mutex> lock(mutex_);
-    queue_.push(TimestampedMessage{message, message.timestampNanos});
+    queue_.push(TimestampedMessage{message, message.timestampNanos, nextInsertionOrder_++});
 }
 
 bool MidiSendQueue::tryPop(midi::MidiShortMessage& message) noexcept {

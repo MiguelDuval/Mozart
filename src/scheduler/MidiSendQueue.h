@@ -50,9 +50,13 @@ private:
     struct TimestampedMessage {
         midi::MidiShortMessage message;
         std::uint64_t timestampNanos = 0;
+        std::uint64_t insertionOrder = 0;
 
         [[nodiscard]] bool operator>(const TimestampedMessage& other) const noexcept {
-            return timestampNanos > other.timestampNanos;
+            if (timestampNanos != other.timestampNanos) {
+                return timestampNanos > other.timestampNanos;
+            }
+            return insertionOrder > other.insertionOrder;
         }
     };
 
@@ -62,6 +66,7 @@ private:
         std::greater<TimestampedMessage>
     > queue_;
 
+    std::uint64_t nextInsertionOrder_ = 0;
     mutable std::mutex mutex_;
 };
 
