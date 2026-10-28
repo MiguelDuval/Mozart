@@ -463,3 +463,19 @@ Android Build run [40770239080](https://github.com/MiguelDuval/Mozart/actions/ru
 ## 2026-10-28 — ChatGPT — Close the HOME-transition callback race in smoke
 
 Before clearing the log buffer and relaunching, the stale-callback smoke now re-reads Mozart's logs after HOME has been positively observed and MainActivity has stopped being resumed. It fails if either scheduled Link/timing callback ran during the transition. This complements the pre-HOME assertion and the post-recreation +3.5-second no-stale-callback window, avoiding a false pass caused by clearing evidence after a callback raced lifecycle shutdown.
+
+
+## 2026-10-28 — ChatGPT — Arm Android lifecycle callbacks after app startup
+
+### Root cause of the first HOME-based smoke attempt
+The exact-SHA emulator run [40774190251](https://github.com/MiguelDuval/Mozart/actions/runs/40774190251) still failed the final emulator gate. The stale-callback test enabled the +1s/+3s callbacks in \`onCreate\`, then waited for startup and queried logcat before issuing HOME; on the CI emulator the callbacks had already fired. The test could not establish cancellation because it started the timer before the app was ready for the test. The later clear-task relaunch also proved unnecessarily brittle.
+
+### Corrective change
+- Normal startup now launches with runtime smoke disabled.
+- Added a \`runtime_smoke_delay_ms\` debug/test extra and an \`onNewIntent\` hook so CI can arm the lifecycle callbacks on the already-running Activity, after startup has completed.
+- The lifecycle smoke arms a 15-second tick / 17-second stop window, sends HOME immediately, confirms the Launcher resumed and Mozart stopped being resumed, then keeps the stopped process alive past both deadlines and fails if either callback escaped \`onStop\`.
+- Recreate cycles now force-stop the backgrounded app before a fresh launch rather than relying on an emulator-specific clear-task/intent-reuse path.
+- Added Java lifecycle-contract assertions for the explicit onNewIntent arming contract.
+
+### Verification state
+The preceding exact-SHA export and native Link workflows were green at \`a0df23be7e2ab5b7ca10ac12dee40fac445f40ba\`; the Android run on that SHA failed at the final emulator smoke gate with the callback-before-teardown race and a brittle clear-task relaunch. The new implementation is committed separately and requires its own exact-SHA export, native Link, and Android Build results before the lifecycle fix is considered verified.

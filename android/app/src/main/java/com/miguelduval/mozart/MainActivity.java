@@ -27,6 +27,7 @@ import java.util.List;
 public final class MainActivity extends Activity {
     private static final String TAG = "MozartStartup";
     private static final String RUNTIME_SMOKE_EXTRA = "mozart.runtime_smoke";
+    private static final String RUNTIME_SMOKE_DELAY_MS_EXTRA = "mozart.runtime_smoke_delay_ms";
     private static final long LINK_STATUS_POLL_MS = 500L;
     private static final long MIDI_INPUT_STATUS_POLL_MS = 500L;
     private static final int RECORD_AUDIO_REQUEST = 7001;
@@ -718,6 +719,15 @@ public final class MainActivity extends Activity {
     }
 
     private void startRuntimeSmoke() {
+        long tickDelayMs = getIntent().getLongExtra(
+                RUNTIME_SMOKE_DELAY_MS_EXTRA,
+                1000L);
+        // Keep default smoke timing short while permitting lifecycle tests
+        // to arm callbacks only after startup has completed.
+        if (tickDelayMs < 1000L || tickDelayMs > 30000L) {
+            tickDelayMs = 1000L;
+        }
+        Log.i(TAG, "RUNTIME: Android smoke scheduled tick_delay_ms=" + tickDelayMs);
         Log.i(TAG, "RUNTIME: Android smoke start begin");
         nativeSetManualKeyScale(6, 1);
         nativeStartAccompaniment();
@@ -726,8 +736,17 @@ public final class MainActivity extends Activity {
 
         mainHandler.removeCallbacks(runtimeSmokeTick);
         mainHandler.removeCallbacks(runtimeSmokeStop);
-        mainHandler.postDelayed(runtimeSmokeTick, 1000L);
-        mainHandler.postDelayed(runtimeSmokeStop, 3000L);
+        mainHandler.postDelayed(runtimeSmokeTick, tickDelayMs);
+        mainHandler.postDelayed(runtimeSmokeStop, tickDelayMs + 2000L);
+    }
+
+    @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent.getBooleanExtra(RUNTIME_SMOKE_EXTRA, false)) {
+            startRuntimeSmoke();
+        }
     }
 
     @Override

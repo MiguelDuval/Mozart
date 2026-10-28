@@ -297,29 +297,30 @@ class AndroidLifecycleContractTest(unittest.TestCase):
             parser,
         )
 
-    def test_stale_callback_recreate_guard_checks_home_stop_clean_relaunch_and_no_stale_callbacks(self):
+    def test_stale_callback_guard_arms_delayed_callbacks_after_startup_then_checks_past_deadline(self):
         smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
         start = smoke.index("exercise_runtime_smoke_recreate_guard() {")
-        end = smoke.index("\n}", start)
+        end = smoke.index("\nexercise_activity_background_resume_guard()", start)
         guard = smoke[start:end]
 
-        self.assertIn("background_activity_to_home \"stale-callback recreate guard\"", guard)
-        self.assertIn("write_logcat", guard)
-        self.assertIn("A runtime-smoke callback fired before lifecycle teardown completed.", guard)
-        self.assertIn("start_app false true", guard)
-        self.assertIn("wait_for_startup", guard)
-        self.assertIn("sleep 3.5", guard)
+        self.assertIn('am start --activity-single-top -n "$ACTIVITY"', guard)
+        self.assertIn('--el mozart.runtime_smoke_delay_ms "$delay_ms"', guard)
+        self.assertIn('background_activity_to_home "stale-callback lifecycle guard"', guard)
+        self.assertIn("sleep 18", guard)
+        self.assertIn('RUNTIME: Android smoke scheduled tick_delay_ms=${delay_ms}', guard)
+        self.assertIn("A delayed runtime-smoke callback escaped Activity onStop.", guard)
         self.assertIn('grep -Eq "RUNTIME: Link snapshot (tick|stopped)|RUNTIME: Timing telemetry (tick|stopped)"', guard)
 
-    def test_recreate_cycle_requires_home_stop_and_new_clear_task_instance(self):
+    def test_recreate_cycle_requires_home_stop_and_fresh_process_start(self):
         smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
         start = smoke.index("exercise_activity_recreate_cycle()")
         end = smoke.index("\ncollect_diagnostics()", start)
         recreate = smoke[start:end]
 
         self.assertIn('background_activity_to_home "recreate cycle ${cycle}"', recreate)
-        self.assertIn("start_app false true", recreate)
-        self.assertIn("MainActivity recreate cycle", recreate)
+        self.assertIn('am force-stop "$PACKAGE"', recreate)
+        self.assertIn("start_app false", recreate)
+        self.assertIn("MainActivity lifecycle cycle", recreate)
 
     def test_clean_task_start_uses_explicit_clear_and_new_task_flags(self):
         smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
@@ -337,6 +338,22 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         self.assertIn("com.google.android.apps.nexuslauncher/.NexusLauncherActivity", helper)
         self.assertIn("grep -Fq", helper)
         self.assertIn("wait_for_activity_to_stop", smoke[smoke.index("background_activity_to_home() {"):])
+
+    def test_activity_rearms_runtime_smoke_only_for_explicit_new_intent(self):
+        self.assertIn('RUNTIME_SMOKE_DELAY_MS_EXTRA = "mozart.runtime_smoke_delay_ms"', self.activity)
+        on_new_intent_start = self.activity.index("protected void onNewIntent(")
+        on_start = self.activity.index("protected void onStart()", on_new_intent_start)
+        on_new_intent = self.activity[on_new_intent_start:on_start]
+        self.assertIn("setIntent(intent)", on_new_intent)
+        self.assertIn("intent.getBooleanExtra(RUNTIME_SMOKE_EXTRA, false)", on_new_intent)
+        self.assertIn("startRuntimeSmoke()", on_new_intent)
+
+        smoke_start = self.activity.index("private void startRuntimeSmoke()")
+        smoke_end = self.activity.index("protected void onNewIntent(", smoke_start)
+        runtime_smoke = self.activity[smoke_start:smoke_end]
+        self.assertIn("getLongExtra(", runtime_smoke)
+        self.assertIn("tickDelayMs + 2000L", runtime_smoke)
+        self.assertIn("tick_delay_ms=", runtime_smoke)
 
 
 if __name__ == "__main__":

@@ -262,50 +262,42 @@ wait_for_power_sleep() {
 }
 
 exercise_runtime_smoke_recreate_guard() {
-  echo "=== Runtime smoke stale-callback recreate guard ==="
+  echo "=== Runtime smoke stale-callback lifecycle guard ==="
 
-  # This test is about Activity lifecycle cleanup, not the emulator's BACK
-  # navigation policy for a root task. Require the initial delayed callbacks
-  # to still be pending, then use HOME to produce a deterministic onStop.
-  write_logcat
-  if grep -Eq "RUNTIME: Link snapshot (tick|stopped)|RUNTIME: Timing telemetry (tick|stopped)" "$LOGCAT_FILE"; then
-    echo "Runtime smoke callbacks ran before lifecycle teardown; stale-callback test did not reach the intended window." >&2
-    return 1
-  fi
-  if ! background_activity_to_home "stale-callback recreate guard"; then
-    return 1
-  fi
-  # Check again after onStop is observed but before clearing logcat. This
-  # catches a callback that raced the HOME transition rather than mistaking
-  # the later clean log buffer for proof that it was cancelled.
-  write_logcat
-  if grep -Eq "RUNTIME: Link snapshot (tick|stopped)|RUNTIME: Timing telemetry (tick|stopped)" "$LOGCAT_FILE"; then
-    echo "A runtime-smoke callback fired before lifecycle teardown completed." >&2
+  # Arm delayed callbacks only after Android startup is complete. Scheduling
+  # from onCreate made the old test race its +1s callback against CI startup.
+  local delay_ms=15000
+  local arm_rc=0
+  timeout 20s adb shell am start --activity-single-top -n "$ACTIVITY" \
+    --ez mozart.runtime_smoke true \
+    --el mozart.runtime_smoke_delay_ms "$delay_ms" > "$START_FILE" 2>&1 || arm_rc=$?
+  if [[ "$arm_rc" -ne 0 ]]; then
+    echo "Failed to arm delayed runtime smoke for lifecycle teardown (rc=${arm_rc})." >&2
+    cat "$START_FILE" >&2 || true
     return 1
   fi
 
-  # Start from a clean task so the following startup evidence must come from
-  # a new MainActivity instance, not an intent delivered to the old top one.
-  timeout 5s adb shell logcat -c || true
-  start_app false true
-  local startup_rc=0
-  wait_for_startup || startup_rc=$?
-  if [[ "$startup_rc" -ne 0 ]]; then
-    echo "MainActivity did not start as a fresh clear-task instance after HOME." >&2
+  # HOME must arrive while both delayed callbacks are still pending.
+  if ! background_activity_to_home "stale-callback lifecycle guard"; then
     return 1
   fi
 
-  # The old +1s/+3s callbacks must not escape onStop/recreation. Since the new
-  # instance has runtime smoke disabled, any of these markers is stale output.
-  sleep 3.5
+  # Keep the stopped Activity/process alive through both scheduled deadlines.
+  # A callback that was not cancelled would emit tick at +15s or stop at +17s.
+  sleep 18
   write_logcat
-  if grep -Eq "RUNTIME: Link snapshot (tick|stopped)|RUNTIME: Timing telemetry (tick|stopped)" "$LOGCAT_FILE"; then
-    echo "A delayed runtime-smoke callback escaped Activity teardown/recreation." >&2
+  if ! grep -Fq "RUNTIME: Android smoke scheduled tick_delay_ms=${delay_ms}" "$LOGCAT_FILE"; then
+    echo "Delayed runtime smoke was not delivered through onNewIntent." >&2
+    cat "$START_FILE" >&2 || true
     return 1
   fi
-  echo "Runtime smoke stale-callback recreate guard passed."
+  if grep -Eq "RUNTIME: Link snapshot (tick|stopped)|RUNTIME: Timing telemetry (tick|stopped)" "$LOGCAT_FILE"; then
+    echo "A delayed runtime-smoke callback escaped Activity onStop." >&2
+    return 1
+  fi
+
+  echo "Runtime smoke callbacks remained cancelled past both deadlines."
 }
-
 exercise_activity_background_resume_guard() {
   echo "=== Activity background/resume lifecycle guard ==="
 
@@ -418,25 +410,25 @@ exercise_activity_recreate_cycle() {
   local cycle="$1"
 
   echo "=== Activity lifecycle recreate cycle ${cycle} ==="
-  # Assert a real onStop/background transition, then clear the task on relaunch
-  # to force a new Activity instead of relying on emulator BACK key semantics.
   if ! background_activity_to_home "recreate cycle ${cycle}"; then
     return 1
   fi
 
+  # Force-stop removes the stopped task/process and guarantees the next launch
+  # is a fresh process, avoiding emulator-specific clear-task/intent reuse.
+  timeout 10s adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
   timeout 5s adb shell logcat -c || true
-  start_app false true
+  start_app false
 
   local startup_rc=0
   wait_for_startup || startup_rc=$?
   if [[ "$startup_rc" -ne 0 ]]; then
-    echo "MainActivity recreate cycle ${cycle} failed to complete fresh clear-task startup." >&2
+    echo "MainActivity lifecycle cycle ${cycle} failed to complete fresh startup." >&2
     return 1
   fi
 
-  echo "MainActivity recreate cycle ${cycle} passed."
+  echo "MainActivity lifecycle cycle ${cycle} passed."
 }
-
 collect_diagnostics() {
   timeout 10s adb shell pidof "$PACKAGE" > "$PID_FILE" 2>/dev/null || true
   timeout 15s adb shell ps -A > "$PS_FILE" 2>/dev/null || true
@@ -497,7 +489,7 @@ install_apk_with_retry
 timeout 10s adb shell am force-stop "$PACKAGE" || true
 timeout 5s adb logcat -c || true
 
-start_app
+start_app false
 startup_rc=0
 wait_for_startup || startup_rc=$?
 
@@ -512,7 +504,7 @@ if [[ "$startup_rc" -eq 3 ]]; then
   echo "Android system_server ANR detected before Mozart completed startup; retrying launch once."
   timeout 10s adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
   timeout 5s adb logcat -c || true
-  start_app
+  start_app false
   startup_rc=0
   wait_for_startup || startup_rc=$?
   if [[ "$startup_rc" -eq 2 ]]; then
@@ -525,12 +517,10 @@ fi
 runtime_smoke_rc=0
 stale_runtime_smoke_rc=0
 
-# First prove the delayed runtime-smoke callbacks are lifecycle-scoped by
-# recreating the Activity before their +1s/+3s callbacks can fire.
-wait_for_runtime_smoke_started || stale_runtime_smoke_rc=$?
-if [[ "$stale_runtime_smoke_rc" -eq 0 ]]; then
-  exercise_runtime_smoke_recreate_guard || stale_runtime_smoke_rc=$?
-fi
+# Startup is launched without scheduled callbacks. The lifecycle guard
+# arms a delayed runtime-smoke intent only after startup is known complete,
+# then backgrounds the Activity before either callback deadline.
+exercise_runtime_smoke_recreate_guard || stale_runtime_smoke_rc=$?
 
 # The recreated Activity intentionally starts without runtime smoke so the
 # stale-callback check is isolated. Start a fresh instance for the normal
