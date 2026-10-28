@@ -41,6 +41,8 @@ add_library(mozart-core STATIC
     src/core/LocalNeuralPatternProviderGenerate.cpp
     src/core/LocalNeuralPatternProviderFallback.cpp
     src/generation/RhythmGenerator.cpp
+    src/scheduler/MidiSendQueue.cpp
+    src/scheduler/AccompanimentScheduler.cpp
 )
 
 target_include_directories(mozart-core PUBLIC
