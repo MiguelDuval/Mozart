@@ -553,15 +553,43 @@ public class OnnxInferenceBridgeTest {
     }
 
     @Test
-    public void remiBpeArgmaxDoesNotAssumeTheMozartVocabularyRanges() throws Exception {
+    public void remiBpeArgmaxKeepsEosAvailableAndMasksOnlySpecialTokens() throws Exception {
         final Method method = OnnxInferenceBridge.class.getDeclaredMethod(
                 "argmaxRemiBpeToken", double[].class, int.class, int.class, int.class);
         method.setAccessible(true);
-        // PAD/BOS/MASK have larger logits than EOS; only EOS is allowed among them.
+        // PAD, BOS and MASK outscore EOS, but EOS must remain a valid next token.
         final int next = (Integer) method.invoke(null,
-                new double[] {0.0, 100.0, 90.0, 20.0, 1.0},
-                0, 1, 2);
-        assertEquals(3, next);
+                new double[] {100.0, 90.0, 80.0, 95.0, 1.0},
+                0, 1, 3);
+        assertEquals(2, next);
+    }
+
+    @Test
+    public void remiBpeRejectsRuntimeGenerationLimitsThatDisagreeWithRootManifest()
+            throws Exception {
+        final JSONObject manifest = new JSONObject();
+        manifest.put("manifest_schema_version", 1);
+        manifest.put("model_format", "onnx");
+        manifest.put("vocabulary_id", "miditok-remi-bpe-v1");
+        manifest.put("vocabulary_size", 23);
+        manifest.put("context_length_tokens", 16);
+        manifest.put("max_generated_tokens", 8);
+
+        final JSONObject runtime = new JSONObject();
+        runtime.put("backend", "onnxruntime");
+        runtime.put("token_mode", "remi_bpe");
+        runtime.put("external_vocabulary_size", 23);
+        runtime.put("input_dtype", "int64");
+        runtime.put("context_length_tokens", 32);
+        runtime.put("max_generated_tokens", 8);
+        manifest.put("runtime", runtime);
+
+        try {
+            validateRemiManifestForTest(manifest);
+            fail("expected runtime/root context mismatch rejection");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("runtime limits"));
+        }
     }
 
     private static void validateRemiManifestForTest(JSONObject root) throws Exception {
