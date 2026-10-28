@@ -8,7 +8,13 @@ The upstream MusicMaker training source loads a locally saved directory named mi
 
 From the Mozart repository's Python environment, run:
 
-    python tools/recover_remi_bpe_tokenizer.py --report "%USERPROFILE%/Desktop/remi-tokenizer-scan.json"
+PowerShell:
+
+    python tools/recover_remi_bpe_tokenizer.py --report "$env:USERPROFILE\Desktop\remi-tokenizer-scan.json"
+
+Windows Command Prompt:
+
+    python tools/recover_remi_bpe_tokenizer.py --report "%USERPROFILE%\Desktop\remi-tokenizer-scan.json"
 
 The scanner checks known Hugging Face cache locations and the repository workspace, and validates each tokenizer.json using the same strict learned-BPE validator as the ONNX exporter. It reports complete tokenizer files with their local path, SHA-256, vocabulary size, special-token IDs, neighbouring config vocabulary size when available, and a Hugging Face cache revision hint. It makes no network requests and uploads no files.
 
@@ -16,7 +22,7 @@ To include other training/output locations, add one or more roots:
 
     python tools/recover_remi_bpe_tokenizer.py --root "C:/path/to/Cline/workspaces" --root "D:/model-runs" --report "D:/remi-tokenizer-scan.json"
 
-On Windows, use an explicit path for the report if shell-specific quoting or environment-variable expansion differs. The report can contain private local paths; keep it local and do not commit it.
+The report can contain private local paths; keep it local and do not commit it.
 
 ## How to interpret the report
 

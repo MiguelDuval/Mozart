@@ -437,3 +437,8 @@ A follow-up review identified an important Hugging Face cache detail: the tokeni
 - Exporter contract workflow on prior code SHA \`c67ffe2d11dba5aefd0481a889a6ae50d91a168b\`: SUCCESS, run [40772927114](https://github.com/MiguelDuval/Mozart/actions/runs/40772927114), including the initial scanner tests.
 - Exact current-head exporter contract workflow [40773017118](https://github.com/MiguelDuval/Mozart/actions/runs/40773017118): SUCCESS on \`7dab196913256deac2773851a22f08b9463708e8\` before this follow-up.
 - The new symlink regression test and corrected path reporting still require the workflow to run on their resulting exact commit. No local tokenizer recovery result is claimed.
+
+
+## 2026-10-28 — ChatGPT — Make local recovery command shell-correct on Windows
+
+Updated the recovery guide to provide separate PowerShell and Command Prompt examples. The PowerShell command now uses the native $env:USERPROFILE expansion rather than a CMD-style percent variable that would remain literal in a default VS Code PowerShell terminal. This is documentation-only; no tokenizer or model artifacts were changed.
