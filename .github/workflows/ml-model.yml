@@ -110,7 +110,7 @@ on:
 
 concurrency:
   group: mozart-ml-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
