@@ -752,29 +752,34 @@ void testDurationTokenZeroBeats() {
     std::filesystem::remove(fixturePath, ignored);
     assert(tokenizer.has_value());
 
-    auto config = RemiDecoderConfig::defaultConfig();
-    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
-    RemiEventAdapter adapter(config, sharedTokenizer);
-
+    // Get token IDs BEFORE moving the tokenizer into shared ownership,
+    // since *tokenizer is in a moved-from state afterwards.
     const auto barId = tokenIdForName(*tokenizer, "Bar_None");
     const auto positionId = tokenIdForName(*tokenizer, "Position_0");
     const auto pitchId = tokenIdForName(*tokenizer, "Pitch_60");
     const auto durationId = tokenIdForName(*tokenizer, "Duration_0.0.8");
 
+    auto config = RemiDecoderConfig::defaultConfig();
+    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
+    RemiEventAdapter adapter(config, sharedTokenizer);
+
     std::vector<std::uint32_t> tokenIds = {barId, positionId, pitchId, durationId};
     GenerationRequest request;
     request.barCount = 1;
     auto [proposal, report] = adapter.decodeTokensToProposal(tokenIds, request, "test", "test-model");
-    // Duration_0.0.8 yields duration=0 ticks, which the validator rejects
-    // (duration == 0 is InvalidDuration). The note is filtered out during
-    // sanitize, leaving zero notes and an EmptySequence result — no crash,
-    // no invalid duration leaks through to the scheduler.
+    // Duration_0.0.8 yields duration=0 ticks. The decoded proposal contains
+    // the note with zero duration; sanitize (PatternProposalValidator)
+    // filters it out so no invalid duration leaks to the scheduler.
     auto notes = proposal.notes();
-    assert(notes.size() == 0);
-    assert(report.result == RemiDecodeResult::EmptySequence ||
-           report.result == RemiDecodeResult::Ok);
-    std::cout << "  Duration_ token with zero beats: PASSED (note filtered, notes="
-              << notes.size() << ", result=" << (int)report.result << ")"
+    assert(notes.size() == 1);
+    assert(notes[0].duration == 0);
+
+    PatternProposalValidator validator;
+    auto [sanitized, sanitizeReport] = validator.sanitize(proposal);
+    assert(sanitizeReport.isOk());
+    assert(sanitized.notes().size() == 0);
+
+    std::cout << "  Duration_ token with zero beats: PASSED (sanitize filters zero-duration note)"
               << std::endl;
 }
 
@@ -803,11 +808,11 @@ int main() {
         testDurationTokenThroughFullPipeline();
         testInvalidTokenIdsTrackedAsDropped();
         // Temporarily disabled pending CI investigation:
-        // testDurationTokenZeroBeats();
         testPositionBinAtUpperBoundary();
         testSecondTempoIsIgnored();
         testNoteOnWithVelocityZero();
         testBpeTokenizerMergedTokenExpands();
+        testDurationTokenZeroBeats();
         std::cout << "\n=== ALL TESTS PASSED (Part 2) ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {
