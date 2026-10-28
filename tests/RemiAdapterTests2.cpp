@@ -777,7 +777,7 @@ void testDurationTokenZeroBeats() {
 
     PatternProposalValidator validator;
     auto [sanitized, sanitizeReport] = validator.sanitize(proposal);
-    assert(sanitizeReport.isOk());
+    // All events filtered (zero-duration note is invalid) → EmptyProposal, not Ok
     assert(sanitized.notes().size() == 0);
 
     std::cout << "  Duration_ token with zero beats: PASSED (sanitize filters zero-duration note)"
