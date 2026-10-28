@@ -129,12 +129,96 @@ void testValidationReportToString() {
     std::cout << "  ValidationReport toString: PASSED" << std::endl;
 }
 
+void testGenerateDeterministicProducesMusicalMaterial() {
+    std::cout << "Testing deterministic fallback produces musical material..." << std::endl;
+    LocalNeuralPatternProvider::Config config;
+    config.useDeterministicFallback = true;
+    config.decoderConfig = RemiDecoderConfig::defaultConfig();
+
+    LocalNeuralPatternProvider provider(config);
+    GenerationRequest request;
+    request.barCount = 2;
+    request.targetBpm = 120.0;
+    request.seed = 42;
+
+    auto proposal = provider.generate(request);
+    assert(proposal.has_value());
+    assert(proposal->totalTicks > 0);
+
+    auto notes = proposal->notes();
+    assert(!notes.empty());
+
+    for (const auto& n : notes) {
+        assert(n.duration > 0);
+        assert(n.pitch <= 127);
+        assert(n.velocity <= 127);
+    }
+    std::cout << "  Deterministic fallback produces musical material: PASSED ("
+              << notes.size() << " notes)" << std::endl;
+}
+
+void testGenerateDeterministicReproducibleWithSeed() {
+    std::cout << "Testing deterministic fallback reproducibility with seed..." << std::endl;
+    LocalNeuralPatternProvider::Config config;
+    config.useDeterministicFallback = true;
+    config.decoderConfig = RemiDecoderConfig::defaultConfig();
+
+    LocalNeuralPatternProvider provider(config);
+    GenerationRequest request;
+    request.barCount = 2;
+    request.targetBpm = 120.0;
+    request.seed = 12345;
+
+    auto p1 = provider.generate(request);
+    auto p2 = provider.generate(request);
+    assert(p1.has_value() && p2.has_value());
+    assert(p1->events.size() == p2->events.size());
+    assert(p1->seed == p2->seed);
+    for (std::size_t i = 0; i < p1->events.size(); ++i) {
+        assert(p1->events[i].index() == p2->events[i].index());
+    }
+    std::cout << "  Deterministic fallback reproducible with seed: PASSED" << std::endl;
+}
+
+void testValidateRejectsDurationZero() {
+    std::cout << "Testing validator rejects zero-duration notes..." << std::endl;
+    PatternProposalValidator validator;
+    PatternProposal proposal;
+    proposal.totalTicks = 1920;
+    proposal.trackCount = 1;
+    proposal.events.push_back(NoteEvent{60, 100, 0, 0, 0, 0});
+    auto report = validator.validate(proposal);
+    assert(report.result == ValidationResult::InvalidDuration);
+    std::cout << "  Validator rejects zero duration: PASSED" << std::endl;
+}
+
+void testSanitizeDropsInvalidEvents() {
+    std::cout << "Testing sanitizer drops invalid events..." << std::endl;
+    PatternProposalValidator validator;
+    PatternProposal proposal;
+    proposal.totalTicks = 1920;
+    proposal.trackCount = 1;
+    proposal.events.push_back(NoteEvent{60, 100, 0, 480, 0, 0});
+    proposal.events.push_back(NoteEvent{200, 100, 480, 480, 0, 0});
+    proposal.events.push_back(NoteEvent{64, 100, 960, 480, 0, 0});
+    auto [sanitized, report] = validator.sanitize(proposal);
+    assert(report.isOk());
+    assert(sanitized.events.size() == 2);
+    assert(std::get<NoteEvent>(sanitized.events[0]).pitch == 60);
+    assert(std::get<NoteEvent>(sanitized.events[1]).pitch == 64);
+    std::cout << "  Sanitizer drops invalid events: PASSED" << std::endl;
+}
+
 int main() {
     try {
         testLocalNeuralPatternProviderFallback();
         testLocalNeuralPatternProviderStyles();
         testGenerationRequestConstraints();
         testValidationReportToString();
+        testGenerateDeterministicProducesMusicalMaterial();
+        testGenerateDeterministicReproducibleWithSeed();
+        testValidateRejectsDurationZero();
+        testSanitizeDropsInvalidEvents();
         std::cout << "\n=== ALL TESTS PASSED (Part 3) ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {
