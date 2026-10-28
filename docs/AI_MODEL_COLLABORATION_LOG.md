@@ -527,3 +527,8 @@ Move beyond synthetic tokenizer fixtures to an artifact-backed interoperability 
 
 ### Verification state
 The regular Export Contract workflow succeeded on 2b907881999fce8115b2ba6c5e72e4852219d5f8 and the native REMI-BPE Link tests also succeeded at that SHA. The new real-checkpoint workflow is triggered by this commit and is the first test intended to prove compatibility between a real external tokenizer, an ONNX-generated stream, and Mozart's production C++ decoder. No real checkpoint compatibility is claimed until that exact workflow completes successfully.
+
+
+## 2026-10-28 — ChatGPT — Fix real-model workflow validation
+
+The first push of the real-checkpoint workflow was rejected before any job started. Inspection showed that the job-level environment referenced the runner context for EXPORT_DIR; that context is not available in a job-level env declaration. Changed EXPORT_DIR to a fixed temporary path on the Ubuntu runner (still outside the checkout). No model download or export ran in the rejected workflow, and no checkpoint compatibility result is claimed.

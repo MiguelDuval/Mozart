@@ -28,7 +28,7 @@ jobs:
     env:
       MODEL_ID: NathanFradet/Maestro-REMI-bpe20k
       MODEL_REVISION: ec0960a622b46d77ed59fdd09de422aa205ca6a4
-      EXPORT_DIR: ${{ runner.temp }}/mozart-remi-bpe-real-export
+      EXPORT_DIR: /tmp/mozart-remi-bpe-real-export
       HF_HUB_DISABLE_TELEMETRY: "1"
       HF_HUB_DISABLE_PROGRESS_BARS: "1"
     steps:
