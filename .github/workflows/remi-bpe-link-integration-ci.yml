@@ -7,9 +7,14 @@ on:
     paths:
       - "src/remi/**"
       - "src/generation/RemiToLinkPatternConverter.*"
+      - "src/generation/RemiBpePatternProvider.*"
+      - "src/generation/RemiBpeInferenceBackend.h"
+      - "src/generation/GenerationService.*"
       - "src/runtime/MozartRuntime.*"
       - "tests/MozartCoreTests.cpp"
       - "tests/RemiToLinkConverterTests.cpp"
+      - "tests/GenerationServiceTests.cpp"
+      - "CMakeLists.txt"
       - "tests/CMakeLists.txt"
       - "third_party/nlohmann/json.hpp"
       - ".github/workflows/android-build.yml"
@@ -54,6 +59,12 @@ jobs:
 
       - name: Run REMI-to-Link converter tests
         run: ./build/remi-tests/mozart_remi_to_link_converter_tests
+
+      - name: Build REMI generation-service integration tests
+        run: cmake --build build/remi-tests --target mozart_generation_service_tests --parallel 2
+
+      - name: Run REMI generation-service integration tests
+        run: ./build/remi-tests/mozart_generation_service_tests
 
       - name: Fetch pinned Ableton Link
         run: bash tools/fetch_link.sh
