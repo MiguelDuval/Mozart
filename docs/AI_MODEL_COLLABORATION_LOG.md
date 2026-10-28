@@ -307,3 +307,42 @@ PARTIALLY VERIFIED; the published external checkpoint/tokenizer pairing remains 
 
 ### Message for ChatGPT
 The backend and failure gates are implemented and synthetic-contract tests were green at their exact SHAs. The upstream public shikhr/music_maker tokenizer file appears incomplete for its declared 12,000-ID model and the exporter correctly refuses it. Continue with exact-SHA CI verification and obtaining a matching real tokenizer; do not invent missing BPE merges or claim actual model playback.
+
+
+## 2026-10-28 — ChatGPT — Strict REMI note-record validation
+
+### Context
+The REMI/BPE decoder needed to prevent incomplete note records from silently retaining the adapter's default note duration. The actual external shikhr/music_maker model/tokenizer pair remains blocked because the published tokenizer does not expose its learned 12,000-ID BPE mapping; test fixtures are explicitly synthetic.
+
+### Executed
+1. Added RemiDecoderConfig::useVelocities and load the boolean from MidiTok tokenizer config.
+2. Added a note-token state machine to RemiEventAdapter::decodeTokensToProposal: when velocity is enabled, each Pitch_ must be followed by Velocity_ and Duration_; when disabled, each pitch must be followed by duration. A new pitch, metadata token, special token, or EOS cannot interrupt an incomplete note record.
+3. Invalid or incomplete streams are rejected atomically with an empty proposal instead of being converted using a guessed default duration.
+4. Added regression tests for missing velocity, missing duration, and an unrelated token interrupting a note record.
+
+### Verified Evidence
+- Commit: 29be648d3ce6c394061f9f24f787f17b0140adcd
+- Branch: feature/remi-bpe-link-integration
+- Focused native + REMI/BPE + Link runtime workflow: SUCCESS on this exact SHA: https://github.com/MiguelDuval/Mozart/actions/runs/40760595340
+- The workflow job completed successfully with no failed steps. This verifies the checked-in synthetic fixtures, converter/provider contract tests, and Link runtime native test target; it does not verify a real model checkpoint.
+- Android Build on the same SHA was pending when this entry was written: https://github.com/MiguelDuval/Mozart/actions/runs/40760595407
+- Verified protected branch refs remained unchanged at the time of the check: feature/mmm-v2-decoder-fix-and-docs = 67c3e5d06e2a6574983bc05b1c2257b8e96efcc1; feature/link-clock = 0bea9d50dc28c7a850efe62a3a550b0b2120eab5; main = 6d224030d3163206b8496977ae178f13ed978b90.
+
+### Unverified / Blocked
+- Real inference with the published MusicMaker checkpoint is BLOCKED, not merely untested: the public tokenizer contains the MidiTok base event vocabulary but omits the trained BPE vocabulary/merges corresponding to the model's 12,000 output IDs. Do not invent or infer the missing ID mapping.
+- Android build on 29be648d3ce6c394061f9f24f787f17b0140adcd was not yet verified at the time of this entry.
+- Physical MIDI output, audible result, real-device latency, and Link synchronization remain unverified.
+
+### Changed Files
+- src/remi/RemiDecoderConfig.h
+- src/remi/RemiDecoderConfig.cpp
+- src/remi/RemiEventAdapter.cpp
+- tests/RemiToLinkConverterTests.cpp
+- docs/AI_MODEL_COLLABORATION_LOG.md (this append-only entry)
+
+### Result
+FOCUSED CI VERIFIED; REAL CHECKPOINT STILL BLOCKED. The new note-record gate compiles and passes the focused workflow. It is not evidence that the public model/tokenizer pair can generate through the app.
+
+### Next Action
+1. Check Android Build by exact SHA on the current branch head.
+2. Continue only with contract tests or a recovered, checksum-verified trained BPE tokenizer; never claim MusicMaker compatibility from the synthetic tokenizer fixture.
