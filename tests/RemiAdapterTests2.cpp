@@ -816,7 +816,7 @@ int main() {
         testBarNoneAdvancesThroughFullPipeline();
         testDurationTokenThroughFullPipeline();
         testInvalidTokenIdsTrackedAsDropped();
-        // Temporarily disabled pending CI investigation:
+        // Regression tests kept enabled in normal CI.
         testPositionBinAtUpperBoundary();
         testSecondTempoIsIgnored();
         testNoteOnWithVelocityZero();
