@@ -24,3 +24,12 @@ This is not yet an Android/device playback test, and it does not establish music
 ## Running it
 
 The workflow is triggered when its own file, the exporter, the smoke helper or C++ artifact-smoke test changes on feature/remi-bpe-link-integration; it can also be started manually from GitHub Actions via “REMI/BPE Real Checkpoint Export Smoke → Run workflow”.
+
+
+## Verified real-artifact result (2026-10-28)
+
+The pinned-checkpoint run [40784702458](https://github.com/MiguelDuval/Mozart/actions/runs/40784702458), exact source SHA `5fcf5b04a4df4de3eb0e3ab41cce4a2f77bbc544`, passed ONNX export/parity, manifest validation, autoregressive inference and the C++ integration diagnostic. The uploaded 1,021-byte report records:
+- Full tokenizer: 20,000/20,000 vocabulary entries independently decodable; zero generated token IDs dropped.
+- Generated output: 65 IDs including BOS (64 new tokens); no EOS at the smoke cap, so the full stream is not production-provider-ready.
+- Diagnostic-only complete-event prefix: 20 IDs, 10 typed notes, zero program changes, zero control changes; REMI-to-Link conversion and the shared request validator both accepted it.
+- The remaining 45 generated IDs were omitted only from this explicit diagnostic-prefix check. Production decoding is unchanged and still refuses unterminated/invalid full streams.

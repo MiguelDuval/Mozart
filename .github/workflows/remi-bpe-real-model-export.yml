@@ -138,8 +138,36 @@ jobs:
           cpp_report = json.loads(cpp_path.read_text(encoding="utf-8"))
           if cpp_report.get("status") != "verified" or cpp_report.get("all_vocab_entries_decodable") is not True:
               raise SystemExit("C++ real-tokenizer verification report is not fully verified")
+          if cpp_report.get("semantic_proposal_valid") is not True:
+              raise SystemExit("actual ONNX output has no valid complete-event REMI proposal")
+          if cpp_report.get("semantic_adapter_status") not in {"valid_proposal", "valid_diagnostic_prefix"}:
+              raise SystemExit("Mozart's typed REMI adapter rejected all tested output boundaries")
+          if cpp_report.get("link_conversion_status") != "accepted":
+              raise SystemExit("Mozart's REMI-to-Link converter rejected the tested output")
+          if cpp_report.get("request_validation_status") != "accepted":
+              raise SystemExit("Mozart's shared request-aware validator rejected the tested output")
+          diagnostic_prefix = cpp_report.get("semantic_diagnostic_prefix_used") is True
+          if diagnostic_prefix:
+              if (
+                  cpp_report.get("provider_ready") is not False
+                  or cpp_report.get("complete_bos_eos_stream") is not False
+                  or int(cpp_report.get("semantic_tokens_omitted_for_diagnostic", 0)) < 1
+                  or cpp_report.get("semantic_adapter_status") != "valid_diagnostic_prefix"
+              ):
+                  raise SystemExit("diagnostic-prefix report has inconsistent provider readiness/truncation fields")
+              integration_path_status = "diagnostic_prefix_adapter_link_verified_provider_not_ready"
+          elif cpp_report.get("provider_ready") is True:
+              if cpp_report.get("complete_bos_eos_stream") is not True:
+                  raise SystemExit("provider-ready report lacks a complete BOS/EOS stream")
+              integration_path_status = "provider_ready"
+          elif cpp_report.get("complete_bos_eos_stream") is not True:
+              integration_path_status = "adapter_link_path_verified_but_eos_not_produced"
+          else:
+              integration_path_status = "full_stream_converted_but_provider_gate_not_satisfied"
           report = {
               "status": "verified",
+              "integration_path_status": integration_path_status,
+              "model_use": "technical_integration_fixture_only_not_broad_edm",
               "model_id": manifest["model_id"],
               "model_revision": manifest["model_revision"],
               "model_architecture": manifest.get("model_architecture"),

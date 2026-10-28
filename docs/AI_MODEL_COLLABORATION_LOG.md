@@ -605,3 +605,14 @@ Found a meaningful parity bug in the validation harness: Python smoke generation
 The first post-sampler real-model run on SHA `4331769e274497230e24e9b01dc0f10818ed55cb` exported the checkpoint, ran the 64-token generation and passed manifest validation, but the C++ diagnostic failed to link because using Mozart's common request validator pulled in `KeyScale` and `Chord` methods not yet included in the standalone compile command. Added their production source files to the smoke's native build.
 
 Also tightened the prefix scan: it now searches for a prefix that passes the complete adapter → Link converter → request-aware validator chain, not merely a prefix that parses as a typed REMI proposal. Unsupported program/control events and request validation failures will no longer stop the diagnostic search prematurely. No production decoding or event-validation rules were relaxed.
+
+
+## 2026-10-28 — ChatGPT — Gate the real artifact smoke on the actual adapter-to-Link path
+
+Run [40784702458](https://github.com/MiguelDuval/Mozart/actions/runs/40784702458) at exact source SHA `5fcf5b04a4df4de3eb0e3ab41cce4a2f77bbc544` passed:
+- Pinned `NathanFradet/Maestro-REMI-bpe20k` (revision `ec0960a622b46d77ed59fdd09de422aa205ca6a4`) downloaded outside the checkout; GPT-2 causal-LM exported to ONNX, eager/ONNX parity verified at sequence lengths 1, 2 and 8.
+- ONNX Runtime generated 64 new token IDs with the same PAD/BOS/MASK filtering as the Android bridge. Full vocabulary was independently decodable (20,000/20,000) and zero generated IDs were dropped.
+- The full 65-ID sequence did not include EOS and was rejected as a whole by the strict semantic adapter. A diagnostic-only 20-ID boundary prefix decoded into 10 typed notes; no ProgramChange or ControlChange was present, REMI-to-Link conversion passed, and Mozart's common request validator passed. The remaining 45 IDs were explicitly reported as omitted from diagnostics only.
+- The model remains a classical-piano technical fixture, not the broad-EDM production model; `provider_ready=false` is intentional and correct.
+
+Hardened the workflow's report gate so future runs cannot go green merely from loading a tokenizer: the actual C++ adapter must produce a valid typed proposal, Link conversion must succeed, and the shared request validator must accept the output. For a diagnostic-prefix success, the workflow also verifies the reported truncation/no-EOS/provider-not-ready consistency. Only the small report artifact is retained; weights, tokenizer and ONNX graph are excluded.
