@@ -14,6 +14,7 @@
 namespace fs = std::filesystem;
 
 using mozart::generation::RemiToLinkPatternConverter;
+using mozart::remi::BpeTokenizer;
 using mozart::remi::ControlChangeEvent;
 using mozart::remi::NoteEvent;
 using mozart::remi::PatternProposal;
@@ -26,8 +27,11 @@ using mozart::remi::RemiEventAdapter;
 using mozart::remi::RemiNoteOnEvent;
 using mozart::remi::RemiPositionEvent;
 using mozart::remi::RemiTempoEvent;
+using mozart::remi::RemiVelocityEvent;
 using mozart::remi::RemiTimeSignatureEvent;
 using mozart::remi::GenerationRequest;
+
+namespace {
 
 std::filesystem::path writeFixtureTokenizer() {
     const auto fixturePath =
