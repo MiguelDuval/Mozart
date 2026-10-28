@@ -616,3 +616,11 @@ Run [40784702458](https://github.com/MiguelDuval/Mozart/actions/runs/40784702458
 - The model remains a classical-piano technical fixture, not the broad-EDM production model; `provider_ready=false` is intentional and correct.
 
 Hardened the workflow's report gate so future runs cannot go green merely from loading a tokenizer: the actual C++ adapter must produce a valid typed proposal, Link conversion must succeed, and the shared request validator must accept the output. For a diagnostic-prefix success, the workflow also verifies the reported truncation/no-EOS/provider-not-ready consistency. Only the small report artifact is retained; weights, tokenizer and ONNX graph are excluded.
+
+
+## 2026-10-28 — ChatGPT — Lock provider fail-closed behavior for incomplete external streams
+
+The artifact-backed integration smoke now passes the typed REMI adapter → Link converter → request validator on an explicitly truncated diagnostic prefix, while correctly reporting the real generated stream is not provider-ready because it has no EOS. Added native GenerationService tests that prevent this diagnostic allowance from leaking into production behavior:
+- a syntactically complete note prefix without EOS fails atomically and returns no scheduler events;
+- a PAD token inside the generated body fails atomically even when the note and EOS around it are otherwise valid.
+These tests exercise the existing production provider checks; they do not relax EOS or misplaced-special-token validation.

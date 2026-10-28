@@ -262,6 +262,59 @@ void testRemiBpeInferenceUsesWorkerAndSharedValidation() {
     service.stop();
 }
 
+void testRemiProviderRejectsUnterminatedStreamAtomically() {
+    ModelCatalog catalog;
+    RemiFixtureBackend backend;
+    // This is a complete note record but deliberately lacks EOS. Never turn a
+    // valid-looking prefix into a provider result just because its events parse.
+    backend.tokenIds = {1, 4, 8, 6, 10, 7};
+    assert(catalog.registerBackend(backend));
+    const auto entry = remiFixtureEntry(backend);
+    assert(catalog.registerModel(entry));
+    assert(catalog.selectModel(entry.modelId));
+
+    GenerationService service(catalog);
+    service.start();
+    GenerationRequest request;
+    request.bars = 16;
+    auto future = service.submit(request);
+    assert(future.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+    const auto result = future.get();
+
+    assert(result.status == GenerationStatus::Failed);
+    assert(result.message.find("BOS/EOS terminated") != std::string::npos);
+    assert(result.proposal.noteEvents.empty());
+    assert(result.proposal.controlEvents.empty());
+    assert(backend.inferenceCalls == 1);
+    service.stop();
+}
+
+void testRemiProviderRejectsMisplacedSpecialTokenAtomically() {
+    ModelCatalog catalog;
+    RemiFixtureBackend backend;
+    // PAD in the body is invalid even though the surrounding note and EOS are valid.
+    backend.tokenIds = {1, 4, 0, 8, 6, 10, 7, 2};
+    assert(catalog.registerBackend(backend));
+    const auto entry = remiFixtureEntry(backend);
+    assert(catalog.registerModel(entry));
+    assert(catalog.selectModel(entry.modelId));
+
+    GenerationService service(catalog);
+    service.start();
+    GenerationRequest request;
+    request.bars = 16;
+    auto future = service.submit(request);
+    assert(future.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+    const auto result = future.get();
+
+    assert(result.status == GenerationStatus::Failed);
+    assert(result.message.find("misplaced special token") != std::string::npos);
+    assert(result.proposal.noteEvents.empty());
+    assert(result.proposal.controlEvents.empty());
+    assert(backend.inferenceCalls == 1);
+    service.stop();
+}
+
 void testRemiProviderRejectsBaseOnlyTokenizerBeforeInference() {
     ModelCatalog catalog;
     RemiFixtureBackend backend;
@@ -844,6 +897,8 @@ void testBackendExceptionResolvesFutureAndKeepsWorkerAlive() {
 
 int main() {
     testRemiBpeInferenceUsesWorkerAndSharedValidation();
+    testRemiProviderRejectsUnterminatedStreamAtomically();
+    testRemiProviderRejectsMisplacedSpecialTokenAtomically();
     testRemiProviderRejectsBaseOnlyTokenizerBeforeInference();
     testRemiProviderRejectsModelTokenizerVocabularyMismatch();
     testLifecycleGenerationChangesAtSessionBoundaries();
