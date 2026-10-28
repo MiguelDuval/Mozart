@@ -77,6 +77,12 @@ jobs:
       - name: Run REMI generation-service integration tests
         run: ./build/remi-tests/mozart_generation_service_tests
 
+      - name: Build REMI/BPE ONNX backend contract tests
+        run: cmake --build build/remi-tests --target mozart_remi_bpe_onnx_backend_tests --parallel 2
+
+      - name: Run REMI/BPE ONNX backend contract tests
+        run: ./build/remi-tests/mozart_remi_bpe_onnx_backend_tests
+
       - name: Fetch pinned Ableton Link
         run: bash tools/fetch_link.sh
 
