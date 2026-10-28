@@ -7,6 +7,8 @@ on:
     paths:
       - "src/remi/**"
       - "src/generation/RemiToLinkPatternConverter.*"
+      - "src/runtime/MozartRuntime.*"
+      - "tests/MozartCoreTests.cpp"
       - "tests/RemiToLinkConverterTests.cpp"
       - "tests/CMakeLists.txt"
       - "third_party/nlohmann/json.hpp"
@@ -19,6 +21,8 @@ on:
     paths:
       - "src/remi/**"
       - "src/generation/RemiToLinkPatternConverter.*"
+      - "src/runtime/MozartRuntime.*"
+      - "tests/MozartCoreTests.cpp"
       - "tests/RemiToLinkConverterTests.cpp"
       - "tests/CMakeLists.txt"
       - "third_party/nlohmann/json.hpp"
@@ -37,7 +41,7 @@ permissions:
 jobs:
   converter-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
@@ -50,3 +54,15 @@ jobs:
 
       - name: Run REMI-to-Link converter tests
         run: ./build/remi-tests/mozart_remi_to_link_converter_tests
+
+      - name: Fetch pinned Ableton Link
+        run: bash tools/fetch_link.sh
+
+      - name: Configure Link runtime tests
+        run: cmake -S tests -B build/link-runtime-tests -DMOZART_ENABLE_LINK=ON -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build Link runtime tests
+        run: cmake --build build/link-runtime-tests --target mozart_core_tests --parallel 2
+
+      - name: Run Link runtime tests
+        run: ./build/link-runtime-tests/mozart_core_tests
