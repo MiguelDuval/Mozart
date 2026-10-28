@@ -100,10 +100,11 @@ def load_pretrained_model(model_dir: Path, device: torch.device):
     for k, v in ckpt.items():
         sd[k[6:] if k.startswith("model.") else k] = v
     # The official shikhr/music_maker safetensors stores lm_head.weight but not
-    # transformer.wte.weight: the GPT ties wte <-> lm_head, so promote the trained
-    # lm_head row into the embedding table before loading. Without this the token
-    # embedding stays at random initialisation and generation does not use the
-    # trained weights at all.
+    # transformer.wte.weight: the GPT ties wte <-> lm_head in __init__, so loading
+    # lm_head.weight already initialises the shared embedding tensor. Promoting
+    # lm_head.weight into sd["transformer.wte.weight"] makes load_state_dict report
+    # missing == [] and unexpected == [] (without it, "transformer.wte.weight" would
+    # be listed as missing even though its value is loaded through the tied lm_head).
     if "transformer.wte.weight" not in sd and "lm_head.weight" in sd:
         sd["transformer.wte.weight"] = sd["lm_head.weight"]
     missing, unexpected = model.load_state_dict(sd, strict=False)

@@ -10,6 +10,7 @@ Uses ONLY the local official model directory (safetensors weights, SHA-256
 38e1083... verified against the project record) and the local tokenizer.
 Runs on CUDA if available, otherwise CPU.
 """
+import hashlib
 import json
 import sys
 import tempfile
@@ -33,8 +34,11 @@ from evaluate_models import (  # noqa: E402
     score_metrics,
     midi_valid_and_reopenable,
     prompt_seed,
+    file_sha256,
 )
 from miditok import MusicTokenizer  # noqa: E402
+
+CKPT_SHA256 = "38e1083aea069e298f40373ebc394211b66b876702df91b2c4488cbd53079319"
 
 
 def _first_validation_prompt(tokenizer, prompt_len=32):
@@ -74,6 +78,86 @@ class TestOriginalModelSmoke(unittest.TestCase):
         self.assertEqual(self.unexpected, [])
         total = sum(p.numel() for p in self.model.parameters())
         self.assertEqual(total, 44_429_824)
+
+    def test_loaded_weights_match_checkpoint(self):
+        """Loaded wte/lm_head hold the checkpoint's trained lm_head values;
+        wte and lm_head are the same (tied) tensor; all other tensors match."""
+        ckpt_path = MODEL_DIR / "model.safetensors"
+        self.assertEqual(file_sha256(ckpt_path), CKPT_SHA256)
+        ckpt = st.load_file(str(ckpt_path))
+
+        m = self.model
+        # Weight tying: same tensor object
+        self.assertIs(m.transformer.wte.weight, m.lm_head.weight)
+
+        # Loaded values equal the checkpoint's lm_head.weight (the only stored copy)
+        ref = ckpt["model.lm_head.weight"]
+        self.assertTrue(torch.allclose(m.transformer.wte.weight, ref),
+                        "wte does not match checkpoint lm_head.weight")
+        self.assertTrue(torch.allclose(m.lm_head.weight, ref),
+                        "lm_head does not match checkpoint lm_head.weight")
+
+        # Every other tensor matches the checkpoint
+        for k, v in ckpt.items():
+            name = k[6:] if k.startswith("model.") else k
+            if name in ("lm_head.weight", "transformer.wte.weight"):
+                continue
+            self.assertIn(name, m.state_dict(), f"checkpoint key {name} not in model")
+            self.assertTrue(torch.allclose(m.state_dict()[name], v),
+                            f"tensor mismatch: {name}")
+
+    def test_score_metrics_matches_independent_file_metrics(self):
+        """score_metrics (in-memory) and independent file-based metrics
+        (verify_midi_metrics.py logic) must agree on the same MIDI file.
+        Guards against divergence between the two evaluators."""
+        import tempfile
+        from pathlib import Path as _Path
+
+        prompt_ids = list(range(100, 100 + 32))
+        seed = prompt_seed(20261027, "metrics-cross-check")
+        ids, score, info = generate(
+            self.model, self.tokenizer, prompt_ids, self.device,
+            max_new=32, temperature=1.0, top_k=40, seed=seed,
+        )
+        with tempfile.TemporaryDirectory() as td:
+            midi_path = _Path(td) / "cross_check.mid"
+            score.dump_midi(str(midi_path))
+
+            # Re-open from disk (independent path, same as verify_midi_metrics.py)
+            reopened = symusic.Score(str(midi_path))
+            sm = score_metrics(reopened)
+
+            # Independent recomputation from the re-opened score
+            tpq = reopened.tpq
+            all_notes = []
+            for tr in reopened.tracks:
+                for n in tr.notes:
+                    all_notes.append(n)
+            total_notes = len(all_notes)
+            end_tick = max((n.end for n in all_notes), default=0)
+            duration_beats = end_tick / tpq if tpq else 0.0
+            events = []
+            for n in all_notes:
+                events.append((n.start, 1))
+                events.append((n.end, -1))
+            events.sort()
+            cur = 0
+            max_poly = 0
+            for _, delta in events:
+                cur += delta
+                max_poly = max(max_poly, cur)
+            density = total_notes / duration_beats if duration_beats else 0.0
+
+            self.assertEqual(sm["num_notes"], total_notes,
+                             f"note count mismatch: {sm['num_notes']} vs {total_notes}")
+            self.assertEqual(sm["duration_ticks"], int(end_tick),
+                             f"duration ticks mismatch: {sm['duration_ticks']} vs {int(end_tick)}")
+            self.assertAlmostEqual(sm["duration_beats"], round(duration_beats, 4), places=4,
+                                   msg=f"duration beats mismatch: {sm['duration_beats']} vs {round(duration_beats, 4)}")
+            self.assertEqual(sm["max_polyphony"], max_poly,
+                             f"polyphony mismatch: {sm['max_polyphony']} vs {max_poly}")
+            self.assertAlmostEqual(sm["density_notes_per_beat"], round(density, 4), places=4,
+                                   msg=f"density mismatch: {sm['density_notes_per_beat']} vs {round(density, 4)}")
 
     def test_generate_decode_roundtrip_produces_valid_midi(self):
         prompt_ids = _first_validation_prompt(self.tokenizer)

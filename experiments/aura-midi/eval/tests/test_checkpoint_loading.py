@@ -2,8 +2,8 @@
 
 These tests verify that the original pretrained checkpoint and the selected
 fine-tuned checkpoint load into the same GPT architecture with the expected
-weight-tying behaviour (no shape mismatches, no unexpected keys, only the
-weight-tied output head missing from the safetensors file).
+weight-tying behaviour (no shape mismatches, no unexpected keys, no missing
+keys: the loader promotes the tied lm_head into the wte state-dict entry).
 """
 import json
 import sys
@@ -31,17 +31,22 @@ class TestCheckpointLoading(unittest.TestCase):
     def setUp(self):
         self.device = __import__("torch").device("cpu")
 
-    def test_pretrained_loads_with_expected_missing_keys(self):
+    def test_pretrained_loads_cleanly_with_weight_tying(self):
         loaded = load_pretrained_model(MODEL_DIR, self.device)
         self.assertIsNotNone(loaded["model"])
-        self.assertEqual(len(loaded["unexpected"]), 0, f"unexpected keys: {loaded['unexpected']}")
-        # The safetensors file does not store the tied output head separately;
-        # exactly that (or the equivalent tied embedding entry) may be missing.
-        self.assertIn(len(loaded["missing"]), (1,), f"missing keys: {loaded['missing']}")
-        self.assertTrue(
-            any("wte" in k or "lm_head" in k for k in loaded["missing"]),
-            f"expected a weight-tied key among missing: {loaded['missing']}",
-        )
+        # The safetensors stores lm_head.weight but not the tied transformer.wte.weight;
+        # the loader promotes lm_head into the wte entry so nothing is missing/unexpected.
+        self.assertEqual(loaded["missing"], [], f"missing keys: {loaded['missing']}")
+        self.assertEqual(loaded["unexpected"], [], f"unexpected keys: {loaded['unexpected']}")
+
+        # The tied embedding holds the checkpoint's trained lm_head values.
+        import torch  # noqa: E402
+        import safetensors.torch as st  # noqa: E402
+        ckpt = st.load_file(str(MODEL_DIR / "model.safetensors"))
+        m = loaded["model"]
+        self.assertIs(m.transformer.wte.weight, m.lm_head.weight)
+        self.assertTrue(torch.allclose(m.transformer.wte.weight, ckpt["model.lm_head.weight"]))
+        self.assertTrue(torch.allclose(m.lm_head.weight, ckpt["model.lm_head.weight"]))
 
     def test_finetuned_loads_cleanly(self):
         loaded = load_finetuned_model(FINETUNED, MODEL_DIR, self.device)
