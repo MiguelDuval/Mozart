@@ -808,7 +808,6 @@ int main() {
         testBarNoneAdvancesThroughFullPipeline();
         testDurationTokenThroughFullPipeline();
         testInvalidTokenIdsTrackedAsDropped();
-        // Temporarily disabled pending CI investigation:
         testPositionBinAtUpperBoundary();
         testSecondTempoIsIgnored();
         testNoteOnWithVelocityZero();
