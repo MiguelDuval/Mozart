@@ -31,6 +31,12 @@ add_executable(mozart_core_tests
     ../src/generation/DeterministicPatternProvider.cpp
     ../src/generation/LocalNeuralPatternProvider.cpp
     ../src/generation/GenerationService.cpp
+    ../src/generation/RemiBpePatternProvider.cpp
+    ../src/generation/RemiToLinkPatternConverter.cpp
+    ../src/remi/GenerationTypes.cpp
+    ../src/remi/RemiDecoderConfig.cpp
+    ../src/remi/BpeTokenizer.cpp
+    ../src/remi/RemiEventAdapter.cpp
     ../src/generation/OnnxTokenInferenceBackend.cpp
     ../src/midi/MidiReceiveQueue.cpp
     ../src/midi/ControllerMapping.cpp
@@ -38,6 +44,7 @@ add_executable(mozart_core_tests
 
 target_include_directories(mozart_core_tests PRIVATE
     ../src
+    ../third_party/nlohmann
 )
 
 if(MOZART_ENABLE_LINK)
@@ -56,8 +63,6 @@ if(MOZART_ENABLE_LINK)
         ../src/scheduler/AccompanimentScheduler.cpp
         ../src/scheduler/PerformanceScene.cpp
         ../src/scheduler/MacroControl.cpp
-        ../src/remi/GenerationTypes.cpp
-        ../src/generation/RemiToLinkPatternConverter.cpp
         ../src/runtime/MozartRuntime.cpp
     )
     target_compile_definitions(mozart_core_tests PRIVATE
@@ -113,15 +118,25 @@ add_executable(mozart_generation_service_tests
     GenerationServiceTests.cpp
     ../src/generation/GenerationService.cpp
     ../src/generation/LocalNeuralPatternProvider.cpp
+    ../src/generation/RemiBpePatternProvider.cpp
+    ../src/generation/RemiToLinkPatternConverter.cpp
+    ../src/remi/GenerationTypes.cpp
+    ../src/remi/RemiDecoderConfig.cpp
+    ../src/remi/BpeTokenizer.cpp
+    ../src/remi/RemiEventAdapter.cpp
     ../src/musical/KeyScale.cpp
     ../src/musical/Chord.cpp
 )
 
 target_include_directories(mozart_generation_service_tests PRIVATE
     ../src
+    ../third_party/nlohmann
 )
 target_compile_features(mozart_generation_service_tests PRIVATE cxx_std_20)
 target_link_libraries(mozart_generation_service_tests PRIVATE Threads::Threads)
+target_compile_definitions(mozart_generation_service_tests PRIVATE
+    MOZART_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+)
 
 add_executable(mozart_generation_request_json_tests
     GenerationRequestJsonTests.cpp
