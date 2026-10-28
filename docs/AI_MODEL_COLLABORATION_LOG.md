@@ -511,3 +511,19 @@ Follow-up hardening adds a pre-export check that any checkpoint-declared BOS, EO
 ## 2026-10-28 — ChatGPT — Fix exporter CLI syntax after generic model-ID option
 
 The first GPT-2 exporter-contract run on the genericization commit found a literal `\\n` inserted in the Python CLI declaration when replacing its model-ID default. Corrected the source to a real line break and widened the helper parameter annotation to reflect the intended `None`-means-directory-name behavior. This was a source syntax error detected before model loading or ONNX export; the corrected exact-SHA contract workflow is pending.
+
+
+## 2026-10-28 — ChatGPT — Add pinned real-checkpoint ONNX + C++ tokenizer smoke
+
+### Objective
+Move beyond synthetic tokenizer fixtures to an artifact-backed interoperability gate without committing or uploading the checkpoint.
+
+### Implementation
+- Added .github/workflows/remi-bpe-real-model-export.yml, pinned to immutable Hugging Face revision ec0960a622b46d77ed59fdd09de422aa205ca6a4 of NathanFradet/Maestro-REMI-bpe20k.
+- Added tools/run_remi_bpe_onnx_smoke.py to run a bounded greedy autoregressive loop using the exported ONNX model and write the generated external token IDs outside the repository.
+- Added tests/RemiBpeExternalArtifactSmoke.cpp, which compiles the same production BpeTokenizer.cpp and checks the actual model config, learned BPE vocabulary, PAD/BOS/EOS IDs, and that the ONNX-generated IDs decode to semantic REMI token names without any dropped IDs.
+- The workflow stores all downloaded model files, export outputs and generated token IDs under the hosted runner's temporary directory. It uploads only a compact SHA/provenance report; no model weights, tokenizer JSON or ONNX file is retained as a workflow artifact.
+- Documentation explicitly labels this checkpoint as a classical-piano integration fixture, not Mozart's broad-EDM target.
+
+### Verification state
+The regular Export Contract workflow succeeded on 2b907881999fce8115b2ba6c5e72e4852219d5f8 and the native REMI-BPE Link tests also succeeded at that SHA. The new real-checkpoint workflow is triggered by this commit and is the first test intended to prove compatibility between a real external tokenizer, an ONNX-generated stream, and Mozart's production C++ decoder. No real checkpoint compatibility is claimed until that exact workflow completes successfully.

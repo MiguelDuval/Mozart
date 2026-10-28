@@ -1,0 +1,160 @@
+name: REMI/BPE Real Checkpoint Export Smoke
+
+on:
+  push:
+    branches:
+      - "feature/remi-bpe-link-integration"
+    paths:
+      - ".github/workflows/remi-bpe-real-model-export.yml"
+      - "tools/export_remi_bpe_onnx.py"
+      - "tools/run_remi_bpe_onnx_smoke.py"
+      - "tools/requirements-onnx-export.txt"
+      - "tools/requirements-remi-onnx-export.txt"
+      - "tests/RemiBpeExternalArtifactSmoke.cpp"
+      - "third_party/nlohmann/json.hpp"
+  workflow_dispatch:
+
+concurrency:
+  group: remi-bpe-real-checkpoint-smoke-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  real-checkpoint-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MODEL_ID: NathanFradet/Maestro-REMI-bpe20k
+      MODEL_REVISION: ec0960a622b46d77ed59fdd09de422aa205ca6a4
+      EXPORT_DIR: ${{ runner.temp }}/mozart-remi-bpe-real-export
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/requirements-remi-onnx-export.txt
+
+      - name: Install pinned CPU ONNX exporter
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-cache-dir -r tools/requirements-remi-onnx-export.txt
+          python3 -m pip install --disable-pip-version-check --no-cache-dir huggingface_hub==0.23.4
+
+      - name: Download immutable public model/tokenizer pair outside the repository
+        id: download-model
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EXPORT_DIR"
+          MODEL_DIR="$(python3 - <<'PY'
+          from huggingface_hub import snapshot_download
+          print(snapshot_download(
+              repo_id="NathanFradet/Maestro-REMI-bpe20k",
+              revision="ec0960a622b46d77ed59fdd09de422aa205ca6a4",
+              allow_patterns=["config.json", "tokenizer.json", "model.safetensors", "generation_config.json"],
+          ))
+          PY
+          )"
+          test -f "$MODEL_DIR/config.json"
+          test -f "$MODEL_DIR/tokenizer.json"
+          test -f "$MODEL_DIR/model.safetensors"
+          echo "model_dir=$MODEL_DIR" >> "$GITHUB_OUTPUT"
+          python3 - "$MODEL_DIR" <<'PY'
+          import json, sys
+          from pathlib import Path
+          p = Path(sys.argv[1])
+          cfg = json.loads((p / "config.json").read_text(encoding="utf-8"))
+          if cfg.get("model_type") != "gpt2" or cfg.get("vocab_size") != 20000:
+              raise SystemExit(f"unexpected pinned candidate config: model_type={cfg.get('model_type')!r}, vocab={cfg.get('vocab_size')!r}")
+          print(f"Checkpoint config verified: {cfg['model_type']} vocab={cfg['vocab_size']} context={cfg.get('n_positions')}")
+          PY
+
+      - name: Export and validate the real paired checkpoint
+        shell: bash
+        env:
+          MODEL_DIR: ${{ steps.download-model.outputs.model_dir }}
+        run: |
+          set -euo pipefail
+          python3 tools/export_remi_bpe_onnx.py \
+            --model-dir "$MODEL_DIR" \
+            --output "$EXPORT_DIR/model.onnx" \
+            --manifest "$EXPORT_DIR/model.manifest.json" \
+            --model-id "$MODEL_ID" \
+            --model-revision "$MODEL_REVISION" \
+            --sample-sequence-length 8 \
+            --max-generated-tokens 32 \
+            --opset 17
+          python3 tools/validate_model_manifest.py "$EXPORT_DIR/model.manifest.json"
+
+      - name: Run bounded real ONNX autoregressive inference
+        run: |
+          set -euo pipefail
+          python3 tools/run_remi_bpe_onnx_smoke.py \
+            --model "$EXPORT_DIR/model.onnx" \
+            --manifest "$EXPORT_DIR/model.manifest.json" \
+            --output-token-ids "$EXPORT_DIR/generated-token-ids.json" \
+            --max-new-tokens 16
+
+      - name: Verify the exact ONNX-generated IDs with Mozart C++ tokenizer
+        shell: bash
+        env:
+          MODEL_DIR: ${{ steps.download-model.outputs.model_dir }}
+        run: |
+          set -euo pipefail
+          c++ -std=c++20 -O2 \
+            -Isrc -Ithird_party/nlohmann \
+            tests/RemiBpeExternalArtifactSmoke.cpp \
+            src/remi/BpeTokenizer.cpp \
+            -o "$EXPORT_DIR/remi-bpe-artifact-smoke"
+          "$EXPORT_DIR/remi-bpe-artifact-smoke" \
+            "$MODEL_DIR/tokenizer.json" \
+            "$MODEL_DIR/config.json" \
+            "$EXPORT_DIR/generated-token-ids.json"
+
+      - name: Write non-weight artifact verification report
+        run: |
+          set -euo pipefail
+          python3 - "$EXPORT_DIR/model.manifest.json" "$EXPORT_DIR/generated-token-ids.json" "$EXPORT_DIR/verification-report.json" <<'PY'
+          import json, sys
+          from pathlib import Path
+          manifest_path, ids_path, out_path = map(Path, sys.argv[1:])
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          ids = json.loads(ids_path.read_text(encoding="utf-8"))
+          report = {
+              "status": "verified",
+              "model_id": manifest["model_id"],
+              "model_revision": manifest["model_revision"],
+              "model_architecture": manifest.get("model_architecture"),
+              "loader_class": manifest.get("loader_class"),
+              "transformers_version": manifest.get("transformers_version"),
+              "model_sha256": manifest["model_sha256"],
+              "tokenizer_sha256": manifest["runtime"]["tokenizer_sha256"],
+              "config_sha256": manifest["source_config_sha256"],
+              "vocabulary_id": manifest["vocabulary_id"],
+              "vocabulary_size": manifest["vocabulary_size"],
+              "context_length_tokens": manifest["context_length_tokens"],
+              "max_generated_tokens": manifest["max_generated_tokens"],
+              "actual_generated_token_count_including_bos": len(ids),
+              "tokenizer_artifact_included": False,
+              "checkpoint_weights_included": False,
+              "exported_onnx_included": False,
+          }
+          out_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload verification report only (never model weights or ONNX graph)
+        uses: actions/upload-artifact@v7
+        with:
+          name: mozart-remi-bpe-real-checkpoint-report-${{ github.sha }}
+          path: ${{ env.EXPORT_DIR }}/verification-report.json
+          if-no-files-found: error
+          retention-days: 14
