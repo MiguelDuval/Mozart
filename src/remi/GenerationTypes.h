@@ -1,11 +1,13 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 #include <string>
 #include <optional>
 #include <variant>
 #include <chrono>
+#include <utility>
 
 namespace mozart::remi {
 
