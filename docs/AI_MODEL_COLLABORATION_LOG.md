@@ -488,3 +488,16 @@ The first exact-SHA validation of the post-startup lifecycle arming change expos
 - Code SHA with stale assertion: 2ee312615da2c92759e92f02a3ec6b245c5d3f2a.
 - Android Build [40780388687](https://github.com/MiguelDuval/Mozart/actions/runs/40780388687) failed the lifecycle source-contract test before a usable emulator smoke result could be obtained; the final gate also failed because no smoke attempt succeeded.
 - The updated assertion requires new exact-SHA Android validation; no Android smoke pass is claimed yet.
+
+
+## 2026-10-28 — ChatGPT — Generalize REMI/BPE exporter to standard GPT-2 causal LMs
+
+### Change
+- Added an explicit model-architecture compatibility gate: MusicMaker `mgpt` continues to require the reviewed custom-code flag; built-in GPT-2 requires a causal-LM head and loads through `AutoModelForCausalLM` with `trust_remote_code=False`.
+- Removed the 12,000-token hard-coded restriction from the generic REMI/BPE export path. A checkpoint is accepted only when its declared vocabulary size equals the actual complete learned-BPE tokenizer vocabulary; the learned token IDs, BOS/EOS/PAD and ONNX output dimensions remain strictly checked.
+- For GPT-2 exports, the manifest records the installed Transformers model source hash, Transformers version, loader class and architecture name; the checkpoint's config, weight files, tokenizer and exported graph remain independently hashed.
+- Added architecture-policy tests for GPT-2 vocabulary matching/mismatch, missing causal-LM head, unsupported model types, and the unchanged custom-code gate for MusicMaker.
+- Documented `NathanFradet/Maestro-REMI-bpe20k` as an optional technical candidate only. It is classical piano, not the target broad-EDM model; no real export or checkpoint/tokenizer pairing is claimed yet.
+
+### Verification
+The implementation is on the current feature branch and is awaiting exact-SHA exporter, native Link, and Android CI. Real checkpoint export remains pending a local complete artifact pair pinned to an immutable revision.

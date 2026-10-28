@@ -130,6 +130,71 @@ def inspect_miditok_tokenizer(path: Path) -> dict[str, Any]:
     }
 
 
+def inspect_model_architecture(
+    model_config: dict[str, Any],
+    tokenizer_vocab_size: int,
+    *,
+    trust_model_code: bool,
+) -> dict[str, Any]:
+    """Validate a supported causal-LM architecture against its paired tokenizer.
+
+    MusicMaker's custom mgpt architecture requires explicitly reviewed local
+    code. Standard GPT-2 checkpoints use Transformers' built-in causal-LM class
+    with remote/custom code execution disabled.
+    """
+    model_type = model_config.get("model_type")
+    if model_type not in {"mgpt", "gpt2"}:
+        raise ValueError(
+            "supported REMI/BPE model_type values are 'mgpt' and 'gpt2'; "
+            f"found {model_type!r}"
+        )
+
+    declared_vocab = model_config.get("vocab_size")
+    if (
+        isinstance(declared_vocab, bool)
+        or not isinstance(declared_vocab, int)
+        or declared_vocab <= 0
+    ):
+        raise ValueError("model config vocab_size must be a positive integer")
+    if declared_vocab != tokenizer_vocab_size:
+        raise ValueError(
+            f"model config vocab_size ({declared_vocab}) does not match tokenizer "
+            f"({tokenizer_vocab_size})"
+        )
+
+    architectures = model_config.get("architectures")
+    if model_type == "gpt2":
+        if architectures is not None and (
+            not isinstance(architectures, list)
+            or "GPT2LMHeadModel" not in architectures
+        ):
+            raise ValueError(
+                "gpt2 REMI/BPE export requires a GPT2LMHeadModel causal-language-model head"
+            )
+        return {
+            "model_type": "gpt2",
+            "loader": "AutoModelForCausalLM",
+            "trust_remote_code": False,
+            "architecture_class": "GPT2LMHeadModel",
+        }
+
+    if not trust_model_code:
+        raise ValueError(
+            "MusicMaker mgpt requires reviewed local custom model code; "
+            "pass --trust-model-code only after reviewing it"
+        )
+    return {
+        "model_type": "mgpt",
+        "loader": "AutoModel",
+        "trust_remote_code": True,
+        "architecture_class": (
+            architectures[0]
+            if isinstance(architectures, list) and architectures
+            else "MusicMaker mgpt"
+        ),
+    }
+
+
 def _context_length(config: dict[str, Any]) -> int:
     for name in ("block_size", "max_position_embeddings", "n_positions", "max_sequence_length"):
         value = config.get(name)
@@ -417,19 +482,13 @@ def export_local_model(
         raise ValueError("model directory does not contain recognized model weights")
 
     model_config = _read_json(config_path)
-    if model_config.get("model_type") != "mgpt":
-        raise ValueError("expected the upstream MusicMaker mgpt model architecture")
     tokenizer_contract = inspect_miditok_tokenizer(tokenizer_path)
     vocab_size = tokenizer_contract["vocab_size"]
-    declared_vocab = model_config.get("vocab_size")
-    if declared_vocab != vocab_size:
-        raise ValueError(
-            f"model config vocab_size ({declared_vocab}) does not match tokenizer ({vocab_size})"
-        )
-    if vocab_size != 12000:
-        raise ValueError(
-            f"this adapter is scoped to the pinned MusicMaker REMI/BPE vocabulary (12000); found {vocab_size}"
-        )
+    architecture = inspect_model_architecture(
+        model_config,
+        vocab_size,
+        trust_model_code=trust_model_code,
+    )
     context_length = _context_length(model_config)
     if sample_sequence_length < 1 or sample_sequence_length > context_length:
         raise ValueError("sample sequence length is outside model context")
@@ -437,27 +496,33 @@ def export_local_model(
         raise ValueError("max generated tokens is outside model context")
     if not re.fullmatch(r"[0-9a-fA-F]{40}", model_revision):
         raise ValueError("--model-revision must be a full immutable 40-character commit SHA")
-    if not trust_model_code:
-        raise ValueError(
-            "upstream custom model code is executable Python; pass --trust-model-code only after reviewing it"
-        )
+    if model_id is None or not model_id.strip():
+        model_id = model_dir.name
 
     try:
         import torch
-        from transformers import AutoModel
+        import transformers
+        from transformers import AutoModel, AutoModelForCausalLM
     except ImportError as exc:
         raise RuntimeError(
             "missing export dependencies; install tools/requirements-remi-onnx-export.txt"
         ) from exc
 
-    model = AutoModel.from_pretrained(
-        str(model_dir),
-        local_files_only=True,
-        trust_remote_code=True,
-    )
+    if architecture["loader"] == "AutoModelForCausalLM":
+        model = AutoModelForCausalLM.from_pretrained(
+            str(model_dir),
+            local_files_only=True,
+            trust_remote_code=False,
+        )
+    else:
+        model = AutoModel.from_pretrained(
+            str(model_dir),
+            local_files_only=True,
+            trust_remote_code=True,
+        )
     loaded_config = getattr(model, "config", None)
-    if loaded_config is None or getattr(loaded_config, "model_type", None) != "mgpt":
-        raise ValueError("loaded model's configuration is not the expected mgpt architecture")
+    if loaded_config is None or getattr(loaded_config, "model_type", None) != architecture["model_type"]:
+        raise ValueError("loaded model architecture differs from config.json")
     if getattr(loaded_config, "vocab_size", None) != vocab_size:
         raise ValueError("loaded checkpoint vocabulary size disagrees with tokenizer")
 
@@ -480,9 +545,25 @@ def export_local_model(
     if paired_contract["tokenizer_sha256"] != tokenizer_contract["tokenizer_sha256"]:
         raise ValueError("paired tokenizer copy SHA-256 differs from source tokenizer")
 
-    code_hashes = _hash_files(model_dir, ("*.py",))
-    if not code_hashes:
-        raise ValueError("model directory contains no local Python model code to audit")
+    if architecture["model_type"] == "mgpt":
+        code_hashes = _hash_files(model_dir, ("*.py",))
+        if not code_hashes:
+            raise ValueError("MusicMaker mgpt directory contains no local Python model code to audit")
+    else:
+        import inspect
+
+        source_file = inspect.getsourcefile(type(model))
+        if not source_file or not Path(source_file).is_file():
+            raise ValueError("cannot identify installed Transformers source for GPT-2 model class")
+        source_path = Path(source_file).resolve()
+        transformers_root = Path(transformers.__file__).resolve().parent
+        try:
+            relative_source = source_path.relative_to(transformers_root).as_posix()
+        except ValueError as exc:
+            raise ValueError("GPT-2 model class source is outside the Transformers package") from exc
+        code_hashes = {
+            f"transformers/{relative_source}": sha256_file(source_path)
+        }
 
     source_weight_hashes = _hash_files(
         model_dir,
@@ -500,6 +581,9 @@ def export_local_model(
         source_code_files_sha256=code_hashes,
         source_checkpoint_files_sha256=source_weight_hashes,
     )
+    manifest["model_architecture"] = architecture["architecture_class"]
+    manifest["transformers_version"] = transformers.__version__
+    manifest["loader_class"] = architecture["loader"]
     manifest["source_config_sha256"] = sha256_file(config_path)
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
@@ -516,7 +600,7 @@ def main() -> int:
                         help="ONNX output path outside the repository")
     parser.add_argument("--manifest", type=Path, required=True,
                         help="manifest output path beside the ONNX file")
-    parser.add_argument("--model-id", default="shikhr-music-maker-remi-bpe")
+    parser.add_argument("--model-id", default=None,\n                        help="manifest model identifier; defaults to the local model directory name")
     parser.add_argument("--model-revision", required=True,
                         help="immutable upstream Git/Hugging Face revision")
     parser.add_argument("--sample-sequence-length", type=int, default=8)

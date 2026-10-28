@@ -55,3 +55,21 @@ Source provenance:
 - [Upstream model-training script](https://github.com/shikhr/MusicMaker/blob/0466baf636d9ea39aef0d88d2987d66ce8995e99/train_model.py)
 - [Upstream generation script](https://github.com/shikhr/MusicMaker/blob/0466baf636d9ea39aef0d88d2987d66ce8995e99/generate.py)
 - [Public MusicMaker model card](https://huggingface.co/shikhr/music_maker)
+
+
+## Additional complete-pair candidate for exporter validation
+
+A second public candidate is `NathanFradet/Maestro-REMI-bpe20k`. Its public card/config describe a standard `gpt2` / `GPT2LMHeadModel` architecture, 20,000-token vocabulary, 2,048-position context, and a MidiTok REMI-BPE tokenizer. This is suitable as a **technical exporter/runtime validation candidate only**; the card describes classical piano trained on MAESTRO, not broad electronic music. Do not treat it as Mozart's target musical model.
+
+The exporter now supports both:
+- MusicMaker's custom `mgpt` class, requiring the explicit reviewed-code flag and local model Python files; and
+- built-in Transformers GPT-2 causal-LM checkpoints using `AutoModelForCausalLM` with `trust_remote_code=False`.
+
+In both cases it requires the local tokenizer's learned BPE vocabulary to match the checkpoint's declared vocabulary exactly, checks special IDs and contiguous BPE IDs, exports only the causal-LM next-token logits, and verifies eager/ONNX parity. The original MusicMaker vocabulary size is no longer hard-coded as a universal REMI/BPE limit.
+
+Before testing the public GPT-2 candidate, obtain its local model/tokenizer directory at an immutable full revision, record the exact revision and hashes, then run the exporter with an explicit `--model-id NathanFradet/Maestro-REMI-bpe20k`. The tokenizer and weights must be from the same pinned repository revision. Export success would validate the technical path only; broader EDM suitability and data/model redistribution rights require separate review.
+
+References:
+- [Hugging Face model card](https://huggingface.co/NathanFradet/Maestro-REMI-bpe20k)
+- [Published model config](https://huggingface.co/NathanFradet/Maestro-REMI-bpe20k/blob/main/config.json)
+- [Published tokenizer history](https://huggingface.co/NathanFradet/Maestro-REMI-bpe20k/commits/main/tokenizer.json)

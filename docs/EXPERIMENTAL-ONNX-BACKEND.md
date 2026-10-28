@@ -109,7 +109,7 @@ python tools/export_remi_bpe_onnx.py \
   --trust-model-code
 ```
 
-The script is local-only: it never downloads model code or weights. It verifies model type and vocabulary against the embedded MidiTok tokenizer, disables the upstream SDPA/flash path for portable export, exports an `input_ids -> last-token logits` graph, runs ONNX Runtime against eager logits at several sequence lengths, copies the paired tokenizer beside the graph, hashes the checkpoint/code/tokenizer sources and emits a `remi_bpe` manifest. The exported contract is still a private experimental piano checkpoint, not a broad EDM model.
+The script is local-only: it never downloads model code or weights. It supports custom MusicMaker `mgpt` (explicit reviewed-code flag required) and standard Transformers `gpt2` causal-LM models (custom/remote code execution disabled). It verifies model type and the declared vocabulary against the learned MidiTok tokenizer, disables upstream flash paths where applicable, exports an `input_ids -> last-token logits` graph, runs ONNX Runtime against eager logits at several sequence lengths, copies the paired tokenizer beside the graph, hashes checkpoint/tokenizer/model-source files, records the Transformers version and emits a `remi_bpe` manifest. The public GPT-2/MAESTRO candidate is classical-piano-only and must be treated as a technical integration fixture, not Mozart's broad-EDM production model.
 
 This exporter is only the **export compatibility** slice. It does not register the file in Experimental Model Lab and does not make the current 512-token Android bridge accept REMI IDs. A separate Android/JNI backend and artifact-backed device smoke test remain required.
 
