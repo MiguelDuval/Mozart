@@ -1,6 +1,8 @@
 #include "generation/GenerationService.h"
 
 #include "generation/LocalNeuralPatternProvider.h"
+#include "generation/RemiBpeInferenceBackend.h"
+#include "generation/RemiBpePatternProvider.h"
 
 #include <exception>
 #include <utility>
@@ -56,6 +58,9 @@ void GenerationService::stop() {
     if (worker_.joinable()) {
         worker_.join();
     }
+    // The worker has stopped, so cached tokenizer/provider state is now safe to
+    // destroy. A subsequent start reloads it on the new worker.
+    remiProviders_.clear();
 }
 
 bool GenerationService::running() const noexcept {
@@ -169,8 +174,20 @@ void GenerationService::run() {
 
         GenerationResult result;
         try {
-            LocalNeuralPatternProvider provider(*job.backend);
-            result = provider.generate(job.request);
+            if (auto* remiBackend =
+                    dynamic_cast<RemiBpeInferenceBackend*>(job.backend)) {
+                auto providerIt = remiProviders_.find(remiBackend);
+                if (providerIt == remiProviders_.end()) {
+                    auto provider =
+                            std::make_unique<RemiBpePatternProvider>(*remiBackend);
+                    providerIt = remiProviders_.emplace(
+                            remiBackend, std::move(provider)).first;
+                }
+                result = providerIt->second->generate(job.request);
+            } else {
+                LocalNeuralPatternProvider provider(*job.backend);
+                result = provider.generate(job.request);
+            }
         } catch (const std::exception&) {
             result = {
                     GenerationStatus::Failed,

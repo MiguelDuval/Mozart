@@ -28,6 +28,7 @@ add_library(mozart-core STATIC
     src/generation/NoteRepeat.cpp
     src/generation/DeterministicPatternProvider.cpp
     src/generation/LocalNeuralPatternProvider.cpp
+    src/generation/RemiBpePatternProvider.cpp
     src/generation/GenerationService.cpp
     src/generation/OnnxTokenInferenceBackend.cpp
     src/generation/GenerationRequestJson.cpp
