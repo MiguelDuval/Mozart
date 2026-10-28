@@ -24,6 +24,8 @@ public:
         std::uint32_t tokenId) const noexcept;
     [[nodiscard]] std::size_t vocabSize() const noexcept { return idToEncodedToken_.size(); }
     [[nodiscard]] bool empty() const noexcept { return idToEncodedToken_.empty(); }
+    // True only when the artifact contains the learned BPE model vocabulary, not just MidiTok base events.
+    [[nodiscard]] bool hasLearnedBpeVocabulary() const noexcept { return hasLearnedBpeVocabulary_; }
     [[nodiscard]] std::optional<std::uint32_t> padToken() const noexcept { return padToken_; }
     [[nodiscard]] std::optional<std::uint32_t> bosToken() const noexcept { return bosToken_; }
     [[nodiscard]] std::optional<std::uint32_t> eosToken() const noexcept { return eosToken_; }
@@ -36,6 +38,7 @@ private:
     std::string endOfWordSuffix_;
     std::string metaspaceReplacement_;
     bool usesMetaspace_ = false;
+    bool hasLearnedBpeVocabulary_ = false;
     std::optional<std::uint32_t> padToken_;
     std::optional<std::uint32_t> bosToken_;
     std::optional<std::uint32_t> eosToken_;
