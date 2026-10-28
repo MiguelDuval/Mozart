@@ -6,8 +6,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -589,6 +592,133 @@ public class OnnxInferenceBridgeTest {
             fail("expected runtime/root context mismatch rejection");
         } catch (IllegalArgumentException expected) {
             assertTrue(expected.getMessage().contains("runtime limits"));
+        }
+    }
+
+    @Test
+    public void remiBpeManifestAcceptsRealExternalTwentyThousandTokenAbi() throws Exception {
+        final File directory = Files.createTempDirectory("mozart-remi-bpe-manifest-ok").toFile();
+        directory.deleteOnExit();
+        final File artifact = writeTempFile(directory, "model.onnx", "synthetic onnx bytes");
+        final File tokenizer = writeTempFile(directory, "tokenizer.json", "synthetic learned bpe tokenizer bytes");
+        final File manifestFile = new File(directory, "model.manifest.json");
+        final JSONObject manifest = validRemiBpeManifest(artifact, tokenizer, 20000);
+
+        validateRemiBpeManifestWithFiles(manifest, artifact, manifestFile, tokenizer);
+    }
+
+    @Test
+    public void remiBpeManifestRejectsTokenizerHashMismatchBeforeSessionCreation() throws Exception {
+        final File directory = Files.createTempDirectory("mozart-remi-bpe-manifest-hash").toFile();
+        directory.deleteOnExit();
+        final File artifact = writeTempFile(directory, "model.onnx", "synthetic onnx bytes");
+        final File tokenizer = writeTempFile(directory, "tokenizer.json", "synthetic learned bpe tokenizer bytes");
+        final JSONObject manifest = validRemiBpeManifest(artifact, tokenizer, 20000);
+        manifest.getJSONObject("runtime").put("tokenizer_sha256", "0000000000000000000000000000000000000000000000000000000000000000");
+
+        try {
+            validateRemiBpeManifestWithFiles(manifest, artifact,
+                    new File(directory, "model.manifest.json"), tokenizer);
+            fail("expected tokenizer hash mismatch");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("tokenizer SHA-256"));
+        }
+    }
+
+    @Test
+    public void remiBpeManifestRejectsLegacySizedLogitsForExternalVocabulary() throws Exception {
+        final File directory = Files.createTempDirectory("mozart-remi-bpe-manifest-shape").toFile();
+        directory.deleteOnExit();
+        final File artifact = writeTempFile(directory, "model.onnx", "synthetic onnx bytes");
+        final File tokenizer = writeTempFile(directory, "tokenizer.json", "synthetic learned bpe tokenizer bytes");
+        final JSONObject manifest = validRemiBpeManifest(artifact, tokenizer, 20000);
+        manifest.getJSONArray("outputs").getJSONObject(0)
+                .put("shape", new JSONArray(new int[] {1, 512}));
+
+        try {
+            validateRemiBpeManifestWithFiles(manifest, artifact,
+                    new File(directory, "model.manifest.json"), tokenizer);
+            fail("expected logits vocabulary shape mismatch");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("logits manifest"));
+        }
+    }
+
+    private static File writeTempFile(File directory, String name, String content) throws Exception {
+        final File file = new File(directory, name);
+        Files.write(file.toPath(), content.getBytes(StandardCharsets.UTF_8));
+        file.deleteOnExit();
+        return file;
+    }
+
+    private static JSONObject validRemiBpeManifest(
+            File artifact, File tokenizer, int vocabSize) throws Exception {
+        final JSONObject root = new JSONObject();
+        root.put("manifest_schema_version", 1);
+        root.put("manifest_status", "frozen");
+        root.put("model_id", "real-remi-bpe-contract-fixture");
+        root.put("model_format", "onnx");
+        root.put("model_file", artifact.getName());
+        root.put("model_sha256", sha256ForTest(artifact));
+        root.put("vocabulary_id", "miditok-remi-bpe-v1");
+        root.put("vocabulary_size", vocabSize);
+        root.put("context_length_tokens", 2048);
+        root.put("max_generated_tokens", 400);
+
+        final JSONArray inputs = new JSONArray();
+        final JSONObject input = new JSONObject();
+        input.put("name", "input_ids");
+        input.put("dtype", "int64");
+        input.put("shape", new JSONArray(new int[] {1, -1}));
+        inputs.put(input);
+        root.put("inputs", inputs);
+
+        final JSONArray outputs = new JSONArray();
+        final JSONObject output = new JSONObject();
+        output.put("name", "logits");
+        output.put("dtype", "float32");
+        output.put("shape", new JSONArray(new int[] {1, vocabSize}));
+        outputs.put(output);
+        root.put("outputs", outputs);
+
+        final JSONObject runtime = new JSONObject();
+        runtime.put("backend", "onnxruntime");
+        runtime.put("token_mode", "remi_bpe");
+        runtime.put("external_vocabulary_size", vocabSize);
+        runtime.put("input_dtype", "int64");
+        runtime.put("input_name", "input_ids");
+        runtime.put("output_name", "logits");
+        runtime.put("context_length_tokens", 2048);
+        runtime.put("max_generated_tokens", 400);
+        runtime.put("pad_token_id", 0);
+        runtime.put("bos_token_id", 1);
+        runtime.put("eos_token_id", 2);
+        runtime.put("tokenizer_file", tokenizer.getName());
+        runtime.put("tokenizer_sha256", sha256ForTest(tokenizer));
+        root.put("runtime", runtime);
+        return root;
+    }
+
+    private static String sha256ForTest(File file) throws Exception {
+        final Method method = OnnxInferenceBridge.class.getDeclaredMethod("sha256", File.class);
+        method.setAccessible(true);
+        return (String) method.invoke(null, file);
+    }
+
+    private static void validateRemiBpeManifestWithFiles(
+            JSONObject root, File artifact, File manifest, File tokenizer) throws Exception {
+        final Method method = OnnxInferenceBridge.class.getDeclaredMethod(
+                "validateRemiBpeManifest", JSONObject.class, File.class, File.class, File.class);
+        method.setAccessible(true);
+        try {
+            method.invoke(null, root, artifact, manifest, tokenizer);
+        } catch (InvocationTargetException wrapped) {
+            final Throwable cause = wrapped.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                throw (IllegalArgumentException) cause;
+            }
+            if (cause instanceof Exception) throw (Exception) cause;
+            throw wrapped;
         }
     }
 

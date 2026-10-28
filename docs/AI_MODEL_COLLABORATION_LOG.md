@@ -544,3 +544,8 @@ The first real-checkpoint workflow succeeded at exact code SHA 0e99c0c7ac7840a71
 - The workflow uploaded only a 643-byte provenance/checksum report; model weights, tokenizer JSON and ONNX graph were not included.
 
 Follow-up: made complete vocabulary decodability an explicit required assertion and added the C++ tokenizer report to the small workflow artifact so this result remains machine-readable rather than appearing only in CI logs.
+
+
+## 2026-10-28 — ChatGPT — Add Android-side REMI/BPE manifest contract tests
+
+The real checkpoint workflow now proves external ONNX export, autoregressive inference, exact-tokenizer C++ decoding and full 20,000-entry BPE vocabulary decodability. Added Android JVM tests for the next boundary: the app's dedicated `generateRemiBpe` manifest validator must accept the external 20k ABI with correctly hashed paired artifacts, reject a mismatched tokenizer SHA-256 before session creation, and reject an output logits shape incorrectly frozen to 512. These tests exercise the real private validator via reflection without packaging model weights or requiring ONNX native runtime on the host. Exact-SHA Android Build remains the verification gate.
