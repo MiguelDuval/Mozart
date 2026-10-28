@@ -359,10 +359,23 @@ exercise_activity_recreate_cycle() {
   local cycle="$1"
 
   echo "=== Activity lifecycle recreate cycle ${cycle} ==="
-  timeout 10s adb shell input keyevent 4 >/dev/null 2>&1 || true
+  # Emulator/ADB can briefly fall back to offline after lifecycle transitions.
+  # Do not interpret a failed keyevent as an Activity lifecycle regression.
+  if ! wait_for_adb_device; then
+    echo "ADB device was not ready before BACK during recreate cycle ${cycle}." >&2
+    return 1
+  fi
+  local back_rc=0
+  timeout 10s adb shell input keyevent 4 >/dev/null 2>&1 || back_rc=$?
+  if [[ "$back_rc" -ne 0 ]]; then
+    echo "Failed to deliver BACK (adb input rc=${back_rc}) during recreate cycle ${cycle}." >&2
+    return 1
+  fi
 
   if ! wait_for_activity_to_stop; then
     echo "MainActivity remained resumed after BACK during recreate cycle ${cycle}." >&2
+    timeout 10s adb shell dumpsys activity activities 2>/dev/null |
+      grep -E "mResumedActivity|topResumedActivity|Resumed:" || true
     return 1
   fi
 
