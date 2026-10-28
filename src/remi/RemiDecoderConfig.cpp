@@ -51,6 +51,11 @@ RemiDecoderConfig RemiDecoderConfig::fromTokenizerJson(const std::string& jsonPa
         if(n<1||n>128)throw std::runtime_error("Tokenizer num_velocities is invalid");
         c.numVelocities=static_cast<std::uint8_t>(n);
     }
+    if(s.contains("use_velocities")){
+        if(!s["use_velocities"].is_boolean())
+            throw std::runtime_error("Tokenizer use_velocities must be boolean");
+        c.useVelocities=s["use_velocities"].get<bool>();
+    }
     if(s.contains("default_note_duration")&&s["default_note_duration"].is_number()){
         c.defaultNoteDurationBeats=s["default_note_duration"].get<double>();
         if(!std::isfinite(c.defaultNoteDurationBeats)||c.defaultNoteDurationBeats<=0.0||

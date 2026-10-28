@@ -11,6 +11,7 @@ struct RemiDecoderConfig {
     std::uint8_t pitchMin = 21;
     std::uint8_t pitchMax = 109;
     std::uint8_t numVelocities = 32;
+    bool useVelocities = true;
     std::uint32_t ticksPerBeat = 480;
     std::uint32_t ticksPerBar = 1920;
     std::uint32_t positionResolution = 8;

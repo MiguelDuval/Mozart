@@ -108,6 +108,7 @@ void testRemiDecoderConfigLoadsTokenizerArtifactFields() {
     assert(config.pitchMin == 21);
     assert(config.pitchMax == 109);
     assert(config.numVelocities == 32);
+    assert(config.useVelocities);
     assert(config.positionResolution == 8);
     assert(config.defaultNoteDurationBeats == 0.5);
     assert(config.numTempos == 32);
@@ -487,6 +488,30 @@ void testEndToEndTokenIdsToLink() {
     std::cout << "  End-to-end token IDs to link: PASSED" << std::endl;
 }
 
+void testModelTokenStreamRequiresCompleteNoteRecords() {
+    const auto path = fixtureTokenizerPath();
+    auto tokenizer = BpeTokenizer::loadFromJson(path.string());
+    assert(tokenizer.has_value());
+    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
+    const auto config = RemiDecoderConfig::fromTokenizerJson(path.string());
+    RemiEventAdapter adapter(config, sharedTokenizer);
+
+    const auto [missingVelocity, missingVelocityReport] =
+        adapter.decodeTokensToProposal({8, 6, 7}, {}, "fixture", "fixture");
+    assert(!missingVelocityReport.isOk());
+    assert(missingVelocity.events.empty());
+
+    const auto [missingDuration, missingDurationReport] =
+        adapter.decodeTokensToProposal({8, 6, 10}, {}, "fixture", "fixture");
+    assert(!missingDurationReport.isOk());
+    assert(missingDuration.events.empty());
+
+    const auto [interrupted, interruptedReport] =
+        adapter.decodeTokensToProposal({8, 6, 11, 10, 7}, {}, "fixture", "fixture");
+    assert(!interruptedReport.isOk());
+    assert(interrupted.events.empty());
+}
+
 void testUnsupportedMidiTokProgramRejectsAtomically() {
     const auto path = fixtureTokenizerPath();
     auto tokenizer = BpeTokenizer::loadFromJson(path.string());
@@ -556,6 +581,7 @@ int main() {
     testRemiAdapterDurationAfterNoteOn();
     testRemiAdapterDurationAppliesToPrecedingNoteOnly();
     testEndToEndTokenIdsToLink();
+    testModelTokenStreamRequiresCompleteNoteRecords();
     testUnsupportedMidiTokProgramRejectsAtomically();
     testUnsupportedRemiTokenRejectsAtomically();
     testPitchDrumTokenRejectsAtomicallyForPianoCheckpoint();

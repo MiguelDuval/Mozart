@@ -331,27 +331,77 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeTokensToPro
         return {std::move(empty), std::move(report)};
     }
 
+    enum class NoteTokenStage { Ready, NeedVelocity, NeedDuration };
+    NoteTokenStage noteStage = NoteTokenStage::Ready;
+    std::string streamError;
     std::vector<RemiEvent> remiEvents;
     remiEvents.reserve(tokenReport.tokenNames.size());
+
     for (const auto& name : tokenReport.tokenNames) {
         if (name == "PAD_None" || name == "BOS_None" || name == "MASK_None") {
+            if (noteStage != NoteTokenStage::Ready) {
+                streamError = "Special token interrupted an incomplete note record";
+                break;
+            }
             continue;
         }
         if (name == "EOS_None") {
+            if (noteStage != NoteTokenStage::Ready) {
+                streamError = "EOS arrived before the note's required velocity/duration tokens";
+            }
+            break;
+        }
+
+        const bool isPitch = name.rfind("Pitch_", 0) == 0 ||
+                             name.rfind("PitchDrum_", 0) == 0;
+        const bool isVelocity = name.rfind("Velocity_", 0) == 0;
+        const bool isDuration = name.rfind("Duration_", 0) == 0;
+
+        if (isPitch) {
+            if (noteStage != NoteTokenStage::Ready) {
+                streamError = "A pitch token arrived before the previous note record was complete";
+                break;
+            }
+            noteStage = config_.useVelocities
+                ? NoteTokenStage::NeedVelocity
+                : NoteTokenStage::NeedDuration;
+        } else if (isVelocity) {
+            if (noteStage != NoteTokenStage::NeedVelocity) {
+                streamError = "Velocity token is out of order for the configured tokenizer";
+                break;
+            }
+            noteStage = NoteTokenStage::NeedDuration;
+        } else if (isDuration) {
+            if (noteStage != NoteTokenStage::NeedDuration) {
+                streamError = "Duration token has no preceding pitch/velocity record";
+                break;
+            }
+            noteStage = NoteTokenStage::Ready;
+        } else if (noteStage != NoteTokenStage::Ready) {
+            streamError = "Unexpected REMI token interrupted an incomplete note record";
             break;
         }
 
         const auto event = tokenNameToEvent(name);
         if (!event.has_value()) {
-            PatternProposal empty;
-            RemiDecodeReport report;
-            report.message = "Unsupported REMI token: " + name;
-            report.processedTokens = tokenIds.size();
-            report.droppedTokens = 1;
-            report.warnings.push_back(report.message);
-            return {std::move(empty), std::move(report)};
+            streamError = "Unsupported REMI token: " + name;
+            break;
         }
         remiEvents.push_back(*event);
+    }
+
+    if (streamError.empty() && noteStage != NoteTokenStage::Ready) {
+        streamError = "REMI token stream ended with an incomplete note record";
+    }
+    if (!streamError.empty()) {
+        PatternProposal empty;
+        empty.seed = request.seed.value_or(0);
+        RemiDecodeReport report;
+        report.message = streamError;
+        report.processedTokens = tokenIds.size();
+        report.droppedTokens = 1;
+        report.warnings.push_back(streamError);
+        return {std::move(empty), std::move(report)};
     }
 
     auto [proposal, report] =
