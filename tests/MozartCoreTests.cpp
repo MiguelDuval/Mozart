@@ -2723,6 +2723,35 @@ int main() {
 
 #ifdef LINK_PLATFORM_LINUX
     {
+        // REMI proposals must cross the explicit conversion boundary before
+        // entering the scheduler; unsupported content must not occupy its slot.
+        TestMidiOutput midiOutput;
+        mozart::runtime::MozartRuntime runtime(midiOutput);
+
+        mozart::remi::PatternProposal unsupported;
+        unsupported.providerId = "remi-runtime-test";
+        unsupported.totalTicks = 1920;
+        unsupported.trackCount = 1;
+        unsupported.events.push_back(
+                mozart::remi::NoteEvent{60, 100, 0, 480, 0, 0});
+        unsupported.events.push_back(
+                mozart::remi::ProgramChangeEvent{0, 0, 10});
+        assert(!runtime.queueGeneratedRemiPattern(unsupported));
+
+        mozart::remi::PatternProposal valid;
+        valid.providerId = "remi-runtime-test";
+        valid.seed = 42;
+        valid.totalTicks = 1920;
+        valid.trackCount = 1;
+        valid.events.push_back(
+                mozart::remi::NoteEvent{60, 100, 0, 480, 0, 0});
+        assert(runtime.queueGeneratedRemiPattern(valid));
+        assert(!runtime.queueGeneratedRemiPattern(valid));
+    }
+#endif
+
+#ifdef LINK_PLATFORM_LINUX
+    {
         // Prove the bounded handoff is not merely accepted: a queued AI note
         // must cross the normal Link-quantized scheduler -> MIDI queue path.
         class GeneratedPatternOutput final
