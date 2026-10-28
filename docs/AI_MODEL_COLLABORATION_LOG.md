@@ -559,3 +559,8 @@ Extended the Android JVM contract tests beyond manifest validation: the REMI/BPE
 ## 2026-10-28 — ChatGPT — Extend real-artifact smoke into the typed REMI adapter and Link converter
 
 The real-checkpoint runner now compiles the existing production `RemiDecoderConfig`, `RemiEventAdapter`, `PatternProposalValidator`, and `RemiToLinkPatternConverter` alongside `BpeTokenizer.cpp`. After verifying all external token IDs and the complete 20k vocabulary, it records whether the actual ONNX-generated prefix decodes into a valid typed proposal and whether that proposal converts to the Link scheduler representation. It explicitly reports `provider_ready=false` when the real generated sequence lacks EOS; it does not append an invented EOS, truncate malformed note records silently, or drop program-change events to force conversion. This is a diagnostic extension: the latest exact-SHA report still needs to establish the actual stage statuses before the adapter-to-scheduler path can be called operational.
+
+
+## 2026-10-28 — ChatGPT — Fix the real-output adapter smoke's tokenizer ownership type
+
+The first compile of the new real-output adapter diagnostic failed at the test harness boundary: production `BpeTokenizer::loadFromJson` returns `std::optional<BpeTokenizer>`, while `RemiEventAdapter` intentionally accepts an owned `std::shared_ptr<BpeTokenizer>`. Updated the smoke harness to construct a shared copy for the adapter instead of passing the optional wrapper. This is confined to the test harness; production tokenizer ownership and validation contracts are unchanged. Exact-SHA real-checkpoint workflow rerun is pending.

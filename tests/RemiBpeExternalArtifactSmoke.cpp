@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -180,7 +181,8 @@ int main(int argc, char** argv) {
     // provider_ready flag remains false unless the generated stream has BOS/EOS.
     try {
         const auto config = mozart::remi::RemiDecoderConfig::fromTokenizerJson(argv[1]);
-        mozart::remi::RemiEventAdapter adapter(config, tokenizer);
+        const auto adapterTokenizer = std::make_shared<mozart::remi::BpeTokenizer>(*tokenizer);
+        mozart::remi::RemiEventAdapter adapter(config, adapterTokenizer);
         mozart::remi::GenerationRequest request;
         request.seed = 20261028U;
         auto [proposal, decodeReport] = adapter.decodeTokensToProposal(
