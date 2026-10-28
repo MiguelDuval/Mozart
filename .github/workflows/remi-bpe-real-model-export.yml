@@ -116,6 +116,7 @@ jobs:
             src/remi/RemiDecoderConfig.cpp \
             src/remi/RemiEventAdapter.cpp \
             src/remi/GenerationTypes.cpp \
+            src/generation/RemiBpePatternProvider.cpp \
             src/generation/RemiToLinkPatternConverter.cpp \
             src/musical/KeyScale.cpp \
             src/musical/Chord.cpp \
@@ -138,6 +139,31 @@ jobs:
           cpp_report = json.loads(cpp_path.read_text(encoding="utf-8"))
           if cpp_report.get("status") != "verified" or cpp_report.get("all_vocab_entries_decodable") is not True:
               raise SystemExit("C++ real-tokenizer verification report is not fully verified")
+          if cpp_report.get("production_provider_initialized") is not True:
+              raise SystemExit("Mozart production REMI/BPE provider failed to load the actual paired tokenizer")
+          if cpp_report.get("production_provider_inference_calls") != 1:
+              raise SystemExit("production provider did not replay the exact ONNX-generated stream once")
+          if cpp_report.get("complete_bos_eos_stream") is False:
+              message = str(cpp_report.get("production_provider_message", ""))
+              if (
+                  cpp_report.get("production_provider_status") != "failed"
+                  or cpp_report.get("production_provider_ready") is not False
+                  or cpp_report.get("production_provider_note_count") != 0
+                  or cpp_report.get("production_provider_control_count") != 0
+                  or "BOS/EOS terminated" not in message
+              ):
+                  raise SystemExit("unterminated real output was not rejected atomically by the production provider")
+              provider_gate_status = "production_provider_correctly_rejected_unterminated_stream"
+          elif cpp_report.get("production_provider_ready") is True:
+              provider_gate_status = "production_provider_accepted_complete_stream"
+          else:
+              if (
+                  cpp_report.get("production_provider_status") != "failed"
+                  or cpp_report.get("production_provider_note_count") != 0
+                  or cpp_report.get("production_provider_control_count") != 0
+              ):
+                  raise SystemExit("production provider did not fail closed on the complete model output")
+              provider_gate_status = "production_provider_correctly_rejected_complete_stream"
           if cpp_report.get("semantic_proposal_valid") is not True:
               raise SystemExit("actual ONNX output has no valid complete-event REMI proposal")
           if cpp_report.get("semantic_adapter_status") not in {"valid_proposal", "valid_diagnostic_prefix"}:
@@ -166,6 +192,7 @@ jobs:
               integration_path_status = "full_stream_converted_but_provider_gate_not_satisfied"
           report = {
               "status": "verified",
+              "production_provider_gate_status": provider_gate_status,
               "integration_path_status": integration_path_status,
               "model_use": "technical_integration_fixture_only_not_broad_edm",
               "model_id": manifest["model_id"],

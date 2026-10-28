@@ -624,3 +624,8 @@ The artifact-backed integration smoke now passes the typed REMI adapter → Link
 - a syntactically complete note prefix without EOS fails atomically and returns no scheduler events;
 - a PAD token inside the generated body fails atomically even when the note and EOS around it are otherwise valid.
 These tests exercise the existing production provider checks; they do not relax EOS or misplaced-special-token validation.
+
+
+## 2026-10-28 — ChatGPT — Exercise the production provider with exact real-model output
+
+Extended the real-checkpoint integration workflow one layer deeper. The C++ smoke now replays the exact ONNX-generated token IDs through Mozart's actual `RemiBpePatternProvider` using a minimal fake backend that replaces only the inference boundary. The provider loads the exact learned tokenizer, verifies vocabulary pairing, and runs its production BOS/EOS and malformed-special-token gates. The report records initialization, status, message, inference count and proposal event counts. When the real sequence has no EOS, the workflow now requires the production provider to reject it atomically with an empty proposal and the explicit BOS/EOS termination error; the separate shorter-prefix diagnostic remains non-production evidence only. No generation or validation rule is weakened.

@@ -2,6 +2,7 @@
 #include "remi/RemiDecoderConfig.h"
 #include "remi/RemiEventAdapter.h"
 #include "generation/RemiToLinkPatternConverter.h"
+#include "generation/RemiBpePatternProvider.h"
 #include "json.hpp"
 
 #include <cstdint>
@@ -50,6 +51,66 @@ bool assertSpecial(
         return false;
     }
     return true;
+}
+
+class RealTokenReplayBackend final : public mozart::generation::RemiBpeInferenceBackend {
+public:
+    RealTokenReplayBackend(
+            std::string tokenizerPath,
+            std::size_t vocabularySize,
+            std::vector<std::uint32_t> tokenIds)
+        : tokenizerPath_(std::move(tokenizerPath)),
+          vocabularySize_(vocabularySize),
+          tokenIds_(std::move(tokenIds)) {}
+
+    mozart::generation::RemiBpeTokenInferenceResult generateRemiTokens(
+            const mozart::generation::GenerationRequest&,
+            const std::size_t) override {
+        ++inferenceCalls_;
+        return {
+            mozart::generation::TokenInferenceStatus::Ok,
+            tokenIds_,
+            0.75,
+            1,
+            {}
+        };
+    }
+
+    bool isAvailable() const noexcept override {
+        return true;
+    }
+
+    std::string id() const override {
+        return "real-checkpoint-replay";
+    }
+
+    std::string tokenizerArtifactPath() const override {
+        return tokenizerPath_;
+    }
+
+    std::size_t expectedVocabularySize() const noexcept override {
+        return vocabularySize_;
+    }
+
+    std::size_t inferenceCalls() const noexcept {
+        return inferenceCalls_;
+    }
+
+private:
+    std::string tokenizerPath_;
+    std::size_t vocabularySize_;
+    std::vector<std::uint32_t> tokenIds_;
+    std::size_t inferenceCalls_ = 0;
+};
+
+const char* generationStatusName(const mozart::generation::GenerationStatus status) {
+    switch (status) {
+        case mozart::generation::GenerationStatus::Ok: return "ok";
+        case mozart::generation::GenerationStatus::InvalidRequest: return "invalid_request";
+        case mozart::generation::GenerationStatus::Unavailable: return "unavailable";
+        case mozart::generation::GenerationStatus::Failed: return "failed";
+    }
+    return "unknown";
 }
 } // namespace
 
@@ -176,6 +237,13 @@ int main(int argc, char** argv) {
         {"complete_bos_eos_stream", completeBosEosStream},
         {"no_misplaced_special_tokens", noMisplacedSpecialTokens},
         {"provider_ready", false},
+        {"production_provider_initialized", false},
+        {"production_provider_status", "not_run"},
+        {"production_provider_message", ""},
+        {"production_provider_ready", false},
+        {"production_provider_note_count", 0},
+        {"production_provider_control_count", 0},
+        {"production_provider_inference_calls", 0},
         {"semantic_adapter_status", "not_run"},
         {"semantic_adapter_message", ""},
         {"semantic_proposal_valid", false},
@@ -191,6 +259,34 @@ int main(int argc, char** argv) {
         {"link_note_count", 0},
         {"link_control_count", 0}
     };
+
+    // Exercise the production REMI/BPE provider with the exact unmodified
+    // ONNX output. The replay backend replaces only the model inference call;
+    // tokenizer loading, BOS/EOS gates, strict decoding, conversion and shared
+    // request validation are the production implementation under test.
+    try {
+        RealTokenReplayBackend replayBackend(argv[1], tokenizer->vocabSize(), tokenIds);
+        mozart::generation::RemiBpePatternProvider productionProvider(replayBackend);
+        report["production_provider_initialized"] = productionProvider.tokenizerReady();
+        report["production_provider_inference_calls"] = 0;
+        if (!productionProvider.tokenizerReady()) {
+            report["production_provider_status"] = "initialization_failed";
+            report["production_provider_message"] = productionProvider.initializationError();
+        } else {
+            mozart::generation::GenerationRequest productionRequest;
+            productionRequest.bars = 16;
+            const auto productionResult = productionProvider.generate(productionRequest);
+            report["production_provider_status"] = generationStatusName(productionResult.status);
+            report["production_provider_message"] = productionResult.message;
+            report["production_provider_ready"] = productionResult.ok();
+            report["production_provider_note_count"] = productionResult.proposal.noteEvents.size();
+            report["production_provider_control_count"] = productionResult.proposal.controlEvents.size();
+            report["production_provider_inference_calls"] = replayBackend.inferenceCalls();
+        }
+    } catch (const std::exception& error) {
+        report["production_provider_status"] = "exception";
+        report["production_provider_message"] = error.what();
+    }
 
     // First test the complete generated stream without repairing it. If a bounded
     // diagnostic generation ends mid-note and has no EOS, try shorter prefixes
