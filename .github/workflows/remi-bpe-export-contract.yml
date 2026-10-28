@@ -1,0 +1,77 @@
+name: REMI/BPE Export Contract
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+    paths:
+      - ".github/workflows/remi-bpe-export-contract.yml"
+      - "tools/export_remi_bpe_onnx.py"
+      - "tools/validate_model_manifest.py"
+      - "tools/requirements-onnx-export.txt"
+      - "tools/requirements-remi-onnx-export.txt"
+      - "tests/test_remi_bpe_onnx_export.py"
+      - "tests/test_validate_model_manifest.py"
+      - "tests/fixtures/remi_tokenizer_fixture.json"
+      - "docs/remi-bpe-onnx-manifest.example.json"
+      - "docs/model-manifest.example.json"
+      - "docs/experimental-onnx-manifest.example.json"
+  pull_request:
+    branches:
+      - main
+      - "feature/**"
+    paths:
+      - ".github/workflows/remi-bpe-export-contract.yml"
+      - "tools/export_remi_bpe_onnx.py"
+      - "tools/validate_model_manifest.py"
+      - "tools/requirements-onnx-export.txt"
+      - "tools/requirements-remi-onnx-export.txt"
+      - "tests/test_remi_bpe_onnx_export.py"
+      - "tests/test_validate_model_manifest.py"
+      - "tests/fixtures/remi_tokenizer_fixture.json"
+      - "docs/remi-bpe-onnx-manifest.example.json"
+      - "docs/model-manifest.example.json"
+      - "docs/experimental-onnx-manifest.example.json"
+  workflow_dispatch:
+
+concurrency:
+  group: remi-bpe-export-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/requirements-onnx-export.txt
+
+      - name: Install pinned CPU ONNX test toolchain
+        run: python3 -m pip install --disable-pip-version-check --no-cache-dir -r tools/requirements-onnx-export.txt
+
+      - name: Validate model manifest templates
+        run: |
+          set -euo pipefail
+          python3 tools/validate_model_manifest.py docs/model-manifest.example.json
+          python3 tools/validate_model_manifest.py docs/experimental-onnx-manifest.example.json
+          python3 tools/validate_model_manifest.py docs/remi-bpe-onnx-manifest.example.json
+
+      - name: Test model manifest validator
+        run: python3 -m unittest discover -s tests -p 'test_validate_model_manifest.py'
+
+      - name: Test REMI/BPE tokenizer and graph export contract
+        run: python3 -m unittest discover -s tests -p 'test_remi_bpe_onnx_export.py'
+
+      - name: Compile export tools
+        run: python3 -m py_compile tools/export_remi_bpe_onnx.py tools/validate_model_manifest.py

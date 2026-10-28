@@ -6,19 +6,9 @@ on:
       - main
       - "feature/**"
     paths:
-      - ".github/workflows/ml-model.yml"
-
       - "tools/build_fixture_corpus.py"
       - "tools/train_mozart_model.py"
       - "tools/export_mozart_onnx.py"
-      - "tools/export_remi_bpe_onnx.py"
-      - "tools/requirements-remi-onnx-export.txt"
-      - "docs/remi-bpe-onnx-manifest.example.json"
-      - "tests/test_remi_bpe_onnx_export.py"
-      - "tools/validate_model_manifest.py"
-      - "tests/test_validate_model_manifest.py"
-      - "docs/MODEL-MANIFEST.md"
-      - "docs/EXPERIMENTAL-ONNX-BACKEND.md"
       - "tools/inspect_mozart_onnx.py"
       - "tools/mozart_model.py"
       - "tools/midi_to_training_example.py"
@@ -58,14 +48,6 @@ on:
       - "tools/build_fixture_corpus.py"
       - "tools/train_mozart_model.py"
       - "tools/export_mozart_onnx.py"
-      - "tools/export_remi_bpe_onnx.py"
-      - "tools/requirements-remi-onnx-export.txt"
-      - "docs/remi-bpe-onnx-manifest.example.json"
-      - "tests/test_remi_bpe_onnx_export.py"
-      - "tools/validate_model_manifest.py"
-      - "tests/test_validate_model_manifest.py"
-      - "docs/MODEL-MANIFEST.md"
-      - "docs/EXPERIMENTAL-ONNX-BACKEND.md"
       - "tools/inspect_mozart_onnx.py"
       - "tools/mozart_model.py"
       - "tools/midi_to_training_example.py"
@@ -151,12 +133,6 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_validate_model_manifest.py'
 
-      - name: Test REMI/BPE tokenizer and ONNX export contract
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m unittest discover -s tests -p 'test_remi_bpe_onnx_export.py'
-
       - name: Test compact model configuration
         shell: bash
         run: |
@@ -183,7 +159,6 @@ jobs:
             tools/mozart_model.py \
             tools/train_mozart_model.py \
             tools/export_mozart_onnx.py \
-            tools/export_remi_bpe_onnx.py \
             tools/inspect_mozart_onnx.py \
             tools/evaluate_mozart_conditioning.py \
             tools/evaluate_mozart_conditioning_sequence.py \
