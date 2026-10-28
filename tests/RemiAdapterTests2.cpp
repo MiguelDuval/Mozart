@@ -768,19 +768,27 @@ void testDurationTokenZeroBeats() {
     GenerationRequest request;
     request.barCount = 1;
     auto [proposal, report] = adapter.decodeTokensToProposal(tokenIds, request, "test", "test-model");
-    // Duration_0.0.8 yields duration=0 ticks. The decoded proposal contains
-    // the note with zero duration; sanitize (PatternProposalValidator)
-    // filters it out so no invalid duration leaks to the scheduler.
+    // parseDuration rejects zero-tick durations instead of producing a Duration event.
+    // The invalid token is counted as dropped and the note safely retains the configured
+    // default duration; no zero-duration note reaches validation or the scheduler.
     auto notes = proposal.notes();
     assert(notes.size() == 1);
-    assert(notes[0].duration == 0);
+    assert(notes[0].duration == config.ticksPerBeat / 4);
+    assert(report.droppedTokens == 1);
+    assert(std::find_if(report.warnings.begin(), report.warnings.end(),
+                        [](const std::string& warning) {
+                            return warning.find("Unknown token: Duration_0.0.8") !=
+                                   std::string::npos;
+                        }) != report.warnings.end());
 
     PatternProposalValidator validator;
-    auto [sanitized, sanitizeReport] = validator.sanitize(proposal);
-    // All events filtered (zero-duration note is invalid) → EmptyProposal, not Ok
-    assert(sanitized.notes().size() == 0);
+    const auto validation = validator.validate(proposal);
+    assert(validation.isOk());
+    for (const auto& note : notes) {
+        assert(note.duration > 0);
+    }
 
-    std::cout << "  Duration_ token with zero beats: PASSED (sanitize filters zero-duration note)"
+    std::cout << "  Zero-beat Duration_ token rejected; default duration retained: PASSED"
               << std::endl;
 }
 
