@@ -6,6 +6,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <cmath>
+#include <stdexcept>
+#include <utility>
 #include <sstream>
 #include <string>
 #include <vector>

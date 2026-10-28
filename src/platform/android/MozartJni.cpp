@@ -288,7 +288,7 @@ Java_com_miguelduval_mozart_MainActivity_nativeRegisterExperimentalModel(
                 if (tokenizerName.empty() || tokenizerName == "." ||
                     tokenizerName == ".." ||
                     tokenizerName.find('/') != std::string::npos ||
-                    tokenizerName.find('\\\\') != std::string::npos) {
+                    tokenizerName.find('\\') != std::string::npos) {
                     return JNI_FALSE;
                 }
             }

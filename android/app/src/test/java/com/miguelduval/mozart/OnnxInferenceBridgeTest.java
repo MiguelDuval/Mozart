@@ -511,4 +511,76 @@ public class OnnxInferenceBridgeTest {
         }
     }
 
+
+    @Test
+    public void remiBpeRejectsTheLegacy512Vocabulary() throws Exception {
+        final JSONObject manifest = new JSONObject();
+        manifest.put("manifest_schema_version", 1);
+        manifest.put("model_format", "onnx");
+        manifest.put("vocabulary_id", "mozart-midi-events-v1");
+        manifest.put("vocabulary_size", 512);
+        manifest.put("context_length_tokens", 16);
+        manifest.put("max_generated_tokens", 8);
+        try {
+            validateRemiManifestForTest(manifest);
+            fail("expected external vocabulary rejection");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("vocabulary or length"));
+        }
+    }
+
+    @Test
+    public void remiBpeRejectsMozartTokenModeEvenWithMatchingExternalSize() throws Exception {
+        final JSONObject manifest = new JSONObject();
+        manifest.put("manifest_schema_version", 1);
+        manifest.put("model_format", "onnx");
+        manifest.put("vocabulary_id", "miditok-remi-bpe-v1");
+        manifest.put("vocabulary_size", 23);
+        manifest.put("context_length_tokens", 16);
+        manifest.put("max_generated_tokens", 8);
+        final JSONObject runtime = new JSONObject();
+        runtime.put("backend", "onnxruntime");
+        runtime.put("token_mode", "mozart_ids");
+        runtime.put("external_vocabulary_size", 23);
+        runtime.put("input_dtype", "int64");
+        manifest.put("runtime", runtime);
+        try {
+            validateRemiManifestForTest(manifest);
+            fail("expected REMI token-mode rejection");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("REMI/BPE ONNX token ABI"));
+        }
+    }
+
+    @Test
+    public void remiBpeArgmaxDoesNotAssumeTheMozartVocabularyRanges() throws Exception {
+        final Method method = OnnxInferenceBridge.class.getDeclaredMethod(
+                "argmaxRemiBpeToken", double[].class, int.class, int.class, int.class);
+        method.setAccessible(true);
+        // PAD/BOS/MASK have larger logits than EOS; only EOS is allowed among them.
+        final int next = (Integer) method.invoke(null,
+                new double[] {0.0, 100.0, 90.0, 20.0, 1.0},
+                0, 1, 2);
+        assertEquals(3, next);
+    }
+
+    private static void validateRemiManifestForTest(JSONObject root) throws Exception {
+        final Method method = OnnxInferenceBridge.class.getDeclaredMethod(
+                "validateRemiBpeManifest", JSONObject.class,
+                java.io.File.class, java.io.File.class, java.io.File.class);
+        method.setAccessible(true);
+        try {
+            method.invoke(null, root, new java.io.File("missing.onnx"),
+                    new java.io.File("missing-manifest.json"),
+                    new java.io.File("missing-tokenizer.json"));
+        } catch (InvocationTargetException wrapped) {
+            final Throwable cause = wrapped.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                throw (IllegalArgumentException) cause;
+            }
+            if (cause instanceof Exception) throw (Exception) cause;
+            throw wrapped;
+        }
+    }
+
 }

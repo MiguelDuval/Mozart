@@ -455,7 +455,7 @@ public final class OnnxInferenceBridge {
         }
         final String tokenizerName = runtime.optString("tokenizer_file", "");
         if (tokenizerName.isEmpty() || tokenizerName.contains("/") ||
-                tokenizerName.contains("\\\\") || tokenizerName.equals(".") ||
+                tokenizerName.contains("\\") || tokenizerName.equals(".") ||
                 tokenizerName.equals("..") || !tokenizerFile.getName().equals(tokenizerName) ||
                 !new File(manifestFile.getParentFile(), tokenizerName).getCanonicalFile()
                         .equals(tokenizerFile.getCanonicalFile())) {
