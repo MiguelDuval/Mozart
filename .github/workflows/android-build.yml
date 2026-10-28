@@ -38,17 +38,41 @@ jobs:
           cache-provider: basic
 
       - name: Install Android toolchain
+        id: install-android-toolchain
         shell: bash
         run: |
           set -euo pipefail
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          set +o pipefail
-          yes | "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
-          status=${PIPESTATUS[1]}
-          set -o pipefail
-          if [ "$status" -ne 0 ]; then
-            exit "$status"
-          fi
+          packages=("platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1")
+          status=1
+
+          # sdkmanager occasionally receives a truncated NDK archive from the
+          # package mirror. Retry the entire install after removing partial
+          # package/cache state; do not fail the build on the first bad download.
+          for attempt in 1 2 3; do
+            set +e
+            yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" "${packages[@]}"
+            status=${PIPESTATUS[1]}
+            set -e
+
+            if [[ "$status" -eq 0 ]]; then
+              break
+            fi
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "Android SDK package installation failed after ${attempt} attempts (sdkmanager exit $status)." >&2
+              exit "$status"
+            fi
+
+            echo "Android SDK package installation attempt ${attempt} failed; clearing partial NDK/download cache and retrying." >&2
+            rm -rf "$ANDROID_HOME/ndk/28.2.13676358" "$ANDROID_HOME/temp" "$HOME/.android/cache"
+            mkdir -p "$ANDROID_HOME/temp" "$HOME/.android/cache"
+            sleep "$((attempt * 5))"
+          done
+
+          test -d "$ANDROID_HOME/platforms/android-36"
+          test -d "$ANDROID_HOME/build-tools/36.0.0"
+          test -d "$ANDROID_HOME/ndk/28.2.13676358"
+          test -x "$ANDROID_HOME/cmake/3.22.1/bin/cmake"
 
       - name: Fetch pinned Ableton Link
         shell: bash
@@ -410,7 +434,7 @@ jobs:
           retention-days: 14
 
       - name: Final emulator smoke gate
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-android-toolchain.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
