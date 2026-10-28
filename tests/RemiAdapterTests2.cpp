@@ -741,9 +741,10 @@ void testDurationTokenZeroBeats() {
   "_vocab_base_byte_to_token": {
     "a": "Bar_None",
     "b": "Pitch_60",
+    "c": "Position_0",
     "z": "Duration_0.0.8"
   },
-  "_model": "{\"model\":{\"vocab\":{\"PAD_None\":0,\"BOS_None\":1,\"EOS_None\":2,\"MASK_None\":3,\"a\":4,\"b\":5,\"z\":6},\"merges\":[]}}",
+  "_model": "{\"model\":{\"vocab\":{\"PAD_None\":0,\"BOS_None\":1,\"EOS_None\":2,\"MASK_None\":3,\"a\":4,\"b\":5,\"c\":6,\"z\":7},\"merges\":[]}}",
   "config": {}
 })json";
     }
