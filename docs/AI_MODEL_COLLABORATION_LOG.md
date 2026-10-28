@@ -121,3 +121,50 @@ Check CI on the new log commit SHA. Then make the next small vertical slice: def
 
 ### Message for ChatGPT
 The original branches and `main` remain untouched. Focused native converter tests passed; the remaining goal is real GenerationService-to-runtime wiring, with model/tokenizer and hardware synchronization evidence kept explicitly separate.
+
+
+---
+
+## 2026-10-28 — ChatGPT — Runtime REMI handoff and request-gate integration
+
+### Context
+Continued the previous bridge work after focused converter tests passed. The first runtime-facing API draft was deliberately tightened after reviewing `docs/AI-GENERATION.md`: the REMI path must use the same request-aware `generation::PatternProposalValidator` gate as the existing provider, not just structural validation.
+
+### Executed
+1. Added `MozartRuntime::queueGeneratedRemiPattern(proposal, request)` as an explicit non-realtime entry point.
+2. The method converts a REMI proposal atomically, validates the converted proposal against the supplied `GenerationRequest` using the existing shared validator, then hands the complete validated proposal to the existing scheduler. It does not call inference, Link, or MIDI transport on a realtime callback.
+3. Added runtime integration coverage for:
+   - rejection of an otherwise valid proposal containing an unsupported program change;
+   - rejection when the proposal cannot satisfy the request's key/pitch constraints;
+   - proving either rejection leaves the pending scheduler slot available for a subsequent valid proposal;
+   - duplicate pending proposal rejection.
+4. Extended the Link-enabled native test target to compile the converter and REMI proposal implementation. Extended the focused workflow to build and execute both the pure converter suite and the Link-enabled native runtime suite, including the new runtime integration test.
+
+### Verified Evidence
+- Exact HEAD before this log entry: `4f3271fae2176eafe56a5d4c1fe385490176590e`.
+- Focused REMI-to-Link tests passed, and the Link-enabled `mozart_core_tests` target compiled and ran successfully on that SHA: [REMI-BPE Link Integration Tests run 40734806198](https://github.com/MiguelDuval/Mozart/actions/runs/40734806198).
+- An intermediate commit (`aa5200b`) failed compilation because the public method signature had been updated before the matching implementation/test call sites landed. The later commits synchronized the declaration, implementation, and tests; exact-SHA CI on `4f3271f` then passed. This intermediate failure is superseded, not hidden.
+- Android Build on SHA `4f3271f` was still pending at the time of this entry: [run 40734806223](https://github.com/MiguelDuval/Mozart/actions/runs/40734806223).
+
+### Unverified / Still Open
+- The REMI entry point accepts an already-decoded `remi::PatternProposal`; it does **not** yet route BPE token inference from the existing `GenerationService` through `RemiEventAdapter`. The existing service still uses its established MIDI-event token ABI and `LocalNeuralPatternProvider`.
+- Compatibility with the trained model's actual BPE/tokenizer artifact is not proven by these runtime tests.
+- The scheduler currently rejects control-bearing proposals. Consequently the converter can represent CC events, but the full runtime handoff will reject such proposals rather than silently dropping controls. Program changes are rejected by the converter for the same atomicity reason.
+- Physical MIDI delivery, hardware timing, audible output, and actual Link synchronization remain unverified by this CI.
+
+### Changed Files
+- `src/runtime/MozartRuntime.h`
+- `src/runtime/MozartRuntime.cpp`
+- `tests/MozartCoreTests.cpp`
+- `tests/CMakeLists.txt`
+- `.github/workflows/remi-bpe-link-integration-ci.yml`
+- `docs/AI_MODEL_COLLABORATION_LOG.md`
+
+### Result
+**PARTIALLY VERIFIED** — the tested runtime admission path now runs source validation, the shared request-aware validation gate, and the existing scheduler handoff. End-to-end BPE/model inference remains open.
+
+### Next Action
+Build the actual REMI/BPE inference path behind the current non-realtime generation worker boundary. Inspect the trained model's real tokenizer artifact and token ID shape first; do not assume the 12,000-ID BPE ABI is compatible with the existing frozen 512-token MIDI vocabulary. Add a separate, explicit output-format/provider boundary (or an equally clean design) that produces `remi::PatternProposal`, then send it through `queueGeneratedRemiPattern(proposal, request)`. Preserve lifecycle tickets, shared request validation, deterministic fallback, and the current note-only scheduler restriction. Keep both original branches and `main` untouched.
+
+### Message for ChatGPT
+Runtime admission and request validation are now tested on `4f3271f`. Do not claim the trained BPE model is connected yet: the outstanding work is the non-realtime REMI token-inference/provider path and its artifact-level compatibility tests.
