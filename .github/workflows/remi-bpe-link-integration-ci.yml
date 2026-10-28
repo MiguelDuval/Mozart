@@ -10,6 +10,8 @@ on:
       - "tests/RemiToLinkConverterTests.cpp"
       - "tests/CMakeLists.txt"
       - "third_party/nlohmann/json.hpp"
+      - ".github/workflows/android-build.yml"
+      - "docs/AI_MODEL_COLLABORATION_LOG.md"
       - ".github/workflows/remi-bpe-link-integration-ci.yml"
   pull_request:
     branches:
@@ -20,6 +22,8 @@ on:
       - "tests/RemiToLinkConverterTests.cpp"
       - "tests/CMakeLists.txt"
       - "third_party/nlohmann/json.hpp"
+      - ".github/workflows/android-build.yml"
+      - "docs/AI_MODEL_COLLABORATION_LOG.md"
       - ".github/workflows/remi-bpe-link-integration-ci.yml"
   workflow_dispatch:
 
