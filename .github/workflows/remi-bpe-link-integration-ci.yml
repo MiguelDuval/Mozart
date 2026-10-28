@@ -1,0 +1,48 @@
+name: REMI-BPE Link Integration Tests
+
+on:
+  push:
+    branches:
+      - "feature/remi-bpe-link-integration"
+    paths:
+      - "src/remi/**"
+      - "src/generation/RemiToLinkPatternConverter.*"
+      - "tests/RemiToLinkConverterTests.cpp"
+      - "tests/CMakeLists.txt"
+      - "third_party/nlohmann/json.hpp"
+      - ".github/workflows/remi-bpe-link-integration-ci.yml"
+  pull_request:
+    branches:
+      - "feature/link-clock"
+    paths:
+      - "src/remi/**"
+      - "src/generation/RemiToLinkPatternConverter.*"
+      - "tests/RemiToLinkConverterTests.cpp"
+      - "tests/CMakeLists.txt"
+      - "third_party/nlohmann/json.hpp"
+      - ".github/workflows/remi-bpe-link-integration-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: remi-bpe-link-integration-${{ github.head_ref || github.ref_name }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  converter-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+
+      - name: Configure focused native tests
+        run: cmake -S tests -B build/remi-tests -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build REMI-to-Link converter tests
+        run: cmake --build build/remi-tests --target mozart_remi_to_link_converter_tests --parallel 2
+
+      - name: Run REMI-to-Link converter tests
+        run: ./build/remi-tests/mozart_remi_to_link_converter_tests
