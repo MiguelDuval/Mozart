@@ -282,6 +282,32 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         self.assertIn("if (!active.get())", self.model_lab)
 
 
+    def test_activity_state_parser_supports_android_36_resumed_fields(self):
+        smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
+        start = smoke.index("activity_is_resumed() {")
+        end = smoke.index("\nwait_for_activity_to_stop()", start)
+        parser = smoke[start:end]
+
+        self.assertIn(
+            "mResumedActivity|topResumedActivity|^[[:space:]]*Resumed:",
+            parser,
+        )
+        self.assertIn(
+            "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity",
+            parser,
+        )
+
+    def test_stale_callback_recreate_guard_checks_back_delivery(self):
+        smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
+        start = smoke.index("exercise_runtime_smoke_recreate_guard() {")
+        end = smoke.index("\n}", start)
+        guard = smoke[start:end]
+
+        self.assertIn("if ! wait_for_adb_device; then", guard)
+        self.assertIn("adb shell input keyevent 4", guard)
+        self.assertIn("|| back_rc=$?", guard)
+        self.assertIn('if [[ "$back_rc" -ne 0 ]]', guard)
+
     def test_recreate_cycle_requires_live_adb_and_checks_back_delivery(self):
         smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
         start = smoke.index("exercise_activity_recreate_cycle()")

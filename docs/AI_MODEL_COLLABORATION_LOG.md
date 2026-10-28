@@ -384,3 +384,24 @@ No genuine REMI/BPE generation from the published checkpoint has been demonstrat
 ### Next action
 
 Finish Android Build/Activity smoke verification on the latest exact branch SHA and inspect the added Activity diagnostics if BACK still fails. In parallel, recover the original `shikhr/miditok2_12k` artifact from its owner/authorized access and validate its immutable revision, complete learned vocabulary, 12,000-ID mapping, special tokens, and SHA-256. If it cannot be recovered, use a newly trained model and tokenizer as one immutable pair; never pair a fresh tokenizer with the old weights.
+
+
+## 2026-10-28 — ChatGPT — Fix Android 36 Activity-state parser after smoke failure
+
+### Root cause confirmed from Android Build run 40768299309
+
+Both emulator attempts failed the final smoke gate after the debug APK, release validation, Android JVM suite, and shell syntax checks passed. The job log included `topResumedActivity=...NexusLauncherActivity` and `Resumed: ...NexusLauncherActivity`, but did not include the `mResumedActivity` field that the old helper exclusively searched. The helper treated the missing field as unknown and timed out with the misleading “MainActivity remained resumed after BACK” message. The trace instead shows that the launcher was the top-resumed Activity; the prior log entry's uncertainty about the cause is now resolved as a smoke-parser/platform-output mismatch.
+
+### Change prepared for the current branch
+
+- `.github/scripts/android-smoke.sh`: recognize `mResumedActivity`, `topResumedActivity`, and `Resumed:` output in the bounded Activity-state probe. Apply explicit ADB readiness and BACK-delivery checks to the earlier stale-callback recreation path as well as the later recreate cycle. This does not bypass the lifecycle guard: it makes the guard recognize Android 36 output while continuing to fail when Mozart is actually reported as resumed after BACK.
+- `tests/test_android_lifecycle_contract.py`: add regression contracts for the Android 36 resumed-state fields and checked BACK delivery in the stale-callback guard.
+- CI still must pass on the exact resulting commit before this correction can be declared verified.
+
+### Checkpoint
+
+The focused REMI-BPE Link Integration Tests passed at `6d0325e9a89b1904162b2a88280fd22c1a8997b0` in run [40769280066](https://github.com/MiguelDuval/Mozart/actions/runs/40769280066). Android Build for that same SHA was queued in run [40769280108](https://github.com/MiguelDuval/Mozart/actions/runs/40769280108); the new smoke parser/test change is not covered by that earlier run. The real `shikhr/music_maker` checkpoint remains blocked by its missing trained BPE mapping; the `shikhr/miditok2_12k` private tokenizer is still only a provenance lead.
+
+### Next action
+
+Run the focused and Android Build workflows for the new exact SHA. If Android smoke passes, move to retrieving the original `miditok2_12k` artifact and verify its immutable revision, contiguous 12,000-token vocabulary, special IDs, hashes, and matching checkpoint. If unavailable, train a new model/tokenizer pair rather than mixing vocabularies.

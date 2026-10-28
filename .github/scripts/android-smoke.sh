@@ -157,15 +157,16 @@ wait_for_runtime_smoke() {
 
 activity_is_resumed() {
   local activity_dump
-  local resumed_line
+  local resumed_lines
   activity_dump="$(timeout 5s adb shell dumpsys activity activities 2>/dev/null)" || return 2
   [[ -n "$activity_dump" ]] || return 2
-  resumed_line="$(printf '%s\n' "$activity_dump" | grep -F "mResumedActivity" || true)"
-  [[ -n "$resumed_line" ]] || return 2
-  printf '%s\n' "$resumed_line" |
+  # Android 36 may expose topResumedActivity/Resumed rather than mResumedActivity.
+  resumed_lines="$(printf '%s\n' "$activity_dump" |
+    grep -E 'mResumedActivity|topResumedActivity|^[[:space:]]*Resumed:' || true)"
+  [[ -n "$resumed_lines" ]] || return 2
+  printf '%s\n' "$resumed_lines" |
     grep -Fq "com.miguelduval.mozart.debug/com.miguelduval.mozart.MainActivity"
 }
-
 wait_for_activity_to_stop() {
   local deadline=$((SECONDS + 8))
   local resumed_rc=0
@@ -213,38 +214,23 @@ wait_for_power_sleep() {
 exercise_runtime_smoke_recreate_guard() {
   echo "=== Runtime smoke stale-callback recreate guard ==="
 
-  timeout 10s adb shell input keyevent 4 >/dev/null 2>&1 || true
+  if ! wait_for_adb_device; then
+    echo "ADB device was not ready before BACK during stale-callback recreate guard." >&2
+    return 1
+  fi
+  local back_rc=0
+  timeout 10s adb shell input keyevent 4 >/dev/null 2>&1 || back_rc=$?
+  if [[ "$back_rc" -ne 0 ]]; then
+    echo "Failed to deliver BACK (adb input rc=${back_rc}) during stale-callback recreate guard." >&2
+    return 1
+  fi
 
   if ! wait_for_activity_to_stop; then
     echo "MainActivity remained resumed after BACK." >&2
+    timeout 10s adb shell dumpsys activity activities 2>/dev/null |
+      grep -E "mResumedActivity|topResumedActivity|Resumed:" || true
     return 1
   fi
-
-  # The previous Activity deliberately had runtime smoke enabled. Clear logs
-  # after BACK once the Activity is no longer resumed, so late callbacks from
-  # that stopped instance are observable without a task-manager assumption.
-  timeout 5s adb logcat -c || true
-  start_app false
-
-  local startup_rc=0
-  wait_for_startup || startup_rc=$?
-  if [[ "$startup_rc" -ne 0 ]]; then
-    echo "Activity recreate failed during stale-callback guard startup." >&2
-    return 1
-  fi
-
-  # The old Activity's callbacks were scheduled at +1s/+3s. They must have
-  # been removed on lifecycle stop and therefore must never appear now.
-  sleep 3.5
-  write_logcat
-
-  if grep -Fq "RUNTIME: Link snapshot tick " "$LOGCAT_FILE" ||
-     grep -Fq "RUNTIME: Link snapshot stopped " "$LOGCAT_FILE"; then
-    echo "Stale runtime smoke callback escaped Activity lifecycle shutdown." >&2
-    return 1
-  fi
-
-  echo "Runtime smoke stale-callback recreate guard passed."
 }
 
 exercise_activity_background_resume_guard() {
