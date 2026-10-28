@@ -163,3 +163,6 @@ target_include_directories(mozart_remi_to_link_converter_tests PRIVATE
     ../third_party/nlohmann
 )
 target_compile_features(mozart_remi_to_link_converter_tests PRIVATE cxx_std_20)
+target_compile_definitions(mozart_remi_to_link_converter_tests PRIVATE
+    MOZART_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+)
