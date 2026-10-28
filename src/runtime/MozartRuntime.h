@@ -84,7 +84,8 @@ public:
     // complete proposal is converted and validated before queueing; failure
     // leaves the scheduler unchanged.
     [[nodiscard]] bool queueGeneratedRemiPattern(
-            const remi::PatternProposal& proposal);
+            const remi::PatternProposal& proposal,
+            const generation::GenerationRequest& request);
     [[nodiscard]] bool queueGeneratedResult(
             generation::GenerationResult result);
     [[nodiscard]] bool selectModel(std::string_view modelId);
