@@ -501,3 +501,8 @@ The first exact-SHA validation of the post-startup lifecycle arming change expos
 
 ### Verification
 The implementation is on the current feature branch and is awaiting exact-SHA exporter, native Link, and Android CI. Real checkpoint export remains pending a local complete artifact pair pinned to an immutable revision.
+
+
+## 2026-10-28 — ChatGPT — Validate model-config special IDs against learned tokenizer
+
+Follow-up hardening adds a pre-export check that any checkpoint-declared BOS, EOS, or PAD ID (including the nonstandard GPT-2 `pad` field when present) matches the paired learned MidiTok tokenizer. Hugging Face cache snapshot directories are also required to match the explicitly supplied immutable model revision. This prevents a valid-sized but mispaired tokenizer from passing the exporter only because its vocabulary length happens to match. The new exact-SHA exporter tests are pending.

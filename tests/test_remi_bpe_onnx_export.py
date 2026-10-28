@@ -19,6 +19,7 @@ from export_remi_bpe_onnx import (  # noqa: E402
     export_loaded_model,
     inspect_miditok_tokenizer,
     inspect_model_architecture,
+    validate_model_special_token_ids,
 )
 from validate_model_manifest import validate  # noqa: E402
 
@@ -84,6 +85,33 @@ class RemiBpeOnnxExportTests(unittest.TestCase):
                 {"model_type": "llama", "vocab_size": 23},
                 23,
                 trust_model_code=False,
+            )
+
+    def test_model_config_special_ids_must_match_tokenizer_ids(self) -> None:
+        token_ids = {"PAD_None": 0, "BOS_None": 1, "EOS_None": 2}
+        validate_model_special_token_ids(
+            {
+                "model_type": "gpt2",
+                "bos_token_id": 1,
+                "eos_token_id": 2,
+                "pad": 0,
+            },
+            token_ids,
+        )
+        with self.assertRaisesRegex(ValueError, "bos_token_id"):
+            validate_model_special_token_ids(
+                {
+                    "model_type": "gpt2",
+                    "bos_token_id": 7,
+                    "eos_token_id": 2,
+                    "pad": 0,
+                },
+                token_ids,
+            )
+        with self.assertRaisesRegex(ValueError, "pad"):
+            validate_model_special_token_ids(
+                {"model_type": "gpt2", "pad": 9},
+                token_ids,
             )
 
     def test_fixture_tokenizer_contract_uses_real_vocabulary_ids(self) -> None:

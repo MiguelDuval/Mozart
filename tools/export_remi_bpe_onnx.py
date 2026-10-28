@@ -195,6 +195,36 @@ def inspect_model_architecture(
     }
 
 
+def validate_model_special_token_ids(
+    model_config: dict[str, Any],
+    tokenizer_special_ids: dict[str, int],
+) -> None:
+    """Reject config-level BOS/EOS/PAD IDs that differ from the paired tokenizer."""
+    checks = [
+        ("bos_token_id", "BOS_None"),
+        ("eos_token_id", "EOS_None"),
+        ("pad_token_id", "PAD_None"),
+    ]
+    if model_config.get("model_type") == "gpt2" and "pad" in model_config:
+        checks.append(("pad", "PAD_None"))
+
+    for config_key, tokenizer_name in checks:
+        if config_key not in model_config or model_config[config_key] is None:
+            continue
+        configured_id = model_config[config_key]
+        tokenizer_id = tokenizer_special_ids.get(tokenizer_name)
+        if (
+            isinstance(configured_id, bool)
+            or not isinstance(configured_id, int)
+            or tokenizer_id is None
+            or configured_id != tokenizer_id
+        ):
+            raise ValueError(
+                f"model config {config_key} ({configured_id!r}) does not match "
+                f"tokenizer {tokenizer_name} ID ({tokenizer_id!r})"
+            )
+
+
 def _context_length(config: dict[str, Any]) -> int:
     for name in ("block_size", "max_position_embeddings", "n_positions", "max_sequence_length"):
         value = config.get(name)
@@ -489,6 +519,10 @@ def export_local_model(
         vocab_size,
         trust_model_code=trust_model_code,
     )
+    validate_model_special_token_ids(
+        model_config,
+        tokenizer_contract["special_token_ids"],
+    )
     context_length = _context_length(model_config)
     if sample_sequence_length < 1 or sample_sequence_length > context_length:
         raise ValueError("sample sequence length is outside model context")
@@ -496,6 +530,16 @@ def export_local_model(
         raise ValueError("max generated tokens is outside model context")
     if not re.fullmatch(r"[0-9a-fA-F]{40}", model_revision):
         raise ValueError("--model-revision must be a full immutable 40-character commit SHA")
+    if model_dir.parent.name == "snapshots":
+        snapshot_revision = model_dir.name
+        if (
+            re.fullmatch(r"[0-9a-fA-F]{40}", snapshot_revision)
+            and snapshot_revision.lower() != model_revision.lower()
+        ):
+            raise ValueError(
+                "model directory is a Hugging Face snapshot for a different revision "
+                f"({snapshot_revision} != {model_revision})"
+            )
     if model_id is None or not model_id.strip():
         model_id = model_dir.name
 
