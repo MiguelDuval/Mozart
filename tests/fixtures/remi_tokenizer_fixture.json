@@ -1,16 +1,67 @@
 {
-  "_vocab_base_byte_to_token": {
-    "a": "Bar_None",
-    "b": "Pitch_21",
-    "c": "Pitch_60",
-    "d": "Duration_0.1.8",
-    "e": "Position_0",
-    "f": "Position_8",
-    "g": "Velocity_15",
-    "h": "Tempo_15"
+  "tokenization": "REMI",
+  "_vocab_base": {
+    "PAD_None": 0,
+    "BOS_None": 1,
+    "EOS_None": 2,
+    "MASK_None": 3,
+    "Bar_None": 4,
+    "Pitch_21": 5,
+    "Pitch_60": 6,
+    "Duration_0.1.8": 7,
+    "Position_0": 8,
+    "Position_8": 9,
+    "Velocity_127": 10,
+    "Tempo_120": 11,
+    "TimeSig_4/4": 12,
+    "Program_10": 13
   },
-  "_model": "{\"model\":{\"vocab\":{\"PAD_None\":0,\"BOS_None\":1,\"EOS_None\":2,\"MASK_None\":3,\"a\":4,\"b\":5,\"c\":6,\"d\":7,\"e\":8,\"f\":9,\"g\":10,\"h\":11},\"merges\":[]}}",
+  "_vocab_base_byte_to_token": {
+    "!": "PAD_None",
+    "\"": "BOS_None",
+    "#": "EOS_None",
+    "$": "MASK_None",
+    "%": "Bar_None",
+    "&": "Pitch_21",
+    "'": "Pitch_60",
+    "(": "Duration_0.1.8",
+    ")": "Position_0",
+    "*": "Position_8",
+    "+": "Velocity_127",
+    ",": "Tempo_120",
+    "-": "TimeSig_4/4",
+    ".": "Program_10"
+  },
+  "_model": "{\"version\":\"1.0\",\"truncation\":null,\"padding\":null,\"added_tokens\":[],\"normalizer\":null,\"pre_tokenizer\":{\"type\":\"Metaspace\",\"replacement\":\"▁\",\"prepend_scheme\":\"always\"},\"post_processor\":null,\"decoder\":{\"type\":\"Metaspace\",\"replacement\":\"▁\",\"prepend_scheme\":\"always\"},\"model\":{\"type\":\"BPE\",\"dropout\":null,\"unk_token\":null,\"continuing_subword_prefix\":\"##\",\"end_of_word_suffix\":\"</w>\",\"fuse_unk\":false,\"byte_fallback\":false,\"ignore_merges\":false,\"vocab\":{\"!\":0,\"\\\"\":1,\"#\":2,\"$\":3,\"%\":4,\"&\":5,\"'\":6,\"(\":7,\")\":8,\"*\":9,\"+\":10,\",\":11,\"-\":12,\".\":13,\"%&\":14,\"##%\":15,\"%</w>\":16,\"▁&\":17},\"merges\":[\"% &\"]}}",
   "config": {
-    "special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"]
+    "pitch_range": [
+      21,
+      109
+    ],
+    "beat_res": {
+      "0_4": 8,
+      "4_12": 4
+    },
+    "num_velocities": 32,
+    "special_tokens": [
+      "PAD_None",
+      "BOS_None",
+      "EOS_None",
+      "MASK_None"
+    ],
+    "use_velocities": true,
+    "use_tempos": true,
+    "num_tempos": 32,
+    "tempo_range": [
+      40,
+      250
+    ],
+    "default_note_duration": 0.5,
+    "programs": [
+      -1,
+      0,
+      10,
+      127
+    ]
   }
 }
