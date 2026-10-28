@@ -262,3 +262,48 @@ Implement a concrete backend only after inspecting the actual checkpoint/export 
 
 ### Message for ChatGPT
 The GenerationService vertical slice is in place and native CI is green on the exact code SHA above. Continue with the concrete model/export compatibility boundary; do not treat the fake-backend test or the legacy Android ONNX path as evidence that `shikhr/music_maker` inference is operational.
+
+
+## 2026-10-28 — ChatGPT — REMI/BPE vocabulary compatibility gate and published checkpoint audit
+
+### Context
+The REMI/BPE provider was routed through the existing GenerationService worker, but an artifact-backed check was still needed to ensure the tokenizer really contains the learned BPE vocabulary matching the model's output logits. A base REMI vocabulary is not interchangeable with a trained 12,000-ID vocabulary.
+
+### Executed
+1. Added BpeTokenizer::hasLearnedBpeVocabulary(). The loader now marks this only when a serialized embedded tokenizer model has type BPE and a valid vocabulary. Both learned and base vocabularies reject duplicate or sparse IDs.
+2. Added RemiBpeInferenceBackend::expectedVocabularySize() and implemented it in RemiBpeOnnxTokenInferenceBackend by reading the manifest's vocabulary_size, vocabulary_id, model_format and runtime token mode/size.
+3. Hardened RemiBpePatternProvider to reject a tokenizer that only contains _vocab_base and has no learned BPE vocabulary, a missing/invalid model-manifest output vocabulary size, or a size mismatch between the model manifest and paired learned tokenizer.
+4. Added tests/fixtures/remi_base_vocab_only_fixture.json, native tests for the base-only and wrong-vocabulary cases, and an exporter test that rejects a tokenizer lacking serialized _model.
+5. Fixed the native REMI ONNX backend test target's include path for the vendored third_party/nlohmann/json.hpp.
+6. Inspected the public shikhr/music_maker files at model revision 7528164fe0d4fa2625f1bfc126cc8df62791a429. Its config.json declares vocab_size: 12000, while the published tokenizer.json visibly contains the base event vocabulary IDs 0–440 and _vocab_base_byte_to_token, without a serialized _model BPE vocabulary. A faithful mapping from the model's output IDs therefore cannot be verified or reconstructed from this published file pair.
+
+### Verified Evidence
+- Focused REMI/Link CI run https://github.com/MiguelDuval/Mozart/actions/runs/40756517048 — SUCCESS at exact SHA 506df3d9cb4adc5f392917ea3c3740cfbc0ab470. It built and ran the converter, generation-service tests, and Link runtime tests with the fail-closed provider checks and base-only fixtures.
+- REMI/BPE export contract run https://github.com/MiguelDuval/Mozart/actions/runs/40756240182 — SUCCESS at SHA ce817181efbdb5931337821d0a95e4db13d94158, including the explicit missing-_model rejection test.
+- Additional contiguous-ID / strict model-type checks and their documentation were committed as 2a7ab1001c817479500cda9431fceb770a3490b2; CI for this exact SHA was in progress at the time of this entry.
+- Android run https://github.com/MiguelDuval/Mozart/actions/runs/40756240109 failed in C++ test compilation because the native test target lacked the json.hpp include path. That root cause was fixed at 506df3d9cb4adc5f392917ea3c3740cfbc0ab470; an Android run on that fixed SHA was still in progress. No current-HEAD Android success is claimed.
+- The focused exporter tests and C++ tests use checked-in synthetic fixtures. They do not establish that the publicly published checkpoint has a compatible learned BPE tokenizer.
+
+### Changed Files
+- src/remi/BpeTokenizer.h/.cpp
+- src/generation/RemiBpeInferenceBackend.h
+- src/generation/RemiBpeOnnxTokenInferenceBackend.cpp
+- src/generation/RemiBpePatternProvider.cpp
+- tests/fixtures/remi_base_vocab_only_fixture.json
+- tests/RemiToLinkConverterTests.cpp
+- tests/GenerationServiceTests.cpp
+- tests/test_remi_bpe_onnx_export.py
+- tests/CMakeLists.txt
+- docs/REMI-BPE-CHECKPOINT-COMPATIBILITY.md
+- docs/EXPERIMENTAL-ONNX-BACKEND.md
+
+### Result
+PARTIALLY VERIFIED; the published external checkpoint/tokenizer pairing remains blocked. The application path now fails closed instead of treating a base event vocabulary as trained BPE output. Do not claim that shikhr/music_maker inference is operational until the correct learned tokenizer is recovered and matched to the model's 12,000 output IDs.
+
+### Next Action
+1. Check the full focused C++ and Android workflows on current HEAD; fix any new regression by its root cause.
+2. Recover the original trained BPE tokenizer that belongs to the checkpoint, with 12,000 contiguous IDs and verified hashes, or choose/retrain a model/tokenizer pair that can be exported reproducibly.
+3. Only then run the real ONNX export, Android inference smoke test, and a device/hardware output check.
+
+### Message for ChatGPT
+The backend and failure gates are implemented and synthetic-contract tests were green at their exact SHAs. The upstream public shikhr/music_maker tokenizer file appears incomplete for its declared 12,000-ID model and the exporter correctly refuses it. Continue with exact-SHA CI verification and obtaining a matching real tokenizer; do not invent missing BPE merges or claim actual model playback.
