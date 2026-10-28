@@ -282,5 +282,23 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         self.assertIn("if (!active.get())", self.model_lab)
 
 
+    def test_recreate_cycle_requires_live_adb_and_checks_back_delivery(self):
+        smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
+        start = smoke.index("exercise_activity_recreate_cycle()")
+        end = smoke.index("\ncollect_diagnostics()", start)
+        recreate = smoke[start:end]
+
+        self.assertIn("if ! wait_for_adb_device; then", recreate)
+        self.assertIn(
+            "timeout 10s adb shell input keyevent 4 >/dev/null 2>&1 || back_rc=$?",
+            recreate,
+        )
+        self.assertIn('if [[ "$back_rc" -ne 0 ]]', recreate)
+        self.assertLess(
+            recreate.index("if ! wait_for_adb_device; then"),
+            recreate.index("adb shell input keyevent 4"),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
