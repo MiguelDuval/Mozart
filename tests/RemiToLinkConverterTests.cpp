@@ -305,6 +305,24 @@ void testConverterRejectsProgramChange() {
     std::cout << "  Converter rejects program change: PASSED" << std::endl;
 }
 
+void testConverterRejectsUnsupportedTimeSignatureAtomically() {
+    std::cout << "Testing converter: rejects non-4/4 meter..." << std::endl;
+    RemiToLinkPatternConverter converter(480);
+    PatternProposal proposal;
+    proposal.providerId = "test";
+    proposal.modelId = "test";
+    proposal.totalTicks = 1920;
+    proposal.events.push_back(NoteEvent{60, 100, 0, 480, 0, 0});
+    proposal.events.push_back(TimeSignatureEvent{0, 3, 4});
+
+    // The note is valid, but this converter has no meter-aware bar mapping.
+    // It must not return a valid-looking note-only pattern after dropping 3/4.
+    const auto converted = converter.convert(proposal);
+    assert(!converted.has_value());
+
+    std::cout << "  Converter rejects non-4/4 meter: PASSED" << std::endl;
+}
+
 void testConverterAtomicRejection() {
     std::cout << "Testing converter: atomic rejection of mixed valid/invalid..."
               << std::endl;
@@ -574,6 +592,7 @@ int main() {
     testConverterDifferentTicksPerBeat();
     testConverterDurationNoteEvent();
     testConverterRejectsProgramChange();
+    testConverterRejectsUnsupportedTimeSignatureAtomically();
     testConverterAtomicRejection();
     testRemiAdapterDurationToken();
     testRemiAdapterPositionAndVelocity();
