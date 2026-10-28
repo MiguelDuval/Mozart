@@ -105,7 +105,8 @@ std::optional<BpeTokenizer> BpeTokenizer::loadFromJson(const std::string& jsonPa
     if (hasModelDocument && modelDocument.contains("model") &&
         modelDocument["model"].is_object()) {
         const auto& model = modelDocument["model"];
-        if (model.contains("vocab") && model["vocab"].is_object()) {
+        if (model.value("type", std::string{}) == "BPE" &&
+            model.contains("vocab") && model["vocab"].is_object()) {
             const auto& vocab = model["vocab"];
             std::uint32_t maxId = 0;
             bool hasAnyId = false;
@@ -125,6 +126,9 @@ std::optional<BpeTokenizer> BpeTokenizer::loadFromJson(const std::string& jsonPa
                     if (assigned[id]) return std::nullopt;
                     tokenizer.idToEncodedToken_[id] = it.key();
                     assigned[id] = true;
+                }
+                if (std::find(assigned.begin(), assigned.end(), false) != assigned.end()) {
+                    return std::nullopt;
                 }
                 hasModelVocab = true;
             }
@@ -172,8 +176,16 @@ std::optional<BpeTokenizer> BpeTokenizer::loadFromJson(const std::string& jsonPa
         }
         if (hasAnyId) {
             tokenizer.idToEncodedToken_.resize(static_cast<std::size_t>(maxId)+1U);
-            for (auto it = vocab.begin(); it != vocab.end(); ++it)
-                tokenizer.idToEncodedToken_[it.value().get<std::uint32_t>()] = it.key();
+            std::vector<bool> assigned(tokenizer.idToEncodedToken_.size(), false);
+            for (auto it = vocab.begin(); it != vocab.end(); ++it) {
+                const auto id = it.value().get<std::uint32_t>();
+                if (assigned[id]) return std::nullopt;
+                tokenizer.idToEncodedToken_[id] = it.key();
+                assigned[id] = true;
+            }
+            if (std::find(assigned.begin(), assigned.end(), false) != assigned.end()) {
+                return std::nullopt;
+            }
         }
     }
     if (tokenizer.idToEncodedToken_.empty()) return std::nullopt;

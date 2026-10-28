@@ -204,3 +204,8 @@ Production still requires:
 7. real-device memory and latency validation.
 
 No model weights are committed by this adapter.
+
+
+## REMI/BPE model/tokenizer pairing gate
+
+The separate REMI/BPE ONNX bridge additionally requires the learned tokenizer vocabulary to be present and equal to the output vocabulary declared by the model manifest. The currently published `shikhr/music_maker` files were inspected at immutable revision `7528164fe0d4fa2625f1bfc126cc8df62791a429`: `config.json` declares 12,000 model outputs, while the public `tokenizer.json` exposes only the 441-entry MidiTok base vocabulary and no serialized `_model` BPE vocabulary. The exporter therefore rejects this published pair instead of guessing how 12,000 output IDs map to MIDI events. See [REMI/BPE checkpoint compatibility audit](REMI-BPE-CHECKPOINT-COMPATIBILITY.md).
