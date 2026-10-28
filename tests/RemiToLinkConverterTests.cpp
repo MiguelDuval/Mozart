@@ -9,7 +9,6 @@
 #include <iostream>
 #include <vector>
 #include <filesystem>
-#include <fstream>
 
 namespace fs = std::filesystem;
 
@@ -33,37 +32,21 @@ using mozart::remi::GenerationRequest;
 
 namespace {
 
-std::filesystem::path writeFixtureTokenizer() {
-    const auto fixturePath =
-        fs::temp_directory_path() / "mozart_remi_tokenizer_fixture.json";
-    std::ofstream fixture(fixturePath);
-    fixture << R"json({
-  "_vocab_base_byte_to_token": {
-    "a": "Bar_None",
-    "b": "Pitch_21",
-    "c": "Pitch_60",
-    "d": "Duration_0.1.8",
-    "e": "Position_0",
-    "f": "Position_8",
-    "g": "Velocity_15",
-    "h": "Tempo_15"
-  },
-  "_model": "{\"model\":{\"vocab\":{\"PAD_None\":0,\"BOS_None\":1,\"EOS_None\":2,\"MASK_None\":3,\"a\":4,\"b\":5,\"c\":6,\"d\":7,\"e\":8,\"f\":9,\"g\":10,\"h\":11},\"merges\":[]}}",
-  "config": { "special_tokens": ["PAD_None", "BOS_None", "EOS_None", "MASK_None"] }
-})json";
-    fixture.close();
-    return fixturePath;
+#ifndef MOZART_TEST_SOURCE_DIR
+#define MOZART_TEST_SOURCE_DIR "."
+#endif
+
+std::filesystem::path fixtureTokenizerPath() {
+    return fs::path(MOZART_TEST_SOURCE_DIR) / "fixtures" / "remi_tokenizer_fixture.json";
 }
 
 void testBpeTokenizerLoadsFixture() {
     std::cout << "Testing BpeTokenizer loads fixture..." << std::endl;
-    const auto path = writeFixtureTokenizer();
+    const auto path = fixtureTokenizerPath();
     auto tokenizer = BpeTokenizer::loadFromJson(path.string());
-    std::error_code ignored;
-    fs::remove(path, ignored);
 
     assert(tokenizer.has_value());
-    assert(tokenizer->vocabSize() == 12);
+    assert(tokenizer->vocabSize() == 18);
     assert(tokenizer->padToken() == 0);
     assert(tokenizer->bosToken() == 1);
     assert(tokenizer->eosToken() == 2);
@@ -74,21 +57,51 @@ void testBpeTokenizerLoadsFixture() {
 
 void testBpeTokenizerDecodeKnownIds() {
     std::cout << "Testing BpeTokenizer decode known IDs..." << std::endl;
-    const auto path = writeFixtureTokenizer();
+    const auto path = fixtureTokenizerPath();
     auto tokenizer = BpeTokenizer::loadFromJson(path.string());
-    std::error_code ignored;
-    fs::remove(path, ignored);
 
     assert(tokenizer.has_value());
 
     auto names = tokenizer->decodeTokens({4, 5, 6, 7});
     assert(names.size() == 4);
+    assert(names[0] == "Bar_None");
+    assert(names[1] == "Pitch_21");
+    assert(names[2] == "Pitch_60");
+    assert(names[3] == "Duration_0.1.8");
+
+    // The learned BPE id may encode multiple base semantic tokens.
+    const auto merged = tokenizer->decodeTokens({14});
+    assert(merged.size() == 2);
+    assert(merged[0] == "Bar_None");
+    assert(merged[1] == "Pitch_21");
+    assert(tokenizer->decodeTokens({15}) == std::vector<std::string>{"Bar_None"});
+    assert(tokenizer->decodeTokens({16}) == std::vector<std::string>{"Bar_None"});
+    assert(tokenizer->decodeTokens({17}) == std::vector<std::string>{"Pitch_21"});
+    assert(!tokenizer->decodeToken(14).has_value());
 
     auto report = tokenizer->decodeTokensWithReport({999, 4});
     assert(report.droppedTokenIds == 1);
     assert(report.tokenNames.size() == 1);
 
     std::cout << "  BpeTokenizer decode known IDs: PASSED" << std::endl;
+}
+
+void testRemiDecoderConfigLoadsTokenizerArtifactFields() {
+    std::cout << "Testing RemiDecoderConfig loads MidiTok fields..." << std::endl;
+    const auto config = RemiDecoderConfig::fromTokenizerJson(fixtureTokenizerPath().string());
+    assert(config.vocabSize == 18);
+    assert(config.pitchMin == 21);
+    assert(config.pitchMax == 109);
+    assert(config.numVelocities == 32);
+    assert(config.positionResolution == 8);
+    assert(config.defaultNoteDurationBeats == 0.5);
+    assert(config.numTempos == 32);
+    assert(config.tempoMin == 40.0);
+    assert(config.tempoMax == 250.0);
+    assert(config.padToken == 0);
+    assert(config.bosToken == 1);
+    assert(config.eosToken == 2);
+    assert(config.maskToken == 3);
 }
 
 void testConverterNoteEvent() {
@@ -424,18 +437,16 @@ void testRemiAdapterDurationAppliesToPrecedingNoteOnly() {
 void testEndToEndTokenIdsToLink() {
     std::cout << "Testing end-to-end: token IDs -> REMI -> link proposal..."
               << std::endl;
-    const auto path = writeFixtureTokenizer();
+    const auto path = fixtureTokenizerPath();
     auto tokenizer = BpeTokenizer::loadFromJson(path.string());
-    std::error_code ignored;
-    fs::remove(path, ignored);
     assert(tokenizer.has_value());
 
     auto sharedTokenizer =
         std::make_shared<BpeTokenizer>(std::move(*tokenizer));
-    const auto config = RemiDecoderConfig::defaultConfig();
+    const auto config = RemiDecoderConfig::fromTokenizerJson(path.string());
     RemiEventAdapter adapter(config, sharedTokenizer);
 
-    std::vector<std::uint32_t> tokenIds = {4, 8, 6, 7};
+    std::vector<std::uint32_t> tokenIds = {8, 6, 10, 7};
 
     GenerationRequest request;
     request.seed = 42;
@@ -447,6 +458,8 @@ void testEndToEndTokenIdsToLink() {
     const auto notes = proposal.notes();
     assert(notes.size() == 1);
     assert(notes[0].duration == 60);
+    assert(notes[0].velocity == 127);
+    assert(notes[0].position == 0);
 
     RemiToLinkPatternConverter converter(480);
     auto linkProposal = converter.convert(proposal);
@@ -454,6 +467,7 @@ void testEndToEndTokenIdsToLink() {
     assert(linkProposal->noteEvents.size() == 1);
     assert(linkProposal->noteEvents[0].startBeat == 0.0);
     assert(linkProposal->noteEvents[0].durationBeats == 0.125);
+    assert(linkProposal->noteEvents[0].velocity == 127);
 
     std::cout << "  End-to-end token IDs to link: PASSED" << std::endl;
 }
@@ -463,6 +477,7 @@ void testEndToEndTokenIdsToLink() {
 int main() {
     testBpeTokenizerLoadsFixture();
     testBpeTokenizerDecodeKnownIds();
+    testRemiDecoderConfigLoadsTokenizerArtifactFields();
     testConverterNoteEvent();
     testConverterMultipleNotes();
     testConverterControlChange();
