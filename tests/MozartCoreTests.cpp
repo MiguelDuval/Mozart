@@ -2736,7 +2736,8 @@ int main() {
                 mozart::remi::NoteEvent{60, 100, 0, 480, 0, 0});
         unsupported.events.push_back(
                 mozart::remi::ProgramChangeEvent{0, 0, 10});
-        assert(!runtime.queueGeneratedRemiPattern(unsupported));
+        const mozart::generation::GenerationRequest request{};
+        assert(!runtime.queueGeneratedRemiPattern(unsupported, request));
 
         mozart::remi::PatternProposal valid;
         valid.providerId = "remi-runtime-test";
@@ -2745,8 +2746,8 @@ int main() {
         valid.trackCount = 1;
         valid.events.push_back(
                 mozart::remi::NoteEvent{60, 100, 0, 480, 0, 0});
-        assert(runtime.queueGeneratedRemiPattern(valid));
-        assert(!runtime.queueGeneratedRemiPattern(valid));
+        assert(runtime.queueGeneratedRemiPattern(valid, request));
+        assert(!runtime.queueGeneratedRemiPattern(valid, request));
     }
 #endif
 
