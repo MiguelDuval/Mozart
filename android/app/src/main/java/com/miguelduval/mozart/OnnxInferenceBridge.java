@@ -433,6 +433,13 @@ public final class OnnxInferenceBridge {
                 !"int64".equalsIgnoreCase(runtime.optString("input_dtype", ""))) {
             throw new IllegalArgumentException("manifest does not match the REMI/BPE ONNX token ABI");
         }
+        final int rootContextLength = root.optInt("context_length_tokens", -1);
+        final int rootMaxGeneratedTokens = root.optInt("max_generated_tokens", -1);
+        if (runtime.optInt("context_length_tokens", -1) != rootContextLength ||
+                runtime.optInt("max_generated_tokens", -1) != rootMaxGeneratedTokens) {
+            throw new IllegalArgumentException(
+                    "REMI/BPE runtime limits disagree with root manifest limits");
+        }
         if (runtime.optString("input_name", "").isEmpty() ||
                 runtime.optString("output_name", "").isEmpty()) {
             throw new IllegalArgumentException("REMI/BPE runtime input/output names are missing");
@@ -444,6 +451,7 @@ public final class OnnxInferenceBridge {
         final int mask = runtime.optInt("mask_token_id", -1);
         if (bos < 0 || bos >= vocab || eos < 0 || eos >= vocab ||
                 pad < 0 || pad >= vocab || bos == eos || bos == pad || eos == pad ||
+                mask < -1 ||
                 (mask >= 0 && (mask >= vocab || mask == bos || mask == eos || mask == pad))) {
             throw new IllegalArgumentException("REMI/BPE special-token IDs are invalid");
         }
