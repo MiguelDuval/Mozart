@@ -213,7 +213,7 @@ exercise_runtime_smoke_recreate_guard() {
   # The previous Activity deliberately had runtime smoke enabled. Clear logs
   # after BACK once the Activity is no longer resumed, so late callbacks from
   # that stopped instance are observable without a task-manager assumption.
-  timeout 5s timeout 5s adb logcat -c || true
+  timeout 5s adb logcat -c || true
   start_app false
 
   local startup_rc=0
@@ -439,7 +439,7 @@ fi
 if [[ "$startup_rc" -eq 3 ]]; then
   cp "$LOGCAT_FILE" "$RETRY_LOGCAT_FILE" 2>/dev/null || true
   echo "Android system_server ANR detected before Mozart completed startup; retrying launch once."
-  timeout 20s timeout 10s adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
+  timeout 10s adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
   timeout 5s adb logcat -c || true
   start_app
   startup_rc=0
