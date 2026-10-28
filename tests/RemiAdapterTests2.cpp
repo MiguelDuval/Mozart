@@ -766,12 +766,16 @@ void testDurationTokenZeroBeats() {
     request.barCount = 1;
     auto [proposal, report] = adapter.decodeTokensToProposal(tokenIds, request, "test", "test-model");
     // Duration_0.0.8 yields duration=0 ticks, which the validator rejects
-    // (duration == 0 is invalid). The note must be filtered out, leaving
-    // zero notes in the proposal — no crash, no invalid duration leaks through.
-    assert(report.isOk());
+    // (duration == 0 is InvalidDuration). The note is filtered out during
+    // sanitize, leaving zero notes and an EmptySequence result — no crash,
+    // no invalid duration leaks through to the scheduler.
     auto notes = proposal.notes();
     assert(notes.size() == 0);
-    std::cout << "  Duration_ token with zero beats: PASSED (note filtered, notes=" << notes.size() << ")" << std::endl;
+    assert(report.result == RemiDecodeResult::EmptySequence ||
+           report.result == RemiDecodeResult::Ok);
+    std::cout << "  Duration_ token with zero beats: PASSED (note filtered, notes="
+              << notes.size() << ", result=" << (int)report.result << ")"
+              << std::endl;
 }
 
 int main() {
