@@ -275,6 +275,14 @@ exercise_runtime_smoke_recreate_guard() {
   if ! background_activity_to_home "stale-callback recreate guard"; then
     return 1
   fi
+  # Check again after onStop is observed but before clearing logcat. This
+  # catches a callback that raced the HOME transition rather than mistaking
+  # the later clean log buffer for proof that it was cancelled.
+  write_logcat
+  if grep -Eq "RUNTIME: Link snapshot (tick|stopped)|RUNTIME: Timing telemetry (tick|stopped)" "$LOGCAT_FILE"; then
+    echo "A runtime-smoke callback fired before lifecycle teardown completed." >&2
+    return 1
+  fi
 
   # Start from a clean task so the following startup evidence must come from
   # a new MainActivity instance, not an intent delivered to the old top one.

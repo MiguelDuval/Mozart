@@ -458,3 +458,8 @@ Android Build run [40770239080](https://github.com/MiguelDuval/Mozart/actions/ru
 ### Verification
 - Previous lifecycle-test baseline at \`f5387f44ce4293426c27743c01fd414adef717e8\` failed only at the final emulator smoke gate after compile/build/unit checks passed. The new test logic still requires exact-SHA Android CI before it can be called fixed.
 - The REMI/BPE exporter contract and REMI/Link native tests were green at \`9bb6991418818a7d185eda1dd85eb02fe562331c\`; the next workflows will validate the lifecycle change on the resulting commit.
+
+
+## 2026-10-28 — ChatGPT — Close the HOME-transition callback race in smoke
+
+Before clearing the log buffer and relaunching, the stale-callback smoke now re-reads Mozart's logs after HOME has been positively observed and MainActivity has stopped being resumed. It fails if either scheduled Link/timing callback ran during the transition. This complements the pre-HOME assertion and the post-recreation +3.5-second no-stale-callback window, avoiding a false pass caused by clearing evidence after a callback raced lifecycle shutdown.

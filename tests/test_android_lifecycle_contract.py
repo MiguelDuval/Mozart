@@ -304,6 +304,8 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         guard = smoke[start:end]
 
         self.assertIn("background_activity_to_home \"stale-callback recreate guard\"", guard)
+        self.assertIn("write_logcat", guard)
+        self.assertIn("A runtime-smoke callback fired before lifecycle teardown completed.", guard)
         self.assertIn("start_app false true", guard)
         self.assertIn("wait_for_startup", guard)
         self.assertIn("sleep 3.5", guard)
