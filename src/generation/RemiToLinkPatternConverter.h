@@ -23,10 +23,10 @@ public:
 
     [[nodiscard]] std::uint32_t ticksPerBeat() const noexcept { return ticksPerBeat_; }
 
-    // Convert a remi PatternProposal to a generation PatternProposal.
-    // Returns std::nullopt if the remi proposal is invalid or conversion fails.
-    // The returned proposal is NOT validated — call
-    // PatternProposalValidator::validate() on the result if validation is needed.
+    // Convert a REMI proposal to the Link scheduler's semantic proposal.
+    // The complete source proposal is validated before conversion; malformed
+    // proposals and unsupported program-change events are rejected atomically.
+    // Request-specific constraints are still enforced at the runtime boundary.
     [[nodiscard]] std::optional<PatternProposal> convert(
             const remi::PatternProposal& remiProposal) const noexcept;
 
