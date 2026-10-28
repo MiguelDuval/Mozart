@@ -67,6 +67,7 @@ std::optional<PatternProposal> RemiToLinkPatternConverter::convert(
 
     bool conversionFailed = false;
     bool unsupportedProgramChange = false;
+    bool unsupportedTimeSignature = false;
 
     for (const auto& event : remiProposal.events) {
         std::visit([&](const auto& e) {
@@ -91,14 +92,20 @@ std::optional<PatternProposal> RemiToLinkPatternConverter::convert(
                 // representation. Reject instead of silently losing instrument
                 // changes while scheduling the remaining notes.
                 unsupportedProgramChange = true;
+            } else if constexpr (std::is_same_v<T, remi::TimeSignatureEvent>) {
+                // Tick-to-bar conversion in this integration is fixed to 4/4.
+                // Ignoring a different meter would shift notes at bar boundaries,
+                // so reject rather than return a musically incorrect partial pattern.
+                if (e.numerator != 4 || e.denominator != 4) {
+                    unsupportedTimeSignature = true;
+                }
             }
-            // Tempo and time-signature events are proposal metadata here.
-            // The active Ableton Link session owns clock tempo and phase;
-            // this converter does not publish a competing tempo timeline.
+            // Tempo metadata is not projected onto the scheduler: Ableton Link
+            // remains the authority for tempo and phase.
         }, event);
     }
 
-    if (conversionFailed || unsupportedProgramChange ||
+    if (conversionFailed || unsupportedProgramChange || unsupportedTimeSignature ||
         (linkProposal.noteEvents.empty() && linkProposal.controlEvents.empty()) ||
         !linkProposal.isWellFormed()) {
         return std::nullopt;
