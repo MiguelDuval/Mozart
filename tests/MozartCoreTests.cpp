@@ -2746,6 +2746,15 @@ int main() {
         valid.trackCount = 1;
         valid.events.push_back(
                 mozart::remi::NoteEvent{60, 100, 0, 480, 0, 0});
+
+        auto incompatibleRequest = request;
+        incompatibleRequest.keyScale = mozart::musical::KeyScale{
+                0, mozart::musical::Scale::Major};
+        incompatibleRequest.minNote = 61;
+        incompatibleRequest.maxNote = 61;
+        assert(!runtime.queueGeneratedRemiPattern(valid, incompatibleRequest));
+
+        // A rejected request must leave the pending slot available.
         assert(runtime.queueGeneratedRemiPattern(valid, request));
         assert(!runtime.queueGeneratedRemiPattern(valid, request));
     }
