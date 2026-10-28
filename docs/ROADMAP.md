@@ -34,7 +34,7 @@
 - [ ] Probability.
 - [ ] Ratchet.
 - [ ] Swing.
-- [ ] MIDI scheduler.
+- [x] MIDI scheduler core (timestamped queue and tempo-aware event scheduling; physical MIDI validation remains open).
 - [ ] External synth validation.
 
 ## Stage 4 — Harmony

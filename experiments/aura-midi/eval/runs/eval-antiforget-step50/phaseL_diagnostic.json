@@ -1,0 +1,901 @@
+{
+  "gmd_prompts": [
+    {
+      "prompt_id": "gmd-06",
+      "models": {
+        "pretrained": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              141.6099636770443
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 5
+            },
+            {
+              "index": 1,
+              "program": 0,
+              "is_drum": false,
+              "name": "Acoustic Grand Piano",
+              "notes": 44
+            },
+            {
+              "index": 2,
+              "program": 3,
+              "is_drum": false,
+              "name": "Honky-tonk Piano",
+              "notes": 14
+            }
+          ],
+          "total_notes": 63,
+          "duration_ticks": 92,
+          "duration_beats": 11.5,
+          "duration_sec": 4.8725,
+          "mean_note_dur_beats": 0.3512,
+          "mean_velocity": 127.0,
+          "mean_pitch": 57.97,
+          "pitch_min": 40,
+          "pitch_max": 80,
+          "velocity_min": 127,
+          "velocity_max": 127,
+          "max_polyphony": 7,
+          "onset_first_tick": 15,
+          "onset_last_tick": 90
+        },
+        "step_25": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              141.6099636770443
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 5
+            },
+            {
+              "index": 1,
+              "program": 0,
+              "is_drum": false,
+              "name": "Acoustic Grand Piano",
+              "notes": 61
+            },
+            {
+              "index": 2,
+              "program": 7,
+              "is_drum": false,
+              "name": "Clavi",
+              "notes": 1
+            },
+            {
+              "index": 3,
+              "program": 1,
+              "is_drum": false,
+              "name": "Bright Acoustic Piano",
+              "notes": 1
+            }
+          ],
+          "total_notes": 68,
+          "duration_ticks": 110,
+          "duration_beats": 13.75,
+          "duration_sec": 5.8259,
+          "mean_note_dur_beats": 0.2886,
+          "mean_velocity": 125.0,
+          "mean_pitch": 55.76,
+          "pitch_min": 40,
+          "pitch_max": 80,
+          "velocity_min": 55,
+          "velocity_max": 127,
+          "max_polyphony": 5,
+          "onset_first_tick": 15,
+          "onset_last_tick": 108
+        },
+        "step_50": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              141.6099636770443
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 3
+            },
+            {
+              "index": 1,
+              "program": 1,
+              "is_drum": false,
+              "name": "Bright Acoustic Piano",
+              "notes": 10
+            },
+            {
+              "index": 2,
+              "program": 0,
+              "is_drum": false,
+              "name": "Acoustic Grand Piano",
+              "notes": 37
+            }
+          ],
+          "total_notes": 50,
+          "duration_ticks": 116,
+          "duration_beats": 14.5,
+          "duration_sec": 6.1436,
+          "mean_note_dur_beats": 0.25,
+          "mean_velocity": 88.12,
+          "mean_pitch": 63.98,
+          "pitch_min": 40,
+          "pitch_max": 76,
+          "velocity_min": 71,
+          "velocity_max": 127,
+          "max_polyphony": 3,
+          "onset_first_tick": 15,
+          "onset_last_tick": 114
+        }
+      }
+    },
+    {
+      "prompt_id": "gmd-07",
+      "models": {
+        "pretrained": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              87.41997429852755
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 17
+            },
+            {
+              "index": 1,
+              "program": 0,
+              "is_drum": false,
+              "name": "Acoustic Grand Piano",
+              "notes": 30
+            },
+            {
+              "index": 2,
+              "program": 1,
+              "is_drum": false,
+              "name": "Bright Acoustic Piano",
+              "notes": 1
+            },
+            {
+              "index": 3,
+              "program": 2,
+              "is_drum": false,
+              "name": "Electric Grand Piano",
+              "notes": 2
+            },
+            {
+              "index": 4,
+              "program": 32,
+              "is_drum": false,
+              "name": "Acoustic Bass",
+              "notes": 2
+            }
+          ],
+          "total_notes": 52,
+          "duration_ticks": 96,
+          "duration_beats": 12.0,
+          "duration_sec": 8.2361,
+          "mean_note_dur_beats": 0.9712,
+          "mean_velocity": 101.15,
+          "mean_pitch": 63.96,
+          "pitch_min": 40,
+          "pitch_max": 80,
+          "velocity_min": 63,
+          "velocity_max": 111,
+          "max_polyphony": 13,
+          "onset_first_tick": 20,
+          "onset_last_tick": 66
+        },
+        "step_25": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              87.41997429852755
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 3
+            },
+            {
+              "index": 1,
+              "program": 0,
+              "is_drum": false,
+              "name": "Acoustic Grand Piano",
+              "notes": 75
+            }
+          ],
+          "total_notes": 78,
+          "duration_ticks": 117,
+          "duration_beats": 14.625,
+          "duration_sec": 10.0378,
+          "mean_note_dur_beats": 0.1298,
+          "mean_velocity": 77.97,
+          "mean_pitch": 64.72,
+          "pitch_min": 44,
+          "pitch_max": 80,
+          "velocity_min": 63,
+          "velocity_max": 119,
+          "max_polyphony": 5,
+          "onset_first_tick": 20,
+          "onset_last_tick": 116
+        },
+        "step_50": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              87.41997429852755
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 2
+            },
+            {
+              "index": 1,
+              "program": 7,
+              "is_drum": false,
+              "name": "Clavi",
+              "notes": 3
+            },
+            {
+              "index": 2,
+              "program": 0,
+              "is_drum": false,
+              "name": "Acoustic Grand Piano",
+              "notes": 3
+            },
+            {
+              "index": 3,
+              "program": 88,
+              "is_drum": false,
+              "name": "Pad 1 (new age)",
+              "notes": 1
+            },
+            {
+              "index": 4,
+              "program": 44,
+              "is_drum": false,
+              "name": "Tremolo Strings",
+              "notes": 1
+            }
+          ],
+          "total_notes": 10,
+          "duration_ticks": 64,
+          "duration_beats": 8.0,
+          "duration_sec": 5.4907,
+          "mean_note_dur_beats": 2.1,
+          "mean_velocity": 67.0,
+          "mean_pitch": 49.1,
+          "pitch_min": 30,
+          "pitch_max": 65,
+          "velocity_min": 7,
+          "velocity_max": 111,
+          "max_polyphony": 6,
+          "onset_first_tick": 20,
+          "onset_last_tick": 36
+        }
+      }
+    },
+    {
+      "prompt_id": "gmd-08",
+      "models": {
+        "pretrained": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              80.65003931689417
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 1
+            },
+            {
+              "index": 1,
+              "program": 1,
+              "is_drum": false,
+              "name": "Bright Acoustic Piano",
+              "notes": 60
+            }
+          ],
+          "total_notes": 61,
+          "duration_ticks": 124,
+          "duration_beats": 15.5,
+          "duration_sec": 11.5313,
+          "mean_note_dur_beats": 0.4734,
+          "mean_velocity": 111.66,
+          "mean_pitch": 57.2,
+          "pitch_min": 35,
+          "pitch_max": 68,
+          "velocity_min": 79,
+          "velocity_max": 119,
+          "max_polyphony": 4,
+          "onset_first_tick": 46,
+          "onset_last_tick": 120
+        },
+        "step_25": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              80.65003931689417
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 1
+            },
+            {
+              "index": 1,
+              "program": 1,
+              "is_drum": false,
+              "name": "Bright Acoustic Piano",
+              "notes": 51
+            }
+          ],
+          "total_notes": 52,
+          "duration_ticks": 140,
+          "duration_beats": 17.5,
+          "duration_sec": 13.0192,
+          "mean_note_dur_beats": 0.387,
+          "mean_velocity": 97.0,
+          "mean_pitch": 56.19,
+          "pitch_min": 40,
+          "pitch_max": 68,
+          "velocity_min": 55,
+          "velocity_max": 127,
+          "max_polyphony": 4,
+          "onset_first_tick": 46,
+          "onset_last_tick": 128
+        },
+        "step_50": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              80.65003931689417
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 1
+            },
+            {
+              "index": 1,
+              "program": 0,
+              "is_drum": false,
+              "name": "Acoustic Grand Piano",
+              "notes": 1
+            },
+            {
+              "index": 2,
+              "program": 1,
+              "is_drum": false,
+              "name": "Bright Acoustic Piano",
+              "notes": 49
+            }
+          ],
+          "total_notes": 51,
+          "duration_ticks": 142,
+          "duration_beats": 17.75,
+          "duration_sec": 13.2052,
+          "mean_note_dur_beats": 0.8725,
+          "mean_velocity": 59.08,
+          "mean_pitch": 55.06,
+          "pitch_min": 34,
+          "pitch_max": 63,
+          "velocity_min": 39,
+          "velocity_max": 87,
+          "max_polyphony": 5,
+          "onset_first_tick": 46,
+          "onset_last_tick": 128
+        }
+      }
+    },
+    {
+      "prompt_id": "gmd-09",
+      "models": {
+        "pretrained": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              100.9699849891289
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 6
+            },
+            {
+              "index": 1,
+              "program": 5,
+              "is_drum": false,
+              "name": "Electric Piano 2",
+              "notes": 37
+            },
+            {
+              "index": 2,
+              "program": 1,
+              "is_drum": false,
+              "name": "Bright Acoustic Piano",
+              "notes": 6
+            },
+            {
+              "index": 3,
+              "program": 7,
+              "is_drum": false,
+              "name": "Clavi",
+              "notes": 1
+            }
+          ],
+          "total_notes": 50,
+          "duration_ticks": 232,
+          "duration_beats": 29.0,
+          "duration_sec": 17.2328,
+          "mean_note_dur_beats": 1.845,
+          "mean_velocity": 68.92,
+          "mean_pitch": 64.62,
+          "pitch_min": 33,
+          "pitch_max": 78,
+          "velocity_min": 15,
+          "velocity_max": 127,
+          "max_polyphony": 10,
+          "onset_first_tick": 4,
+          "onset_last_tick": 228
+        },
+        "step_25": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              100.9699849891289
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 6
+            },
+            {
+              "index": 1,
+              "program": 5,
+              "is_drum": false,
+              "name": "Electric Piano 2",
+              "notes": 37
+            },
+            {
+              "index": 2,
+              "program": 1,
+              "is_drum": false,
+              "name": "Bright Acoustic Piano",
+              "notes": 6
+            },
+            {
+              "index": 3,
+              "program": 7,
+              "is_drum": false,
+              "name": "Clavi",
+              "notes": 1
+            }
+          ],
+          "total_notes": 50,
+          "duration_ticks": 232,
+          "duration_beats": 29.0,
+          "duration_sec": 17.2328,
+          "mean_note_dur_beats": 1.845,
+          "mean_velocity": 68.92,
+          "mean_pitch": 64.62,
+          "pitch_min": 33,
+          "pitch_max": 78,
+          "velocity_min": 15,
+          "velocity_max": 127,
+          "max_polyphony": 10,
+          "onset_first_tick": 4,
+          "onset_last_tick": 228
+        },
+        "step_50": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              100.9699849891289
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 16
+            },
+            {
+              "index": 1,
+              "program": 0,
+              "is_drum": false,
+              "name": "Acoustic Grand Piano",
+              "notes": 13
+            },
+            {
+              "index": 2,
+              "program": 1,
+              "is_drum": false,
+              "name": "Bright Acoustic Piano",
+              "notes": 17
+            },
+            {
+              "index": 3,
+              "program": 32,
+              "is_drum": false,
+              "name": "Acoustic Bass",
+              "notes": 2
+            }
+          ],
+          "total_notes": 48,
+          "duration_ticks": 84,
+          "duration_beats": 10.5,
+          "duration_sec": 6.2395,
+          "mean_note_dur_beats": 0.75,
+          "mean_velocity": 74.83,
+          "mean_pitch": 60.19,
+          "pitch_min": 40,
+          "pitch_max": 80,
+          "velocity_min": 7,
+          "velocity_max": 127,
+          "max_polyphony": 9,
+          "onset_first_tick": 4,
+          "onset_last_tick": 76
+        }
+      }
+    },
+    {
+      "prompt_id": "gmd-10",
+      "models": {
+        "pretrained": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              121.29004087474378
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 7,
+              "is_drum": false,
+              "name": "Clavi",
+              "notes": 4
+            },
+            {
+              "index": 1,
+              "program": 1,
+              "is_drum": false,
+              "name": "Bright Acoustic Piano",
+              "notes": 62
+            }
+          ],
+          "total_notes": 66,
+          "duration_ticks": 332,
+          "duration_beats": 41.5,
+          "duration_sec": 20.5293,
+          "mean_note_dur_beats": 0.2424,
+          "mean_velocity": 96.09,
+          "mean_pitch": 57.17,
+          "pitch_min": 37,
+          "pitch_max": 68,
+          "velocity_min": 79,
+          "velocity_max": 119,
+          "max_polyphony": 6,
+          "onset_first_tick": 36,
+          "onset_last_tick": 330
+        },
+        "step_25": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              121.29004087474378
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 1,
+              "is_drum": false,
+              "name": "Bright Acoustic Piano",
+              "notes": 58
+            }
+          ],
+          "total_notes": 58,
+          "duration_ticks": 100,
+          "duration_beats": 12.5,
+          "duration_sec": 6.1835,
+          "mean_note_dur_beats": 0.3664,
+          "mean_velocity": 95.14,
+          "mean_pitch": 58.31,
+          "pitch_min": 35,
+          "pitch_max": 78,
+          "velocity_min": 63,
+          "velocity_max": 111,
+          "max_polyphony": 8,
+          "onset_first_tick": 40,
+          "onset_last_tick": 96
+        },
+        "step_50": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              121.29004087474378
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 7,
+              "is_drum": false,
+              "name": "Clavi",
+              "notes": 2
+            },
+            {
+              "index": 1,
+              "program": 1,
+              "is_drum": false,
+              "name": "Bright Acoustic Piano",
+              "notes": 15
+            },
+            {
+              "index": 2,
+              "program": 0,
+              "is_drum": false,
+              "name": "Acoustic Grand Piano",
+              "notes": 1
+            },
+            {
+              "index": 3,
+              "program": 5,
+              "is_drum": false,
+              "name": "Electric Piano 2",
+              "notes": 21
+            }
+          ],
+          "total_notes": 39,
+          "duration_ticks": 96,
+          "duration_beats": 12.0,
+          "duration_sec": 5.9362,
+          "mean_note_dur_beats": 0.3429,
+          "mean_velocity": 110.18,
+          "mean_pitch": 70.0,
+          "pitch_min": 44,
+          "pitch_max": 104,
+          "velocity_min": 95,
+          "velocity_max": 119,
+          "max_polyphony": 5,
+          "onset_first_tick": 36,
+          "onset_last_tick": 92
+        }
+      }
+    },
+    {
+      "prompt_id": "gmd-11",
+      "models": {
+        "pretrained": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              114.51998946416097
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 12
+            },
+            {
+              "index": 1,
+              "program": 32,
+              "is_drum": false,
+              "name": "Acoustic Bass",
+              "notes": 1
+            },
+            {
+              "index": 2,
+              "program": 52,
+              "is_drum": false,
+              "name": "Choir Aahs",
+              "notes": 1
+            },
+            {
+              "index": 3,
+              "program": 7,
+              "is_drum": false,
+              "name": "Clavi",
+              "notes": 6
+            },
+            {
+              "index": 4,
+              "program": 8,
+              "is_drum": false,
+              "name": "Celesta",
+              "notes": 7
+            },
+            {
+              "index": 5,
+              "program": 4,
+              "is_drum": false,
+              "name": "Electric Piano 1",
+              "notes": 8
+            }
+          ],
+          "total_notes": 35,
+          "duration_ticks": 84,
+          "duration_beats": 10.5,
+          "duration_sec": 5.5012,
+          "mean_note_dur_beats": 0.2464,
+          "mean_velocity": 65.51,
+          "mean_pitch": 64.74,
+          "pitch_min": 26,
+          "pitch_max": 94,
+          "velocity_min": 39,
+          "velocity_max": 127,
+          "max_polyphony": 2,
+          "onset_first_tick": 4,
+          "onset_last_tick": 82
+        },
+        "step_25": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              114.51998946416097
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 3
+            },
+            {
+              "index": 1,
+              "program": 2,
+              "is_drum": false,
+              "name": "Electric Grand Piano",
+              "notes": 36
+            },
+            {
+              "index": 2,
+              "program": 7,
+              "is_drum": false,
+              "name": "Clavi",
+              "notes": 2
+            }
+          ],
+          "total_notes": 41,
+          "duration_ticks": 78,
+          "duration_beats": 9.75,
+          "duration_sec": 5.1083,
+          "mean_note_dur_beats": 0.3841,
+          "mean_velocity": 103.2,
+          "mean_pitch": 58.98,
+          "pitch_min": 40,
+          "pitch_max": 84,
+          "velocity_min": 103,
+          "velocity_max": 111,
+          "max_polyphony": 9,
+          "onset_first_tick": 4,
+          "onset_last_tick": 74
+        },
+        "step_50": {
+          "tpq": 8,
+          "tempos": [
+            [
+              0,
+              114.51998946416097
+            ]
+          ],
+          "tracks": [
+            {
+              "index": 0,
+              "program": 0,
+              "is_drum": true,
+              "name": "Drums",
+              "notes": 1
+            },
+            {
+              "index": 1,
+              "program": 1,
+              "is_drum": false,
+              "name": "Bright Acoustic Piano",
+              "notes": 48
+            }
+          ],
+          "total_notes": 49,
+          "duration_ticks": 88,
+          "duration_beats": 11.0,
+          "duration_sec": 5.7632,
+          "mean_note_dur_beats": 0.2653,
+          "mean_velocity": 118.35,
+          "mean_pitch": 51.49,
+          "pitch_min": 40,
+          "pitch_max": 63,
+          "velocity_min": 7,
+          "velocity_max": 127,
+          "max_polyphony": 3,
+          "onset_first_tick": 4,
+          "onset_last_tick": 86
+        }
+      }
+    }
+  ],
+  "duration_check": {
+    "method_note": "duration_beats = max(note.end) / tpq over ALL tracks (prompt + continuation). bpm uses only score.tempos[0].qpm (first tempo). Same definition applied to all models."
+  },
+  "summary": {}
+}

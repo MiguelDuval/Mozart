@@ -1,0 +1,38 @@
+name: AuraMIDI Metadata Sidecar Tests
+
+on:
+  push:
+    branches:
+      - "feature/**"
+    paths:
+      - "experiments/aura-midi/build_role_metadata_sidecar.py"
+      - "experiments/aura-midi/audit_role_metadata.py"
+      - "experiments/aura-midi/tests/test_role_metadata_sidecar.py"
+      - ".github/workflows/aura-midi-metadata-tests.yml"
+  pull_request:
+    paths:
+      - "experiments/aura-midi/build_role_metadata_sidecar.py"
+      - "experiments/aura-midi/audit_role_metadata.py"
+      - "experiments/aura-midi/tests/test_role_metadata_sidecar.py"
+      - ".github/workflows/aura-midi-metadata-tests.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aura-midi-metadata-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Show Python version
+        run: python3 --version
+      - name: Run metadata sidecar unit tests
+        run: python3 -m unittest discover -s experiments/aura-midi/tests -p "test_role_metadata_sidecar.py" -v
+      - name: Verify CLI help does not load training runtime
+        run: python3 experiments/aura-midi/audit_role_metadata.py --help

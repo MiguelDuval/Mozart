@@ -1,0 +1,146 @@
+{
+  "phase": "O",
+  "title": "Source-mixture ratio experiments (NRG-CP/GMD)",
+  "date": "2026-10-27",
+  "branch": "feature/mmm-v2-decoder-fix-and-docs",
+  "head": "6e5109e221c4c659f7b45b5abba814716fd87c4a",
+  "model": "shikhr/music_maker official",
+  "model_params": 44429824,
+  "vocab_size": 12000,
+  "pretrained_ckpt": "experiments/aura-midi/models/shikhr-music-maker-official/model.safetensors",
+  "pretrained_ckpt_sha256": "38e1083aea069e298f40373ebc394211b66b876702df91b2c4488cbd53079319",
+  "token_cache": "experiments/aura-midi/runs/pilot-20261027_145544/token_cache.json",
+  "token_cache_sha256": "1f0df253e1fe49d5db20cb1bba9b346c821129279b49f0eff484cd403e962551",
+  "training_safety": {
+    "status": "VERIFIED",
+    "sequence": [
+      "forward + check loss finiteness (BEFORE backward)",
+      "loss.backward()",
+      "check gradients finiteness (AFTER backward, BEFORE clip)",
+      "clip_grad_norm (grad_clip=1.0)",
+      "check gradients finiteness (AFTER clip, BEFORE optimizer.step)",
+      "optimizer.step()",
+      "check parameters finiteness (AFTER step, BEFORE zero_grad)",
+      "optimizer.zero_grad()",
+      "guarded checkpoint save (blocked if safety_violation)"
+    ],
+    "tests": "tests/test_training_safety.py: 13 tests PASS",
+    "fixes": [
+      "gradient check moved from before backward to after backward",
+      "added separate gradient finiteness check after clip_grad_norm",
+      "added parameter finiteness check after optimizer.step",
+      "safety_violation flag blocks saving a corrupted checkpoint",
+      "removed duplicate safety_violation keys and duplicate check_parameters_finite definition"
+    ],
+    "files": ["train_antiforgetting.py", "train_sampling_balanced.py", "tests/test_training_safety.py"]
+  },
+  "acceptance_thresholds": {
+    "nrgcp_mean_notes": {"baseline": 103.667, "min_70pct": 72.567},
+    "nrgcp_mean_duration_beats": {"baseline": 27.271, "min_70pct": 19.090},
+    "gmd_mean_notes": {"baseline": 54.500, "min_70pct": 38.150},
+    "gmd_mean_duration_beats": {"baseline": 20.000, "min_70pct": 14.000, "hard_min": 14.000},
+    "rules": [
+      "all 12 MIDI files created, readable, re-openable",
+      "no more than one of six prompts per source with <= 1 note",
+      "per-source mean notes and mean duration >= 70% of pretrained baseline",
+      "GMD mean duration >= 14.000 beats (mandatory)"
+    ]
+  },
+  "training_config_common": {
+    "seed": 20261028,
+    "lr": 1e-06,
+    "batch_size": 1,
+    "seq_len": 128,
+    "optimizer": "AdamW",
+    "weight_decay": 0.01,
+    "grad_clip": 1.0,
+    "val_every": 25,
+    "max_steps": 25,
+    "decode": {"max_new": 100, "temperature": 1.0, "top_k": 40, "seed": 20261027}
+  },
+  "reproducibility": {
+    "note": "per-prompt seed made deterministic via sha256(prompt_id) (was hash(prompt_id), random per process); both experiments and the safety fix are reproducible",
+    "previous_bug": "hash() of prompt_id is randomised per Python process, so the earlier 'pass' (GMD 14.04) was non-reproducible; deterministic re-evaluation gives GMD 10.35"
+  },
+  "experiments": [
+    {
+      "name": "Experiment 1: NRG-CP/GMD = 20/80",
+      "status": "FAIL — GMD duration gate not met",
+      "source_probabilities": {"nrgcp": 0.2, "gmd": 0.8},
+      "actual_steps": {"nrgcp": 2, "gmd": 23, "expected_nrgcp": 5.0, "expected_gmd": 20.0},
+      "start_from": "original pretrained checkpoint",
+      "checkpoint": "experiments/aura-midi/runs/exp-20-80-20261028-20261027_233033/checkpoints/checkpoint_step_25.pt",
+      "checkpoint_sha256": "63f1e47bbe07b4ec32685b677dafd22c7ca307f6cf60696d25771298518b657e",
+      "completed_steps": 25,
+      "safety": {"finite_loss": 25, "non_finite_loss": 0, "non_finite_grad": 0, "non_finite_param": 0, "safety_violation": false},
+      "val_loss": {"combined": 10.9054, "nrgcp": 12.2737, "gmd": 9.5371},
+      "criteria": {
+        "all_12_midi_created_reopenable": true,
+        "le1_note_prompts_nrgcp": 0,
+        "le1_note_prompts_gmd": 0,
+        "nrgcp_mean_notes": {"value": 96.167, "threshold": 72.567, "pass": true},
+        "nrgcp_mean_duration_beats": {"value": 53.104, "threshold": 19.090, "pass": true},
+        "gmd_mean_notes": {"value": 44.667, "threshold": 38.150, "pass": true},
+        "gmd_mean_duration_beats": {"value": 10.354, "threshold": 14.000, "pass": false},
+        "gmd_mean_duration_hard_min_14": {"value": 10.354, "threshold": 14.000, "pass": false}
+      },
+      "all_criteria_passed": false,
+      "per_prompt": [
+        {"prompt_id":"gmd-06","source":"gmd","notes":51,"duration_beats":7.625,"mean_note_duration_beats":0.1495,"onset_span_beats":5.625,"midi_valid":true},
+        {"prompt_id":"gmd-07","source":"gmd","notes":39,"duration_beats":12.25,"mean_note_duration_beats":0.3141,"onset_span_beats":9.5,"midi_valid":true},
+        {"prompt_id":"gmd-08","source":"gmd","notes":67,"duration_beats":12.875,"mean_note_duration_beats":0.1922,"onset_span_beats":7.0,"midi_valid":true},
+        {"prompt_id":"gmd-09","source":"gmd","notes":51,"duration_beats":12.125,"mean_note_duration_beats":0.2377,"onset_span_beats":11.5,"midi_valid":true},
+        {"prompt_id":"gmd-10","source":"gmd","notes":37,"duration_beats":8.0,"mean_note_duration_beats":0.2162,"onset_span_beats":3.375,"midi_valid":true},
+        {"prompt_id":"gmd-11","source":"gmd","notes":23,"duration_beats":9.25,"mean_note_duration_beats":0.4022,"onset_span_beats":8.0,"midi_valid":true},
+        {"prompt_id":"nrgcp-00","source":"nrgcp","notes":67,"duration_beats":175.875,"mean_note_duration_beats":2.625,"onset_span_beats":172.0,"midi_valid":true},
+        {"prompt_id":"nrgcp-01","source":"nrgcp","notes":105,"duration_beats":19.75,"mean_note_duration_beats":0.1881,"onset_span_beats":19.5,"midi_valid":true},
+        {"prompt_id":"nrgcp-02","source":"nrgcp","notes":125,"duration_beats":23.5,"mean_note_duration_beats":0.188,"onset_span_beats":23.0,"midi_valid":true},
+        {"prompt_id":"nrgcp-03","source":"nrgcp","notes":66,"duration_beats":64.0,"mean_note_duration_beats":0.9697,"onset_span_beats":60.0,"midi_valid":true},
+        {"prompt_id":"nrgcp-04","source":"nrgcp","notes":106,"duration_beats":14.5,"mean_note_duration_beats":0.1368,"onset_span_beats":14.25,"midi_valid":true},
+        {"prompt_id":"nrgcp-05","source":"nrgcp","notes":108,"duration_beats":21.0,"mean_note_duration_beats":0.1944,"onset_span_beats":20.75,"midi_valid":true}
+      ]
+    },
+    {
+      "name": "Experiment 2: NRG-CP/GMD = 80/20",
+      "status": "FAIL — GMD duration gate not met",
+      "run_guard": "launched only because Experiment 1 failed all criteria",
+      "source_probabilities": {"nrgcp": 0.8, "gmd": 0.2},
+      "actual_steps": {"nrgcp": null, "gmd": null},
+      "start_from": "original pretrained checkpoint",
+      "checkpoint": "experiments/aura-midi/runs/exp-80-20-20261028-20261027_234603/checkpoints/checkpoint_step_25.pt",
+      "checkpoint_sha256": "3f421bc9cc70b72167e9e761782103fe79cebc096484f759618cd62b9627b290",
+      "completed_steps": 25,
+      "safety": {"finite_loss": 25, "non_finite_loss": 0, "non_finite_grad": 0, "non_finite_param": 0, "safety_violation": false},
+      "val_loss": {"combined": 11.1094, "nrgcp": 11.6947, "gmd": 10.5241},
+      "criteria": {
+        "all_12_midi_created_reopenable": true,
+        "le1_note_prompts_nrgcp": 0,
+        "le1_note_prompts_gmd": 0,
+        "nrgcp_mean_notes": {"value": 101.0, "threshold": 72.567, "pass": true},
+        "nrgcp_mean_duration_beats": {"value": 28.4, "threshold": 19.090, "pass": true},
+        "gmd_mean_notes": {"value": 50.0, "threshold": 38.150, "pass": true},
+        "gmd_mean_duration_beats": {"value": 10.19, "threshold": 14.000, "pass": false},
+        "gmd_mean_duration_hard_min_14": {"value": 10.19, "threshold": 14.000, "pass": false}
+      },
+      "all_criteria_passed": false,
+      "per_prompt": [
+        {"prompt_id":"gmd-06","source":"gmd","notes":57,"duration_beats":11.125,"mean_note_duration_beats":0.1952,"onset_span_beats":8.625,"midi_valid":true},
+        {"prompt_id":"gmd-07","source":"gmd","notes":35,"duration_beats":12.0,"mean_note_duration_beats":0.3429,"onset_span_beats":9.25,"midi_valid":true},
+        {"prompt_id":"gmd-08","source":"gmd","notes":52,"duration_beats":9.75,"mean_note_duration_beats":0.1875,"onset_span_beats":3.75,"midi_valid":true},
+        {"prompt_id":"gmd-09","source":"gmd","notes":54,"duration_beats":9.875,"mean_note_duration_beats":0.1829,"onset_span_beats":9.25,"midi_valid":true},
+        {"prompt_id":"gmd-10","source":"gmd","notes":47,"duration_beats":9.375,"mean_note_duration_beats":0.1995,"onset_span_beats":4.625,"midi_valid":true},
+        {"prompt_id":"gmd-11","source":"gmd","notes":55,"duration_beats":9.0,"mean_note_duration_beats":0.1636,"onset_span_beats":8.25,"midi_valid":true},
+        {"prompt_id":"nrgcp-00","source":"nrgcp","notes":114,"duration_beats":17.5,"mean_note_duration_beats":0.1535,"onset_span_beats":17.25,"midi_valid":true},
+        {"prompt_id":"nrgcp-01","source":"nrgcp","notes":105,"duration_beats":19.75,"mean_note_duration_beats":0.1881,"onset_span_beats":19.5,"midi_valid":true},
+        {"prompt_id":"nrgcp-02","source":"nrgcp","notes":118,"duration_beats":26.625,"mean_note_duration_beats":0.2256,"onset_span_beats":26.0,"midi_valid":true},
+        {"prompt_id":"nrgcp-03","source":"nrgcp","notes":66,"duration_beats":64.0,"mean_note_duration_beats":0.9697,"onset_span_beats":60.0,"midi_valid":true},
+        {"prompt_id":"nrgcp-04","source":"nrgcp","notes":95,"duration_beats":19.25,"mean_note_duration_beats":0.2026,"onset_span_beats":19.0,"midi_valid":true},
+        {"prompt_id":"nrgcp-05","source":"nrgcp","notes":108,"duration_beats":23.25,"mean_note_duration_beats":0.2153,"onset_span_beats":21.0,"midi_valid":true}
+      ]
+    }
+  ],
+  "stop_reason": "Both experiments fail the mandatory GMD mean duration gate (>= 14.000 beats): Exp1 10.354, Exp2 10.19. Per stop rule, no further source-mixture runs.",
+  "final_candidate": "antiforgetting step 25 remains the last verified passing candidate (GMD mean duration 16.188 beats, NRG-CP mean duration 28.271 beats, per Phase N docs)",
+  "next_direction": "Do not continue source-mixture ratio sweep. Investigate other mechanisms for GMD rhythmic degradation (e.g. longer antiforgetting windows, different regularisation, data rebalancing, or architecture) before any longer training run."
+}
+

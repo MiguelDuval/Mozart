@@ -1,0 +1,83 @@
+name: REMI/BPE Adapter CI
+
+on:
+  push:
+    branches: [feature/mmm-v2-decoder-fix-and-docs]
+  pull_request:
+    branches: [feature/mmm-v2-decoder-fix-and-docs]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ ninja-build
+
+      - name: Configure Mozart library
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_STANDARD=20 \
+            -DCMAKE_CXX_STANDARD_REQUIRED=ON \
+            -DCMAKE_CXX_EXTENSIONS=OFF
+
+      - name: Build Mozart library
+        run: |
+          cmake --build build -j$(nproc)
+
+      - name: Configure test targets
+        run: |
+          # Keep assert-based regression checks active; Release defines NDEBUG.
+          cmake -S tests -B tests/build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_STANDARD=20 \
+            -DCMAKE_CXX_STANDARD_REQUIRED=ON \
+            -DCMAKE_CXX_EXTENSIONS=OFF
+
+      - name: Build test targets
+        run: |
+          cmake --build tests/build -j$(nproc)
+
+      - name: Run mozart_core_tests
+        run: |
+          ./tests/build/mozart_core_tests > test_mozart_core.log 2>&1
+          cat test_mozart_core.log
+
+      - name: Run remi_adapter_tests_1
+        run: |
+          ./tests/build/remi_adapter_tests_1 > test_remi_adapter_1.log 2>&1
+          cat test_remi_adapter_1.log
+
+      - name: Run remi_adapter_tests_2
+        run: |
+          ./tests/build/remi_adapter_tests_2 > test_remi_adapter_2.log 2>&1
+          cat test_remi_adapter_2.log
+
+      - name: Run remi_adapter_tests_3
+        run: |
+          ./tests/build/remi_adapter_tests_3 > test_remi_adapter_3.log 2>&1
+          cat test_remi_adapter_3.log
+
+      - name: Run scheduler_tests
+        run: |
+          ./tests/build/scheduler_tests > test_scheduler.log 2>&1
+          cat test_scheduler.log
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: remi-adapter-test-logs
+          path: |
+            test_mozart_core.log
+            test_remi_adapter_1.log
+            test_remi_adapter_2.log
+            test_remi_adapter_3.log
+            test_scheduler.log

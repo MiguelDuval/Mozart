@@ -1,0 +1,31 @@
+{
+  "token_names": [
+    "BOS_None",
+    "Bar_None",
+    "Position_0",
+    "Pitch_60",
+    "Velocity_100",
+    "Position_8",
+    "Pitch_64",
+    "Position_16",
+    "Pitch_67",
+    "Bar_None",
+    "Position_0",
+    "Pitch_72",
+    "EOS_None"
+  ],
+  "token_ids": [
+    1,
+    4,
+    173,
+    44,
+    181,
+    48,
+    189,
+    51,
+    4,
+    173,
+    56,
+    2
+  ]
+}

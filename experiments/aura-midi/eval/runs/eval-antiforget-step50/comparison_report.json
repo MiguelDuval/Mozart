@@ -1,0 +1,110 @@
+{
+  "evaluator": "metrics_from_midi.py (MIDI-based metrics, matched decoding)",
+  "experiment": "antiforgetting-20261028-20261027_191132 (bounded anti-forgetting run)",
+  "evaluated_checkpoint": "experiments/aura-midi/runs/antiforgetting-20261028-20261027_191132/checkpoints/checkpoint_step_50.pt",
+  "checkpoint_step": 50,
+  "created_at": "2026-10-27T18:38:00Z",
+  "git_head": "a9b17f22bb6f515138e5276cf96990a520908c1d",
+  "branch": "feature/mmm-v2-decoder-fix-and-docs",
+  "purpose": "Phase K sequential gate evaluation: step 50 vs pretrained baseline, after step 25 passed all gates.",
+  "setup": {
+    "tokenizer": "shikhr/music-maker (official BPE), vocab 12000",
+    "pretrained_ckpt": "experiments/aura-midi/models/shikhr-music-maker-official/model.safetensors",
+    "pretrained_ckpt_sha256": "38e1083aea069e298f40373ebc394211b66b876702df91b2c4488cbd53079319",
+    "experimental_ckpt_sha256": "computed-at-runtime",
+    "decoding": { "max_new": 100, "temperature": 1.0, "top_k": 40, "seed": 20261027 },
+    "prompts": "experiments/aura-midi/eval/prompts.json (6 NRG-CP chord-oriented + 6 GMD drum-oriented)",
+    "device": "cuda (GTX 1650, 4 GB VRAM)"
+  },
+  "acceptance_gates": {
+    "rule": "All MIDI parse; <=1 of 6 prompts per source with <=1 note; mean notes per source >=70% of pretrained baseline; mean duration per source >=70% of pretrained baseline.",
+    "pretrained_baseline": {
+      "nrgcp": { "mean_notes": 103.667, "mean_duration_beats": 27.271, "le1_note_prompts": 0 },
+      "gmd":   { "mean_notes": 54.500,  "mean_duration_beats": 20.000, "le1_note_prompts": 0 }
+    },
+    "gate_thresholds_70_percent": {
+      "nrgcp_mean_notes": 72.567,
+      "nrgcp_mean_duration_beats": 19.090,
+      "gmd_mean_notes": 38.150,
+      "gmd_mean_duration_beats": 14.000
+    },
+    "step_50_result": {
+      "nrgcp": {
+        "mean_notes": 104.167,
+        "mean_duration_beats": 27.375,
+        "le1_note_prompts": 0,
+        "all_valid": true,
+        "gate_pass": true,
+        "pct_of_baseline_notes": 100.5,
+        "pct_of_baseline_duration": 100.4
+      },
+      "gmd": {
+        "mean_notes": 41.167,
+        "mean_duration_beats": 12.292,
+        "le1_note_prompts": 0,
+        "all_valid": true,
+        "gate_pass": false,
+        "pct_of_baseline_notes": 75.5,
+        "pct_of_baseline_duration": 61.5,
+        "failed_gate": "gmd_mean_duration_beats (12.292 < 14.000)"
+      }
+    },
+    "all_midi_parse": true,
+    "gate_result": "FAIL"
+  },
+  "per_prompt_metrics": {
+    "gmd": [
+      { "prompt_id": "gmd-06", "notes": 50, "duration_beats": 14.5,  "duration_sec": 6.1436,  "valid": true },
+      { "prompt_id": "gmd-07", "notes": 10, "duration_beats": 8.0,   "duration_sec": 5.4907,  "valid": true },
+      { "prompt_id": "gmd-08", "notes": 51, "duration_beats": 17.75, "duration_sec": 13.2052, "valid": true },
+      { "prompt_id": "gmd-09", "notes": 48, "duration_beats": 10.5,  "duration_sec": 6.2395,  "valid": true },
+      { "prompt_id": "gmd-10", "notes": 39, "duration_beats": 12.0,  "duration_sec": 5.9362,  "valid": true },
+      { "prompt_id": "gmd-11", "notes": 49, "duration_beats": 11.0,  "duration_sec": 5.7632,  "valid": true }
+    ],
+    "nrgcp": [
+      { "prompt_id": "nrgcp-00", "notes": 116, "duration_beats": 23.75, "duration_sec": 11.7487, "valid": true },
+      { "prompt_id": "nrgcp-01", "notes": 101, "duration_beats": 19.75, "duration_sec": 9.77,    "valid": true },
+      { "prompt_id": "nrgcp-02", "notes": 115, "duration_beats": 22.0,  "duration_sec": 10.883,  "valid": true },
+      { "prompt_id": "nrgcp-03", "notes": 73,  "duration_beats": 60.0,  "duration_sec": 29.6809, "valid": true },
+      { "prompt_id": "nrgcp-04", "notes": 94,  "duration_beats": 17.75, "duration_sec": 8.7806,  "valid": true },
+      { "prompt_id": "nrgcp-05", "notes": 126, "duration_beats": 21.0,  "duration_sec": 10.3883, "valid": true }
+    ]
+  },
+  "comparison": {
+    "step_25_vs_step_50": {
+      "nrgcp_mean_notes": "101.667 -> 104.167 (+2.5%)",
+      "nrgcp_mean_duration_beats": "28.271 -> 27.375 (-3.2%)",
+      "gmd_mean_notes": "57.833 -> 41.167 (-28.8%)",
+      "gmd_mean_duration_beats": "16.188 -> 12.292 (-24.1%)",
+      "assessment": "GMD regressed from step 25 to step 50, failing the duration gate"
+    },
+    "step_25_vs_degraded_500step_pilot": {
+      "gmd_avg_notes": "57.833 (step 25) vs ~2 (degraded 500-step)",
+      "gmd_prompts_le1_note": "0 (step 25) vs 5 of 6 (degraded 500-step)",
+      "assessment": "Step 25 substantially recovered GMD vs the degraded pilot"
+    }
+  },
+  "training": {
+    "max_steps": 100,
+    "lr": 1e-6,
+    "seed": 20261028,
+    "batch_size": 1,
+    "seq_len": 128,
+    "optimizer": "AdamW",
+    "weight_decay": 0.01,
+    "grad_clip": 1.0,
+    "val_every": 25,
+    "source_balance": { "nrgcp": 0.5, "gmd": 0.5 },
+    "step_25_best_val_loss": 8.6952,
+    "step_50_val_loss": "see training_metrics.json in run dir"
+  },
+  "checkpoints": {
+    "run_dir": "experiments/aura-midi/runs/antiforgetting-20261028-20261027_191132",
+    "saved": [ "checkpoint_step_25.pt", "checkpoint_step_50.pt", "checkpoint_step_75.pt", "checkpoint_step_100.pt", "checkpoint_latest.pt", "checkpoint_best.pt" ],
+    "note": "Large checkpoint files are preserved locally and MUST NOT be committed to Git."
+  },
+  "result": "FAIL",
+  "failure_reason": "GMD mean duration 12.292 beats < 14.000 gate (61.5% of pretrained baseline 20.000 beats). NRG-CP passes all gates.",
+  "decision": "STOP sequential evaluation per Phase K rules. Step 50 fails; step 25 remains the latest verified passing candidate. Do NOT evaluate step 75 or step 100. Do NOT extend training.",
+  "recommendation": "Retain step 25 as the current passing checkpoint. Investigate GMD duration regression between steps 25 and 50 before any further training. Any longer proposal must address catastrophic forgetting, per-source evaluation, and rhythmic diversity."
+}

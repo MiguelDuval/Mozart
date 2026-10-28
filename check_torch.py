@@ -1,0 +1,9 @@
+import torch
+print("VERSION:", torch.__version__)
+print("CUDA_AVAILABLE:", torch.cuda.is_available())
+print("CUDA_VERSION:", torch.version.cuda)
+print("DEVICE_COUNT:", torch.cuda.device_count())
+if torch.cuda.is_available():
+    print("DEVICE_NAME:", torch.cuda.get_device_name(0))
+    print("MEMORY_ALLOCATED:", torch.cuda.memory_allocated(0))
+    print("MEMORY_RESERVED:", torch.cuda.memory_reserved(0))

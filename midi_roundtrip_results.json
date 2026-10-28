@@ -1,0 +1,12 @@
+{
+  "midi_file": "1001173_nrgcp_dataset.mid",
+  "original_tokens": 136,
+  "original_notes": 108,
+  "original_tracks": 1,
+  "decoded_notes": 108,
+  "decoded_tracks": 1,
+  "reencoded_tokens": 136,
+  "token_reduction": 0,
+  "note_reduction": 0,
+  "track_reduction": 0
+}
