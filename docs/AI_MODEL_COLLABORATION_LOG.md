@@ -506,3 +506,8 @@ The implementation is on the current feature branch and is awaiting exact-SHA ex
 ## 2026-10-28 — ChatGPT — Validate model-config special IDs against learned tokenizer
 
 Follow-up hardening adds a pre-export check that any checkpoint-declared BOS, EOS, or PAD ID (including the nonstandard GPT-2 `pad` field when present) matches the paired learned MidiTok tokenizer. Hugging Face cache snapshot directories are also required to match the explicitly supplied immutable model revision. This prevents a valid-sized but mispaired tokenizer from passing the exporter only because its vocabulary length happens to match. The new exact-SHA exporter tests are pending.
+
+
+## 2026-10-28 — ChatGPT — Fix exporter CLI syntax after generic model-ID option
+
+The first GPT-2 exporter-contract run on the genericization commit found a literal `\\n` inserted in the Python CLI declaration when replacing its model-ID default. Corrected the source to a real line break and widened the helper parameter annotation to reflect the intended `None`-means-directory-name behavior. This was a source syntax error detected before model loading or ONNX export; the corrected exact-SHA contract workflow is pending.

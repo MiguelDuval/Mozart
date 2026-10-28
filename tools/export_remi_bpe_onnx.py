@@ -356,7 +356,7 @@ def export_loaded_model(
 
 def build_manifest(
     *,
-    model_id: str,
+    model_id: str | None,
     model_revision: str,
     model_file: str,
     model_sha256: str,
@@ -644,7 +644,8 @@ def main() -> int:
                         help="ONNX output path outside the repository")
     parser.add_argument("--manifest", type=Path, required=True,
                         help="manifest output path beside the ONNX file")
-    parser.add_argument("--model-id", default=None,\n                        help="manifest model identifier; defaults to the local model directory name")
+    parser.add_argument("--model-id", default=None,
+                        help="manifest model identifier; defaults to the local model directory name")
     parser.add_argument("--model-revision", required=True,
                         help="immutable upstream Git/Hugging Face revision")
     parser.add_argument("--sample-sequence-length", type=int, default=8)
