@@ -21,7 +21,7 @@ std::optional<std::string> PatternProposal::validationError() const noexcept {
     if (totalTicks == 0) return "Total ticks is zero";
     for (std::size_t i = 0; i < events.size(); ++i) {
         std::uint32_t pos = 0;
-        std::visit([&pos](const auto& e) { pos = e.position; }, event);
+        std::visit([&pos](const auto& e) { pos = e.position; }, events[i]);
         if (pos > totalTicks) {
             return "Event at index " + std::to_string(i) + " exceeds totalTicks";
         }
