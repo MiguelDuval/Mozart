@@ -1,0 +1,6 @@
+# Private experimental exporter for external MidiTok REMI/BPE models.
+# Keep these dependencies separate from the standard Mozart 512-token exporter.
+-r requirements-onnx-export.txt
+transformers==4.41.2
+tokenizers==0.19.1
+safetensors==0.4.3

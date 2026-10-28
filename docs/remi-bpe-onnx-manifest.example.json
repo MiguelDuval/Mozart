@@ -1,0 +1,105 @@
+{
+  "manifest_schema_version": 1,
+  "manifest_status": "template",
+  "model_id": "shikhr-music-maker-remi-bpe",
+  "model_revision": "<FROZEN>",
+  "model_file": "model.onnx",
+  "model_format": "onnx",
+  "model_sha256": "<FROZEN>",
+  "distribution_class": "private_experimental",
+  "vocabulary_id": "miditok-remi-bpe-v1",
+  "vocabulary_size": 12000,
+  "context_length_tokens": 1024,
+  "max_generated_tokens": 400,
+  "inputs": [
+    {
+      "name": "input_ids",
+      "dtype": "int64",
+      "shape": [
+        1,
+        -1
+      ],
+      "layout": "batch_sequence",
+      "role": "remi_bpe_token_ids"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "logits",
+      "dtype": "float32",
+      "shape": [
+        1,
+        12000
+      ],
+      "layout": "batch_vocabulary",
+      "role": "next_token_logits"
+    }
+  ],
+  "kv_cache": {
+    "enabled": false,
+    "tensors": []
+  },
+  "quantization": {
+    "scheme": "none",
+    "activations": "float32",
+    "weights": "float32",
+    "scales": "not_applicable",
+    "zero_points": "not_applicable"
+  },
+  "conditioning": {
+    "style_family": "not_supported_by_unconditional_piano_checkpoint",
+    "substyle": "not_supported_by_unconditional_piano_checkpoint",
+    "mood": "not_supported_by_unconditional_piano_checkpoint",
+    "rhythm": "not_supported_by_unconditional_piano_checkpoint",
+    "role": "single_piano_track",
+    "key_scale": "not_conditioned",
+    "chords": "not_conditioned",
+    "density": "not_conditioned",
+    "energy": "not_conditioned",
+    "syncopation": "not_conditioned",
+    "swing": "not_conditioned",
+    "variation": "not_conditioned",
+    "seed": "unused_with_greedy_argmax"
+  },
+  "decoding": {
+    "strategy": "greedy_argmax",
+    "temperature": 0,
+    "top_k": 1,
+    "top_p": 1,
+    "seed_policy": "unused_with_greedy_argmax"
+  },
+  "provenance": {
+    "training_source": "adl-piano-midi as described by upstream model card; source inventory requires separate audit",
+    "dataset_manifest": "not provided by upstream; rights/provenance review required",
+    "preprocessing_revision": "MidiTok tokenizer SHA-256 recorded in runtime extension"
+  },
+  "licenses": {
+    "implementation": "upstream model card states MIT; verify checked-out code before redistribution",
+    "model_weights": "private external checkpoint; redistribution review required",
+    "training_data": "upstream card describes adl-piano-midi; dataset rights remain to be audited",
+    "redistribution": "private experimental use only pending provenance and license review"
+  },
+  "runtime": {
+    "backend": "onnxruntime",
+    "input_name": "input_ids",
+    "output_name": "logits",
+    "input_dtype": "int64",
+    "token_mode": "remi_bpe",
+    "external_vocabulary_size": 12000,
+    "context_length_tokens": 1024,
+    "max_generated_tokens": 400,
+    "pad_token_id": 0,
+    "bos_token_id": 1,
+    "eos_token_id": 2,
+    "mask_token_id": 3,
+    "tokenizer_file": "tokenizer.json",
+    "tokenizer_sha256": "<FROZEN>",
+    "allow_unhashed_experimental": false
+  },
+  "source_code_files_sha256": {
+    "gpt_model.py": "<FROZEN>"
+  },
+  "source_checkpoint_files_sha256": {
+    "model.safetensors": "<FROZEN>"
+  }
+}
