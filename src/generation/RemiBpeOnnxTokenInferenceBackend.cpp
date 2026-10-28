@@ -1,4 +1,6 @@
 #include "generation/RemiBpeInferenceBackend.h"
+#include "json.hpp"
+#include <fstream>
 #include <utility>
 
 namespace mozart::generation {
@@ -42,5 +44,26 @@ bool RemiBpeOnnxTokenInferenceBackend::isAvailable() const noexcept {
 std::string RemiBpeOnnxTokenInferenceBackend::id() const { return backendId_; }
 std::string RemiBpeOnnxTokenInferenceBackend::tokenizerArtifactPath() const {
     return tokenizerPath_;
+}
+
+std::size_t RemiBpeOnnxTokenInferenceBackend::expectedVocabularySize() const noexcept {
+    try {
+        std::ifstream input(manifestPath_);
+        if (!input.is_open()) return 0;
+        nlohmann::json manifest;
+        input >> manifest;
+        const auto vocabularySize = manifest.at("vocabulary_size").get<std::size_t>();
+        const auto& runtime = manifest.at("runtime");
+        if (manifest.value("model_format", std::string{}) != "onnx" ||
+            manifest.value("vocabulary_id", std::string{}) != "miditok-remi-bpe-v1" ||
+            runtime.value("token_mode", std::string{}) != "remi_bpe" ||
+            runtime.at("external_vocabulary_size").get<std::size_t>() != vocabularySize ||
+            vocabularySize == 0) {
+            return 0;
+        }
+        return vocabularySize;
+    } catch (...) {
+        return 0;
+    }
 }
 } // namespace mozart::generation
