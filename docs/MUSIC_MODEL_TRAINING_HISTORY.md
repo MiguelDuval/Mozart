@@ -1352,3 +1352,50 @@ The proportional sampling experiment (p_nrgcp=0.1177, p_gmd=0.8823) step-25 FAIL
 **Success criterion:** GMD mean duration at step 25 ≥ 14.000 beats (70% gate) in any arm.
 
 **Do not change:** Pretrained checkpoint, tokenizer, max steps (100), lr (1e-6), seed (20261028), batch size (1), seq len (128), AdamW, weight_decay (0.01), grad_clip (1.0), val_every (25).
+
+## Phase Q — Reproducibility & generation-path fixes (2026-10-28)
+
+**Branch:** feature/mmm-v2-decoder-fix-and-docs (HEAD d30f240213bda031de133907d85192788013b615, up to date with origin/feature/mmm-v2-decoder-fix-and-docs)
+
+**Context:** Overnight autonomous development session. Scope: Stage 1 reproducibility audit, Stage 2 MIDI evaluation reliability, Stage 3 model readiness smoke test, Stage 4 one integration fix, Stage 5 data/coverage audit, Stage 6 tests+docs. Constraints honored: no training runs, no large downloads, no load of the blocked 533 MB checkpoint, no changes to main, no reset/rebase/force-push.
+
+### Executed (all classified VERIFIED by local artifacts unless noted)
+
+1. **Seed determinism fix.** `gen_checkpoint.py` computed per-prompt seeds with Python `hash()` (process-salted, non-reproducible) — the only remaining `hash()` usage for seeds in tracked code. Replaced with `evaluate_models.prompt_seed(base_seed, prompt_id)` = `base_seed + int(sha256(prompt_id), 16) % 2^31`, now shared by `evaluate_models.py`, `eval_ckpt_metrics.py`, `gen_checkpoint.py`. Two `eval_ckpt_metrics.py` runs on `checkpoint_step_25.pt` produced bit-identical per-prompt metrics and summaries. Historical reports (`eval-matched-20261027/evaluation_report.json`, `metrics_step25.json`) contain hash()-era seeds and are non-reproducible — documented as a limitation in `reproducibility_report.json`, not silently corrected.
+
+2. **Training-safety state fix.** `train_sampling_balanced.py` contained a duplicate `check_parameters_finite` (second definition shadowed the state-aware one, so `safety["non_finite_param_steps"]` was never updated through `check_gradients_and_params_finite`) and double-incremented that counter inside `check_gradients_and_params_finite`. Removed the duplicate, removed the double count. `tests/test_training_safety.py`: 15/15 pass, incl. two new state-increment regression guards.
+
+3. **Model-loading fix (silent generation defect).** Official `shikhr/music_maker` `model.safetensors` stores `model.lm_head.weight` but NOT `model.transformer.wte.weight`; the GPT ties `wte <-> lm_head`. `load_pretrained_model` in `evaluate_models.py`, `train_antiforgetting.py`, `train_sampling_balanced.py` now promote `lm_head.weight` into `transformer.wte.weight` before `load_state_dict`. Result: `missing == []`, `unexpected == []` (previously `missing == ['transformer.wte.weight']`). End-to-end smoke test `tests/test_model_smoke.py`: load original weights (SHA-256 `38e1083a...`), generate 64 tokens from a real validation prompt, tokenizer decode, dump MIDI, re-open — valid MIDI. 3/3 pass.
+
+4. **MIDI evaluation reliability.** Independent `tests/verify_midi_metrics.py` matches `metrics_from_midi.py` exactly on `eval-antiforget-step25` (24 files; finetuned GMD mean duration 16.188 beats, matching documentation). New tests: `test_midi_metrics_quick.py` (3: missing file, empty score, single note), `test_midi_role_structure.py` (5: track/role invariants on real fixtures).
+
+5. **Experiment results vs documentation cross-check (VERIFIED):** antiforgetting step 25 GMD mean duration 16.188 beats (passes ≥14.000 gate); sampling-balanced step 25 GMD 11.146 (fail); antiforgetting step 50 GMD 12.292 (fail). JSON reports and docs agree. No source-mixture retraining (series stopped per protocol).
+
+### Local test results
+30/30 Python tests pass: test_training_safety 15, test_seed_determinism 4, test_midi_metrics_quick 3, test_midi_role_structure 5, test_model_smoke 3.
+
+### Not done locally (gated by CI / environment)
+- C++ core tests (`mozart_core_tests`, `remi_adapter_tests_*`): no cmake/g++/ninja toolchain on this machine — gated by CI workflow `remi-adapter-ci.yml`.
+- Android build: not triggered (no Android/Kotlin sources modified).
+- Corrected sidecar asset totals (dedupe on `source_id:composition_id:asset_id`): builder code fixed; local corrected scan pending classification as VERIFIED (`docs/CONDITIONING_FEASIBILITY_DECISION.md`).
+
+### Changed files
+- `evaluate_models.py` (prompt_seed helper + loader wte promotion)
+- `eval_ckpt_metrics.py` (use prompt_seed)
+- `gen_checkpoint.py` (use prompt_seed instead of hash())
+- `train_antiforgetting.py` (loader wte promotion)
+- `train_sampling_balanced.py` (loader wte promotion; safety duplicate + double-count removal)
+- `tests/test_training_safety.py` (+2 guards)
+- `tests/test_seed_determinism.py` (new)
+- `tests/test_midi_metrics_quick.py` (new)
+- `tests/test_midi_role_structure.py` (new)
+- `tests/test_model_smoke.py` (new)
+- `reproducibility_report.json` (new)
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md` (this section)
+- `docs/AI_MODEL_COLLABORATION_LOG.md` (this session entry)
+
+### Result
+**Generation path now loads trained embedding weights and produces valid re-openable MIDI; seeds are deterministic across processes; all 30 local tests pass.** Antiforgetting step 25 remains the last gate-passing candidate; it is NOT declared the final model for all genres.
+
+### Next action
+Commit + push to `feature/mmm-v2-decoder-fix-and-docs` (no checkpoints/caches/MIDI/large artifacts), verify remote SHA, check CI workflows (`remi-adapter-ci`, `aura-midi-metadata-tests`, `android-build`).

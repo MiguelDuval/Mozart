@@ -136,7 +136,8 @@ def check_gradients_and_params_finite(model, step, log_path, state):
         state["safety"]["non_finite_grad_steps"] += 1
         ok = False
     if not check_parameters_finite(model, step, log_path, state):
-        state["safety"]["non_finite_param_steps"] += 1
+        # check_parameters_finite already increments non_finite_param_steps;
+        # do not double-count the same violation.
         ok = False
     return ok
 
@@ -198,6 +199,11 @@ def load_pretrained_model(model_dir: Path, device: torch.device):
     sd = {}
     for k, v in ckpt.items():
         sd[k[6:] if k.startswith("model.") else k] = v
+    # Official shikhr/music_maker safetensors stores lm_head.weight but not
+    # transformer.wte.weight; the GPT ties wte <-> lm_head, so promote the
+    # trained row into the embedding table before loading.
+    if "transformer.wte.weight" not in sd and "lm_head.weight" in sd:
+        sd["transformer.wte.weight"] = sd["lm_head.weight"]
     missing, unexpected = model.load_state_dict(sd, strict=False)
     model.eval()
     return {
@@ -228,17 +234,6 @@ def proportional_sample(train_nrgcp, train_gmd, p_nrgcp, rng):
     if rng.random() < p_nrgcp:
         return train_nrgcp, "nrgcp"
     return train_gmd, "gmd"
-
-
-def check_parameters_finite(model, step, log_path, state):
-    bad = []
-    for name, p in model.named_parameters():
-        if not torch.isfinite(p.data).all():
-            bad.append(name)
-    if bad:
-        log_err(f"NON-FINITE PARAMETERS at step {step}: {bad[:8]}")
-        return False
-    return True
 
 
 def evaluate(model, dataset, source_name, device, log_path):

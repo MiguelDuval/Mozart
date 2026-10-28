@@ -20,7 +20,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "experiments" / "aura-midi" / "models" / "shikhr-music-maker-official"))
 
 import torch  # noqa: E402
-from evaluate_models import load_finetuned_model, generate  # noqa: E402
+from evaluate_models import load_finetuned_model, generate, prompt_seed  # noqa: E402
 from miditok import MusicTokenizer  # noqa: E402
 
 MODEL_DIR = REPO_ROOT / "experiments" / "aura-midi" / "models" / "shikhr-music-maker-official"
@@ -59,7 +59,7 @@ def main():
     n = 0
     for prompt_id in sorted(pid.keys()):
         prompt_ids = pid[prompt_id]
-        seed = args.seed + (hash(prompt_id) % (2 ** 31))
+        seed = prompt_seed(args.seed, prompt_id)
         ids, score, info = generate(model, tok, prompt_ids, device,
                                     args.max_new, args.temperature, args.top_k, seed)
         out = midi_dir / f"finetuned_{prompt_id}.mid"

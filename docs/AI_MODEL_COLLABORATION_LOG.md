@@ -1909,3 +1909,40 @@ Per Phase N: diagnose why step 50 fails GMD duration gate while step 25 passes. 
 
 ### Message for ChatGPT
 Phase N complete: step-25 sampling-balanced FAILS GMD duration gate (11.146 < 14.000 beats). Proportional sampling made GMD worse vs antiforgetting step-25 (16.188). Source-imbalance hypothesis NOT supported. Fixed training-safety checks (gradient check was before backward, now after). Added 10 regression tests. Antiforgetting step-25 remains latest verified passing candidate. Committing Phase N artifacts.
+
+## 2026-10-28 — Cline — Overnight autonomous development: reproducibility, MIDI evaluation, generation-path fix, coverage audit
+
+### Context
+Autonomous overnight session on branch `feature/mmm-v2-decoder-fix-and-docs` (HEAD `d30f240`, up to date with origin). Goals: verify reproducibility state, make MIDI evaluation reliable, check model readiness end-to-end, fix one real integration defect, audit data/coverage, update tests+docs, prepare commit. Constraints: no training, no large downloads, no 533 MB checkpoint load, no main/branch history changes.
+
+### Executed
+1. **Seed determinism fix (VERIFIED).** `gen_checkpoint.py` used process-salted Python `hash()` for per-prompt seeds — last remaining `hash()` seed usage in tracked code. Replaced with `evaluate_models.prompt_seed(base_seed, prompt_id)` (`base_seed + int(sha256(prompt_id),16) % 2^31`), shared by `evaluate_models.py`, `eval_ckpt_metrics.py`, `gen_checkpoint.py`. Two `eval_ckpt_metrics.py` runs on `checkpoint_step_25.pt` were bit-identical. Historical reports (`eval-matched-20261027`, `metrics_step25.json`) contain hash()-era seeds: non-reproducible, documented as limitation in `reproducibility_report.json`.
+2. **Training-safety state fix (VERIFIED).** `train_sampling_balanced.py`: duplicate `check_parameters_finite` shadowed the state-aware one (so `safety["non_finite_param_steps"]` was never updated via `check_gradients_and_params_finite`); double-increment removed. 15/15 `tests/test_training_safety.py` pass, incl. 2 new state-increment guards.
+3. **Model-loading fix (VERIFIED).** Official `model.safetensors` stores `model.lm_head.weight` but not `model.transformer.wte.weight`; GPT ties `wte <-> lm_head`. `load_pretrained_model` in `evaluate_models.py`, `train_antiforgetting.py`, `train_sampling_balanced.py` now promote `lm_head` to `wte` before `load_state_dict` → `missing == []`, `unexpected == []` (was `missing == ['transformer.wte.weight']`). `tests/test_model_smoke.py`: load original weights (SHA-256 `38e1083a...`), generate 64 tokens from real validation prompt, decode, dump + reopen MIDI → valid. 3/3 pass.
+4. **MIDI evaluation (VERIFIED).** Independent `tests/verify_midi_metrics.py` matches `metrics_from_midi.py` exactly on `eval-antiforget-step25` (24 files; finetuned GMD 16.188 beats, matches docs). New tests `test_midi_metrics_quick.py` (3), `test_midi_role_structure.py` (5).
+5. **Experiment results vs docs (VERIFIED):** step-25 antiforgetting GMD 16.188 (pass ≥14); sampling step-25 GMD 11.146 (fail); step-50 GMD 12.292 (fail). Docs and JSON agree.
+
+### Verified Evidence
+- 30/30 local Python tests pass (training safety 15, seed determinism 4, midi quick 3, midi role structure 5, model smoke 3).
+- `reproducibility_report.json` (new, machine-readable) with findings, data-coverage table, not-done list.
+- Cross-check of docs vs JSON reports: all three published duration figures confirmed.
+
+### Unverified Claims
+- C++ core tests / Android build: not run locally (no cmake/g++/ninja toolchain; no Android sources changed) — gated by CI.
+
+### Changed Files
+- `evaluate_models.py`, `eval_ckpt_metrics.py`, `gen_checkpoint.py` (seed scheme unification)
+- `train_antiforgetting.py`, `train_sampling_balanced.py` (loader wte promotion; safety duplicate/double-count removal)
+- `tests/test_training_safety.py`, `tests/test_seed_determinism.py`, `tests/test_midi_metrics_quick.py`, `tests/test_midi_role_structure.py`, `tests/test_model_smoke.py`
+- `reproducibility_report.json` (new)
+- `docs/MUSIC_MODEL_TRAINING_HISTORY.md` (Phase Q section)
+- `docs/AI_MODEL_COLLABORATION_LOG.md` (this entry)
+
+### Result
+**All 30 local tests pass.** Generation path loads trained weights and emits valid re-openable MIDI; seeds deterministic. Antiforgetting step 25 remains the latest gate-passing candidate, NOT declared final for all genres.
+
+### Next Action
+Commit + push to `feature/mmm-v2-decoder-fix-and-docs` (no checkpoints/caches/MIDI/large artifacts; do NOT stage the pre-existing `generate_golden_fixtures.py` deletion), verify remote SHA, check CI workflows (`remi-adapter-ci`, `aura-midi-metadata-tests`, `android-build`).
+
+### Message for ChatGPT
+Session complete: 30/30 tests pass; seed determinism, safety-state, and model-loader defects fixed with tests and an end-to-end smoke test on the original model; docs updated append-only. Ready for commit/push and CI check.

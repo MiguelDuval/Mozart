@@ -113,6 +113,11 @@ def load_pretrained_model(model_dir: Path, device: torch.device):
     sd = {}
     for k, v in ckpt.items():
         sd[k[6:] if k.startswith("model.") else k] = v
+    # Official shikhr/music_maker safetensors stores lm_head.weight but not
+    # transformer.wte.weight; the GPT ties wte <-> lm_head, so promote the
+    # trained row into the embedding table before loading.
+    if "transformer.wte.weight" not in sd and "lm_head.weight" in sd:
+        sd["transformer.wte.weight"] = sd["lm_head.weight"]
     missing, unexpected = model.load_state_dict(sd, strict=False)
     model.eval()
     return {

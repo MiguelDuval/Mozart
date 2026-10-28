@@ -1,0 +1,73 @@
+{
+  "report": "reproducibility_report",
+  "stage": "Stage 1 — state fixation & reproducibility verification",
+  "repo": "MiguelDuval/Mozart",
+  "branch": "feature/mmm-v2-decoder-fix-and-docs",
+  "head_verified": "d30f240213bda031de133907d85192788013b615",
+  "python": "3.13.6 (.venv-aura), torch 2.6.0+cu124, cuda=True, symusic 0.6.0",
+  "findings": {
+    "unstable_hash_used_for_seed": {
+      "status": "FIXED",
+      "detail": "gen_checkpoint.py computed per-prompt seeds with Python hash() (process-salted, non-reproducible). evaluate_models.py and eval_ckpt_metrics.py already used sha256(prompt_id). All three scripts now share a single evaluate_models.prompt_seed(base_seed, prompt_id) built on hashlib.sha256.",
+      "files_changed": ["gen_checkpoint.py", "evaluate_models.py", "eval_ckpt_metrics.py"]
+    },
+    "training_safety_state_double_count": {
+      "status": "FIXED",
+      "detail": "train_sampling_balanced.py: check_gradients_and_params_finite incremented safety['non_finite_param_steps'] after check_parameters_finite had already incremented it (double count); a second duplicate definition of check_parameters_finite shadowed the state-aware one. Duplicate removed, double increment removed.",
+      "files_changed": ["train_sampling_balanced.py"]
+    },
+    "metrics_determinism_rerun": {
+      "status": "VERIFIED",
+      "detail": "eval_ckpt_metrics.py run twice on checkpoint_step_25.pt (antiforgetting-20261028-20261027_191132) produced bit-identical per-prompt metrics (seeds, notes, duration_beats, density, reopen) and identical summaries.",
+      "evidence": "experiments/aura-midi/eval/runs/stage1-det-check/run_a.json == run_b.json"
+    },
+    "independent_midi_evaluator_agreement": {
+      "status": "VERIFIED",
+      "detail": "tests/verify_midi_metrics.py (independent symusic recomputation) matches metrics_from_midi.py on experiments/aura-midi/eval/runs/eval-antiforget-step25/midi (24 files): finetuned gmd mean duration 16.188 beats, all valid/reopenable.",
+      "evidence": "verify_independent.txt summary == metrics_from_midi.json summary"
+    },
+    "experiment_results_vs_docs": {
+      "status": "VERIFIED",
+      "detail": "Documentation figures confirmed by JSON reports: antiforgetting step 25 GMD mean duration 16.188 beats (passes 14.000 gate); sampling-balanced step 25 GMD 11.146 (fail); antiforgetting step 50 GMD 12.292 (fail). No source-mixture retraining performed, per protocol.",
+      "evidence": "verify_step25.json, verify_sampling_step25.json, verify_step50.json (summary blocks)"
+    },
+    "historical_reports_seed_provenance": {
+      "status": "DOCUMENTED_LIMITATION",
+      "detail": "Older reports (eval-matched-20261027/evaluation_report.json, metrics_step25.json) were generated before the hash()-to-sha256 fix; their per-prompt seeds were produced by process-salted hash() and cannot be reproduced. Metrics (notes/durations) are historical only. The sha256 scheme now defines reproducible seeds; expected values are locked in tests/test_seed_determinism.py."
+    },
+    "checkpoint_loading": {
+      "status": "UNCHANGED / NOT RETRIED",
+      "detail": "174 MB original checkpoint (model.safetensors / auramidi_v1.pt) loads successfully. 533 MB finetune checkpoints hang on load (reported block); per protocol not retried, no reboot, files untouched."
+    }
+  },
+  "tests": {
+    "tests/test_training_safety.py": "15/15 OK (includes new state-increment regression guards)",
+    "tests/test_seed_determinism.py": "4/4 OK (new; locks sha256 seed scheme across entry points)",
+    "tests/test_midi_metrics_quick.py": "3/3 OK (new; missing file, empty score, single note)",
+    "tests/test_midi_role_structure.py": "5/5 OK (new; track/role invariants on real generated MIDI fixtures)",
+    "tests/test_model_smoke.py": "3/3 OK (new; end-to-end original-model load -> generate -> decode -> reopenable MIDI)",
+    "total": "30/30 OK"
+  },
+  "data_coverage": {
+    "basis": "docs/BROAD_POLYPHONIC_COVERAGE_AUDIT.md + docs/CONDITIONING_FEASIBILITY_DECISION.md (local artifacts only, no downloads)",
+    "sources": {
+      "NRG-CP": {"compositions": 15235, "role": "chords/harmony only (single-track chord progressions)", "genre_labels": "none beyond dataset-level \"EDM chord progressions\"", "status": "VERIFIED"},
+      "GMD": {"compositions": 1150, "role": "drums only", "genre_labels": "11 source styles (funk, soul, hiphop, pop, rock, jazz, latin/samba, neworleans/secondline, dance/disco, rock/shuffle, jazz/funk) — no techno/house/trance/ambient/DnB/dubstep", "status": "VERIFIED"},
+      "Slakh2100_samples": {"compositions": 3, "role": "instrument classes per stem (weak candidates, 3 compositions only)", "genre_labels": "none", "status": "VERIFIED, research-only CC BY-NC"},
+      "MAESTRO v3.0.0": {"compositions": 1276 performances / 852 title-like groupings, "role": "solo piano (instrument identity, not functional role)", "genre_labels": "none (classical)", "status": "VERIFIED, research-only CC BY-NC-SA"},
+      "broad_corpus": {"compositions": 0, "status": "VERIFIED EMPTY"}
+    },
+    "evaluation_metrics": {"score_metrics": "num_notes, duration_beats/sec, density, tpq, max_polyphony, pitch/velocity ranges, silence, repeat bigrams, per-track notes/program/is_drum; per-file reopen check", "independent_recheck": "tests/verify_midi_metrics.py matches metrics_from_midi.py exactly on eval-antiforget-step25 (24 files)", "role_split": "NO — metrics are aggregate; no per-role (bass/melody/arp/pad) quality split exists"},
+    "labels": {
+      "electronic_subgenre": {"count": 0, "decision": "NO-GO — adding genre tokens would fabricate supervision (CONDITIONING_FEASIBILITY_DECISION.md)"},
+      "arrangement_section": {"count": 0, "decision": "NO-GO — do not invent intro/verse/chorus/breakdown/drop/outro"},
+      "functional_role": {"reliable": "chords (NRG-CP), drums (GMD) only", "weak_candidates": "Slakh instrument classes on 3 compositions", "status": "NO-GO for broad production conditioning"}
+    },
+    "assumptions_marked": "weak heuristic role labels (pitch/velocity/program/density heuristics) are not used as gold supervision; source-role/style counts kept with provenance"
+  },
+  "not_done": [
+    "C++ core tests (tests/mozart_core_tests, remi_adapter_tests_*) — no cmake/g++/ninja locally; gated by CI workflow remi-adapter-ci.yml",
+    "Android build — not triggered by these changes (no Android/Kotlin sources modified)",
+    "corrected sidecar asset totals — builder fixed to dedupe on (source_id, composition_id, asset_id); local corrected scan pending classification as VERIFIED (docs/CONDITIONING_FEASIBILITY_DECISION.md)"
+  ]
+}

@@ -180,6 +180,29 @@ class TestParameterFinitenessCheck(unittest.TestCase):
         model.linear.bias.data[0] = float("-inf")
         self.assertFalse(check_parameters_finite(model, 1, None, state))
 
+    def test_non_finite_parameters_increment_state(self):
+        """Regression guard: check_parameters_finite must record violations in
+        state so the duplicate-definition regression (second definition that
+        ignored `state`) cannot silently disable safety accounting."""
+        state = _make_state()
+        model = FakeModel()
+        model.linear.bias.data[0] = float("nan")
+        self.assertFalse(check_parameters_finite(model, 1, None, state))
+        self.assertEqual(state["safety"]["non_finite_param_steps"], 1)
+
+    def test_gradients_and_params_check_increments_param_state(self):
+        """check_gradients_and_params_finite must propagate non-finite parameters
+        into state[\"safety\"][\"non_finite_param_steps\"]."""
+        state = _make_state()
+        model = FakeModel()
+        x = torch.randn(2, 4)
+        y = model.linear(x)
+        loss = y.sum()
+        loss.backward()
+        model.linear.weight.data[0, 0] = float("nan")
+        self.assertFalse(check_gradients_and_params_finite(model, 1, None, state))
+        self.assertEqual(state["safety"]["non_finite_param_steps"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

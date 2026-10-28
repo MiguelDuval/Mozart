@@ -68,6 +68,17 @@ def file_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def prompt_seed(base_seed: int, prompt_id: str) -> int:
+    """Deterministic per-prompt seed derived from sha256(prompt_id).
+
+    Python's built-in ``hash()`` is salted per process (PYTHONHASHSEED), so it
+    must never be used for experiment seeds: the same prompt would get a
+    different seed in every process. sha256 is stable across processes and
+    runs, which is what generation reproducibility requires.
+    """
+    return base_seed + (int(hashlib.sha256(prompt_id.encode("utf-8")).hexdigest(), 16) % (2 ** 31))
+
+
 def load_tokenizer(model_dir: Path) -> MusicTokenizer:
     tok = MusicTokenizer.from_pretrained(str(model_dir))
     return tok
@@ -88,6 +99,13 @@ def load_pretrained_model(model_dir: Path, device: torch.device):
     sd = {}
     for k, v in ckpt.items():
         sd[k[6:] if k.startswith("model.") else k] = v
+    # The official shikhr/music_maker safetensors stores lm_head.weight but not
+    # transformer.wte.weight: the GPT ties wte <-> lm_head, so promote the trained
+    # lm_head row into the embedding table before loading. Without this the token
+    # embedding stays at random initialisation and generation does not use the
+    # trained weights at all.
+    if "transformer.wte.weight" not in sd and "lm_head.weight" in sd:
+        sd["transformer.wte.weight"] = sd["lm_head.weight"]
     missing, unexpected = model.load_state_dict(sd, strict=False)
     model.eval()
     return {
@@ -600,9 +618,7 @@ def main():
         model = loaded["model"]
         for p in prompts:
             prompt_id = p["prompt_id"]
-            seed = args.seed + (
-                int(hashlib.sha256(prompt_id.encode("utf-8")).hexdigest(), 16) % (2 ** 31)
-            )  # deterministic per-prompt seed
+            seed = prompt_seed(args.seed, prompt_id)
             print(f"  [{model_name}] {prompt_id} (seed={seed}) ...")
             t0 = time.time()
             ids, score, gen_info = generate(model, tokenizer, p["prompt_ids"], device,

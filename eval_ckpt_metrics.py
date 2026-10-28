@@ -31,6 +31,7 @@ from evaluate_models import (  # noqa: E402
     load_finetuned_model,
     generate,
     score_metrics,
+    prompt_seed,
     _eos_token_id,
 )
 from mgpt_config import MGPTConfig  # noqa: E402
@@ -85,9 +86,7 @@ def main():
 
     for p in prompts:
         prompt_id = p["prompt_id"]
-        seed = args.seed + (
-            int(__import__("hashlib").sha256(prompt_id.encode("utf-8")).hexdigest(), 16) % (2 ** 31)
-        )
+        seed = prompt_seed(args.seed, prompt_id)
         prompt_ids = prompt_id_map.get(prompt_id)
         if not prompt_ids:
             print(f"  WARNING: no prompt_ids for {prompt_id}, skipping")
