@@ -146,3 +146,18 @@ target_include_directories(mozart_model_catalog_tests PRIVATE
     ../src
 )
 target_compile_features(mozart_model_catalog_tests PRIVATE cxx_std_20)
+
+add_executable(mozart_remi_to_link_converter_tests
+    RemiToLinkConverterTests.cpp
+    ../src/remi/GenerationTypes.cpp
+    ../src/remi/RemiDecoderConfig.cpp
+    ../src/remi/BpeTokenizer.cpp
+    ../src/remi/RemiEventAdapter.cpp
+    ../src/generation/RemiToLinkPatternConverter.cpp
+)
+
+target_include_directories(mozart_remi_to_link_converter_tests PRIVATE
+    ../src
+    ../third_party/nlohmann
+)
+target_compile_features(mozart_remi_to_link_converter_tests PRIVATE cxx_std_20)

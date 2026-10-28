@@ -31,12 +31,18 @@ add_library(mozart-core STATIC
     src/generation/GenerationService.cpp
     src/generation/OnnxTokenInferenceBackend.cpp
     src/generation/GenerationRequestJson.cpp
+    src/generation/RemiToLinkPatternConverter.cpp
+    src/remi/GenerationTypes.cpp
+    src/remi/RemiDecoderConfig.cpp
+    src/remi/BpeTokenizer.cpp
+    src/remi/RemiEventAdapter.cpp
     src/midi/MidiReceiveQueue.cpp
     src/midi/ControllerMapping.cpp
 )
 
 target_include_directories(mozart-core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/nlohmann
 )
 
 if(MOZART_ENABLE_LINK)
