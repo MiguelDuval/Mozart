@@ -1,7 +1,6 @@
 #include "RemiToLinkPatternConverter.h"
 
-#include <cmath>
-#include <limits>
+#include <type_traits>
 
 namespace mozart::generation {
 
@@ -10,10 +9,8 @@ RemiToLinkPatternConverter::RemiToLinkPatternConverter(std::uint32_t ticksPerBea
 
 std::optional<musical::MusicalNoteEvent> RemiToLinkPatternConverter::convertNote(
         const remi::NoteEvent& note) const noexcept {
-    if (note.pitch > 127 || note.velocity > 127 || note.channel > 15) {
-        return std::nullopt;
-    }
-    if (ticksPerBeat_ == 0) {
+    if (note.pitch > 127 || note.velocity > 127 || note.channel > 15 ||
+        note.duration == 0 || ticksPerBeat_ == 0) {
         return std::nullopt;
     }
 
@@ -29,10 +26,7 @@ std::optional<musical::MusicalNoteEvent> RemiToLinkPatternConverter::convertNote
 
 std::optional<PatternControlEvent> RemiToLinkPatternConverter::convertControl(
         const remi::ControlChangeEvent& cc) const noexcept {
-    if (cc.channel > 15 || cc.controller > 127 || cc.value > 127) {
-        return std::nullopt;
-    }
-    if (ticksPerBeat_ == 0) {
+    if (cc.channel > 15 || cc.controller > 127 || cc.value > 127 || ticksPerBeat_ == 0) {
         return std::nullopt;
     }
 
@@ -47,8 +41,15 @@ std::optional<PatternControlEvent> RemiToLinkPatternConverter::convertControl(
 
 std::optional<PatternProposal> RemiToLinkPatternConverter::convert(
         const remi::PatternProposal& remiProposal) const noexcept {
+    if (ticksPerBeat_ == 0 || !remiProposal.isValid()) {
+        return std::nullopt;
+    }
 
-    if (!remiProposal.isValid()) {
+    // Validate every event before converting any of them. This ensures that
+    // malformed proposals are rejected as a whole instead of silently
+    // dropping invalid events and scheduling a partial pattern.
+    const remi::PatternProposalValidator validator;
+    if (!validator.validate(remiProposal).isOk()) {
         return std::nullopt;
     }
 
@@ -64,28 +65,42 @@ std::optional<PatternProposal> RemiToLinkPatternConverter::convert(
         ? "remi-bpe"
         : remiProposal.providerId;
 
+    bool conversionFailed = false;
+    bool unsupportedProgramChange = false;
+
     for (const auto& event : remiProposal.events) {
         std::visit([&](const auto& e) {
             using T = std::decay_t<decltype(e)>;
 
             if constexpr (std::is_same_v<T, remi::NoteEvent>) {
-                auto note = convertNote(e);
+                const auto note = convertNote(e);
                 if (note.has_value()) {
                     linkProposal.noteEvents.push_back(*note);
+                } else {
+                    conversionFailed = true;
                 }
             } else if constexpr (std::is_same_v<T, remi::ControlChangeEvent>) {
-                auto ctrl = convertControl(e);
-                if (ctrl.has_value()) {
-                    linkProposal.controlEvents.push_back(*ctrl);
+                const auto control = convertControl(e);
+                if (control.has_value()) {
+                    linkProposal.controlEvents.push_back(*control);
+                } else {
+                    conversionFailed = true;
                 }
+            } else if constexpr (std::is_same_v<T, remi::ProgramChangeEvent>) {
+                // The Link scheduler proposal currently has no program-change
+                // representation. Reject instead of silently losing instrument
+                // changes while scheduling the remaining notes.
+                unsupportedProgramChange = true;
             }
-            // TempoEvent, TimeSignatureEvent, ProgramChangeEvent are
-            // meta-events handled by the scheduler's Link clock; they do
-            // not produce note or control events in the link-clock proposal.
+            // Tempo and time-signature events are proposal metadata here.
+            // The active Ableton Link session owns clock tempo and phase;
+            // this converter does not publish a competing tempo timeline.
         }, event);
     }
 
-    if (!linkProposal.isWellFormed()) {
+    if (conversionFailed || unsupportedProgramChange ||
+        (linkProposal.noteEvents.empty() && linkProposal.controlEvents.empty()) ||
+        !linkProposal.isWellFormed()) {
         return std::nullopt;
     }
 
