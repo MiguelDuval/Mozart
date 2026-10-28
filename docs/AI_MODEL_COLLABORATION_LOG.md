@@ -405,3 +405,24 @@ The focused REMI-BPE Link Integration Tests passed at `6d0325e9a89b1904162b2a882
 ### Next action
 
 Run the focused and Android Build workflows for the new exact SHA. If Android smoke passes, move to retrieving the original `miditok2_12k` artifact and verify its immutable revision, contiguous 12,000-token vocabulary, special IDs, hashes, and matching checkpoint. If unavailable, train a new model/tokenizer pair rather than mixing vocabularies.
+
+
+## 2026-10-28 — ChatGPT — Add local tokenizer recovery scanner
+
+### Objective
+Continue recovery of the tokenizer paired with the existing MusicMaker-derived fine-tuned checkpoint. No new model training, checkpoint replacement, or substitute tokenizer was initiated.
+
+### Change
+- Added \`tools/recover_remi_bpe_tokenizer.py\` to scan local Hugging Face caches, the repository workspace, and explicitly supplied training/output directories for MidiTok tokenizer files.
+- The scanner reuses the exporter's strict tokenizer inspection. It rejects files without the serialized learned BPE model and records SHA-256, vocabulary size, special-token IDs, neighbouring config size, and a Hub snapshot revision hint.
+- Added tests for a complete BPE candidate, base-vocabulary-only rejection, and missing search roots.
+- Added \`docs/REMI-BPE-RECOVERY.md\` with local invocation and evidence interpretation. The scanner does not access the network, upload artifacts, or modify checkpoints.
+
+### Verification state at implementation commit
+- Implementation commit: \`c67ffe2d11dba5aefd0481a889a6ae50d91a168b\`.
+- REMI/BPE Export Contract run [40772927114](https://github.com/MiguelDuval/Mozart/actions/runs/40772927114) was in progress on that exact SHA when this entry was prepared.
+- Android Build run [40772927162](https://github.com/MiguelDuval/Mozart/actions/runs/40772927162) was pending on the same SHA.
+- No claim is made yet that the new tests passed or that an exact tokenizer artifact has been recovered. The scanner produces local candidates only; a 12,000-entry vocabulary match does not by itself prove checkpoint/tokenizer pairing.
+
+### Guardrails
+The existing weights and learned-token IDs remain authoritative. Do not train a new tokenizer for the current checkpoint, invent missing BPE merges, reinterpret the base vocabulary as 12,000 IDs, or claim export/runtime compatibility until a local artifact's training-time provenance is confirmed.
