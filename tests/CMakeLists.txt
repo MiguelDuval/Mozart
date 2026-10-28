@@ -38,6 +38,7 @@ endfunction()
 add_mozart_test(mozart_core_tests
     MozartCoreTests.cpp
     ../src/core/MidiTypes.cpp
+    ../src/core/MozartEngine.cpp
     ../src/core/TransportMath.cpp
     ../src/generation/RhythmGenerator.cpp
 )
