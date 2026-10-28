@@ -168,6 +168,7 @@ target_compile_features(mozart_model_catalog_tests PRIVATE cxx_std_20)
 add_executable(mozart_remi_bpe_onnx_backend_tests
     RemiBpeOnnxInferenceBackendTests.cpp
     ../src/generation/RemiBpeOnnxTokenInferenceBackend.cpp
+    ../src/musical/KeyScale.cpp
 )
 target_include_directories(mozart_remi_bpe_onnx_backend_tests PRIVATE ../src)
 target_compile_features(mozart_remi_bpe_onnx_backend_tests PRIVATE cxx_std_20)
