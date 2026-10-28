@@ -33,3 +33,17 @@ The pinned-checkpoint run [40784702458](https://github.com/MiguelDuval/Mozart/ac
 - Generated output: 65 IDs including BOS (64 new tokens); no EOS at the smoke cap, so the full stream is not production-provider-ready. The smoke also runs those unchanged IDs through the production C++ provider, which must fail closed with an empty proposal rather than emit partial notes.
 - Diagnostic-only complete-event prefix: 20 IDs, 10 typed notes, zero program changes, zero control changes; REMI-to-Link conversion and the shared request validator both accepted it.
 - The remaining 45 generated IDs were omitted only from this explicit diagnostic-prefix check. Production decoding is unchanged and still refuses unterminated/invalid full streams.
+
+
+## Production-provider replay verified (2026-10-28)
+
+The real-checkpoint workflow at exact source SHA `ddcdb9d6833bcc1c5106efad4976c4861e367e95` passed: [run 40786409627](https://github.com/MiguelDuval/Mozart/actions/runs/40786409627), report artifact [12859137903](https://github.com/MiguelDuval/Mozart/actions/runs/40786409627/artifacts/12859137903).
+
+In addition to the earlier C++ tokenizer/adapter/Link checks, the test replayed the exact 65 generated IDs through Mozart's production `RemiBpePatternProvider` using a fake only at the model inference boundary:
+- Provider initialization loaded the exact paired 20k tokenizer.
+- Inference boundary was called once with the real output unchanged.
+- Full output was rejected with `REMI/BPE token stream must be BOS/EOS terminated`; provider returned zero notes and zero controls. This is the expected fail-closed result because the model did not emit EOS.
+- Separately, a 20-token complete-event prefix decoded to 10 notes and passed the existing REMI-to-Link converter and shared request-aware validator. This prefix-only diagnostic is never marked provider-ready.
+- All 20,000 tokenizer entries remained individually decodable and no generated IDs were dropped. Model weights, tokenizer JSON and ONNX graph were not uploaded.
+
+The real-model workflow's path filters now include the production C++ token decoder, adapter, provider, converter, proposal validator, and their direct musical dependencies, so changes to those implementations re-run the real artifact test rather than relying only on synthetic fixtures.

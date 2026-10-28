@@ -629,3 +629,14 @@ These tests exercise the existing production provider checks; they do not relax 
 ## 2026-10-28 — ChatGPT — Exercise the production provider with exact real-model output
 
 Extended the real-checkpoint integration workflow one layer deeper. The C++ smoke now replays the exact ONNX-generated token IDs through Mozart's actual `RemiBpePatternProvider` using a minimal fake backend that replaces only the inference boundary. The provider loads the exact learned tokenizer, verifies vocabulary pairing, and runs its production BOS/EOS and malformed-special-token gates. The report records initialization, status, message, inference count and proposal event counts. When the real sequence has no EOS, the workflow now requires the production provider to reject it atomically with an empty proposal and the explicit BOS/EOS termination error; the separate shorter-prefix diagnostic remains non-production evidence only. No generation or validation rule is weakened.
+
+
+## 2026-10-28 — ChatGPT — Make real artifact CI follow production provider and decoder changes
+
+Run [40786409627](https://github.com/MiguelDuval/Mozart/actions/runs/40786409627), exact source SHA `ddcdb9d6833bcc1c5106efad4976c4861e367e95`, succeeded with the production-provider replay added:
+- the actual checkpoint/tokenizer pair loaded and exported; eager/ONNX parity, manifest validation and 64-step autoregressive inference passed;
+- the complete 65-ID generated stream was replayed once through `RemiBpePatternProvider`; the provider initialized successfully, rejected the stream for missing EOS, and returned no partial notes or controls;
+- the separately labeled 20-token diagnostic prefix passed typed REMI decoding, Link conversion and request-aware validation; `provider_ready=false` remained truthful;
+- the report retained checksums/provenance only.
+
+Expanded the workflow trigger paths to include every production decoder/provider/converter source and its immediate musical/validation dependencies. This ensures changes to the code under test retrigger the actual artifact-backed interop gate. The public checkpoint remains a classical-piano technical fixture, not the broad-EDM production model.
