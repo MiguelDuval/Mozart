@@ -357,6 +357,18 @@ bool MozartRuntime::queueGeneratedPattern(
     return scheduler_.queueGeneratedPattern(std::move(proposal));
 }
 
+bool MozartRuntime::queueGeneratedRemiPattern(
+        const remi::PatternProposal& proposal) {
+    // This conversion runs on the caller/worker thread, never on Link timing
+    // or MIDI transport callbacks. The converter validates atomically so a
+    // malformed REMI proposal cannot enqueue a partial pattern.
+    auto converted = remiToLinkConverter_.convert(proposal);
+    if (!converted.has_value()) {
+        return false;
+    }
+    return queueGeneratedPattern(std::move(*converted));
+}
+
 bool MozartRuntime::queueGeneratedResult(
         generation::GenerationResult result) {
     std::lock_guard<std::mutex> lifecycleLock(lifecycleMutex_);
