@@ -593,3 +593,8 @@ The pinned MAESTRO fixture's long greedy output had not emitted EOS by the 400-t
 ## 2026-10-28 — ChatGPT — Align diagnostic provider-ready flag with production validation
 
 Hardened the real-output report so `provider_ready` cannot become true merely because a token stream ended in BOS/EOS and converted to a well-formed Link proposal. It now mirrors the production provider gates: no misplaced PAD/BOS/EOS/MASK in the body, no unsupported ProgramChange/ControlChange events, no scheduler controls, and a pass from the shared request-aware `PatternProposalValidator`. Short diagnostic prefixes can still be reported as adapter/converter evidence, but are never promoted to a provider-ready result.
+
+
+## 2026-10-28 — ChatGPT — Match the real-model smoke sampler to Android
+
+Found a meaningful parity bug in the validation harness: Python smoke generation used raw `argmax`, while the Android bridge suppresses PAD/BOS/MASK and leaves EOS available. That meant the smoke could generate special tokens Android would never choose, invalidating claims that the C++ report represented Android's selection path. Updated the helper to share the same greedy selection rules, skip individual non-finite logits like Java, validate special token IDs, and keep EOS eligible. Added five unit tests including a fake ONNX session proving the generated stream stops on EOS after special-token masking; wired the tests into the Export Contract workflow's push/PR path filters.
