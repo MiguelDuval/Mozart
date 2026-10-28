@@ -358,15 +358,22 @@ bool MozartRuntime::queueGeneratedPattern(
 }
 
 bool MozartRuntime::queueGeneratedRemiPattern(
-        const remi::PatternProposal& proposal) {
-    // This conversion runs on the caller/worker thread, never on Link timing
-    // or MIDI transport callbacks. The converter validates atomically so a
-    // malformed REMI proposal cannot enqueue a partial pattern.
+        const remi::PatternProposal& proposal,
+        const generation::GenerationRequest& request) {
+    // Conversion and both validation gates run on the caller/worker thread,
+    // never on Link timing or MIDI transport callbacks. The source proposal is
+    // validated atomically, then checked against the shared request contract.
     auto converted = remiToLinkConverter_.convert(proposal);
     if (!converted.has_value()) {
         return false;
     }
-    return queueGeneratedPattern(std::move(*converted));
+
+    const auto validation =
+            generation::PatternProposalValidator::validate(request, *converted);
+    if (!validation.ok()) {
+        return false;
+    }
+    return queueGeneratedPattern(std::move(validation.proposal));
 }
 
 bool MozartRuntime::queueGeneratedResult(
