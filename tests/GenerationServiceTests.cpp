@@ -1,10 +1,13 @@
 #include "generation/GenerationService.h"
 #include "generation/ModelCatalog.h"
 #include "generation/TokenInferenceBackend.h"
+#include "generation/RemiBpeInferenceBackend.h"
+#include "generation/RemiBpePatternProvider.h"
 
 #include <cassert>
 #include <chrono>
 #include <future>
+#include <filesystem>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -48,6 +51,60 @@ public:
         return "worker-test-backend";
     }
 };
+
+
+#ifndef MOZART_TEST_SOURCE_DIR
+#define MOZART_TEST_SOURCE_DIR "."
+#endif
+
+class RemiFixtureBackend final : public RemiBpeInferenceBackend {
+public:
+    std::string backendId = "remi-fixture-backend";
+    std::vector<std::uint32_t> tokenIds{1, 4, 8, 6, 10, 7, 2};
+    bool available = true;
+    std::size_t inferenceCalls = 0;
+    std::size_t lastMaxTokens = 0;
+    mutable std::size_t tokenizerPathReads = 0;
+    mutable std::thread::id availabilityThread{};
+    std::thread::id inferenceThread{};
+    mutable std::thread::id tokenizerPathThread{};
+
+    [[nodiscard]] RemiBpeTokenInferenceResult generateRemiTokens(
+            const GenerationRequest&,
+            const std::size_t maxTokens) override {
+        inferenceThread = std::this_thread::get_id();
+        ++inferenceCalls;
+        lastMaxTokens = maxTokens;
+        return {TokenInferenceStatus::Ok, tokenIds, 0.9, 12, {}};
+    }
+
+    [[nodiscard]] bool isAvailable() const noexcept override {
+        availabilityThread = std::this_thread::get_id();
+        return available;
+    }
+
+    [[nodiscard]] std::string id() const override {
+        return backendId;
+    }
+
+    [[nodiscard]] std::string tokenizerArtifactPath() const override {
+        ++tokenizerPathReads;
+        tokenizerPathThread = std::this_thread::get_id();
+        return (std::filesystem::path(MOZART_TEST_SOURCE_DIR) /
+                "fixtures" / "remi_tokenizer_fixture.json").string();
+    }
+};
+
+ModelCatalogEntry remiFixtureEntry(const RemiFixtureBackend& backend) {
+    ModelCatalogEntry entry;
+    entry.modelId = "remi-fixture-model";
+    entry.displayName = "REMI fixture backend";
+    entry.backendId = backend.id();
+    entry.artifactPath = "/private/test/remi-model";
+    entry.manifestPath = "/private/test/remi-manifest";
+    entry.distributionClass = ModelDistributionClass::PrivateExperimental;
+    return entry;
+}
 
 class BlockingBackend final : public TokenInferenceBackend {
 public:
@@ -134,6 +191,68 @@ ModelCatalogEntry experimentalEntry() {
     entry.manifestPath = "/private/experimental-worker/manifest";
     entry.distributionClass = ModelDistributionClass::PrivateExperimental;
     return entry;
+}
+
+
+void testRemiBpeInferenceUsesWorkerAndSharedValidation() {
+    ModelCatalog catalog;
+    RemiFixtureBackend backend;
+    assert(catalog.registerBackend(backend));
+    const auto entry = remiFixtureEntry(backend);
+    assert(catalog.registerModel(entry));
+    assert(catalog.selectModel(entry.modelId));
+
+    GenerationService service(catalog);
+    service.start();
+    const auto callerThread = std::this_thread::get_id();
+    const auto selectedGeneration = catalog.selectionGeneration();
+
+    GenerationRequest request;
+    request.bars = 16;
+    request.seed = 4242;
+    auto future = service.submit(request);
+    assert(future.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+    const auto result = future.get();
+
+    assert(result.status == GenerationStatus::Ok);
+    assert(result.ok());
+    assert(result.ticket.matchesLifecycle(
+            entry.modelId, selectedGeneration, service.lifecycleGeneration()));
+    assert(backend.inferenceCalls == 1);
+    assert(backend.lastMaxTokens == RemiBpePatternProvider::kMaxGeneratedTokens);
+    assert(backend.inferenceThread != callerThread);
+    assert(backend.availabilityThread != callerThread);
+    assert(backend.tokenizerPathThread != callerThread);
+    assert(backend.tokenizerPathReads == 1);
+    assert(result.proposal.noteEvents.size() == 1);
+    assert(result.proposal.controlEvents.empty());
+    assert(result.proposal.metadata.seed == request.seed);
+    assert(result.proposal.metadata.confidence == 0.9);
+    assert(result.proposal.metadata.generationTimeMs == 12);
+    assert(result.proposal.metadata.generatorId == backend.id());
+    assert(result.proposal.metadata.lengthBeats == 64.0);
+    assert(result.proposal.noteEvents.front().durationBeats == 0.125);
+    assert(result.proposal.noteEvents.front().velocity == 127);
+    assert(request.keyScale.containsMidiNote(result.proposal.noteEvents.front().note));
+    assert(result.proposal.noteEvents.front().note >= request.minNote);
+    assert(result.proposal.noteEvents.front().note <= request.maxNote);
+
+    // The tokenizer is cached. Unsupported instrument output must reject the
+    // entire candidate, including a valid note that appeared earlier.
+    backend.tokenIds = {1, 4, 8, 6, 10, 7, 13, 2};  // Program_10 is not piano.
+    auto invalidFuture = service.submit(request);
+    assert(invalidFuture.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+    const auto invalidResult = invalidFuture.get();
+    assert(invalidResult.status == GenerationStatus::Failed);
+    assert(!invalidResult.ok());
+    assert(invalidResult.proposal.noteEvents.empty());
+    assert(invalidResult.proposal.controlEvents.empty());
+    assert(invalidResult.ticket.matchesLifecycle(
+            entry.modelId, selectedGeneration, service.lifecycleGeneration()));
+    assert(backend.inferenceCalls == 2);
+    assert(backend.tokenizerPathReads == 1);
+
+    service.stop();
 }
 
 void testLifecycleGenerationChangesAtSessionBoundaries() {
@@ -668,6 +787,7 @@ void testBackendExceptionResolvesFutureAndKeepsWorkerAlive() {
 } // namespace
 
 int main() {
+    testRemiBpeInferenceUsesWorkerAndSharedValidation();
     testLifecycleGenerationChangesAtSessionBoundaries();
     testStopWaitsForActiveInference();
     testGenerationRunsOffCallerThread();
