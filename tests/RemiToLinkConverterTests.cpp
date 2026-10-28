@@ -414,9 +414,9 @@ void testRemiAdapterDurationDoesNotRewritePreviousNote() {
     const auto notes = proposal.notes();
     assert(notes.size() == 2);
     assert(notes[0].duration == 120);
-    assert(notes[1].duration == 120);
+    assert(notes[1].duration == 960);
 
-    std::cout << "  RemiEventAdapter Duration_ does not rewrite previous note: PASSED"
+    std::cout << "  RemiEventAdapter Duration_ applies only to the next note: PASSED"
               << std::endl;
 }
 
