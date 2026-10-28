@@ -61,6 +61,7 @@ public:
     [[nodiscard]] bool isAvailable() const noexcept override;
     [[nodiscard]] std::string id() const override;
     [[nodiscard]] std::string tokenizerArtifactPath() const override;
+    [[nodiscard]] std::size_t expectedVocabularySize() const noexcept override;
 
 private:
     std::string backendId_;
