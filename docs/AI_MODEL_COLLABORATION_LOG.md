@@ -576,3 +576,10 @@ The real-checkpoint workflow at exact SHA `3e4bb6cec1b59d106b7ad2a45c3de43aaa4fc
 - The 902-byte report artifact is [here](https://github.com/MiguelDuval/Mozart/actions/runs/40783177285/artifacts/12857927406). Model weights, tokenizer JSON and ONNX graph were not uploaded.
 
 To test whether a complete provider-ready stream can be produced rather than stopping at a valid prefix, the workflow now permits up to 400 generated tokens and sets the exported manifest's generation limit to the same 400. If EOS is still absent or the longer output contains malformed events, the report will preserve that state explicitly; no EOS is synthesized and unsupported events are not filtered.
+
+
+## 2026-10-28 — ChatGPT — Match the real smoke window to the upstream 800-token generation budget
+
+The 400-token real checkpoint run completed successfully at [40783428737](https://github.com/MiguelDuval/Mozart/actions/runs/40783428737) and uploaded report artifact [12858316294](https://github.com/MiguelDuval/Mozart/actions/runs/40783428737/artifacts/12858316294). The report showed the BPE tokenizer and logits ABI were valid, but the model did not emit EOS within the 400-token budget and the final token left an incomplete note record. The adapter correctly rejected that stream; the test did not append EOS or silently retain a partial note.
+
+The upstream generation example uses an 800-token budget. Raised the real smoke/exported manifest cap to 800 to give the checkpoint a longer, still bounded chance to emit EOS and finish event records. The next report will determine whether the full stream meets the strict adapter and Link converter contracts.
