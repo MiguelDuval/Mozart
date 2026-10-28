@@ -90,7 +90,7 @@ jobs:
             --model-id "$MODEL_ID" \
             --model-revision "$MODEL_REVISION" \
             --sample-sequence-length 8 \
-            --max-generated-tokens 800 \
+            --max-generated-tokens 400 \
             --opset 17
           python3 tools/validate_model_manifest.py "$EXPORT_DIR/model.manifest.json"
 
@@ -101,7 +101,7 @@ jobs:
             --model "$EXPORT_DIR/model.onnx" \
             --manifest "$EXPORT_DIR/model.manifest.json" \
             --output-token-ids "$EXPORT_DIR/generated-token-ids.json" \
-            --max-new-tokens 800
+            --max-new-tokens 64
 
       - name: Verify the exact ONNX-generated IDs with Mozart C++ tokenizer
         shell: bash

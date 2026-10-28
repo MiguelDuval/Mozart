@@ -164,55 +164,83 @@ int main(int argc, char** argv) {
         {"bos_token_id", *bosId},
         {"eos_token_id", *eosId},
         {"complete_bos_eos_stream", completeBosEosStream},
-        {"provider_ready", completeBosEosStream},
+        {"provider_ready", false},
         {"semantic_adapter_status", "not_run"},
         {"semantic_adapter_message", ""},
         {"semantic_proposal_valid", false},
         {"semantic_note_count", 0},
         {"semantic_program_change_count", 0},
+        {"semantic_input_token_count", 0},
+        {"semantic_diagnostic_prefix_used", false},
+        {"semantic_tokens_omitted_for_diagnostic", 0},
         {"link_conversion_status", "not_run"},
         {"link_note_count", 0},
         {"link_control_count", 0}
     };
 
-    // This diagnostic intentionally does not fabricate EOS or discard unsupported
-    // events. It reports whether the actual bounded ONNX prefix can be decoded
-    // into Mozart's typed REMI proposal and converted to the Link proposal. The
-    // provider_ready flag remains false unless the generated stream has BOS/EOS.
+    // First test the complete generated stream without repairing it. If a bounded
+    // diagnostic generation ends mid-note and has no EOS, try shorter prefixes
+    // solely to establish whether a complete event boundary can flow through the
+    // typed adapter and Link converter. The report always marks truncation and
+    // never promotes a prefix-only result to provider_ready.
     try {
         const auto config = mozart::remi::RemiDecoderConfig::fromTokenizerJson(argv[1]);
         const auto adapterTokenizer = std::make_shared<mozart::remi::BpeTokenizer>(*tokenizer);
         mozart::remi::RemiEventAdapter adapter(config, adapterTokenizer);
         mozart::remi::GenerationRequest request;
         request.seed = 20261028U;
-        auto [proposal, decodeReport] = adapter.decodeTokensToProposal(
-                tokenIds, request, "real-remi-bpe-smoke", "NathanFradet/Maestro-REMI-bpe20k");
+        const mozart::generation::RemiToLinkPatternConverter converter(config.ticksPerBeat);
 
-        report["semantic_adapter_status"] =
-                decodeReport.isOk() && proposal.isValid() ? "valid_proposal" : "rejected";
-        report["semantic_adapter_message"] = decodeReport.message;
-        report["semantic_proposal_valid"] = decodeReport.isOk() && proposal.isValid();
+        auto inspectCandidate = [&](const std::vector<std::uint32_t>& candidate,
+                                    const bool diagnosticPrefix) -> bool {
+            auto [proposal, decodeReport] = adapter.decodeTokensToProposal(
+                    candidate, request, "real-remi-bpe-smoke", "NathanFradet/Maestro-REMI-bpe20k");
+            if (!decodeReport.isOk() || !proposal.isValid()) {
+                if (!diagnosticPrefix) report["semantic_adapter_message"] = decodeReport.message;
+                return false;
+            }
 
-        std::size_t noteCount = 0;
-        std::size_t programChangeCount = 0;
-        if (decodeReport.isOk() && proposal.isValid()) {
+            std::size_t noteCount = 0;
+            std::size_t programChangeCount = 0;
             for (const auto& event : proposal.events) {
                 if (std::holds_alternative<mozart::remi::NoteEvent>(event)) ++noteCount;
                 if (std::holds_alternative<mozart::remi::ProgramChangeEvent>(event)) ++programChangeCount;
             }
+            report["semantic_adapter_status"] = diagnosticPrefix
+                    ? "valid_diagnostic_prefix" : "valid_proposal";
+            report["semantic_adapter_message"] = diagnosticPrefix
+                    ? "Only a shorter complete-event prefix is valid; the complete generated stream remains unaccepted"
+                    : "";
+            report["semantic_proposal_valid"] = true;
             report["semantic_note_count"] = noteCount;
             report["semantic_program_change_count"] = programChangeCount;
+            report["semantic_input_token_count"] = candidate.size();
+            report["semantic_diagnostic_prefix_used"] = diagnosticPrefix;
+            report["semantic_tokens_omitted_for_diagnostic"] = tokenIds.size() - candidate.size();
 
-            const mozart::generation::RemiToLinkPatternConverter converter(config.ticksPerBeat);
             const auto linkProposal = converter.convert(proposal);
             if (linkProposal.has_value() && linkProposal->isWellFormed()) {
                 report["link_conversion_status"] = "accepted";
                 report["link_note_count"] = linkProposal->noteEvents.size();
                 report["link_control_count"] = linkProposal->controlEvents.size();
+                report["provider_ready"] =
+                        completeBosEosStream && !diagnosticPrefix &&
+                        candidate.size() == tokenIds.size() &&
+                        programChangeCount == 0 && linkProposal->controlEvents.empty();
             } else if (programChangeCount != 0) {
                 report["link_conversion_status"] = "rejected_unsupported_program_change";
             } else {
                 report["link_conversion_status"] = "rejected_by_link_converter";
+            }
+            return true;
+        };
+
+        if (!inspectCandidate(tokenIds, false) && !completeBosEosStream) {
+            // Diagnostic-only scan: keep BOS, do not fabricate EOS, and leave
+            // the provider-ready state false for any shortened prefix.
+            for (std::size_t length = tokenIds.size(); length > 2; --length) {
+                std::vector<std::uint32_t> prefix(tokenIds.begin(), tokenIds.begin() + length - 1);
+                if (inspectCandidate(prefix, true)) break;
             }
         }
     } catch (const std::exception& error) {
