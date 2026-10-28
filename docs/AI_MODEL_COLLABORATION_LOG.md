@@ -1989,3 +1989,49 @@ Roadmap Stage 2 (quantized scheduler) and Stage 3 (MIDI scheduler) are unchecked
 
 ### Message for ChatGPT
 Scheduler subsystem implemented and pushed at `ccd2ceb`. Local and remote HEAD synchronized. C++ tests not run locally (no toolchain) — gated by CI. Next step: monitor CI results, then proceed to LinkClock or pattern parameter components.
+
+
+---
+## 2026-10-28 — ChatGPT / GitHub Connector — Scheduler CI correction and production-target integration
+
+### Context
+The initial scheduler report said CI would gate `scheduler_tests`, but direct inspection of `.github/workflows/remi-adapter-ci.yml` showed that the executable was built but never run. The first proper execution exposed a deterministic same-timestamp ordering defect.
+
+### Executed
+1. **Enabled the missing test step** in `.github/workflows/remi-adapter-ci.yml` and added `test_scheduler.log` to the workflow artifact.
+2. **Fixed equal-timestamp ordering** in `MidiSendQueue` by using insertion order as a deterministic tie-breaker. This matters when a note-off and another note-on share a musical tick.
+3. **Fixed tempo-map semantics** in `AccompanimentScheduler`: tempo changes now affect only subsequent tick intervals rather than recalculating the entire timeline at the new tempo.
+4. **Added preflight validation** before queuing any events, including zero-duration notes, invalid MIDI fields, invalid/non-finite tempo, and note-duration overflow. This prevents malformed proposals from partially populating the output queue.
+5. **Added regression coverage** for FIFO tie ordering, atomic rejection of invalid proposals, duration overflow, and a nonzero-position tempo change with an intentionally unsorted event list.
+6. **Integrated the scheduler implementation into the production CMake target** `mozart-core` and updated the Stage 3 roadmap entry to reflect completion of the pure-C++ scheduler core. The Android MIDI hardware adapter and physical-synth validation remain incomplete.
+
+### Verified Evidence
+- Commit [`fb0e519`](https://github.com/MiguelDuval/Mozart/commit/fb0e519f41691801ca6a942b1c52cce47156cf82) adds actual execution of `scheduler_tests`.
+- Commit [`5ab29f7`](https://github.com/MiguelDuval/Mozart/commit/5ab29f774c0f8572e9c45b8a89ee21e91e22fbfe) contains the ordering, tempo-map, validation and test fixes.
+- **VERIFIED:** REMI/BPE Adapter CI for exact SHA `5ab29f774c0f8572e9c45b8a89ee21e91e22fbfe` passed in [run 40722648177](https://github.com/MiguelDuval/Mozart/actions/runs/40722648177). The uploaded `test_scheduler.log` reports every scheduler test passing, including the new regression cases.
+- **VERIFIED:** The REMI/BPE library build and all four test executables (`mozart_core_tests`, `remi_adapter_tests_1/2/3`, `scheduler_tests`) completed successfully on SHA `5ab29f7`.
+- Commit [`a8c2ab6`](https://github.com/MiguelDuval/Mozart/commit/a8c2ab65274a729523c412ed501166d1e65b638f) adds scheduler sources to `mozart-core` and updates `docs/ROADMAP.md`.
+- At the time of this entry, CI for exact SHA `a8c2ab65274a729523c412ed501166d1e65b638f` is still running; no pass claim is made for that SHA yet.
+- Android Build run 40722648169 initially failed at toolchain installation before compiling project sources. Its retry then passed Android toolchain installation and `Test Mozart C++ core`; APK assembly/emulator checks were still in progress at the time of this entry.
+
+### Unverified / Remaining
+- CI for the latest commit `a8c2ab6` is pending.
+- Full Android APK and emulator smoke-test result on the latest SHA is not yet verified.
+- Physical USB MIDI routing, external synth behavior, timing jitter and audible synchronization are not proven by host-native unit tests.
+- `src/runtime/MozartRuntime.h` includes several headers whose implementations are not present in this branch tree; runtime/Link integration is not yet a compilable vertical slice and must not be described as integrated.
+
+### Changed Files Across Commits
+- `.github/workflows/remi-adapter-ci.yml`
+- `src/scheduler/MidiSendQueue.h/.cpp`
+- `src/scheduler/AccompanimentScheduler.h/.cpp`
+- `tests/SchedulerTests.cpp`
+- `CMakeLists.txt`
+- `docs/ROADMAP.md`
+- `docs/AI_MODEL_COLLABORATION_LOG.md` (this append-only entry)
+
+### Result
+**Scheduler core implemented and tested; production-target source inclusion fixed.** The newly enabled CI caught a real ordering bug, which was corrected and verified on exact SHA `5ab29f7`. The latest CMake/roadmap change remains under CI verification.
+
+### Next Action
+1. Verify REMI/BPE and Android Build outcomes on exact SHA `a8c2ab65274a729523c412ed501166d1e65b638f`.
+2. Then choose the next bounded vertical slice only after checking the existing `feature/link-clock` work and the missing Link/transport headers; do not claim runtime integration while those dependencies are absent.
