@@ -3,6 +3,7 @@
 #include "generation/LocalPatternProvider.h"
 #include "generation/ModelCatalog.h"
 #include "generation/GenerationRequestTicket.h"
+#include "generation/RemiBpePatternProvider.h"
 
 #include <condition_variable>
 #include <cstddef>
@@ -15,9 +16,6 @@
 #include <unordered_map>
 
 namespace mozart::generation {
-
-class RemiBpeInferenceBackend;
-class RemiBpePatternProvider;
 
 class GenerationService final {
 public:
