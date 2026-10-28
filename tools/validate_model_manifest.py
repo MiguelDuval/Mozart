@@ -98,42 +98,20 @@ def _validate_runtime_extension(root: dict) -> None:
         return
 
     runtime = _require_object(runtime, "manifest.runtime")
-
-    backend = _require_string(
-        runtime.get("backend"),
-        "manifest.runtime.backend",
-    )
+    backend = _require_string(runtime.get("backend"), "manifest.runtime.backend")
     if backend != "onnxruntime":
         raise ValueError(
             "manifest.runtime.backend must be onnxruntime when runtime is present"
         )
 
-    input_name = _require_string(
-        runtime.get("input_name"),
-        "manifest.runtime.input_name",
-    )
-    output_name = _require_string(
-        runtime.get("output_name"),
-        "manifest.runtime.output_name",
-    )
-    if not input_name or not output_name:
-        raise ValueError("manifest.runtime input/output names are required")
-
-    input_names = {
-        tensor["name"] for tensor in root["inputs"]
-    }
-    output_names = {
-        tensor["name"] for tensor in root["outputs"]
-    }
+    input_name = _require_string(runtime.get("input_name"), "manifest.runtime.input_name")
+    output_name = _require_string(runtime.get("output_name"), "manifest.runtime.output_name")
+    input_names = {tensor["name"] for tensor in root["inputs"]}
+    output_names = {tensor["name"] for tensor in root["outputs"]}
     if input_name not in input_names:
-        raise ValueError(
-            "manifest.runtime.input_name must reference an inputs[] tensor"
-        )
+        raise ValueError("manifest.runtime.input_name must reference an inputs[] tensor")
     if output_name not in output_names:
-        raise ValueError(
-            "manifest.runtime.output_name must reference an outputs[] tensor"
-        )
-
+        raise ValueError("manifest.runtime.output_name must reference an outputs[] tensor")
     if input_name != "input_ids":
         raise ValueError(
             "manifest.runtime.input_name must be input_ids for the experimental ONNX ABI"
@@ -142,9 +120,93 @@ def _validate_runtime_extension(root: dict) -> None:
         raise ValueError(
             "manifest.runtime.output_name must be logits for the experimental ONNX ABI"
         )
-
     if runtime.get("input_dtype") != "int64":
         raise ValueError("manifest.runtime.input_dtype must be int64")
+
+    _require_positive_int(
+        runtime.get("context_length_tokens"),
+        "manifest.runtime.context_length_tokens",
+    )
+    _require_positive_int(
+        runtime.get("max_generated_tokens"),
+        "manifest.runtime.max_generated_tokens",
+    )
+    if runtime["context_length_tokens"] < 2:
+        raise ValueError("manifest.runtime.context_length_tokens must be at least 2")
+    if runtime["max_generated_tokens"] < 2:
+        raise ValueError("manifest.runtime.max_generated_tokens must be at least 2")
+    if runtime["context_length_tokens"] > root["context_length_tokens"]:
+        raise ValueError(
+            "manifest.runtime.context_length_tokens exceeds root context_length_tokens"
+        )
+    if runtime["max_generated_tokens"] > root["max_generated_tokens"]:
+        raise ValueError(
+            "manifest.runtime.max_generated_tokens exceeds root max_generated_tokens"
+        )
+
+    allow_unhashed = runtime.get("allow_unhashed_experimental", False)
+    if not isinstance(allow_unhashed, bool):
+        raise ValueError("manifest.runtime.allow_unhashed_experimental must be boolean")
+
+    token_mode = runtime.get("token_mode", "mozart_ids")
+    if token_mode == "remi_bpe":
+        if root.get("model_format") != "onnx":
+            raise ValueError("REMI/BPE runtime requires an ONNX model")
+        if root.get("vocabulary_id") != "miditok-remi-bpe-v1":
+            raise ValueError("REMI/BPE runtime requires vocabulary_id miditok-remi-bpe-v1")
+        vocab_size = _require_positive_int(
+            root.get("vocabulary_size"), "manifest.vocabulary_size"
+        )
+        if vocab_size != runtime.get("external_vocabulary_size"):
+            raise ValueError(
+                "REMI/BPE runtime external_vocabulary_size must equal root vocabulary_size"
+            )
+        if len(root["inputs"]) != 1 or len(root["outputs"]) != 1:
+            raise ValueError("REMI/BPE ONNX ABI must have exactly one input and one output")
+        input_tensor = root["inputs"][0]
+        output_tensor = root["outputs"][0]
+        if input_tensor["name"] != "input_ids" or input_tensor["dtype"].lower() != "int64":
+            raise ValueError("REMI/BPE input_ids must be int64")
+        if input_tensor["shape"] != [1, -1]:
+            raise ValueError("REMI/BPE input_ids shape must be [1, -1]")
+        if output_tensor["name"] != "logits" or output_tensor["dtype"].lower() != "float32":
+            raise ValueError("REMI/BPE logits must be float32")
+        if output_tensor["shape"] != [1, vocab_size]:
+            raise ValueError(
+                f"REMI/BPE logits shape must be [1, {vocab_size}]"
+            )
+
+        special_ids = {}
+        for name in ("pad_token_id", "bos_token_id", "eos_token_id"):
+            value = runtime.get(name)
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value < vocab_size:
+                raise ValueError(f"manifest.runtime.{name} must be an ID within the REMI/BPE vocabulary")
+            special_ids[name] = value
+        if len(set(special_ids.values())) != len(special_ids):
+            raise ValueError("REMI/BPE PAD, BOS and EOS IDs must be distinct")
+        mask_id = runtime.get("mask_token_id")
+        if mask_id is not None and (
+            isinstance(mask_id, bool) or not isinstance(mask_id, int) or not 0 <= mask_id < vocab_size
+        ):
+            raise ValueError("manifest.runtime.mask_token_id must be null or a valid vocabulary ID")
+
+        tokenizer_file = _require_string(
+            runtime.get("tokenizer_file"), "manifest.runtime.tokenizer_file"
+        )
+        tokenizer_path = Path(tokenizer_file)
+        if tokenizer_path.is_absolute() or ".." in tokenizer_path.parts:
+            raise ValueError("manifest.runtime.tokenizer_file must be a safe relative path")
+        tokenizer_sha = _require_string(
+            runtime.get("tokenizer_sha256"), "manifest.runtime.tokenizer_sha256"
+        )
+        if tokenizer_sha != "<FROZEN>" and not SHA256_RE.fullmatch(tokenizer_sha):
+            raise ValueError("manifest.runtime.tokenizer_sha256 must be SHA-256 or <FROZEN>")
+        if "conditioning_input_names" in runtime or "performance_control_names" in runtime:
+            raise ValueError("REMI/BPE runtime must not claim the Mozart conditioning ABI")
+        return
+
+    if token_mode != "mozart_ids":
+        raise ValueError("manifest.runtime.token_mode must be mozart_ids or remi_bpe")
 
     conditioning_input_names = runtime.get("conditioning_input_names")
     if conditioning_input_names != list(CANONICAL_CONDITIONING_INPUT_NAMES):
@@ -176,63 +238,19 @@ def _validate_runtime_extension(root: dict) -> None:
         expected_dtype, expected_shape = conditioning_contract[tensor_name]
         if tensor["dtype"].lower() != expected_dtype:
             raise ValueError(
-                f"manifest.runtime conditioning tensor {tensor_name} must use dtype "
-                f"{expected_dtype}"
+                f"manifest.runtime conditioning tensor {tensor_name} must use dtype {expected_dtype}"
             )
         if tensor["shape"] != expected_shape:
             raise ValueError(
-                f"manifest.runtime conditioning tensor {tensor_name} has invalid shape; "
-                f"expected {expected_shape}"
+                f"manifest.runtime conditioning tensor {tensor_name} has invalid shape; expected {expected_shape}"
             )
 
-    if runtime.get("token_mode") != "mozart_ids":
-        raise ValueError(
-            "manifest.runtime.token_mode must be mozart_ids"
-        )
-
     if runtime.get("external_vocabulary_size") != 512:
-        raise ValueError(
-            "manifest.runtime.external_vocabulary_size must be 512"
-        )
-
-    _require_positive_int(
-        runtime.get("context_length_tokens"),
-        "manifest.runtime.context_length_tokens",
-    )
-    _require_positive_int(
-        runtime.get("max_generated_tokens"),
-        "manifest.runtime.max_generated_tokens",
-    )
-
-    if runtime["context_length_tokens"] < 2:
-        raise ValueError(
-            "manifest.runtime.context_length_tokens must be at least 2"
-        )
-    if runtime["max_generated_tokens"] < 2:
-        raise ValueError(
-            "manifest.runtime.max_generated_tokens must be at least 2"
-        )
-    if runtime["context_length_tokens"] > root["context_length_tokens"]:
-        raise ValueError(
-            "manifest.runtime.context_length_tokens exceeds root context_length_tokens"
-        )
-    if runtime["max_generated_tokens"] > root["max_generated_tokens"]:
-        raise ValueError(
-            "manifest.runtime.max_generated_tokens exceeds root max_generated_tokens"
-        )
-
+        raise ValueError("manifest.runtime.external_vocabulary_size must be 512")
     if runtime.get("bos_token_id") != 1:
         raise ValueError("manifest.runtime.bos_token_id must be 1")
     if runtime.get("eos_token_id") != 2:
         raise ValueError("manifest.runtime.eos_token_id must be 2")
-
-    allow_unhashed = runtime.get("allow_unhashed_experimental", False)
-    if not isinstance(allow_unhashed, bool):
-        raise ValueError(
-            "manifest.runtime.allow_unhashed_experimental must be boolean"
-        )
-
-
 def _reject_placeholders(value: Any, where: str = "manifest") -> None:
     if isinstance(value, str):
         if "<FROZEN>" in value or value == "REPLACE":
@@ -278,10 +296,22 @@ def validate(path: Path) -> dict:
     if distribution not in ALLOWED_DISTRIBUTION:
         raise ValueError(f"manifest.distribution_class must be one of {sorted(ALLOWED_DISTRIBUTION)}")
 
-    if root["vocabulary_id"] != "mozart-midi-events-v1":
-        raise ValueError("manifest.vocabulary_id must be mozart-midi-events-v1")
-    if root["vocabulary_size"] != 512:
-        raise ValueError("manifest.vocabulary_size must be 512")
+    runtime_for_vocabulary = root.get("runtime")
+    if runtime_for_vocabulary is not None and not isinstance(runtime_for_vocabulary, dict):
+        raise ValueError("manifest.runtime must be an object")
+    token_mode_for_vocabulary = (
+        runtime_for_vocabulary.get("token_mode", "mozart_ids")
+        if isinstance(runtime_for_vocabulary, dict) else "mozart_ids"
+    )
+    if token_mode_for_vocabulary == "remi_bpe":
+        if root["vocabulary_id"] != "miditok-remi-bpe-v1":
+            raise ValueError("REMI/BPE manifest.vocabulary_id must be miditok-remi-bpe-v1")
+        _require_positive_int(root["vocabulary_size"], "manifest.vocabulary_size")
+    else:
+        if root["vocabulary_id"] != "mozart-midi-events-v1":
+            raise ValueError("manifest.vocabulary_id must be mozart-midi-events-v1")
+        if root["vocabulary_size"] != 512:
+            raise ValueError("manifest.vocabulary_size must be 512")
 
     _require_positive_int(root["context_length_tokens"], "manifest.context_length_tokens")
     _require_positive_int(root["max_generated_tokens"], "manifest.max_generated_tokens")
