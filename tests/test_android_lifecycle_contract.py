@@ -297,33 +297,44 @@ class AndroidLifecycleContractTest(unittest.TestCase):
             parser,
         )
 
-    def test_stale_callback_recreate_guard_checks_back_delivery(self):
+    def test_stale_callback_recreate_guard_checks_home_stop_clean_relaunch_and_no_stale_callbacks(self):
         smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
         start = smoke.index("exercise_runtime_smoke_recreate_guard() {")
         end = smoke.index("\n}", start)
         guard = smoke[start:end]
 
-        self.assertIn("if ! wait_for_adb_device; then", guard)
-        self.assertIn("adb shell input keyevent 4", guard)
-        self.assertIn("|| back_rc=$?", guard)
-        self.assertIn('if [[ "$back_rc" -ne 0 ]]', guard)
+        self.assertIn("background_activity_to_home \"stale-callback recreate guard\"", guard)
+        self.assertIn("start_app false true", guard)
+        self.assertIn("wait_for_startup", guard)
+        self.assertIn("sleep 3.5", guard)
+        self.assertIn('grep -Eq "RUNTIME: Link snapshot (tick|stopped)|RUNTIME: Timing telemetry (tick|stopped)"', guard)
 
-    def test_recreate_cycle_requires_live_adb_and_checks_back_delivery(self):
+    def test_recreate_cycle_requires_home_stop_and_new_clear_task_instance(self):
         smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
         start = smoke.index("exercise_activity_recreate_cycle()")
         end = smoke.index("\ncollect_diagnostics()", start)
         recreate = smoke[start:end]
 
-        self.assertIn("if ! wait_for_adb_device; then", recreate)
-        self.assertIn(
-            "timeout 10s adb shell input keyevent 4 >/dev/null 2>&1 || back_rc=$?",
-            recreate,
-        )
-        self.assertIn('if [[ "$back_rc" -ne 0 ]]', recreate)
-        self.assertLess(
-            recreate.index("if ! wait_for_adb_device; then"),
-            recreate.index("adb shell input keyevent 4"),
-        )
+        self.assertIn('background_activity_to_home "recreate cycle ${cycle}"', recreate)
+        self.assertIn("start_app false true", recreate)
+        self.assertIn("MainActivity recreate cycle", recreate)
+
+    def test_clean_task_start_uses_explicit_clear_and_new_task_flags(self):
+        smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
+        start = smoke.index("start_app() {")
+        end = smoke.index("\n}", start)
+        launcher = smoke[start:end]
+        self.assertIn("--activity-new-task --activity-clear-task", launcher)
+        self.assertIn('local clear_task="${2:-false}"', launcher)
+
+    def test_home_transition_requires_launcher_to_be_resumed(self):
+        smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
+        start = smoke.index("home_launcher_is_resumed() {")
+        end = smoke.index("\n}", start)
+        helper = smoke[start:end]
+        self.assertIn("com.google.android.apps.nexuslauncher/.NexusLauncherActivity", helper)
+        self.assertIn("grep -Fq", helper)
+        self.assertIn("wait_for_activity_to_stop", smoke[smoke.index("background_activity_to_home() {"):])
 
 
 if __name__ == "__main__":

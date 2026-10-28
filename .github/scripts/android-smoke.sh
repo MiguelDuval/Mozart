@@ -80,10 +80,15 @@ link_clock_advanced() {
 
 start_app() {
   local runtime_smoke="${1:-true}"
+  local clear_task="${2:-false}"
   rm -f "$START_FILE" "$START_STATUS_FILE" "$START_HOST_PID_FILE"
   (
     set +e
-    timeout "${START_TIMEOUT}s" adb shell am start -n "$ACTIVITY" --ez mozart.runtime_smoke "$runtime_smoke" > "$START_FILE" 2>&1
+    if [[ "$clear_task" == "true" ]]; then
+      timeout "${START_TIMEOUT}s" adb shell am start --activity-new-task --activity-clear-task -n "$ACTIVITY" --ez mozart.runtime_smoke "$runtime_smoke" > "$START_FILE" 2>&1
+    else
+      timeout "${START_TIMEOUT}s" adb shell am start -n "$ACTIVITY" --ez mozart.runtime_smoke "$runtime_smoke" > "$START_FILE" 2>&1
+    fi
     rc=$?
     printf '%s\n' "$rc" > "$START_STATUS_FILE"
   ) &
@@ -183,6 +188,51 @@ wait_for_activity_to_stop() {
   return 1
 }
 
+home_launcher_is_resumed() {
+  local activity_dump
+  activity_dump="$(timeout 5s adb shell dumpsys activity activities 2>/dev/null)" || return 2
+  [[ -n "$activity_dump" ]] || return 2
+  printf '%s\n' "$activity_dump" |
+    grep -E 'mResumedActivity|topResumedActivity|^[[:space:]]*Resumed:' |
+    grep -Fq "com.google.android.apps.nexuslauncher/.NexusLauncherActivity"
+}
+
+wait_for_home_launcher_to_resume() {
+  local deadline=$((SECONDS + 8))
+  local home_rc=0
+  while (( SECONDS < deadline )); do
+    home_rc=0
+    home_launcher_is_resumed || home_rc=$?
+    if [[ "$home_rc" -eq 0 ]]; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  return 1
+}
+
+background_activity_to_home() {
+  local context="$1"
+  if ! wait_for_adb_device; then
+    echo "ADB device was not ready before HOME during ${context}." >&2
+    return 1
+  fi
+
+  local home_rc=0
+  timeout 10s adb shell input keyevent 3 >/dev/null 2>&1 || home_rc=$?
+  if [[ "$home_rc" -ne 0 ]]; then
+    echo "Failed to deliver HOME (adb input rc=${home_rc}) during ${context}." >&2
+    return 1
+  fi
+
+  if ! wait_for_activity_to_stop || ! wait_for_home_launcher_to_resume; then
+    echo "HOME did not move Mozart out of the resumed state during ${context}." >&2
+    timeout 10s adb shell dumpsys activity activities 2>/dev/null |
+      grep -E "mResumedActivity|topResumedActivity|^[[:space:]]*Resumed:" || true
+    return 1
+  fi
+}
+
 power_is_interactive() {
   timeout 5s adb shell dumpsys power 2>/dev/null |
     grep -Eq 'mInteractive=true|mWakefulness=Awake'
@@ -214,23 +264,38 @@ wait_for_power_sleep() {
 exercise_runtime_smoke_recreate_guard() {
   echo "=== Runtime smoke stale-callback recreate guard ==="
 
-  if ! wait_for_adb_device; then
-    echo "ADB device was not ready before BACK during stale-callback recreate guard." >&2
+  # This test is about Activity lifecycle cleanup, not the emulator's BACK
+  # navigation policy for a root task. Require the initial delayed callbacks
+  # to still be pending, then use HOME to produce a deterministic onStop.
+  write_logcat
+  if grep -Eq "RUNTIME: Link snapshot (tick|stopped)|RUNTIME: Timing telemetry (tick|stopped)" "$LOGCAT_FILE"; then
+    echo "Runtime smoke callbacks ran before lifecycle teardown; stale-callback test did not reach the intended window." >&2
     return 1
   fi
-  local back_rc=0
-  timeout 10s adb shell input keyevent 4 >/dev/null 2>&1 || back_rc=$?
-  if [[ "$back_rc" -ne 0 ]]; then
-    echo "Failed to deliver BACK (adb input rc=${back_rc}) during stale-callback recreate guard." >&2
+  if ! background_activity_to_home "stale-callback recreate guard"; then
     return 1
   fi
 
-  if ! wait_for_activity_to_stop; then
-    echo "MainActivity remained resumed after BACK." >&2
-    timeout 10s adb shell dumpsys activity activities 2>/dev/null |
-      grep -E "mResumedActivity|topResumedActivity|Resumed:" || true
+  # Start from a clean task so the following startup evidence must come from
+  # a new MainActivity instance, not an intent delivered to the old top one.
+  timeout 5s adb shell logcat -c || true
+  start_app false true
+  local startup_rc=0
+  wait_for_startup || startup_rc=$?
+  if [[ "$startup_rc" -ne 0 ]]; then
+    echo "MainActivity did not start as a fresh clear-task instance after HOME." >&2
     return 1
   fi
+
+  # The old +1s/+3s callbacks must not escape onStop/recreation. Since the new
+  # instance has runtime smoke disabled, any of these markers is stale output.
+  sleep 3.5
+  write_logcat
+  if grep -Eq "RUNTIME: Link snapshot (tick|stopped)|RUNTIME: Timing telemetry (tick|stopped)" "$LOGCAT_FILE"; then
+    echo "A delayed runtime-smoke callback escaped Activity teardown/recreation." >&2
+    return 1
+  fi
+  echo "Runtime smoke stale-callback recreate guard passed."
 }
 
 exercise_activity_background_resume_guard() {
@@ -345,33 +410,19 @@ exercise_activity_recreate_cycle() {
   local cycle="$1"
 
   echo "=== Activity lifecycle recreate cycle ${cycle} ==="
-  # Emulator/ADB can briefly fall back to offline after lifecycle transitions.
-  # Do not interpret a failed keyevent as an Activity lifecycle regression.
-  if ! wait_for_adb_device; then
-    echo "ADB device was not ready before BACK during recreate cycle ${cycle}." >&2
-    return 1
-  fi
-  local back_rc=0
-  timeout 10s adb shell input keyevent 4 >/dev/null 2>&1 || back_rc=$?
-  if [[ "$back_rc" -ne 0 ]]; then
-    echo "Failed to deliver BACK (adb input rc=${back_rc}) during recreate cycle ${cycle}." >&2
+  # Assert a real onStop/background transition, then clear the task on relaunch
+  # to force a new Activity instead of relying on emulator BACK key semantics.
+  if ! background_activity_to_home "recreate cycle ${cycle}"; then
     return 1
   fi
 
-  if ! wait_for_activity_to_stop; then
-    echo "MainActivity remained resumed after BACK during recreate cycle ${cycle}." >&2
-    timeout 10s adb shell dumpsys activity activities 2>/dev/null |
-      grep -E "mResumedActivity|topResumedActivity|Resumed:" || true
-    return 1
-  fi
-
-  timeout 5s adb logcat -c || true
-  start_app false
+  timeout 5s adb shell logcat -c || true
+  start_app false true
 
   local startup_rc=0
   wait_for_startup || startup_rc=$?
   if [[ "$startup_rc" -ne 0 ]]; then
-    echo "MainActivity recreate cycle ${cycle} failed to complete startup." >&2
+    echo "MainActivity recreate cycle ${cycle} failed to complete fresh clear-task startup." >&2
     return 1
   fi
 

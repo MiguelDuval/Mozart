@@ -442,3 +442,19 @@ A follow-up review identified an important Hugging Face cache detail: the tokeni
 ## 2026-10-28 — ChatGPT — Make local recovery command shell-correct on Windows
 
 Updated the recovery guide to provide separate PowerShell and Command Prompt examples. The PowerShell command now uses the native $env:USERPROFILE expansion rather than a CMD-style percent variable that would remain literal in a default VS Code PowerShell terminal. This is documentation-only; no tokenizer or model artifacts were changed.
+
+
+## 2026-10-28 — ChatGPT — Make Android lifecycle smoke validate actual onStop/recreation
+
+### Root cause from emulator evidence
+Android Build run [40770239080](https://github.com/MiguelDuval/Mozart/actions/runs/40770239080) built debug and release APKs and passed JVM/native/static checks, but its final emulator smoke gate failed. The captured Activity Manager state after each BACK injection still showed Mozart's MainActivity as both top-resumed and focused; this was not merely the old parser missing an Android 36 field. The stale-callback guard's intended invariant is that delayed runtime work is cancelled on Activity lifecycle shutdown, not that a root Activity responds to a synthetic BACK key exactly as the test expects on that emulator.
+
+### Change on the current feature branch
+- Changed the lifecycle smoke to use a checked HOME transition, and now requires both that Mozart is no longer resumed and that the Pixel launcher is actually resumed.
+- Added an explicit \`--activity-new-task --activity-clear-task\` start mode, so the relaunch cannot silently reuse the existing foreground Activity.
+- The stale-callback guard now confirms teardown happens before the scheduled smoke callback markers, starts a fresh Activity with runtime smoke disabled, and waits beyond the previous +1s/+3s callback window to ensure no delayed Link/timing callback escapes lifecycle cleanup.
+- Recreate cycles use the same verified background/clear-task-relaunch sequence. Contract tests now require those behaviors rather than assuming a BACK key inject always finishes a root Activity.
+
+### Verification
+- Previous lifecycle-test baseline at \`f5387f44ce4293426c27743c01fd414adef717e8\` failed only at the final emulator smoke gate after compile/build/unit checks passed. The new test logic still requires exact-SHA Android CI before it can be called fixed.
+- The REMI/BPE exporter contract and REMI/Link native tests were green at \`9bb6991418818a7d185eda1dd85eb02fe562331c\`; the next workflows will validate the lifecycle change on the resulting commit.
