@@ -236,6 +236,7 @@ int main(int argc, char** argv) {
             report["semantic_tokens_omitted_for_diagnostic"] = tokenIds.size() - candidate.size();
 
             const auto linkProposal = converter.convert(proposal);
+            bool linkStageAccepted = false;
             if (linkProposal.has_value() && linkProposal->isWellFormed()) {
                 report["link_conversion_status"] = "accepted";
                 report["link_note_count"] = linkProposal->noteEvents.size();
@@ -247,21 +248,25 @@ int main(int argc, char** argv) {
                 report["request_validation_status"] = requestValidation.ok()
                         ? "accepted" : "rejected";
                 report["request_validation_message"] = requestValidation.message;
+                linkStageAccepted =
+                        programChangeCount == 0 &&
+                        controlChangeCount == 0 &&
+                        linkProposal->controlEvents.empty() &&
+                        requestValidation.ok();
                 report["provider_ready"] =
                         completeBosEosStream &&
                         noMisplacedSpecialTokens &&
                         !diagnosticPrefix &&
                         candidate.size() == tokenIds.size() &&
-                        programChangeCount == 0 &&
-                        controlChangeCount == 0 &&
-                        linkProposal->controlEvents.empty() &&
-                        requestValidation.ok();
+                        linkStageAccepted;
             } else if (programChangeCount != 0) {
                 report["link_conversion_status"] = "rejected_unsupported_program_change";
             } else {
                 report["link_conversion_status"] = "rejected_by_link_converter";
             }
-            return true;
+            // The diagnostic prefix scan must continue until it finds a prefix
+            // accepted by the same adapter -> Link -> request-validator chain.
+            return linkStageAccepted;
         };
 
         if (!inspectCandidate(tokenIds, false) && !completeBosEosStream) {

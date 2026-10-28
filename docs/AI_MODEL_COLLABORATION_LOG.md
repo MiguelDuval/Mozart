@@ -598,3 +598,10 @@ Hardened the real-output report so `provider_ready` cannot become true merely be
 ## 2026-10-28 — ChatGPT — Match the real-model smoke sampler to Android
 
 Found a meaningful parity bug in the validation harness: Python smoke generation used raw `argmax`, while the Android bridge suppresses PAD/BOS/MASK and leaves EOS available. That meant the smoke could generate special tokens Android would never choose, invalidating claims that the C++ report represented Android's selection path. Updated the helper to share the same greedy selection rules, skip individual non-finite logits like Java, validate special token IDs, and keep EOS eligible. Added five unit tests including a fake ONNX session proving the generated stream stops on EOS after special-token masking; wired the tests into the Export Contract workflow's push/PR path filters.
+
+
+## 2026-10-28 — ChatGPT — Link real-artifact smoke against shared musical validation
+
+The first post-sampler real-model run on SHA `4331769e274497230e24e9b01dc0f10818ed55cb` exported the checkpoint, ran the 64-token generation and passed manifest validation, but the C++ diagnostic failed to link because using Mozart's common request validator pulled in `KeyScale` and `Chord` methods not yet included in the standalone compile command. Added their production source files to the smoke's native build.
+
+Also tightened the prefix scan: it now searches for a prefix that passes the complete adapter → Link converter → request-aware validator chain, not merely a prefix that parses as a typed REMI proposal. Unsupported program/control events and request validation failures will no longer stop the diagnostic search prematurely. No production decoding or event-validation rules were relaxed.

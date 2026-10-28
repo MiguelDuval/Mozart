@@ -117,6 +117,8 @@ jobs:
             src/remi/RemiEventAdapter.cpp \
             src/remi/GenerationTypes.cpp \
             src/generation/RemiToLinkPatternConverter.cpp \
+            src/musical/KeyScale.cpp \
+            src/musical/Chord.cpp \
             -o "$EXPORT_DIR/remi-bpe-artifact-smoke"
           "$EXPORT_DIR/remi-bpe-artifact-smoke" \
             "$MODEL_DIR/tokenizer.json" \
