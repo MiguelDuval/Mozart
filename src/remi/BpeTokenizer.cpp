@@ -152,7 +152,11 @@ std::optional<BpeTokenizer> BpeTokenizer::loadFromJson(const std::string& jsonPa
         tokenizer.usesMetaspace_ = found;
     }
 
+    tokenizer.hasLearnedBpeVocabulary_ = hasModelVocab;
+
     // If no trained BPE model exists, IDs come from the base vocabulary.
+    // This fallback is useful for inspecting plain MidiTok tokenizers, but it
+    // must never be mistaken for a trained external model's BPE output ABI.
     if (!hasModelVocab && document.contains("_vocab_base") &&
         document["_vocab_base"].is_object()) {
         const auto& vocab = document["_vocab_base"];
