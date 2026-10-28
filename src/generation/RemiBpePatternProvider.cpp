@@ -21,6 +21,22 @@ RemiBpePatternProvider::RemiBpePatternProvider(RemiBpeInferenceBackend& backend)
             initializationError_ = "REMI/BPE tokenizer artifact could not be loaded";
             return;
         }
+        if (!tokenizer->hasLearnedBpeVocabulary()) {
+            initializationError_ =
+                "REMI/BPE tokenizer has only the MidiTok base vocabulary; learned BPE model vocabulary is missing";
+            return;
+        }
+        const auto expectedVocabularySize = backend_.expectedVocabularySize();
+        if (expectedVocabularySize == 0) {
+            initializationError_ =
+                "REMI/BPE model manifest does not declare a valid output vocabulary size";
+            return;
+        }
+        if (tokenizer->vocabSize() != expectedVocabularySize) {
+            initializationError_ =
+                "REMI/BPE model output vocabulary size does not match its paired tokenizer";
+            return;
+        }
         auto config = remi::RemiDecoderConfig::fromTokenizerJson(path);
         if (config.vocabSize != tokenizer->vocabSize()) {
             initializationError_ = "REMI/BPE tokenizer vocabulary size disagrees with loaded token IDs";
