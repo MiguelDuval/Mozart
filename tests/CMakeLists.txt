@@ -97,3 +97,12 @@ add_mozart_test(remi_adapter_tests_3
     ../src/core/LocalNeuralPatternProviderFallback.cpp
     ../src/generation/RhythmGenerator.cpp
 )
+
+# Scheduler tests - generation to MIDI output bridge
+add_mozart_test(scheduler_tests
+    SchedulerTests.cpp
+    ../src/core/MidiTypes.cpp
+    ../src/core/GenerationTypes.cpp
+    ../src/scheduler/MidiSendQueue.cpp
+    ../src/scheduler/AccompanimentScheduler.cpp
+)
