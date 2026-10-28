@@ -47,12 +47,22 @@ void testBpeTokenizerLoadsFixture() {
 
     assert(tokenizer.has_value());
     assert(tokenizer->vocabSize() == 23);
+    assert(tokenizer->hasLearnedBpeVocabulary());
     assert(tokenizer->padToken() == 0);
     assert(tokenizer->bosToken() == 1);
     assert(tokenizer->eosToken() == 2);
     assert(tokenizer->maskToken() == 3);
 
     std::cout << "  BpeTokenizer loads fixture: PASSED" << std::endl;
+}
+
+void testBaseOnlyMidiTokTokenizerIsNotLearnedBpe() {
+    const auto path = fs::path(MOZART_TEST_SOURCE_DIR) /
+        "fixtures" / "remi_base_vocab_only_fixture.json";
+    const auto tokenizer = BpeTokenizer::loadFromJson(path.string());
+    assert(tokenizer.has_value());
+    assert(tokenizer->vocabSize() == 6);
+    assert(!tokenizer->hasLearnedBpeVocabulary());
 }
 
 void testBpeTokenizerDecodeKnownIds() {
@@ -529,6 +539,7 @@ void testUnsupportedRemiTokenRejectsAtomically() {
 
 int main() {
     testBpeTokenizerLoadsFixture();
+    testBaseOnlyMidiTokTokenizerIsNotLearnedBpe();
     testBpeTokenizerDecodeKnownIds();
     testRemiDecoderConfigLoadsTokenizerArtifactFields();
     testConverterNoteEvent();
