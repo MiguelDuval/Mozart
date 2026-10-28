@@ -346,3 +346,41 @@ FOCUSED CI VERIFIED; REAL CHECKPOINT STILL BLOCKED. The new note-record gate com
 ### Next Action
 1. Check Android Build by exact SHA on the current branch head.
 2. Continue only with contract tests or a recovered, checksum-verified trained BPE tokenizer; never claim MusicMaker compatibility from the synthetic tokenizer fixture.
+
+
+## 2026-10-28 — ChatGPT — Reconcile REMI history, harden Android smoke, trace tokenizer source
+
+### Baseline and five commits after the previous log entry
+
+The previous log entry was recorded at `29be648d3ce6c394061f9f24f787f17b0140adcd`. The branch was then at `d5f334eaebe3ff0e7c6d2e5ac3e96c20a2d23308`, five commits ahead and not behind:
+
+1. `ddd8aea6583b219ef6bdf1fb4b3f32743c171967` — recorded the prior strict note-record validation work.
+2. `ef8e36b8c84ffd1af4de01fff2a20f6a1e7487ed` — began rejecting unsupported meter signatures before Link conversion.
+3. `7d2878f0cfc7af49d43da00d0a34b2d742205023` — added retries for transient Android SDK/NDK package installation failures.
+4. `e3cdfac10c5e8ae6cf9f0ab8e9595157225155ac` — fixed the REMI time-signature fixture's namespace qualification after native test compilation failed.
+5. `d5f334eaebe3ff0e7c6d2e5ac3e96c20a2d23308` — completed fail-closed 4/4 meter enforcement in the REMI-to-Link converter.
+
+Focused CI on the baseline `d5f334e` succeeded at [run 40761591935](https://github.com/MiguelDuval/Mozart/actions/runs/40761591935). That verifies native converter, GenerationService, REMI/BPE backend, and pinned Link tests on that SHA; it does not verify a real checkpoint. Android Build [run 40761591926](https://github.com/MiguelDuval/Mozart/actions/runs/40761591926) failed in the emulator smoke gate after reaching the Activity recreate cycle: it reported that MainActivity remained resumed after BACK. Debug/release APK build steps had completed; Android lifecycle smoke had not passed.
+
+The protected refs were rechecked and remained unchanged: `main` = `6d224030d3163206b8496977ae178f13ed978b90`, `feature/link-clock` = `0bea9d50dc28c7a850efe62a3a550b0b2120eab5`, and `feature/mmm-v2-decoder-fix-and-docs` = `67c3e5d06e2a6574983bc05b1c2257b8e96efcc1`.
+
+### Changes in this continuation
+
+- `.github/scripts/android-smoke.sh`: the Activity recreate test now verifies ADB is online before sending BACK, fails explicitly if `adb shell input keyevent 4` fails instead of swallowing that return code, and prints resumed-Activity diagnostics if BACK succeeds but the Activity still remains resumed. This targets a concrete blind spot in the failed smoke test; the exact root cause is not considered proven until the rerun completes.
+- `tests/test_android_lifecycle_contract.py`: added a contract test requiring the ADB readiness guard and checked BACK delivery, to prevent the original false-positive/opaque failure path from returning.
+- `docs/REMI-BPE-CHECKPOINT-COMPATIBILITY.md`: appended evidence from the public upstream training repository identifying `shikhr/miditok2_12k` as the likely original tokenizer artifact. The author's training script uploads the 12k tokenizer with `private=True`, and the model training and generation scripts load the local `miditok2_12k` directory. The public source repository excludes that directory from Git. This is a recovery lead, not proof of access or compatibility. Public `shikhr/music_maker/tokenizer.json` still lacks the trained BPE vocabulary required for its 12,000 output IDs.
+
+### Verification status at log time
+
+- Exact branch head before this log-only commit: `df1586cf198f710a83fa8aee3291c7c397e881ee`; the preceding changes are `e89937fa2bc21b6b97d39b8ad7c26584ca51a682` (smoke guard), `050a3e64ab48f8927237ac6eed66e61e06aedea2` (regression contract test), and `df1586cf198f710a83fa8aee3291c7c397e881ee` (tokenizer provenance documentation).
+- Android Build run [40768299309](https://github.com/MiguelDuval/Mozart/actions/runs/40768299309) on `e89937f` was in progress. The Android JVM unit suite and `bash -n .github/scripts/android-smoke.sh` had passed; release validation was still running. No emulator result was available yet.
+- Android Build run [40768598755](https://github.com/MiguelDuval/Mozart/actions/runs/40768598755) for `df1586c` was queued. The new regression contract test and final documentation commit still require exact-SHA CI verification. No claim of a green build is made here.
+- Local clone/build could not be run in this environment because outbound GitHub DNS was unavailable; verification is being performed through the repository's Actions runs.
+
+### Still blocked
+
+No genuine REMI/BPE generation from the published checkpoint has been demonstrated. The adapter, separate external-token ABI, ONNX/JNI inference path, strict decoder/provider validation, and 4/4 Link converter are implemented, but the public tokenizer artifact still cannot map its 12,000 model IDs. Hashes of the incomplete file do not recreate the missing BPE mapping; synthetic fixtures do not establish checkpoint compatibility. Physical MIDI playback, audible output, and real-device Link behavior remain unverified.
+
+### Next action
+
+Finish Android Build/Activity smoke verification on the latest exact branch SHA and inspect the added Activity diagnostics if BACK still fails. In parallel, recover the original `shikhr/miditok2_12k` artifact from its owner/authorized access and validate its immutable revision, complete learned vocabulary, 12,000-ID mapping, special tokens, and SHA-256. If it cannot be recovered, use a newly trained model and tokenizer as one immutable pair; never pair a fresh tokenizer with the old weights.
