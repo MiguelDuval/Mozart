@@ -426,6 +426,26 @@ public class OnnxInferenceBridgeTest {
         }
     }
 
+    public static final class FakeRemiSession {
+        private final Map<String, Object> inputInfo = new LinkedHashMap<>();
+        private final Map<String, Object> outputInfo = new LinkedHashMap<>();
+
+        FakeRemiSession(int vocabularySize) {
+            inputInfo.put("input_ids",
+                    new FakeNodeInfo("tensor(int64)", new long[] {1L, -1L}));
+            outputInfo.put("logits",
+                    new FakeNodeInfo("tensor(float)", new long[] {1L, vocabularySize}));
+        }
+
+        public Map<String, Object> getInputInfo() {
+            return inputInfo;
+        }
+
+        public Map<String, Object> getOutputInfo() {
+            return outputInfo;
+        }
+    }
+
     public static final class FakeSession {
         private final Map<String, Object> inputInfo =
                 new LinkedHashMap<>();
@@ -719,6 +739,40 @@ public class OnnxInferenceBridgeTest {
             }
             if (cause instanceof Exception) throw (Exception) cause;
             throw wrapped;
+        }
+    }
+
+    @Test
+    public void remiBpeSessionAbiAcceptsTwentyThousandLogits() throws Exception {
+        final File directory = Files.createTempDirectory("mozart-remi-bpe-session-ok").toFile();
+        directory.deleteOnExit();
+        final File artifact = writeTempFile(directory, "model.onnx", "synthetic onnx bytes");
+        final File tokenizer = writeTempFile(directory, "tokenizer.json", "synthetic learned bpe tokenizer bytes");
+        final JSONObject manifest = validRemiBpeManifest(artifact, tokenizer, 20000);
+        final Method method = OnnxInferenceBridge.class.getDeclaredMethod(
+                "validateRemiBpeSessionAbi", Object.class, JSONObject.class, int.class);
+        method.setAccessible(true);
+
+        method.invoke(null, new FakeRemiSession(20000), manifest, 20000);
+    }
+
+    @Test
+    public void remiBpeSessionAbiRejectsLegacy512LogitsForTwentyThousandTokenizer() throws Exception {
+        final File directory = Files.createTempDirectory("mozart-remi-bpe-session-mismatch").toFile();
+        directory.deleteOnExit();
+        final File artifact = writeTempFile(directory, "model.onnx", "synthetic onnx bytes");
+        final File tokenizer = writeTempFile(directory, "tokenizer.json", "synthetic learned bpe tokenizer bytes");
+        final JSONObject manifest = validRemiBpeManifest(artifact, tokenizer, 20000);
+        final Method method = OnnxInferenceBridge.class.getDeclaredMethod(
+                "validateRemiBpeSessionAbi", Object.class, JSONObject.class, int.class);
+        method.setAccessible(true);
+
+        try {
+            method.invoke(null, new FakeRemiSession(512), manifest, 20000);
+            fail("expected ONNX session logits shape mismatch");
+        } catch (InvocationTargetException expected) {
+            assertTrue(expected.getCause() instanceof IllegalArgumentException);
+            assertTrue(expected.getCause().getMessage().contains("shape"));
         }
     }
 

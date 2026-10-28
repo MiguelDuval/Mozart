@@ -549,3 +549,8 @@ Follow-up: made complete vocabulary decodability an explicit required assertion 
 ## 2026-10-28 — ChatGPT — Add Android-side REMI/BPE manifest contract tests
 
 The real checkpoint workflow now proves external ONNX export, autoregressive inference, exact-tokenizer C++ decoding and full 20,000-entry BPE vocabulary decodability. Added Android JVM tests for the next boundary: the app's dedicated `generateRemiBpe` manifest validator must accept the external 20k ABI with correctly hashed paired artifacts, reject a mismatched tokenizer SHA-256 before session creation, and reject an output logits shape incorrectly frozen to 512. These tests exercise the real private validator via reflection without packaging model weights or requiring ONNX native runtime on the host. Exact-SHA Android Build remains the verification gate.
+
+
+## 2026-10-28 — ChatGPT — Test Android ONNX session tensor ABI for external vocabulary
+
+Extended the Android JVM contract tests beyond manifest validation: the REMI/BPE session ABI now has a 20,000-logit fake-session test that must pass, plus a negative test proving a 512-logit session cannot be used for the same 20,000-entry external vocabulary. The tests invoke the real Java bridge session validator with synthetic tensor metadata; they do not require model weights or the ONNX native runtime.
