@@ -46,6 +46,15 @@ struct RemiBarEvent {
     std::uint32_t barNumber = 0;
 };
 
+// Duration_ beats.subdivision.resolution — length of the following note in
+// fractional beats. Applied to the next NoteOn when no preceding note exists
+// to attach it to (e.g. Duration_ before NoteOn).
+struct RemiDurationEvent {
+    double beats = 0.0;
+    std::uint32_t subdivision = 0;
+    std::uint32_t resolution = 1;
+};
+
 struct RemiTempoEvent {
     double bpm = 120.0;
 };
@@ -67,7 +76,8 @@ struct RemiChordEvent {
 
 using RemiEvent = std::variant<
     RemiNoteOnEvent, RemiNoteOffEvent, RemiVelocityEvent, RemiPositionEvent,
-    RemiBarEvent, RemiTempoEvent, RemiTimeSignatureEvent, RemiProgramEvent, RemiChordEvent
+    RemiBarEvent, RemiTempoEvent, RemiTimeSignatureEvent, RemiProgramEvent,
+    RemiDurationEvent, RemiChordEvent
 >;
 
 struct RemiDecodeReport {

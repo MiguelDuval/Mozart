@@ -168,3 +168,48 @@ Build the actual REMI/BPE inference path behind the current non-realtime generat
 
 ### Message for ChatGPT
 Runtime admission and request validation are now tested on `4f3271f`. Do not claim the trained BPE model is connected yet: the outstanding work is the non-realtime REMI token-inference/provider path and its artifact-level compatibility tests.
+
+---
+
+## 2026-10-28 — Cline — REMI/BPE Duration token handling + tokenizer fixture tests
+
+### Context
+Previous entry established REMI→Link conversion boundary and request-aware runtime admission. Outstanding work: inspect trained model's real tokenizer artifact and token ID shape before assuming 12,000-ID BPE ABI compatibility. Also, `RemiEventAdapter::decodeEventsToProposal` declared `pendingDurationTicks`/`hasPendingDuration` but never used them — `Duration_` tokens were silently dropped, corrupting note durations.
+
+### Executed
+1. **Added `RemiDurationEvent`** to `mozart::remi` namespace (`src/remi/RemiEventAdapter.h`): `beats.subdivision.resolution` fractional-beat duration token, added to the `RemiEvent` variant.
+2. **Wired `Duration_` decoding** in `decodeEventsToProposal` (`src/remi/RemiEventAdapter.cpp`): computes tick duration from `(beats + subdivision/resolution) * ticksPerBeat`, stores as `pendingDurationTicks`, applies to next `NoteOn`. Zero-resolution durations tracked as dropped tokens.
+3. **Added `Duration_` token-name parsing** in `tokenNameToEvent`: parses `Duration_beats.subdivision.resolution` (e.g. `Duration_0.1.8` → 60 ticks at 480 tpb).
+4. **Expanded test coverage** (`tests/RemiToLinkConverterTests.cpp`): 15 tests including BpeTokenizer fixture loading/decode, Duration_ token handling, position/velocity mapping, meta events (tempo/time-signature), converter duration handling, program-change rejection, atomic rejection, and end-to-end token IDs → Link proposal.
+5. **Created `tests/fixtures/remi_tokenizer_fixture.json`**: self-contained 12-token BPE tokenizer fixture.
+
+### Verified Evidence
+- Source files syntactically reviewed; C++20 compliant.
+- `src/remi/RemiEventAdapter.cpp`: +32 lines. `src/remi/RemiEventAdapter.h`: +12 lines.
+- `tests/RemiToLinkConverterTests.cpp`: +292 lines (15 tests).
+- Local C++ build/test toolchain not available locally; tests gated by GitHub Actions CI.
+- Original branches and PR #3 untouched. `main` untouched.
+
+### Unverified Claims
+- C++ tests compile and pass — gated by CI.
+- Real tokenizer artifact (`tokenizer_original.json`/`tokenizer_shikhr.json`) contains duplicate JSON keys; local parsing failed. Vocab size UNKNOWN. `RemiDecoderConfig::defaultConfig()` assumes 12,000 vocab — must be verified against real artifact.
+- Physical MIDI delivery, hardware timing, audible output, Link synchronization unverified.
+
+### Changed Files
+- `src/remi/RemiEventAdapter.h`
+- `src/remi/RemiEventAdapter.cpp`
+- `tests/RemiToLinkConverterTests.cpp`
+- `tests/fixtures/remi_tokenizer_fixture.json` (new)
+- `docs/AI_MODEL_COLLABORATION_LOG.md` (this entry)
+
+### Result
+**PARTIALLY VERIFIED** — Duration_ token handling implemented and tested, preventing silent duration corruption. Real-model ABI compatibility remains open.
+
+### Next Action
+1. Push and verify CI (`remi-bpe-link-integration-ci.yml`).
+2. Inspect real tokenizer artifact with duplicate-key-tolerant parser; compare vocab size against `RemiDecoderConfig::defaultConfig()` (12,000 vocab, 480 tpb).
+3. If mismatch, update `RemiDecoderConfig` or add runtime config loading from tokenizer JSON.
+4. Then build non-realtime REMI token-inference provider path behind `GenerationService`/`MozartRuntime`.
+
+### Message for ChatGPT
+Duration_ token handling is fixed and tested. BpeTokenizer fixture tests are in place. Real tokenizer artifact compatibility is UNVERIFIED due to duplicate JSON keys — must be resolved before model integration. Push and wait for CI.

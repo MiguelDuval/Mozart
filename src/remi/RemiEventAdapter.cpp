@@ -152,6 +152,23 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
             else if constexpr (std::is_same_v<T, RemiVelocityEvent>) {
                 currentVelocity = e.velocity;
             }
+            else if constexpr (std::is_same_v<T, RemiDurationEvent>) {
+                // Duration_ beats.subdivision.resolution: length of the next note.
+                // Convert fractional beats to ticks using ticksPerBeat.
+                if (e.resolution > 0) {
+                    const double fraction =
+                        static_cast<double>(e.subdivision) /
+                        static_cast<double>(e.resolution);
+                    const double totalBeats = e.beats + fraction;
+                    pendingDurationTicks =
+                        static_cast<std::uint32_t>(
+                            totalBeats * static_cast<double>(config_.ticksPerBeat));
+                    hasPendingDuration = true;
+                } else {
+                    warnings.push_back("Duration token has zero resolution");
+                    droppedTokens++;
+                }
+            }
         }, event);
     }
 
@@ -242,6 +259,21 @@ std::optional<RemiEvent> RemiEventAdapter::tokenNameToEvent(const std::string& t
         try {
             double bpm = std::stod(tokenName.substr(6));
             return RemiTempoEvent{bpm};
+        } catch (...) { return std::nullopt; }
+    }
+    if (tokenName.rfind("Duration_", 0) == 0) {
+        try {
+            const std::string body = tokenName.substr(9);
+            const std::size_t dot1 = body.find('.');
+            const std::size_t dot2 = body.find('.', dot1 + 1);
+            if (dot1 == std::string::npos || dot2 == std::string::npos) {
+                return std::nullopt;
+            }
+            RemiDurationEvent dur;
+            dur.beats = std::stod(body.substr(0, dot1));
+            dur.subdivision = static_cast<std::uint32_t>(std::stoul(body.substr(dot1 + 1, dot2 - dot1 - 1)));
+            dur.resolution = static_cast<std::uint32_t>(std::stoul(body.substr(dot2 + 1)));
+            return dur;
         } catch (...) { return std::nullopt; }
     }
     return std::nullopt;
