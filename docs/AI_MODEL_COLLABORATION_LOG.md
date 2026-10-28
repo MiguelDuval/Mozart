@@ -213,3 +213,52 @@ Previous entry established REMI→Link conversion boundary and request-aware run
 
 ### Message for ChatGPT
 Duration_ token handling is fixed and tested. BpeTokenizer fixture tests are in place. Real tokenizer artifact compatibility is UNVERIFIED due to duplicate JSON keys — must be resolved before model integration. Push and wait for CI.
+
+
+## 2026-10-28 — ChatGPT — Typed REMI/BPE generation-worker bridge
+
+### Context
+The REMI/BPE decoder and tick-to-beat converter were present, but no typed route connected raw MidiTok token IDs to `GenerationService`. The legacy `TokenInferenceBackend` uses Mozart's frozen 512-token vocabulary, so routing external REMI IDs through `LocalNeuralPatternProvider` or `OnnxTokenInferenceBackend` would be an ABI error.
+
+### Executed
+1. Added `src/generation/RemiBpeInferenceBackend.h` as an explicit capability for backends that return raw `std::uint32_t` MidiTok token IDs and identify their paired tokenizer artifact. Its legacy `generateTokens()` override fails closed instead of reinterpreting REMI IDs as Mozart tokens.
+2. Added `RemiBpePatternProvider` (`src/generation/RemiBpePatternProvider.h/.cpp`). It loads tokenizer/configuration once when the worker first sees that backend; requires bounded BOS/EOS-terminated output; validates token IDs and semantic decoding; converts the structured REMI proposal to Link beats; rejects controls that the current note-only scheduler cannot honor; and applies the shared request-aware `PatternProposalValidator`.
+3. Routed specialized backend instances through this provider in `GenerationService::run()`. Provider/tokenizer objects are cached by backend pointer only on the worker and cleared after the worker has joined. The existing service still stamps `GenerationRequestTicket`; `MozartRuntime::queueGeneratedResult()` remains the final lifecycle/selection guard.
+4. Added a deterministic fake-backend integration test to `tests/GenerationServiceTests.cpp`. It checks worker-thread execution, tokenizer loading/cache reuse, a 16-bar request, duration/velocity conversion, common key/range validation, result metadata and lifecycle ticket propagation. A second response containing `Program_10` verifies atomic rejection instead of partial note delivery.
+5. Added the provider to root CMake and native test targets, and added focused CI build/run steps for the generation-service integration test. Preserved `cancel-in-progress: false` and expanded both push and PR path filters.
+6. Corrected the REMI validator's default maximum from 32 beats to 32 full 4/4 bars (480 ticks per quarter note), matching its documented intent.
+7. Documented the separate experimental path and its limits in `docs/AI-GENERATION.md` and `docs/EXPERIMENTAL-ONNX-BACKEND.md`.
+
+### Verified Evidence
+- Focused run [40749179425](https://github.com/MiguelDuval/Mozart/actions/runs/40749179425) **SUCCESS** at exact code SHA `34d58de9e495927aa6352d1cb039ae363fe3dd1e`. This run built and executed `mozart_remi_to_link_converter_tests`, built and executed `mozart_generation_service_tests`, then fetched pinned Ableton Link, built `mozart_core_tests` with Link enabled, and ran the core/Link test executable.
+- The service test confirms the fake REMI backend and tokenizer artifact path are accessed off the submitting thread; the tokenizer path is read once for two requests; valid output is request-validated; result ticket matches the selected model/lifecycle; and a non-piano program is rejected without returning the preceding valid note.
+- A prior intermediate CI failure on `e46be56` identified an incomplete `RemiBpePatternProvider` type in the service header. This was fixed by including its definition; the subsequent exact-SHA run above passed.
+- The current workflow continues to use `cancel-in-progress: false`.
+
+### Unverified / Blocked
+- **Real model inference is not implemented by this bridge yet.** The new tests use a fake backend and the small checked-in MidiTok-shaped fixture; they do not establish that the full `shikhr/music_maker` tokenizer/checkpoint loads or generates correctly.
+- The existing Android `OnnxTokenInferenceBackend` / `OnnxRuntimeBridge` still implements only Mozart's 512-token ABI. No concrete Android `RemiBpeInferenceBackend` or compatible exported REMI model is wired to it.
+- The Android Build run for the latest code was cancelled while newer runs were queued; an Android success for this provider has not been verified. The new route is native-tested only.
+- Real device MIDI delivery, instrument/program routing, audible output and hardware Link synchronization for REMI-generated patterns remain unverified. The current provider fails closed on unsupported controls and non-default program events.
+
+### Changed Files
+- `src/generation/RemiBpeInferenceBackend.h` (new)
+- `src/generation/RemiBpePatternProvider.h/.cpp` (new)
+- `src/generation/GenerationService.h/.cpp`
+- `src/remi/GenerationTypes.h`
+- `CMakeLists.txt`
+- `tests/CMakeLists.txt`
+- `tests/GenerationServiceTests.cpp`
+- `.github/workflows/remi-bpe-link-integration-ci.yml`
+- `docs/AI-GENERATION.md`
+- `docs/EXPERIMENTAL-ONNX-BACKEND.md`
+- `docs/AI_MODEL_COLLABORATION_LOG.md` (append-only)
+
+### Result
+**PARTIALLY VERIFIED** — raw REMI/BPE tokens now have a dedicated, worker-only provider route with shared validation and lifecycle-ticket propagation. The provider contract is tested; a concrete backend that can run the actual REMI model is still missing.
+
+### Next Action
+Implement a concrete backend only after inspecting the actual checkpoint/export tensor contract and tokenizer revision. It must emit raw REMI/BPE IDs through `RemiBpeInferenceBackend`, never through the legacy 512-token bridge. Add an artifact-backed compatibility test and Android inference smoke test before claiming real model integration.
+
+### Message for ChatGPT
+The GenerationService vertical slice is in place and native CI is green on the exact code SHA above. Continue with the concrete model/export compatibility boundary; do not treat the fake-backend test or the legacy Android ONNX path as evidence that `shikhr/music_maker` inference is operational.
