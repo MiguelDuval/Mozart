@@ -56,6 +56,8 @@ if(MOZART_ENABLE_LINK)
         ../src/scheduler/AccompanimentScheduler.cpp
         ../src/scheduler/PerformanceScene.cpp
         ../src/scheduler/MacroControl.cpp
+        ../src/remi/GenerationTypes.cpp
+        ../src/generation/RemiToLinkPatternConverter.cpp
         ../src/runtime/MozartRuntime.cpp
     )
     target_compile_definitions(mozart_core_tests PRIVATE
