@@ -493,6 +493,22 @@ void testUnsupportedMidiTokProgramRejectsAtomically() {
     assert(proposal.events.empty());
 }
 
+void testPitchDrumTokenRejectsAtomicallyForPianoCheckpoint() {
+    const auto path = fixtureTokenizerPath();
+    auto tokenizer = BpeTokenizer::loadFromJson(path.string());
+    assert(tokenizer.has_value());
+    auto sharedTokenizer = std::make_shared<BpeTokenizer>(std::move(*tokenizer));
+    const auto config = RemiDecoderConfig::fromTokenizerJson(path.string());
+    RemiEventAdapter adapter(config, sharedTokenizer);
+
+    // ID 20 is PitchDrum_35 in the MidiTok-shaped fixture. It must never be
+    // reinterpreted as a pitched piano note by this piano-only backend.
+    const auto [proposal, report] = adapter.decodeTokensToProposal(
+        {1, 20, 2}, {}, "fixture", "fixture");
+    assert(!report.isOk());
+    assert(proposal.events.empty());
+}
+
 void testUnsupportedRemiTokenRejectsAtomically() {
     const auto path = fixtureTokenizerPath();
     auto tokenizer = BpeTokenizer::loadFromJson(path.string());
@@ -531,6 +547,7 @@ int main() {
     testEndToEndTokenIdsToLink();
     testUnsupportedMidiTokProgramRejectsAtomically();
     testUnsupportedRemiTokenRejectsAtomically();
+    testPitchDrumTokenRejectsAtomicallyForPianoCheckpoint();
     testEndToEndRemiToLink();
     std::cout << "ALL REMI-TO-LINK CONVERTER TESTS PASSED" << std::endl;
     return 0;

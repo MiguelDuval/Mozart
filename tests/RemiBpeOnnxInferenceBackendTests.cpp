@@ -15,7 +15,7 @@ public:
     std::string tokenizer;
     std::size_t maxTokens = 0;
     RemiBpeTokenInferenceResult result{
-        TokenInferenceStatus::Ok, {1, 5, 6, 2}, 0.73, 25, {}
+        TokenInferenceStatus::Ok, {1, 511, 5119, 11743, 2}, 0.73, 25, {}
     };
 
     RemiBpeTokenInferenceResult inferRemiBpe(
@@ -34,7 +34,7 @@ void testReturnsTypedExternalTokenIdsAndPaths() {
         "/private/model.manifest.json", "/private/tokenizer.json", bridge);
     const auto result = backend.generateRemiTokens(GenerationRequest{}, 400);
     assert(result.ok());
-    assert(result.tokenIds == std::vector<std::uint32_t>({1,5,6,2}));
+    assert(result.tokenIds == std::vector<std::uint32_t>({1,511,5119,11743,2}));
     assert(result.confidence == 0.73);
     assert(result.generationTimeMs == 25);
     assert(bridge.calls == 1);

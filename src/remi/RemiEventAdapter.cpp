@@ -388,11 +388,11 @@ std::optional<RemiEvent> RemiEventAdapter::tokenNameToEvent(
         }
     };
 
-    if (tokenName.rfind("Pitch_", 0) == 0 ||
-        tokenName.rfind("PitchDrum_", 0) == 0) {
-        const std::size_t prefixLength =
-            tokenName.rfind("Pitch_", 0) == 0 ? 6U : 10U;
-        const auto pitch = parseUnsigned(tokenName.substr(prefixLength), 127);
+    // This experimental ONNX checkpoint is a piano model. Do not reinterpret
+    // a drum-pitch token as a pitched piano note; reject it atomically below.
+    if (tokenName.rfind("PitchDrum_", 0) == 0) return std::nullopt;
+    if (tokenName.rfind("Pitch_", 0) == 0) {
+        const auto pitch = parseUnsigned(tokenName.substr(6), 127);
         if (!pitch.has_value()) return std::nullopt;
         return RemiNoteOnEvent{static_cast<std::uint8_t>(*pitch), 64, 0, 0};
     }
