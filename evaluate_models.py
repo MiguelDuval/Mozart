@@ -349,6 +349,56 @@ def extract_notes(score: symusic.Score):
     return notes
 
 
+def _track_role(program: int, is_drum: bool) -> str:
+    """Map a MIDI program + drum flag to a coarse musical role.
+
+    GM program ranges (0-127). Not ground truth: a program number is only an
+    instrument hint, not a functional arrangement role. Used for compact
+    role reporting in evaluation reports, never for model supervision.
+    """
+    if is_drum:
+        return "rhythm"
+    if 32 <= program <= 39:
+        return "bass"
+    if 80 <= program <= 87:
+        return "lead"
+    if 88 <= program <= 95:
+        return "pad"
+    if 0 <= program <= 7:
+        return "harmony"
+    if 24 <= program <= 31:
+        return "harmony"
+    return "other"
+
+
+def _role_hint_matches(role_hint: str, track_roles: list[str]) -> bool | None:
+    """Compare a declared role_hint with observed track roles.
+
+    Returns True if at least one track role is compatible with the hint,
+    False if clearly incompatible, None when no musical tracks exist.
+    Role hints are free-text from the dataset; this is a coarse sanity check,
+    not ground-truth supervision.
+    """
+    if not track_roles:
+        return None
+    hint = role_hint.lower()
+    compatible = {
+        "drum": {"rhythm"},
+        "chord": {"harmony"},
+        "harmony": {"harmony"},
+        "bass": {"bass"},
+        "lead": {"lead"},
+        "pad": {"pad"},
+        "melody": {"lead"},
+        "arpeggio": {"harmony", "lead"},
+    }
+    for key, roles in compatible.items():
+        if key in hint:
+            return any(r in roles for r in track_roles)
+    # Unrecognized hint: cannot confirm or deny.
+    return None
+
+
 def score_metrics(score: symusic.Score) -> dict:
     """Compute musical-time metrics for a score. TPQ-normalized."""
     tm = tempo_map(score)
@@ -402,6 +452,7 @@ def score_metrics(score: symusic.Score) -> dict:
             "index": tr_idx,
             "program": int(tr.program),
             "is_drum": bool(tr.is_drum),
+            "role": _track_role(int(tr.program), bool(tr.is_drum)),
             "notes": len(tnotes),
         })
 
@@ -632,6 +683,12 @@ def main():
             metrics = score_metrics(score)
             reopen = midi_valid_and_reopenable(midi_path)
 
+            # Role consistency: compare the declared role_hint (from prompts)
+            # with the coarse roles observed in the generated tracks.
+            track_roles = [t["role"] for t in metrics["tracks"] if t["notes"] > 0]
+            role_hint = p["role_hint"]
+            role_matches_declared = _role_hint_matches(role_hint, track_roles)
+
             # Prompt-only decode: how much of the decoded score comes from the
             # prompt itself vs. the generated continuation. The difference is the
             # best available proxy for "notes contributed by the continuation".
@@ -664,6 +721,8 @@ def main():
                 "generation_sec": round(gen_time, 3),
                 "metrics": metrics,
                 "reopen": reopen,
+                "track_roles": track_roles,
+                "role_matches_declared": role_matches_declared,
             })
         # Free GPU memory before loading the next model.
         del model
