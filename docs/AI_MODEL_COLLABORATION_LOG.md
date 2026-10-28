@@ -532,3 +532,15 @@ The regular Export Contract workflow succeeded on 2b907881999fce8115b2ba6c5e72e4
 ## 2026-10-28 — ChatGPT — Fix real-model workflow validation
 
 The first push of the real-checkpoint workflow was rejected before any job started. Inspection showed that the job-level environment referenced the runner context for EXPORT_DIR; that context is not available in a job-level env declaration. Changed EXPORT_DIR to a fixed temporary path on the Ubuntu runner (still outside the checkout). No model download or export ran in the rejected workflow, and no checkpoint compatibility result is claimed.
+
+
+## 2026-10-28 — ChatGPT — Preserve C++ real-tokenizer evidence in the artifact report
+
+The first real-checkpoint workflow succeeded at exact code SHA 0e99c0c7ac7840a71dcfdfa5f34ec6c958a48c1d. Evidence from run [40781828758](https://github.com/MiguelDuval/Mozart/actions/runs/40781828758):
+- The pinned GPT-2 checkpoint config loaded with vocabulary 20,000 and context 2,048.
+- The checkpoint exported to ONNX; eager/ONNX logits matched at sequence lengths 1, 2 and 8, and the model manifest passed the strict validator.
+- ONNX Runtime generated 16 new IDs from BOS (17 IDs including BOS).
+- Mozart's C++ BpeTokenizer loaded the exact model tokenizer, resolved PAD/BOS/EOS from config, decoded the generated sequence without dropping IDs, and reported all 20,000 learned vocabulary entries as individually decodable.
+- The workflow uploaded only a 643-byte provenance/checksum report; model weights, tokenizer JSON and ONNX graph were not included.
+
+Follow-up: made complete vocabulary decodability an explicit required assertion and added the C++ tokenizer report to the small workflow artifact so this result remains machine-readable rather than appearing only in CI logs.

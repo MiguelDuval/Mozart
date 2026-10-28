@@ -50,8 +50,8 @@ bool assertSpecial(
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 4) {
-        std::cerr << "Usage: remi_bpe_external_artifact_smoke tokenizer.json config.json generated_token_ids.json\n";
+    if (argc != 5) {
+        std::cerr << "Usage: remi_bpe_external_artifact_smoke tokenizer.json config.json generated_token_ids.json report.json\n";
         return 2;
     }
 
@@ -96,9 +96,12 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    if (!assertSpecial("PAD", tokenizer->padToken(), configId(modelConfig, "pad_token_id", "pad")) ||
-        !assertSpecial("BOS", tokenizer->bosToken(), configId(modelConfig, "bos_token_id")) ||
-        !assertSpecial("EOS", tokenizer->eosToken(), configId(modelConfig, "eos_token_id"))) {
+    const auto padId = tokenizer->padToken();
+    const auto bosId = tokenizer->bosToken();
+    const auto eosId = tokenizer->eosToken();
+    if (!assertSpecial("PAD", padId, configId(modelConfig, "pad_token_id", "pad")) ||
+        !assertSpecial("BOS", bosId, configId(modelConfig, "bos_token_id")) ||
+        !assertSpecial("EOS", eosId, configId(modelConfig, "eos_token_id"))) {
         return 1;
     }
     if (!generatedIds.is_array() || generatedIds.empty()) {
@@ -127,6 +130,10 @@ int main(int argc, char** argv) {
             ++individuallyDecodable;
         }
     }
+    if (individuallyDecodable != tokenizer->vocabSize()) {
+        fail("C++ tokenizer cannot independently decode every learned BPE vocabulary entry");
+        return 1;
+    }
     const auto decoded = tokenizer->decodeTokensWithReport(tokenIds);
     if (decoded.droppedTokenIds != 0) {
         fail("C++ tokenizer dropped " + std::to_string(decoded.droppedTokenIds) +
@@ -135,6 +142,29 @@ int main(int argc, char** argv) {
     }
     if (decoded.tokenNames.empty()) {
         fail("actual ONNX-generated IDs decoded to no REMI semantic tokens");
+        return 1;
+    }
+
+    json report = {
+        {"status", "verified"},
+        {"vocabulary_size", tokenizer->vocabSize()},
+        {"generated_token_count_including_bos", tokenIds.size()},
+        {"decoded_semantic_name_count", decoded.tokenNames.size()},
+        {"dropped_token_ids", decoded.droppedTokenIds},
+        {"independently_decodable_vocab_entries", individuallyDecodable},
+        {"all_vocab_entries_decodable", individuallyDecodable == tokenizer->vocabSize()},
+        {"pad_token_id", *padId},
+        {"bos_token_id", *bosId},
+        {"eos_token_id", *eosId}
+    };
+    std::ofstream reportOutput(argv[4]);
+    if (!reportOutput.is_open()) {
+        fail("could not open C++ tokenizer verification report for writing");
+        return 1;
+    }
+    reportOutput << report.dump(2) << '\n';
+    if (!reportOutput.good()) {
+        fail("could not write C++ tokenizer verification report");
         return 1;
     }
 

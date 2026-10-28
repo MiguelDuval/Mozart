@@ -117,17 +117,21 @@ jobs:
           "$EXPORT_DIR/remi-bpe-artifact-smoke" \
             "$MODEL_DIR/tokenizer.json" \
             "$MODEL_DIR/config.json" \
-            "$EXPORT_DIR/generated-token-ids.json"
+            "$EXPORT_DIR/generated-token-ids.json" \
+            "$EXPORT_DIR/cpp-tokenizer-report.json"
 
       - name: Write non-weight artifact verification report
         run: |
           set -euo pipefail
-          python3 - "$EXPORT_DIR/model.manifest.json" "$EXPORT_DIR/generated-token-ids.json" "$EXPORT_DIR/verification-report.json" <<'PY'
+          python3 - "$EXPORT_DIR/model.manifest.json" "$EXPORT_DIR/generated-token-ids.json" "$EXPORT_DIR/cpp-tokenizer-report.json" "$EXPORT_DIR/verification-report.json" <<'PY'
           import json, sys
           from pathlib import Path
-          manifest_path, ids_path, out_path = map(Path, sys.argv[1:])
+          manifest_path, ids_path, cpp_path, out_path = map(Path, sys.argv[1:])
           manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
           ids = json.loads(ids_path.read_text(encoding="utf-8"))
+          cpp_report = json.loads(cpp_path.read_text(encoding="utf-8"))
+          if cpp_report.get("status") != "verified" or cpp_report.get("all_vocab_entries_decodable") is not True:
+              raise SystemExit("C++ real-tokenizer verification report is not fully verified")
           report = {
               "status": "verified",
               "model_id": manifest["model_id"],
@@ -143,6 +147,7 @@ jobs:
               "context_length_tokens": manifest["context_length_tokens"],
               "max_generated_tokens": manifest["max_generated_tokens"],
               "actual_generated_token_count_including_bos": len(ids),
+              "cpp_tokenizer_verification": cpp_report,
               "tokenizer_artifact_included": False,
               "checkpoint_weights_included": False,
               "exported_onnx_included": False,
