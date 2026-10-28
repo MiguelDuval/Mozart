@@ -16,8 +16,8 @@ This is a **technical integration fixture**, not Mozart's target musical model. 
 2. Requires the checkpoint's vocabulary and special-token IDs to match the learned MidiTok BPE tokenizer.
 3. Exports a private temporary ONNX graph and checks eager-vs-ONNX logits at several sequence lengths.
 4. Runs a short autoregressive ONNX generation loop.
-5. Compiles the same BpeTokenizer.cpp used by Mozart and verifies every ID emitted by the real ONNX graph is inside the learned vocabulary and maps to REMI semantic names without drops. It also scans all 20,000 vocabulary entries, requires every one to be independently decodable, and compares PAD/BOS/EOS against model config.
-6. Uploads only a small checksum/provenance report, including a machine-readable result from the production C++ tokenizer. The checkpoint, tokenizer and ONNX graph are deliberately excluded from the artifact and repository.
+5. Compiles Mozart's production BpeTokenizer, RemiDecoderConfig, RemiEventAdapter, proposal validator, and REMI-to-Link converter. It checks every generated ID, scans all 20,000 vocabulary entries for independent decodability, verifies PAD/BOS/EOS, and records whether the actual ONNX output can be decoded into a valid typed proposal and converted to a Link proposal. No missing EOS or unsupported Program event is synthesized/dropped to force a pass.
+6. Uploads only a small checksum/provenance report, including machine-readable C++ tokenizer, typed-proposal, and Link-conversion diagnostics. The checkpoint, tokenizer and ONNX graph are deliberately excluded from the artifact and repository.
 
 This is not yet an Android/device playback test, and it does not establish musical quality for electronic music. The production path still requires a model trained for Mozart's broad electronic-music objective plus Android-side real-artifact inference and hardware playback verification.
 

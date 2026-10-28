@@ -113,6 +113,10 @@ jobs:
             -Isrc -Ithird_party/nlohmann \
             tests/RemiBpeExternalArtifactSmoke.cpp \
             src/remi/BpeTokenizer.cpp \
+            src/remi/RemiDecoderConfig.cpp \
+            src/remi/RemiEventAdapter.cpp \
+            src/remi/GenerationTypes.cpp \
+            src/generation/RemiToLinkPatternConverter.cpp \
             -o "$EXPORT_DIR/remi-bpe-artifact-smoke"
           "$EXPORT_DIR/remi-bpe-artifact-smoke" \
             "$MODEL_DIR/tokenizer.json" \

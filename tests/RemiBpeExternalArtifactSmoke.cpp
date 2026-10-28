@@ -1,4 +1,7 @@
 #include "remi/BpeTokenizer.h"
+#include "remi/RemiDecoderConfig.h"
+#include "remi/RemiEventAdapter.h"
+#include "generation/RemiToLinkPatternConverter.h"
 #include "json.hpp"
 
 #include <cstdint>
@@ -145,6 +148,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    const bool completeBosEosStream =
+            !tokenIds.empty() && tokenIds.front() == *bosId && tokenIds.back() == *eosId;
+
     json report = {
         {"status", "verified"},
         {"vocabulary_size", tokenizer->vocabSize()},
@@ -155,8 +161,62 @@ int main(int argc, char** argv) {
         {"all_vocab_entries_decodable", individuallyDecodable == tokenizer->vocabSize()},
         {"pad_token_id", *padId},
         {"bos_token_id", *bosId},
-        {"eos_token_id", *eosId}
+        {"eos_token_id", *eosId},
+        {"complete_bos_eos_stream", completeBosEosStream},
+        {"provider_ready", completeBosEosStream},
+        {"semantic_adapter_status", "not_run"},
+        {"semantic_adapter_message", ""},
+        {"semantic_proposal_valid", false},
+        {"semantic_note_count", 0},
+        {"semantic_program_change_count", 0},
+        {"link_conversion_status", "not_run"},
+        {"link_note_count", 0},
+        {"link_control_count", 0}
     };
+
+    // This diagnostic intentionally does not fabricate EOS or discard unsupported
+    // events. It reports whether the actual bounded ONNX prefix can be decoded
+    // into Mozart's typed REMI proposal and converted to the Link proposal. The
+    // provider_ready flag remains false unless the generated stream has BOS/EOS.
+    try {
+        const auto config = mozart::remi::RemiDecoderConfig::fromTokenizerJson(argv[1]);
+        mozart::remi::RemiEventAdapter adapter(config, tokenizer);
+        mozart::remi::GenerationRequest request;
+        request.seed = 20261028U;
+        auto [proposal, decodeReport] = adapter.decodeTokensToProposal(
+                tokenIds, request, "real-remi-bpe-smoke", "NathanFradet/Maestro-REMI-bpe20k");
+
+        report["semantic_adapter_status"] =
+                decodeReport.isOk() && proposal.isValid() ? "valid_proposal" : "rejected";
+        report["semantic_adapter_message"] = decodeReport.message;
+        report["semantic_proposal_valid"] = decodeReport.isOk() && proposal.isValid();
+
+        std::size_t noteCount = 0;
+        std::size_t programChangeCount = 0;
+        if (decodeReport.isOk() && proposal.isValid()) {
+            for (const auto& event : proposal.events) {
+                if (std::holds_alternative<mozart::remi::NoteEvent>(event)) ++noteCount;
+                if (std::holds_alternative<mozart::remi::ProgramChangeEvent>(event)) ++programChangeCount;
+            }
+            report["semantic_note_count"] = noteCount;
+            report["semantic_program_change_count"] = programChangeCount;
+
+            const mozart::generation::RemiToLinkPatternConverter converter(config.ticksPerBeat);
+            const auto linkProposal = converter.convert(proposal);
+            if (linkProposal.has_value() && linkProposal->isWellFormed()) {
+                report["link_conversion_status"] = "accepted";
+                report["link_note_count"] = linkProposal->noteEvents.size();
+                report["link_control_count"] = linkProposal->controlEvents.size();
+            } else if (programChangeCount != 0) {
+                report["link_conversion_status"] = "rejected_unsupported_program_change";
+            } else {
+                report["link_conversion_status"] = "rejected_by_link_converter";
+            }
+        }
+    } catch (const std::exception& error) {
+        report["semantic_adapter_status"] = "exception";
+        report["semantic_adapter_message"] = error.what();
+    }
     std::ofstream reportOutput(argv[4]);
     if (!reportOutput.is_open()) {
         fail("could not open C++ tokenizer verification report for writing");
