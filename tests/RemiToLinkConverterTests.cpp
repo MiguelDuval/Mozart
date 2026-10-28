@@ -109,6 +109,13 @@ void testConverterInvalidProposalIsAtomic() {
     mixedValidAndInvalid.events.push_back(ControlChangeEvent{240, 20, 64, 127});
     assert(!converter.convert(mixedValidAndInvalid).has_value());
 
+    PatternProposal unsupportedProgramChange;
+    unsupportedProgramChange.totalTicks = 1920;
+    unsupportedProgramChange.events.push_back(NoteEvent{60, 100, 0, 480, 0, 0});
+    unsupportedProgramChange.events.push_back(
+        mozart::remi::ProgramChangeEvent{0, 0, 10});
+    assert(!converter.convert(unsupportedProgramChange).has_value());
+
     RemiToLinkPatternConverter zeroResolution(0);
     PatternProposal otherwiseValid;
     otherwiseValid.totalTicks = 480;
