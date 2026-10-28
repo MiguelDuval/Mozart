@@ -426,3 +426,14 @@ Continue recovery of the tokenizer paired with the existing MusicMaker-derived f
 
 ### Guardrails
 The existing weights and learned-token IDs remain authoritative. Do not train a new tokenizer for the current checkpoint, invent missing BPE merges, reinterpret the base vocabulary as 12,000 IDs, or claim export/runtime compatibility until a local artifact's training-time provenance is confirmed.
+
+
+## 2026-10-28 — ChatGPT — Preserve Hugging Face snapshot provenance during local scan
+
+### Change
+A follow-up review identified an important Hugging Face cache detail: the tokenizer file in a snapshot is commonly a symlink to a content-addressed file under the repository's blobs directory. Resolving that symlink before recording the candidate discarded the useful snapshot revision from the report. Updated the scanner to inspect the resolved target but preserve the original snapshot path, and added a symlink regression test that checks the immutable 40-character revision hint and the shikhr/miditok2_12k repository hint.
+
+### Verification
+- Exporter contract workflow on prior code SHA \`c67ffe2d11dba5aefd0481a889a6ae50d91a168b\`: SUCCESS, run [40772927114](https://github.com/MiguelDuval/Mozart/actions/runs/40772927114), including the initial scanner tests.
+- Exact current-head exporter contract workflow [40773017118](https://github.com/MiguelDuval/Mozart/actions/runs/40773017118): SUCCESS on \`7dab196913256deac2773851a22f08b9463708e8\` before this follow-up.
+- The new symlink regression test and corrected path reporting still require the workflow to run on their resulting exact commit. No local tokenizer recovery result is claimed.

@@ -112,10 +112,12 @@ def scan_roots(roots: list[Path], expected_vocab_size: int = 12000) -> dict[str,
         scanned_roots.append(str(resolved_root))
         for path in _tokenizer_files(resolved_root):
             try:
-                resolved = path.resolve(strict=True)
+                path.resolve(strict=True)  # Check that a cache symlink target exists.
             except OSError:
                 continue
-            discovered.setdefault(str(resolved), resolved)
+            # Keep the snapshot path, not the resolved blobs/ path: the snapshot
+            # directory encodes the immutable Hub revision used for provenance.
+            discovered.setdefault(str(path), path)
 
     valid: list[dict[str, Any]] = []
     rejected: list[dict[str, str]] = []

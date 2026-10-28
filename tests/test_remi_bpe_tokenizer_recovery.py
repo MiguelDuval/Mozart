@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 import sys
 import tempfile
@@ -54,6 +55,28 @@ class RemiBpeTokenizerRecoveryTests(unittest.TestCase):
             self.assertEqual(report["valid_bpe_tokenizers"], 0)
             self.assertEqual(report["rejected_count"], 1)
             self.assertIn("missing the serialized _model", report["rejected_examples"][0]["reason"])
+
+    def test_preserves_huggingface_snapshot_revision_for_symlinked_tokenizer(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            revision = "a" * 40
+            repo_cache = root / "models--shikhr--miditok2_12k"
+            snapshot = repo_cache / "snapshots" / revision
+            blob = repo_cache / "blobs" / "tokenizer-json-blob"
+            snapshot.mkdir(parents=True)
+            blob.parent.mkdir(parents=True)
+            blob.write_bytes(FIXTURE.read_bytes())
+            link = snapshot / "tokenizer.json"
+            link.symlink_to(blob)
+
+            report = scan_roots([root], expected_vocab_size=23)
+
+            self.assertEqual(report["matching_vocabulary_candidates"], 1)
+            candidate = report["candidates"][0]
+            self.assertEqual(candidate["path"], str(link))
+            self.assertEqual(candidate["snapshot_revision_hint"], revision)
+            self.assertIn("shikhr/miditok2_12k Hub-cache path", candidate["source_hint"])
+            self.assertEqual(candidate["sha256"], hashlib.sha256(FIXTURE.read_bytes()).hexdigest())
 
     def test_missing_roots_are_reported_without_crashing(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
