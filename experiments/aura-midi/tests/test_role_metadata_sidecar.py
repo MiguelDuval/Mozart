@@ -141,7 +141,6 @@ class RoleMetadataSidecarTests(unittest.TestCase):
         self.assertIsNone(row["section_label"])
 
     def test_asset_deduplication_keeps_all_stems_and_performances(self):
-    def test_asset_deduplication_keeps_all_stems_and_performances(self):
         def record(source, composition, asset):
             return MODULE.make_record(
                 source_id=source, composition_id=composition, asset_id=asset,
