@@ -17,6 +17,9 @@ struct RemiDecoderConfig {
     std::uint8_t numVelocities = 16;
     std::uint32_t ticksPerBeat = 480;
     std::uint32_t ticksPerBar = 1920;
+    // Highest beat_res value in the MidiTok config (position steps per beat).
+    std::uint32_t positionResolution = 16;
+    double defaultNoteDurationBeats = 0.5;
 
     std::unordered_map<std::string, std::uint32_t> beatRes;
 

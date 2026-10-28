@@ -13,6 +13,8 @@ RemiDecoderConfig RemiDecoderConfig::defaultConfig() noexcept {
     config.numVelocities = 16;
     config.ticksPerBeat = 480;
     config.ticksPerBar = 1920;
+    config.positionResolution = 16;
+    config.defaultNoteDurationBeats = 0.5;
     config.beatRes.clear();
     config.beatRes["8"] = 60;
     config.beatRes["12"] = 40;

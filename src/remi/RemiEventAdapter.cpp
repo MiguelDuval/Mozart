@@ -2,6 +2,7 @@
 #include "GenerationTypes.h"
 
 #include <algorithm>
+#include <cmath>
 #include <chrono>
 #include <limits>
 #include <type_traits>
@@ -16,14 +17,17 @@ RemiEventAdapter::RemiEventAdapter(const RemiDecoderConfig& config,
                                     std::shared_ptr<BpeTokenizer> tokenizer) noexcept
     : config_(config), tokenizer_(std::move(tokenizer)) {}
 
-std::uint8_t RemiEventAdapter::velocityBinToMidi(std::uint8_t bin) const noexcept {
-    if (config_.numVelocities <= 1) return 64;
-    return static_cast<std::uint8_t>(
-        1 + (static_cast<std::uint32_t>(bin) * 126) / (config_.numVelocities - 1));
-}
-
 std::uint32_t RemiEventAdapter::positionBinToTicks(std::uint32_t bin) const noexcept {
-    return bin * (config_.ticksPerBeat / 16);
+    if (config_.positionResolution == 0 ||
+        config_.ticksPerBeat % config_.positionResolution != 0) {
+        return std::numeric_limits<std::uint32_t>::max();
+    }
+    const auto ticksPerPosition = config_.ticksPerBeat / config_.positionResolution;
+    const auto ticks = static_cast<std::uint64_t>(bin) * ticksPerPosition;
+    if (ticks > std::numeric_limits<std::uint32_t>::max()) {
+        return std::numeric_limits<std::uint32_t>::max();
+    }
+    return static_cast<std::uint32_t>(ticks);
 }
 
 double RemiEventAdapter::tempoBinToBpm(std::uint8_t bin) const noexcept {
@@ -47,16 +51,14 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
     if (request.seed.has_value()) proposal.seed = request.seed.value();
 
     std::uint32_t currentTick = 0;
-    std::uint32_t currentBar = 0;
+    std::int64_t currentBar = -1;
     std::uint8_t currentVelocity = 64;
     bool hasTempo = false;
     bool hasTimeSignature = false;
     std::vector<PatternEvent> events_out;
     std::size_t droppedTokens = 0;
     std::vector<std::string> warnings;
-
-    std::uint32_t pendingDurationTicks = 0;
-    bool hasPendingDuration = false;
+    std::optional<std::size_t> durationTargetIndex;
 
     for (std::size_t i = 0; i < events.size(); ++i) {
         if (events_out.size() >= config_.maxEvents) {
@@ -65,7 +67,7 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
             break;
         }
 
-        if (currentBar >= config_.maxBars) {
+        if (currentBar >= static_cast<std::int64_t>(config_.maxBars)) {
             warnings.push_back("Truncated at max bars: " + std::to_string(config_.maxBars));
             droppedTokens += events.size() - i;
             break;
@@ -77,6 +79,9 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
             using T = std::decay_t<decltype(e)>;
 
             if constexpr (std::is_same_v<T, RemiNoteOnEvent>) {
+                // A pitch starts a note-token group. MidiTok may then emit
+                // Velocity and Duration events for this exact note.
+                durationTargetIndex.reset();
                 if (e.pitch < config_.pitchMin || e.pitch > config_.pitchMax) {
                     warnings.push_back("Pitch out of range: " + std::to_string(e.pitch));
                     droppedTokens++;
@@ -88,10 +93,13 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                     return;
                 }
 
-                std::uint32_t noteDuration = config_.ticksPerBeat / 4;
-                if (hasPendingDuration) {
-                    noteDuration = pendingDurationTicks;
-                    hasPendingDuration = false;
+                const double defaultTicks =
+                    config_.defaultNoteDurationBeats * static_cast<double>(config_.ticksPerBeat);
+                if (!std::isfinite(defaultTicks) || defaultTicks < 1.0 ||
+                    defaultTicks > static_cast<double>(std::numeric_limits<std::uint32_t>::max())) {
+                    warnings.push_back("Default note duration is outside supported tick range");
+                    droppedTokens++;
+                    return;
                 }
 
                 const std::uint64_t absolutePosition =
@@ -106,21 +114,50 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                 note.pitch = e.pitch;
                 note.velocity = e.velocity != 0 ? e.velocity : currentVelocity;
                 note.position = static_cast<std::uint32_t>(absolutePosition);
-                note.duration = noteDuration;
+                note.duration = static_cast<std::uint32_t>(std::llround(defaultTicks));
                 note.channel = 0;
                 note.track = e.track;
 
                 events_out.push_back(note);
+                durationTargetIndex = events_out.size() - 1;
                 currentTick = static_cast<std::uint32_t>(absolutePosition);
             }
             else if constexpr (std::is_same_v<T, RemiPositionEvent>) {
-                currentTick = e.position;
+                durationTargetIndex.reset();
+                if (currentBar < 0) {
+                    currentBar = 0;
+                }
+                const auto positionTicks = positionBinToTicks(e.position);
+                const std::uint64_t barStart =
+                    static_cast<std::uint64_t>(currentBar) * config_.ticksPerBar;
+                const std::uint64_t absolutePosition = barStart + positionTicks;
+                if (positionTicks == std::numeric_limits<std::uint32_t>::max() ||
+                    positionTicks >= config_.ticksPerBar ||
+                    absolutePosition > std::numeric_limits<std::uint32_t>::max()) {
+                    warnings.push_back("Position token exceeds supported bar/tick range");
+                    droppedTokens++;
+                    return;
+                }
+                currentTick = static_cast<std::uint32_t>(absolutePosition);
             }
             else if constexpr (std::is_same_v<T, RemiBarEvent>) {
-                currentBar = e.barNumber;
-                currentTick = currentBar * config_.ticksPerBar;
+                durationTargetIndex.reset();
+                if (e.barNumber.has_value()) {
+                    currentBar = static_cast<std::int64_t>(*e.barNumber);
+                } else {
+                    currentBar = currentBar < 0 ? 0 : currentBar + 1;
+                }
+                const std::uint64_t barStart =
+                    static_cast<std::uint64_t>(currentBar) * config_.ticksPerBar;
+                if (barStart > std::numeric_limits<std::uint32_t>::max()) {
+                    warnings.push_back("Bar token exceeds supported tick range");
+                    droppedTokens++;
+                    return;
+                }
+                currentTick = static_cast<std::uint32_t>(barStart);
             }
             else if constexpr (std::is_same_v<T, RemiTempoEvent>) {
+                durationTargetIndex.reset();
                 if (!hasTempo) {
                     TempoEvent te;
                     te.position = currentTick;
@@ -130,6 +167,7 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                 }
             }
             else if constexpr (std::is_same_v<T, RemiTimeSignatureEvent>) {
+                durationTargetIndex.reset();
                 if (!hasTimeSignature) {
                     TimeSignatureEvent tse;
                     tse.position = currentTick;
@@ -141,52 +179,92 @@ std::pair<PatternProposal, RemiDecodeReport> RemiEventAdapter::decodeEventsToPro
                 }
             }
             else if constexpr (std::is_same_v<T, RemiProgramEvent>) {
+                durationTargetIndex.reset();
                 if (e.track < config_.maxTracks) {
                     ProgramChangeEvent pce;
                     pce.position = currentTick;
                     pce.channel = e.track % 16;
                     pce.program = e.program;
                     events_out.push_back(pce);
+                } else {
+                    warnings.push_back("Program event track index is out of range");
+                    droppedTokens++;
                 }
             }
             else if constexpr (std::is_same_v<T, RemiVelocityEvent>) {
-                // REMI Velocity_N is a quantized velocity bin, not a raw MIDI
-                // velocity. Map it through the configured bin count so the
-                // highest bin reaches MIDI 127 and the lowest bin remains valid.
-                currentVelocity = velocityBinToMidi(e.velocity);
+                // MidiTok labels Velocity tokens with the quantized MIDI value
+                // itself (Velocity_127 means velocity 127), not a bin index.
+                currentVelocity = e.velocity;
+                if (durationTargetIndex.has_value() &&
+                    *durationTargetIndex < events_out.size()) {
+                    if (auto* note = std::get_if<NoteEvent>(&events_out[*durationTargetIndex])) {
+                        note->velocity = e.velocity;
+                    }
+                }
             }
             else if constexpr (std::is_same_v<T, RemiDurationEvent>) {
-                // Duration_ beats.subdivision.resolution: length of the next note.
-                // Convert fractional beats to ticks using ticksPerBeat.
-                if (e.resolution > 0) {
-                    const double fraction =
-                        static_cast<double>(e.subdivision) /
-                        static_cast<double>(e.resolution);
-                    const double totalBeats = e.beats + fraction;
-                    pendingDurationTicks =
-                        static_cast<std::uint32_t>(
-                            totalBeats * static_cast<double>(config_.ticksPerBeat));
-                    hasPendingDuration = true;
-                } else {
-                    warnings.push_back("Duration token has zero resolution");
+                if (e.resolution == 0 || !std::isfinite(e.beats) || e.beats < 0.0 ||
+                    e.subdivision >= e.resolution) {
+                    warnings.push_back("Duration token has invalid beats/subdivision/resolution");
                     droppedTokens++;
+                    durationTargetIndex.reset();
+                    return;
                 }
+                if (!durationTargetIndex.has_value() ||
+                    *durationTargetIndex >= events_out.size()) {
+                    warnings.push_back("Duration token has no immediately preceding note");
+                    droppedTokens++;
+                    durationTargetIndex.reset();
+                    return;
+                }
+
+                const double totalBeats =
+                    e.beats + static_cast<double>(e.subdivision) /
+                                  static_cast<double>(e.resolution);
+                const long double durationTicks =
+                    static_cast<long double>(totalBeats) * config_.ticksPerBeat;
+                if (!std::isfinite(totalBeats) || durationTicks < 1.0L ||
+                    durationTicks > std::numeric_limits<std::uint32_t>::max()) {
+                    warnings.push_back("Duration token exceeds supported tick range");
+                    droppedTokens++;
+                    durationTargetIndex.reset();
+                    return;
+                }
+                auto* note = std::get_if<NoteEvent>(&events_out[*durationTargetIndex]);
+                if (note == nullptr) {
+                    warnings.push_back("Duration token target is not a note");
+                    droppedTokens++;
+                } else {
+                    note->duration = static_cast<std::uint32_t>(std::llround(durationTicks));
+                }
+                durationTargetIndex.reset();
             }
         }, event);
     }
 
     proposal.events = std::move(events_out);
 
-    std::uint32_t maxPos = 0;
+    std::uint64_t maxPos = 0;
     for (const auto& event : proposal.events) {
-        std::uint32_t pos = 0;
+        std::uint64_t pos = 0;
         std::visit([&pos](const auto& e) { pos = e.position; }, event);
-        if (std::holds_alternative<NoteEvent>(event)) {
-            pos += std::get<NoteEvent>(event).duration;
+        if (const auto* note = std::get_if<NoteEvent>(&event)) {
+            pos += note->duration;
         }
         maxPos = std::max(maxPos, pos);
     }
-    proposal.totalTicks = std::max(maxPos, std::uint32_t(480));
+    if (maxPos > std::numeric_limits<std::uint32_t>::max()) {
+        warnings.push_back("Pattern length exceeds supported tick range");
+        droppedTokens++;
+        proposal.clear();
+        RemiDecodeReport report;
+        report.message = "Pattern length exceeds supported tick range";
+        report.processedTokens = events.size();
+        report.droppedTokens = droppedTokens;
+        report.warnings = std::move(warnings);
+        return {std::move(proposal), std::move(report)};
+    }
+    proposal.totalTicks = std::max(static_cast<std::uint32_t>(maxPos), std::uint32_t(480));
     proposal.trackCount = 1;
 
     auto endTime = std::chrono::high_resolution_clock::now();
@@ -244,7 +322,7 @@ std::optional<RemiEvent> RemiEventAdapter::tokenNameToEvent(const std::string& t
         } catch (...) { return std::nullopt; }
     }
     if (tokenName == "Bar_None") {
-        return RemiBarEvent{0};
+        return RemiBarEvent{std::nullopt};
     }
     if (tokenName.rfind("Position_", 0) == 0) {
         try {

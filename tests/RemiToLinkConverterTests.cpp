@@ -299,9 +299,9 @@ void testRemiAdapterDurationToken() {
     RemiEventAdapter adapter(config);
 
     std::vector<RemiEvent> events;
-    events.push_back(RemiDurationEvent{0.0, 1, 8});
     events.push_back(RemiPositionEvent{0});
     events.push_back(RemiNoteOnEvent{60, 100, 0, 0});
+    events.push_back(RemiDurationEvent{0.0, 1, 8});
 
     GenerationRequest request;
     auto [proposal, report] =
@@ -325,7 +325,7 @@ void testRemiAdapterPositionAndVelocity() {
 
     std::vector<RemiEvent> events;
     events.push_back(RemiPositionEvent{8});
-    events.push_back(RemiVelocityEvent{15});
+    events.push_back(RemiVelocityEvent{127});
     events.push_back(RemiNoteOnEvent{64, 0, 0, 0});
 
     GenerationRequest request;
@@ -335,7 +335,7 @@ void testRemiAdapterPositionAndVelocity() {
     assert(proposal.events.size() > 0);
     const auto notes = proposal.notes();
     assert(notes.size() == 1);
-    assert(notes[0].position == 8);
+    assert(notes[0].position == 240);
     assert(notes[0].velocity == 127);
 
     std::cout << "  RemiEventAdapter position and velocity: PASSED" << std::endl;
@@ -369,15 +369,15 @@ void testRemiAdapterMetaEvents() {
     std::cout << "  RemiEventAdapter meta events: PASSED" << std::endl;
 }
 
-void testRemiAdapterDurationBeforeNoteOn() {
-    std::cout << "Testing RemiEventAdapter Duration_ before NoteOn..." << std::endl;
+void testRemiAdapterDurationAfterNoteOn() {
+    std::cout << "Testing RemiEventAdapter Duration_ after NoteOn..." << std::endl;
     const auto config = RemiDecoderConfig::defaultConfig();
     RemiEventAdapter adapter(config);
 
     std::vector<RemiEvent> events;
-    events.push_back(RemiDurationEvent{1.0, 0, 4});
     events.push_back(RemiPositionEvent{0});
     events.push_back(RemiNoteOnEvent{67, 90, 0, 0});
+    events.push_back(RemiDurationEvent{1.0, 0, 4});
 
     GenerationRequest request;
     auto [proposal, report] =
@@ -390,11 +390,11 @@ void testRemiAdapterDurationBeforeNoteOn() {
     assert(notes[0].pitch == 67);
     assert(notes[0].velocity == 90);
 
-    std::cout << "  RemiEventAdapter Duration_ before NoteOn: PASSED" << std::endl;
+    std::cout << "  RemiEventAdapter Duration_ after NoteOn: PASSED" << std::endl;
 }
 
-void testRemiAdapterDurationDoesNotRewritePreviousNote() {
-    std::cout << "Testing RemiEventAdapter Duration_ does not rewrite previous note..."
+void testRemiAdapterDurationAppliesToPrecedingNoteOnly() {
+    std::cout << "Testing RemiEventAdapter Duration_ applies to the preceding note only..."
               << std::endl;
     const auto config = RemiDecoderConfig::defaultConfig();
     RemiEventAdapter adapter(config);
@@ -403,7 +403,7 @@ void testRemiAdapterDurationDoesNotRewritePreviousNote() {
     events.push_back(RemiPositionEvent{0});
     events.push_back(RemiNoteOnEvent{60, 100, 0, 0});
     events.push_back(RemiDurationEvent{2.0, 0, 1});
-    events.push_back(RemiPositionEvent{480});
+    events.push_back(RemiPositionEvent{8});
     events.push_back(RemiNoteOnEvent{64, 80, 0, 0});
 
     GenerationRequest request;
@@ -413,10 +413,10 @@ void testRemiAdapterDurationDoesNotRewritePreviousNote() {
     assert(proposal.events.size() > 0);
     const auto notes = proposal.notes();
     assert(notes.size() == 2);
-    assert(notes[0].duration == 120);
-    assert(notes[1].duration == 960);
+    assert(notes[0].duration == 960);
+    assert(notes[1].duration == 240);
 
-    std::cout << "  RemiEventAdapter Duration_ applies only to the next note: PASSED"
+    std::cout << "  RemiEventAdapter Duration_ applies to the preceding note only: PASSED"
               << std::endl;
 }
 
@@ -473,8 +473,8 @@ int main() {
     testRemiAdapterDurationToken();
     testRemiAdapterPositionAndVelocity();
     testRemiAdapterMetaEvents();
-    testRemiAdapterDurationBeforeNoteOn();
-    testRemiAdapterDurationDoesNotRewritePreviousNote();
+    testRemiAdapterDurationAfterNoteOn();
+    testRemiAdapterDurationAppliesToPrecedingNoteOnly();
     testEndToEndTokenIdsToLink();
     testEndToEndRemiToLink();
     std::cout << "ALL REMI-TO-LINK CONVERTER TESTS PASSED" << std::endl;

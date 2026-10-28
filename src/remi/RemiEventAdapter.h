@@ -43,12 +43,13 @@ struct RemiPositionEvent {
 };
 
 struct RemiBarEvent {
-    std::uint32_t barNumber = 0;
+    // An explicit bar index, or nullopt for a Bar_None token advancing one bar.
+    std::optional<std::uint32_t> barNumber = std::nullopt;
 };
 
-// Duration_ beats.subdivision.resolution — length of the following note in
-// fractional beats. Applied to the next NoteOn when no preceding note exists
-// to attach it to (e.g. Duration_ before NoteOn).
+// MidiTok REMI orders each note as Pitch, Velocity, Duration. A Duration_
+// beats.subdivision.resolution token therefore updates the immediately
+// preceding note in the proposal.
 struct RemiDurationEvent {
     double beats = 0.0;
     std::uint32_t subdivision = 0;
@@ -117,7 +118,6 @@ public:
     [[nodiscard]] const RemiDecoderConfig& config() const noexcept { return config_; }
     [[nodiscard]] bool hasTokenizer() const noexcept { return tokenizer_ != nullptr; }
 
-    [[nodiscard]] std::uint8_t velocityBinToMidi(std::uint8_t bin) const noexcept;
     [[nodiscard]] std::uint32_t positionBinToTicks(std::uint32_t bin) const noexcept;
     [[nodiscard]] double tempoBinToBpm(std::uint8_t bin) const noexcept;
 
