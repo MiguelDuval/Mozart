@@ -54,7 +54,7 @@
       "NRG-CP": {"compositions": 15235, "role": "chords/harmony only (single-track chord progressions)", "genre_labels": "none beyond dataset-level \"EDM chord progressions\"", "status": "VERIFIED"},
       "GMD": {"compositions": 1150, "role": "drums only", "genre_labels": "11 source styles (funk, soul, hiphop, pop, rock, jazz, latin/samba, neworleans/secondline, dance/disco, rock/shuffle, jazz/funk) — no techno/house/trance/ambient/DnB/dubstep", "status": "VERIFIED"},
       "Slakh2100_samples": {"compositions": 3, "role": "instrument classes per stem (weak candidates, 3 compositions only)", "genre_labels": "none", "status": "VERIFIED, research-only CC BY-NC"},
-      "MAESTRO v3.0.0": {"compositions": 1276 performances / 852 title-like groupings, "role": "solo piano (instrument identity, not functional role)", "genre_labels": "none (classical)", "status": "VERIFIED, research-only CC BY-NC-SA"},
+      "MAESTRO v3.0.0": {"compositions": "1276 performances / 852 title-like groupings", "role": "solo piano (instrument identity, not functional role)", "genre_labels": "none (classical)", "status": "VERIFIED, research-only CC BY-NC-SA"},
       "broad_corpus": {"compositions": 0, "status": "VERIFIED EMPTY"}
     },
     "evaluation_metrics": {"score_metrics": "num_notes, duration_beats/sec, density, tpq, max_polyphony, pitch/velocity ranges, silence, repeat bigrams, per-track notes/program/is_drum; per-file reopen check", "independent_recheck": "tests/verify_midi_metrics.py matches metrics_from_midi.py exactly on eval-antiforget-step25 (24 files)", "role_split": "NO — metrics are aggregate; no per-role (bass/melody/arp/pad) quality split exists"},
