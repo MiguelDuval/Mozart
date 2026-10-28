@@ -58,15 +58,30 @@ public:
     RealTokenReplayBackend(
             std::string tokenizerPath,
             std::size_t vocabularySize,
-            std::vector<std::uint32_t> tokenIds)
+            std::vector<std::uint32_t> tokenIds,
+            std::uint32_t eosTokenId)
         : tokenizerPath_(std::move(tokenizerPath)),
           vocabularySize_(vocabularySize),
-          tokenIds_(std::move(tokenIds)) {}
+          tokenIds_(std::move(tokenIds)),
+          eosTokenId_(eosTokenId) {}
 
     mozart::generation::RemiBpeTokenInferenceResult generateRemiTokens(
             const mozart::generation::GenerationRequest&,
             const std::size_t) override {
         ++inferenceCalls_;
+        // Mirror OnnxInferenceBridge.generateRemiBpe: it returns FAILED (not
+        // OK with a partial sequence) when the greedy token cap is reached
+        // without EOS. Keep the IDs for diagnostics, but the provider must not
+        // turn a failed inference result into a partial proposal.
+        if (tokenIds_.empty() || tokenIds_.back() != eosTokenId_) {
+            return {
+                mozart::generation::TokenInferenceStatus::Failed,
+                tokenIds_,
+                0.0,
+                1,
+                "REMI/BPE generation reached token limit without EOS"
+            };
+        }
         return {
             mozart::generation::TokenInferenceStatus::Ok,
             tokenIds_,
@@ -100,6 +115,7 @@ private:
     std::string tokenizerPath_;
     std::size_t vocabularySize_;
     std::vector<std::uint32_t> tokenIds_;
+    std::uint32_t eosTokenId_;
     std::size_t inferenceCalls_ = 0;
 };
 
@@ -265,7 +281,7 @@ int main(int argc, char** argv) {
     // tokenizer loading, BOS/EOS gates, strict decoding, conversion and shared
     // request validation are the production implementation under test.
     try {
-        RealTokenReplayBackend replayBackend(argv[1], tokenizer->vocabSize(), tokenIds);
+        RealTokenReplayBackend replayBackend(argv[1], tokenizer->vocabSize(), tokenIds, *eosId);
         mozart::generation::RemiBpePatternProvider productionProvider(replayBackend);
         report["production_provider_initialized"] = productionProvider.tokenizerReady();
         report["production_provider_inference_calls"] = 0;

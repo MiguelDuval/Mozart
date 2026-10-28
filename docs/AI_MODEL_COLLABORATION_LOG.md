@@ -640,3 +640,8 @@ Run [40786409627](https://github.com/MiguelDuval/Mozart/actions/runs/40786409627
 - the report retained checksums/provenance only.
 
 Expanded the workflow trigger paths to include every production decoder/provider/converter source and its immediate musical/validation dependencies. This ensures changes to the code under test retrigger the actual artifact-backed interop gate. The public checkpoint remains a classical-piano technical fixture, not the broad-EDM production model.
+
+
+## 2026-10-28 — ChatGPT — Match the real-provider replay to Android no-EOS inference semantics
+
+A review of the previous artifact-backed C++ provider replay found a subtle test-harness mismatch: the replay backend returned `TokenInferenceStatus::Ok` for an unterminated sequence, while Android's `OnnxInferenceBridge.generateRemiBpe` returns `FAILED` with `REMI/BPE generation reached token limit without EOS`. Updated the real-artifact replay backend to emit the Android-equivalent failed result when the exact generated IDs lack EOS. The workflow now requires the production provider to propagate that failure atomically with zero notes/controls. The provider's own defense against an incorrect backend returning OK without EOS remains covered by the native `GenerationServiceTests.cpp` tests added earlier. This is a test fidelity correction only; no production behavior changed.

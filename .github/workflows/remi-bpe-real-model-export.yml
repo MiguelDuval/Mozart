@@ -169,10 +169,10 @@ jobs:
                   or cpp_report.get("production_provider_ready") is not False
                   or cpp_report.get("production_provider_note_count") != 0
                   or cpp_report.get("production_provider_control_count") != 0
-                  or "BOS/EOS terminated" not in message
+                  or "reached token limit without EOS" not in message
               ):
-                  raise SystemExit("unterminated real output was not rejected atomically by the production provider")
-              provider_gate_status = "production_provider_correctly_rejected_unterminated_stream"
+                  raise SystemExit("Android-equivalent inference failure was not propagated atomically by the production provider")
+              provider_gate_status = "android_equivalent_inference_failure_propagated_without_partial_proposal"
           elif cpp_report.get("production_provider_ready") is True:
               provider_gate_status = "production_provider_accepted_complete_stream"
           else:
