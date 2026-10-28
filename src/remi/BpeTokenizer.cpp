@@ -2,7 +2,7 @@
 
 #include <fstream>
 #include <sstream>
-#include <third_party/nlohmann/json.hpp>
+#include "json.hpp"
 
 namespace mozart::remi {
 
