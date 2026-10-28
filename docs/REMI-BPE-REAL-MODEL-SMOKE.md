@@ -47,3 +47,10 @@ In addition to the earlier C++ tokenizer/adapter/Link checks, the test replayed 
 - All 20,000 tokenizer entries remained individually decodable and no generated IDs were dropped. Model weights, tokenizer JSON and ONNX graph were not uploaded.
 
 The real-model workflow's path filters now include the production C++ token decoder, adapter, provider, converter, proposal validator, and their direct musical dependencies, so changes to those implementations re-run the real artifact test rather than relying only on synthetic fixtures.
+
+
+## Android ONNX Runtime bridge smoke
+
+The Android Build job also creates a tiny synthetic ONNX graph with 20,000 logits and runs it through the app's actual Android ONNX Runtime Java bridge on the emulator. After PAD/BOS/MASK filtering, EOS is the best remaining logit, so CI requires the exact response token sequence `1,2`. This validates mobile session creation, input tensor creation, session metadata checks, logits extraction and special-token masking.
+
+The fixture's tokenizer file is deliberately only a hash-paired placeholder; it is **not** a valid MidiTok tokenizer and does not claim real-model compatibility. The separate pinned real-checkpoint workflow tests the actual learned tokenizer and C++ adapter/Link path. The synthetic model/tokenizer are kept only in the temporary runner directory and emulator app-private files, and are not uploaded as artifacts.

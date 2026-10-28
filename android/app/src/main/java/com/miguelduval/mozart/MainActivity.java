@@ -20,6 +20,7 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -28,6 +29,7 @@ public final class MainActivity extends Activity {
     private static final String TAG = "MozartStartup";
     private static final String RUNTIME_SMOKE_EXTRA = "mozart.runtime_smoke";
     private static final String RUNTIME_SMOKE_DELAY_MS_EXTRA = "mozart.runtime_smoke_delay_ms";
+    private static final String REMI_BPE_RUNTIME_SMOKE_EXTRA = "mozart.remi_bpe_runtime_smoke";
     private static final long LINK_STATUS_POLL_MS = 500L;
     private static final long MIDI_INPUT_STATUS_POLL_MS = 500L;
     private static final int RECORD_AUDIO_REQUEST = 7001;
@@ -594,6 +596,37 @@ public final class MainActivity extends Activity {
         Log.i(TAG, "STARTUP: AndroidMidiTransport constructed");
         Log.i(TAG, "STARTUP: AndroidMidiInput constructed");
         Log.i(TAG, "STARTUP: onCreate complete");
+
+        if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0 &&
+                getIntent().getBooleanExtra(REMI_BPE_RUNTIME_SMOKE_EXTRA, false)) {
+            runRemiBpeAndroidRuntimeSmoke();
+        }
+    }
+
+    // Debug-only executable contract test for the actual Android ONNX Runtime
+    // bridge. Its tiny synthetic ONNX graph exercises external-vocabulary tensor
+    // shapes and special-token masking; real checkpoint/tokenizer correctness is
+    // checked separately by the pinned real-model workflow.
+    private void runRemiBpeAndroidRuntimeSmoke() {
+        final File fixtureDirectory = new File(getFilesDir(), "remi-bpe-runtime-smoke");
+        final File model = new File(fixtureDirectory, "model.onnx");
+        final File manifest = new File(fixtureDirectory, "manifest.json");
+        final File tokenizer = new File(fixtureDirectory, "tokenizer-fixture.json");
+        final String response = OnnxInferenceBridge.generateRemiBpe(
+                model.getAbsolutePath(),
+                manifest.getAbsolutePath(),
+                tokenizer.getAbsolutePath(),
+                8);
+        final String[] fields = response.split("\\|", -1);
+        if (fields.length == 5 &&
+                "OK".equals(fields[0]) &&
+                "1,2".equals(fields[3]) &&
+                fields[4].isEmpty()) {
+            Log.i(TAG, "RUNTIME: REMI/BPE Android ONNX bridge PASS vocab=20000 tokens=1,2");
+        } else {
+            Log.e(TAG, "RUNTIME: REMI/BPE Android ONNX bridge FAIL response=" +
+                    response.replace('\n', ' '));
+        }
     }
 
     private int dp(int value) {

@@ -332,6 +332,15 @@ jobs:
       - name: Validate release build
         working-directory: android
         run: gradle --no-daemon :app:assembleRelease
+      - name: Prepare Android REMI/BPE ONNX runtime fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-cache-dir onnx==1.17.0 numpy==1.26.4
+          FIXTURE_DIR="$RUNNER_TEMP/mozart-remi-bpe-android-smoke"
+          python3 .github/scripts/create_remi_bpe_android_runtime_fixture.py --output-dir "$FIXTURE_DIR"
+          echo "MOZART_REMI_BPE_RUNTIME_SMOKE_DIR=$FIXTURE_DIR" >> "$GITHUB_ENV"
+
       - name: Enable KVM for Android emulator
         shell: bash
         run: |

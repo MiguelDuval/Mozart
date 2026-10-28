@@ -429,6 +429,67 @@ exercise_activity_recreate_cycle() {
 
   echo "MainActivity lifecycle cycle ${cycle} passed."
 }
+exercise_remi_bpe_android_runtime_bridge_smoke() {
+  echo "=== Android ONNX Runtime external REMI/BPE bridge smoke ==="
+  local fixture_dir="${MOZART_REMI_BPE_RUNTIME_SMOKE_DIR:-}"
+  if [[ -z "$fixture_dir" ||
+        ! -s "$fixture_dir/model.onnx" ||
+        ! -s "$fixture_dir/manifest.json" ||
+        ! -s "$fixture_dir/tokenizer-fixture.json" ]]; then
+    echo "Android REMI/BPE runtime fixture was not prepared on the host." >&2
+    return 1
+  fi
+
+  local staging="/data/local/tmp/mozart-remi-bpe-runtime-smoke"
+  timeout 10s adb shell rm -rf "$staging" || return 1
+  timeout 10s adb shell mkdir -p "$staging" || return 1
+  timeout 20s adb push "$fixture_dir/model.onnx" "$staging/model.onnx" >/dev/null || return 1
+  timeout 20s adb push "$fixture_dir/manifest.json" "$staging/manifest.json" >/dev/null || return 1
+  timeout 20s adb push "$fixture_dir/tokenizer-fixture.json" "$staging/tokenizer-fixture.json" >/dev/null || return 1
+  timeout 10s adb shell chmod 755 "$staging" || return 1
+  timeout 10s adb shell chmod 644 \
+    "$staging/model.onnx" "$staging/manifest.json" "$staging/tokenizer-fixture.json" || return 1
+
+  timeout 10s adb shell run-as "$PACKAGE" mkdir -p files/remi-bpe-runtime-smoke || return 1
+  timeout 10s adb shell run-as "$PACKAGE" cp \
+    "$staging/model.onnx" files/remi-bpe-runtime-smoke/model.onnx || return 1
+  timeout 10s adb shell run-as "$PACKAGE" cp \
+    "$staging/manifest.json" files/remi-bpe-runtime-smoke/manifest.json || return 1
+  timeout 10s adb shell run-as "$PACKAGE" cp \
+    "$staging/tokenizer-fixture.json" files/remi-bpe-runtime-smoke/tokenizer-fixture.json || return 1
+
+  timeout 10s adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
+  timeout 5s adb shell logcat -c || true
+  local start_rc=0
+  timeout 20s adb shell am start --activity-new-task --activity-clear-task \
+    -n "$ACTIVITY" --ez mozart.remi_bpe_runtime_smoke true \
+    > "$START_FILE" 2>&1 || start_rc=$?
+  if [[ "$start_rc" -ne 0 ]]; then
+    echo "Could not launch the Android REMI/BPE bridge smoke Activity (rc=${start_rc})." >&2
+    cat "$START_FILE" >&2 || true
+    return 1
+  fi
+
+  local deadline=$((SECONDS + 60))
+  while (( SECONDS < deadline )); do
+    write_logcat
+    if grep -Fq "RUNTIME: REMI/BPE Android ONNX bridge PASS vocab=20000 tokens=1,2" "$LOGCAT_FILE"; then
+      echo "Android ONNX Runtime loaded a 20k external-vocabulary graph and selected EOS after PAD/BOS masking."
+      return 0
+    fi
+    if grep -Fq "RUNTIME: REMI/BPE Android ONNX bridge FAIL" "$LOGCAT_FILE"; then
+      echo "Android REMI/BPE bridge smoke reported failure." >&2
+      grep -F "RUNTIME: REMI/BPE Android ONNX bridge" "$LOGCAT_FILE" >&2 || true
+      return 1
+    fi
+    sleep 1
+  done
+
+  echo "Android REMI/BPE bridge smoke did not produce a pass marker within 60 seconds." >&2
+  grep -F "RUNTIME: REMI/BPE Android ONNX bridge" "$LOGCAT_FILE" >&2 || true
+  return 1
+}
+
 collect_diagnostics() {
   timeout 10s adb shell pidof "$PACKAGE" > "$PID_FILE" 2>/dev/null || true
   timeout 15s adb shell ps -A > "$PS_FILE" 2>/dev/null || true
@@ -570,6 +631,10 @@ if [[ "$runtime_smoke_rc" -eq 0 ]]; then
   for lifecycle_cycle in 1 2; do
     exercise_activity_recreate_cycle "$lifecycle_cycle"
   done
+fi
+
+if [[ "$runtime_smoke_rc" -eq 0 ]]; then
+  exercise_remi_bpe_android_runtime_bridge_smoke || runtime_smoke_rc=$?
 fi
 
 collect_diagnostics

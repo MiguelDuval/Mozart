@@ -342,6 +342,26 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         self.assertIn("grep -Fq", helper)
         self.assertIn("wait_for_activity_to_stop", smoke[smoke.index("background_activity_to_home() {"):])
 
+    def test_android_remi_bpe_runtime_smoke_is_debug_only_and_uses_private_fixture(self):
+        self.assertIn('REMI_BPE_RUNTIME_SMOKE_EXTRA = "mozart.remi_bpe_runtime_smoke"', self.activity)
+        self.assertIn("ApplicationInfo.FLAG_DEBUGGABLE", self.activity)
+        self.assertIn('new File(getFilesDir(), "remi-bpe-runtime-smoke")', self.activity)
+        self.assertIn("OnnxInferenceBridge.generateRemiBpe(", self.activity)
+        self.assertIn('Log.i(TAG, "RUNTIME: REMI/BPE Android ONNX bridge PASS vocab=20000 tokens=1,2")', self.activity)
+        self.assertIn('Log.e(TAG, "RUNTIME: REMI/BPE Android ONNX bridge FAIL response="', self.activity)
+
+        smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
+        start = smoke.index("exercise_remi_bpe_android_runtime_bridge_smoke() {")
+        end = smoke.index("\n}", start)
+        helper = smoke[start:end]
+        self.assertIn('run-as "$PACKAGE" mkdir -p files/remi-bpe-runtime-smoke', helper)
+        self.assertIn('--ez mozart.remi_bpe_runtime_smoke true', helper)
+        self.assertIn("RUNTIME: REMI/BPE Android ONNX bridge PASS vocab=20000 tokens=1,2", helper)
+
+        workflow = (ROOT / ".github" / "workflows" / "android-build.yml").read_text()
+        self.assertIn("Prepare Android REMI/BPE ONNX runtime fixture", workflow)
+        self.assertIn(".github/scripts/create_remi_bpe_android_runtime_fixture.py", workflow)
+
     def test_activity_rearms_runtime_smoke_only_for_explicit_new_intent(self):
         self.assertIn('RUNTIME_SMOKE_DELAY_MS_EXTRA = "mozart.runtime_smoke_delay_ms"', self.activity)
         on_new_intent_start = self.activity.index("protected void onNewIntent(")
