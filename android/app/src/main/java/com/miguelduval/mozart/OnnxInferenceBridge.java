@@ -292,6 +292,272 @@ public final class OnnxInferenceBridge {
         }
     }
 
+
+    // Dedicated, unconditioned autoregressive path for real MidiTok REMI/BPE
+    // models. It never applies Mozart's 512-token grammar or conditioning tensors.
+    public static String generateRemiBpe(
+            String artifactPath,
+            String manifestPath,
+            String tokenizerPath,
+            int requestedMaxTokens) {
+        final long started = System.nanoTime();
+        Object session = null;
+        try {
+            if (artifactPath == null || manifestPath == null || tokenizerPath == null ||
+                    artifactPath.isEmpty() || manifestPath.isEmpty() || tokenizerPath.isEmpty()) {
+                return response("UNAVAILABLE", 0, 0, "", "REMI/BPE model paths are missing");
+            }
+            final File artifact = new File(artifactPath);
+            final File manifest = new File(manifestPath);
+            final File tokenizerFile = new File(tokenizerPath);
+            if (!artifact.isFile() || !manifest.isFile() || !tokenizerFile.isFile()) {
+                return response("UNAVAILABLE", 0, elapsedMs(started), "",
+                        "REMI/BPE ONNX model, manifest or tokenizer file is missing");
+            }
+
+            final JSONObject root = new JSONObject(readUtf8(manifest));
+            validateRemiBpeManifest(root, artifact, manifest, tokenizerFile);
+            if (!isRuntimeAvailable()) {
+                return response("UNAVAILABLE", 0, elapsedMs(started), "",
+                        "ONNX Runtime is not present in this build");
+            }
+
+            final JSONObject runtime = root.getJSONObject("runtime");
+            final int vocabularySize = root.getInt("vocabulary_size");
+            final int contextLength = runtime.getInt("context_length_tokens");
+            final int configuredMax = runtime.getInt("max_generated_tokens");
+            if (requestedMaxTokens < 2) {
+                throw new IllegalArgumentException("REMI/BPE requested maximum must be at least 2");
+            }
+            final int maxTokens = Math.min(requestedMaxTokens, configuredMax);
+            final int bos = runtime.getInt("bos_token_id");
+            final int eos = runtime.getInt("eos_token_id");
+            final int pad = runtime.getInt("pad_token_id");
+            final int mask = runtime.optInt("mask_token_id", -1);
+
+            final Class<?> envClass = Class.forName("ai.onnxruntime.OrtEnvironment");
+            final Class<?> tensorClass = Class.forName("ai.onnxruntime.OnnxTensor");
+            final Object environment = envClass.getMethod("getEnvironment").invoke(null);
+            session = envClass.getMethod("createSession", String.class)
+                    .invoke(environment, artifact.getAbsolutePath());
+            validateRemiBpeSessionAbi(session, root, vocabularySize);
+
+            final List<Integer> tokens = new ArrayList<>();
+            tokens.add(bos);
+            double confidenceSum = 0.0;
+            int confidenceCount = 0;
+            for (int step = 0; step < maxTokens - 1; ++step) {
+                if (tokens.size() >= contextLength) {
+                    return response("FAILED", 0, elapsedMs(started), encodeTokens(tokens),
+                            "REMI/BPE model context exhausted before EOS");
+                }
+                final long[] inputValues = new long[tokens.size()];
+                for (int i = 0; i < tokens.size(); ++i) {
+                    inputValues[i] = tokens.get(i);
+                }
+                final LongBuffer inputBuffer = ByteBuffer.allocateDirect(
+                        inputValues.length * Long.BYTES)
+                        .order(ByteOrder.nativeOrder()).asLongBuffer();
+                inputBuffer.put(inputValues);
+                inputBuffer.rewind();
+
+                Object inputTensor = null;
+                Object sessionResult = null;
+                Object outputValue = null;
+                try {
+                    inputTensor = createLongTensor(
+                            tensorClass, environment, inputBuffer,
+                            new long[] {1, inputValues.length});
+                    final Map<String, Object> inputs = new LinkedHashMap<>();
+                    inputs.put(runtime.getString("input_name"), inputTensor);
+                    sessionResult = session.getClass().getMethod("run", Map.class)
+                            .invoke(session, inputs);
+                    outputValue = getResultValue(sessionResult, runtime.getString("output_name"));
+                    if (outputValue == null) {
+                        throw new IllegalArgumentException("REMI/BPE ONNX logits output is missing");
+                    }
+                    final Object raw = outputValue.getClass().getMethod("getValue").invoke(outputValue);
+                    final double[] logits = extractLastLogits(raw);
+                    if (logits.length != vocabularySize) {
+                        throw new IllegalArgumentException(
+                                "REMI/BPE logits size disagrees with tokenizer vocabulary");
+                    }
+                    final int next = argmaxRemiBpeToken(logits, pad, bos, mask);
+                    confidenceSum += softmaxProbability(logits, next);
+                    ++confidenceCount;
+                    tokens.add(next);
+                    if (next == eos) {
+                        final long confidenceMicro = confidenceCount == 0 ? 0 :
+                                Math.round((confidenceSum / confidenceCount) * 1_000_000.0);
+                        return response("OK", confidenceMicro, elapsedMs(started),
+                                encodeTokens(tokens), "");
+                    }
+                } finally {
+                    closeQuietly(outputValue);
+                    closeQuietly(sessionResult);
+                    closeQuietly(inputTensor);
+                }
+            }
+            return response("FAILED", 0, elapsedMs(started), encodeTokens(tokens),
+                    "REMI/BPE generation reached token limit without EOS");
+        } catch (Throwable error) {
+            final String message = error.getMessage() == null
+                    ? error.getClass().getSimpleName()
+                    : error.getMessage();
+            return response("FAILED", 0, elapsedMs(started), "",
+                    "REMI/BPE ONNX: " + message);
+        } finally {
+            closeQuietly(session);
+        }
+    }
+
+    private static void validateRemiBpeManifest(
+            JSONObject root, File artifact, File manifestFile, File tokenizerFile) throws Exception {
+        if (root.optInt("manifest_schema_version", -1) != 1 ||
+                !"onnx".equalsIgnoreCase(root.optString("model_format", ""))) {
+            throw new IllegalArgumentException("unsupported REMI/BPE ONNX manifest schema/format");
+        }
+        final int vocab = root.optInt("vocabulary_size", -1);
+        if (!"miditok-remi-bpe-v1".equals(root.optString("vocabulary_id", "")) ||
+                vocab < 4 || vocab > 2_000_000 ||
+                root.optInt("context_length_tokens", 0) < 2 ||
+                root.optInt("max_generated_tokens", 0) < 2 ||
+                root.optInt("max_generated_tokens", 0) > root.optInt("context_length_tokens", 0)) {
+            throw new IllegalArgumentException("REMI/BPE vocabulary or length contract is invalid");
+        }
+        final JSONObject runtime = root.optJSONObject("runtime");
+        if (runtime == null ||
+                !"onnxruntime".equalsIgnoreCase(runtime.optString("backend", "")) ||
+                !"remi_bpe".equalsIgnoreCase(runtime.optString("token_mode", "")) ||
+                runtime.optInt("external_vocabulary_size", -1) != vocab ||
+                !"int64".equalsIgnoreCase(runtime.optString("input_dtype", ""))) {
+            throw new IllegalArgumentException("manifest does not match the REMI/BPE ONNX token ABI");
+        }
+        if (runtime.optString("input_name", "").isEmpty() ||
+                runtime.optString("output_name", "").isEmpty()) {
+            throw new IllegalArgumentException("REMI/BPE runtime input/output names are missing");
+        }
+
+        final int bos = runtime.optInt("bos_token_id", -1);
+        final int eos = runtime.optInt("eos_token_id", -1);
+        final int pad = runtime.optInt("pad_token_id", -1);
+        final int mask = runtime.optInt("mask_token_id", -1);
+        if (bos < 0 || bos >= vocab || eos < 0 || eos >= vocab ||
+                pad < 0 || pad >= vocab || bos == eos || bos == pad || eos == pad ||
+                (mask >= 0 && (mask >= vocab || mask == bos || mask == eos || mask == pad))) {
+            throw new IllegalArgumentException("REMI/BPE special-token IDs are invalid");
+        }
+
+        final File expectedModel = new File(manifestFile.getParentFile(),
+                root.optString("model_file", ""));
+        if (!expectedModel.getCanonicalFile().equals(artifact.getCanonicalFile())) {
+            throw new IllegalArgumentException("manifest model_file does not identify the selected artifact");
+        }
+        final String tokenizerName = runtime.optString("tokenizer_file", "");
+        if (tokenizerName.isEmpty() || tokenizerName.contains("/") ||
+                tokenizerName.contains("\\\\") || tokenizerName.equals(".") ||
+                tokenizerName.equals("..") || !tokenizerFile.getName().equals(tokenizerName) ||
+                !new File(manifestFile.getParentFile(), tokenizerName).getCanonicalFile()
+                        .equals(tokenizerFile.getCanonicalFile())) {
+            throw new IllegalArgumentException("manifest tokenizer_file is not the paired tokenizer file");
+        }
+        final String modelHash = root.optString("model_sha256", "").trim();
+        final String tokenizerHash = runtime.optString("tokenizer_sha256", "").trim();
+        if (!modelHash.matches("(?i)[0-9a-f]{64}") ||
+                !modelHash.equalsIgnoreCase(sha256(artifact))) {
+            throw new IllegalArgumentException("REMI/BPE model SHA-256 is missing or mismatched");
+        }
+        if (!tokenizerHash.matches("(?i)[0-9a-f]{64}") ||
+                !tokenizerHash.equalsIgnoreCase(sha256(tokenizerFile))) {
+            throw new IllegalArgumentException("REMI/BPE tokenizer SHA-256 is missing or mismatched");
+        }
+
+        final JSONArray inputs = root.optJSONArray("inputs");
+        final JSONArray outputs = root.optJSONArray("outputs");
+        if (inputs == null || inputs.length() != 1 ||
+                outputs == null || outputs.length() != 1) {
+            throw new IllegalArgumentException("REMI/BPE graph must declare exactly one input and one output");
+        }
+        final JSONObject input = inputs.getJSONObject(0);
+        final JSONObject output = outputs.getJSONObject(0);
+        final JSONArray inputShape = input.optJSONArray("shape");
+        final JSONArray outputShape = output.optJSONArray("shape");
+        if (!runtime.getString("input_name").equals(input.optString("name", "")) ||
+                !"int64".equalsIgnoreCase(input.optString("dtype", "")) ||
+                inputShape == null || inputShape.length() != 2 ||
+                inputShape.optInt(0, 0) != 1 || inputShape.optInt(1, 0) != -1) {
+            throw new IllegalArgumentException("REMI/BPE input manifest must be int64 [1, sequence]");
+        }
+        if (!runtime.getString("output_name").equals(output.optString("name", "")) ||
+                !"float32".equalsIgnoreCase(output.optString("dtype", "")) ||
+                outputShape == null || outputShape.length() != 2 ||
+                outputShape.optInt(0, 0) != 1 || outputShape.optInt(1, 0) != vocab) {
+            throw new IllegalArgumentException("REMI/BPE logits manifest must be float32 [1, vocabulary_size]");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void validateRemiBpeSessionAbi(
+            Object session, JSONObject root, int vocabularySize) throws Exception {
+        final JSONObject runtime = root.getJSONObject("runtime");
+        final Map<String, Object> inputInfo = (Map<String, Object>)
+                session.getClass().getMethod("getInputInfo").invoke(session);
+        final Map<String, Object> outputInfo = (Map<String, Object>)
+                session.getClass().getMethod("getOutputInfo").invoke(session);
+        final String inputName = runtime.getString("input_name");
+        final String outputName = runtime.getString("output_name");
+        if (inputInfo == null || inputInfo.size() != 1 || !inputInfo.containsKey(inputName)) {
+            throw new IllegalArgumentException("REMI/BPE ONNX session must have exactly one input_ids tensor");
+        }
+        if (outputInfo == null || outputInfo.size() != 1 || !outputInfo.containsKey(outputName)) {
+            throw new IllegalArgumentException("REMI/BPE ONNX session must have exactly one logits output");
+        }
+        validateSessionTensor(inputInfo.get(inputName),
+                findManifestTensor(root.getJSONArray("inputs"), inputName), "REMI/BPE token input");
+        validateSessionTensor(outputInfo.get(outputName),
+                findManifestTensor(root.getJSONArray("outputs"), outputName), "REMI/BPE logits output");
+        if (vocabularySize != runtime.getInt("external_vocabulary_size")) {
+            throw new IllegalArgumentException("REMI/BPE session vocabulary size mismatch");
+        }
+    }
+
+    private static int argmaxRemiBpeToken(
+            double[] logits, int padToken, int bosToken, int maskToken) {
+        int best = -1;
+        double bestValue = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i < logits.length; ++i) {
+            if (i == padToken || i == bosToken || (maskToken >= 0 && i == maskToken)) {
+                continue;
+            }
+            final double value = logits[i];
+            if (!Double.isFinite(value)) {
+                continue;
+            }
+            if (best < 0 || value > bestValue) {
+                best = i;
+                bestValue = value;
+            }
+        }
+        if (best < 0) {
+            throw new IllegalArgumentException("REMI/BPE logits have no usable next token");
+        }
+        return best;
+    }
+
+    private static double softmaxProbability(double[] logits, int index) {
+        double maximum = Double.NEGATIVE_INFINITY;
+        for (double value : logits) {
+            if (Double.isFinite(value) && value > maximum) maximum = value;
+        }
+        if (!Double.isFinite(maximum)) return 0.0;
+        double sum = 0.0;
+        for (double value : logits) {
+            if (Double.isFinite(value)) sum += Math.exp(value - maximum);
+        }
+        if (!(sum > 0.0) || !Double.isFinite(sum)) return 0.0;
+        return Math.exp(logits[index] - maximum) / sum;
+    }
+
     private static void validateManifest(
             JSONObject root,
             File artifact) throws Exception {
