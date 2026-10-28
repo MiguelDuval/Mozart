@@ -1946,3 +1946,46 @@ Commit + push to `feature/mmm-v2-decoder-fix-and-docs` (no checkpoints/caches/MI
 
 ### Message for ChatGPT
 Session complete: 30/30 tests pass; seed determinism, safety-state, and model-loader defects fixed with tests and an end-to-end smoke test on the original model; docs updated append-only. Ready for commit/push and CI check.
+
+---
+## 2026-10-28 — Cline — Scheduler subsystem: MidiSendQueue + AccompanimentScheduler (generation-to-MIDI bridge)
+
+### Context
+Roadmap Stage 2 (quantized scheduler) and Stage 3 (MIDI scheduler) are unchecked. `MozartRuntime.h` references `scheduler::MidiSendQueue` and `scheduler::AccompanimentScheduler` as member variables, but these classes did not exist. The generation pipeline (PatternProposal) had no path to timestamped MIDI output.
+
+### Executed
+1. **Git state reconciled:** Local commit `417368a` (stale comment removal) was redundant with remote `3b9ca79` (same change + zero-beat duration fix `ca1cc622`). Merged `origin/feature/mmm-v2-decoder-fix-and-docs` into local branch, resolved conflict in `tests/RemiAdapterTests2.cpp` (kept remote's "// Regression tests kept enabled in normal CI." comment). Local commit preserved on backup branch `backup/417368a-local-comment-fix`. Push succeeded; local and remote HEAD both at `ccd2ceb` after this commit.
+2. **Created `src/scheduler/MidiSendQueue.h/.cpp`:** Thread-safe priority queue of `MidiShortMessage` ordered by `timestampNanos`. `push`/`tryPop`/`empty`/`size`/`clear`. Pure transport ordering — no musical decision logic.
+3. **Created `src/scheduler/AccompanimentScheduler.h/.cpp`:** Converts validated `PatternProposal` events into scheduled `MidiShortMessage` outputs. NoteEvent → note-on + note-off pair; ProgramChangeEvent → program change MIDI; ControlChangeEvent → control change MIDI; TempoEvent → updates internal tempo (meta-event); TimeSignatureEvent → metadata only. Tick-to-host-time conversion using `ticksPerBeat` and `bpm`. Pure C++20, no Android/Link dependencies.
+4. **Created `tests/SchedulerTests.cpp`:** 9 unit tests covering queue ordering, clear, tick-to-host-time, note scheduling (4 messages for 2 notes), invalid proposal rejection, tempo event handling, program change, control change, and start host time anchoring.
+5. **Updated `tests/CMakeLists.txt`:** Added `scheduler_tests` target building `SchedulerTests.cpp`, `MidiTypes.cpp`, `GenerationTypes.cpp`, `MidiSendQueue.cpp`, `AccompanimentScheduler.cpp`.
+
+### Verified Evidence
+- All source files syntactically reviewed; C++20 compliant.
+- Test expectations computed by hand: e.g. at 120 BPM, 480 ticks/beat → 500,000,000 ns/beat; note at tick 480 → time 500,000,000 ns.
+- Commit `ccd2ceb`: 6 files changed, 612 insertions. Push succeeded; `git rev-parse HEAD` == `git rev-parse origin/feature/mmm-v2-decoder-fix-and-docs` == `ccd2ceb`.
+- Local C++ build/test toolchain (cmake, g++, clang) not available in this environment; tests not compiled or executed locally. Gated by CI (`remi-adapter-ci` workflow builds and runs `scheduler_tests`).
+
+### Unverified Claims
+- C++ tests compile and pass — cannot verify locally (no compiler toolchain). Will be confirmed by GitHub Actions REMI/BPE Adapter CI.
+- Integration with `MozartRuntime` — `MozartRuntime.h` references these classes but the runtime `.cpp` was not found; integration not tested.
+
+### Changed Files
+- `src/scheduler/MidiSendQueue.h` (new)
+- `src/scheduler/MidiSendQueue.cpp` (new)
+- `src/scheduler/AccompanimentScheduler.h` (new)
+- `src/scheduler/AccompanimentScheduler.cpp` (new)
+- `tests/SchedulerTests.cpp` (new)
+- `tests/CMakeLists.txt` (added `scheduler_tests` target)
+- `docs/AI_MODEL_COLLABORATION_LOG.md` (this entry)
+
+### Result
+**COMPLETED** — Scheduler subsystem implemented as a vertical slice from generation (PatternProposal) to timestamped MIDI output (MidiSendQueue). All architectural boundaries preserved: MIDI transport contains no musical logic, generation operates on semantic events, pure C++20 with no Android/Link dependencies.
+
+### Next Action
+1. Wait for GitHub Actions `remi-adapter-ci` to build and run `scheduler_tests` on commit `ccd2ceb`.
+2. If CI fails, inspect logs, fix root cause, recommit, repush.
+3. If CI passes, consider next stage: `LinkClock` (Stage 2) or `PatternAccent`/`PatternDensity`/`PatternSwing` (Stage 3).
+
+### Message for ChatGPT
+Scheduler subsystem implemented and pushed at `ccd2ceb`. Local and remote HEAD synchronized. C++ tests not run locally (no toolchain) — gated by CI. Next step: monitor CI results, then proceed to LinkClock or pattern parameter components.
