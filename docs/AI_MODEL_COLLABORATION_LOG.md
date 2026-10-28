@@ -588,3 +588,8 @@ The upstream generation example uses an 800-token budget. Raised the real smoke/
 ## 2026-10-28 — ChatGPT — Make bounded real-output adapter diagnostics explicit
 
 The pinned MAESTRO fixture's long greedy output had not emitted EOS by the 400-token cap and ended mid-note, so the strict adapter correctly rejected the entire sequence. Increasing this smoke to 800 tokens was wasteful for a technical fixture and still could not guarantee EOS. Changed the fixture to keep Android's exported manifest cap at 400 but run only 64 generated tokens in CI. The C++ diagnostic now checks the entire output first; only if an unterminated output is invalid does it scan shorter complete-event prefixes and explicitly report the number of omitted tokens. Such a diagnostic prefix can prove the REMI adapter/Link converter can consume real-tokenizer content, but is never marked provider-ready and does not alter production decoding behavior. The next exact-SHA smoke will decide whether the generated prefix can be adapted without this fallback.
+
+
+## 2026-10-28 — ChatGPT — Align diagnostic provider-ready flag with production validation
+
+Hardened the real-output report so `provider_ready` cannot become true merely because a token stream ended in BOS/EOS and converted to a well-formed Link proposal. It now mirrors the production provider gates: no misplaced PAD/BOS/EOS/MASK in the body, no unsupported ProgramChange/ControlChange events, no scheduler controls, and a pass from the shared request-aware `PatternProposalValidator`. Short diagnostic prefixes can still be reported as adapter/converter evidence, but are never promoted to a provider-ready result.

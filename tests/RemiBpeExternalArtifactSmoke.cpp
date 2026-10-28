@@ -152,6 +152,16 @@ int main(int argc, char** argv) {
     const bool completeBosEosStream =
             !tokenIds.empty() && tokenIds.front() == *bosId && tokenIds.back() == *eosId;
 
+    bool noMisplacedSpecialTokens = true;
+    for (std::size_t i = 1; i + 1 < tokenIds.size(); ++i) {
+        if (tokenIds[i] == *bosId || tokenIds[i] == *eosId ||
+            tokenIds[i] == *padId ||
+            (tokenizer->maskToken().has_value() && tokenIds[i] == *tokenizer->maskToken())) {
+            noMisplacedSpecialTokens = false;
+            break;
+        }
+    }
+
     json report = {
         {"status", "verified"},
         {"vocabulary_size", tokenizer->vocabSize()},
@@ -164,12 +174,16 @@ int main(int argc, char** argv) {
         {"bos_token_id", *bosId},
         {"eos_token_id", *eosId},
         {"complete_bos_eos_stream", completeBosEosStream},
+        {"no_misplaced_special_tokens", noMisplacedSpecialTokens},
         {"provider_ready", false},
         {"semantic_adapter_status", "not_run"},
         {"semantic_adapter_message", ""},
         {"semantic_proposal_valid", false},
         {"semantic_note_count", 0},
         {"semantic_program_change_count", 0},
+        {"semantic_control_change_count", 0},
+        {"request_validation_status", "not_run"},
+        {"request_validation_message", ""},
         {"semantic_input_token_count", 0},
         {"semantic_diagnostic_prefix_used", false},
         {"semantic_tokens_omitted_for_diagnostic", 0},
@@ -202,9 +216,11 @@ int main(int argc, char** argv) {
 
             std::size_t noteCount = 0;
             std::size_t programChangeCount = 0;
+            std::size_t controlChangeCount = 0;
             for (const auto& event : proposal.events) {
                 if (std::holds_alternative<mozart::remi::NoteEvent>(event)) ++noteCount;
                 if (std::holds_alternative<mozart::remi::ProgramChangeEvent>(event)) ++programChangeCount;
+                if (std::holds_alternative<mozart::remi::ControlChangeEvent>(event)) ++controlChangeCount;
             }
             report["semantic_adapter_status"] = diagnosticPrefix
                     ? "valid_diagnostic_prefix" : "valid_proposal";
@@ -214,6 +230,7 @@ int main(int argc, char** argv) {
             report["semantic_proposal_valid"] = true;
             report["semantic_note_count"] = noteCount;
             report["semantic_program_change_count"] = programChangeCount;
+            report["semantic_control_change_count"] = controlChangeCount;
             report["semantic_input_token_count"] = candidate.size();
             report["semantic_diagnostic_prefix_used"] = diagnosticPrefix;
             report["semantic_tokens_omitted_for_diagnostic"] = tokenIds.size() - candidate.size();
@@ -223,10 +240,22 @@ int main(int argc, char** argv) {
                 report["link_conversion_status"] = "accepted";
                 report["link_note_count"] = linkProposal->noteEvents.size();
                 report["link_control_count"] = linkProposal->controlEvents.size();
+                mozart::generation::GenerationRequest linkRequest;
+                const auto requestValidation =
+                        mozart::generation::PatternProposalValidator::validate(
+                                linkRequest, *linkProposal);
+                report["request_validation_status"] = requestValidation.ok()
+                        ? "accepted" : "rejected";
+                report["request_validation_message"] = requestValidation.message;
                 report["provider_ready"] =
-                        completeBosEosStream && !diagnosticPrefix &&
+                        completeBosEosStream &&
+                        noMisplacedSpecialTokens &&
+                        !diagnosticPrefix &&
                         candidate.size() == tokenIds.size() &&
-                        programChangeCount == 0 && linkProposal->controlEvents.empty();
+                        programChangeCount == 0 &&
+                        controlChangeCount == 0 &&
+                        linkProposal->controlEvents.empty() &&
+                        requestValidation.ok();
             } else if (programChangeCount != 0) {
                 report["link_conversion_status"] = "rejected_unsupported_program_change";
             } else {
