@@ -66,8 +66,11 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         start = self.activity.index("private void startRuntimeSmoke()")
         self.assertIn("removeCallbacks(runtimeSmokeTick)", self.activity[start:])
         self.assertIn("removeCallbacks(runtimeSmokeStop)", self.activity[start:])
-        self.assertIn("postDelayed(runtimeSmokeTick, 1000L)", self.activity[start:])
-        self.assertIn("postDelayed(runtimeSmokeStop, 3000L)", self.activity[start:])
+        self.assertIn("RUNTIME_SMOKE_DELAY_MS_EXTRA", self.activity[start:])
+        self.assertIn("getLongExtra(", self.activity[start:])
+        self.assertIn("tickDelayMs < 1000L || tickDelayMs > 30000L", self.activity[start:])
+        self.assertIn("postDelayed(runtimeSmokeTick, tickDelayMs)", self.activity[start:])
+        self.assertIn("postDelayed(runtimeSmokeStop, tickDelayMs + 2000L)", self.activity[start:])
 
         on_stop = self.activity.index("protected void onStop()")
         self.assertIn("activityStarted = false;", self.activity[on_stop:])

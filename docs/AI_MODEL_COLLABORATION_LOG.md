@@ -479,3 +479,12 @@ The exact-SHA emulator run [40774190251](https://github.com/MiguelDuval/Mozart/a
 
 ### Verification state
 The preceding exact-SHA export and native Link workflows were green at \`a0df23be7e2ab5b7ca10ac12dee40fac445f40ba\`; the Android run on that SHA failed at the final emulator smoke gate with the callback-before-teardown race and a brittle clear-task relaunch. The new implementation is committed separately and requires its own exact-SHA export, native Link, and Android Build results before the lifecycle fix is considered verified.
+
+
+## 2026-10-28 — ChatGPT — Update lifecycle contract for configurable smoke delay
+
+The first exact-SHA validation of the post-startup lifecycle arming change exposed one stale source-contract assertion: the Android lifecycle test still expected literal 1-second/3-second timer calls and rejected the new bounded delay parameter. Updated the contract to require the bounded runtime_smoke_delay_ms path and the relative +2-second stop schedule instead. This corrects the test to match the intended behavior without reducing lifecycle or runtime-smoke assertions.
+
+- Code SHA with stale assertion: 2ee312615da2c92759e92f02a3ec6b245c5d3f2a.
+- Android Build [40780388687](https://github.com/MiguelDuval/Mozart/actions/runs/40780388687) failed the lifecycle source-contract test before a usable emulator smoke result could be obtained; the final gate also failed because no smoke attempt succeeded.
+- The updated assertion requires new exact-SHA Android validation; no Android smoke pass is claimed yet.
