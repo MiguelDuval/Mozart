@@ -28,6 +28,7 @@ using mozart::remi::RemiPositionEvent;
 using mozart::remi::RemiTempoEvent;
 using mozart::remi::RemiVelocityEvent;
 using mozart::remi::RemiTimeSignatureEvent;
+using mozart::remi::TimeSignatureEvent;
 using mozart::remi::GenerationRequest;
 
 namespace {
