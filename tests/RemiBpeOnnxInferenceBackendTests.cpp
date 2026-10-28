@@ -1,5 +1,7 @@
 #include "generation/RemiBpeInferenceBackend.h"
 #include <cassert>
+#include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -48,6 +50,48 @@ void testReturnsTypedExternalTokenIdsAndPaths() {
     assert(legacy.message.find("512-token ABI") != std::string::npos);
 }
 
+void testExpectedVocabularySizeMustMatchManifestContract() {
+    const auto path = std::filesystem::temp_directory_path() /
+        "mozart-remi-bpe-manifest-contract-test.json";
+    {
+        std::ofstream output(path);
+        assert(output.is_open());
+        output << R"json({
+          "model_format": "onnx",
+          "vocabulary_id": "miditok-remi-bpe-v1",
+          "vocabulary_size": 12000,
+          "runtime": {
+            "token_mode": "remi_bpe",
+            "external_vocabulary_size": 12000
+          }
+        })json";
+    }
+
+    FakeRemiOnnxBridge bridge;
+    RemiBpeOnnxTokenInferenceBackend backend(
+        "remi-onnx:test", "/private/model.onnx",
+        path.string(), "/private/tokenizer.json", bridge);
+    assert(backend.expectedVocabularySize() == 12000);
+
+    {
+        std::ofstream output(path, std::ios::trunc);
+        assert(output.is_open());
+        output << R"json({
+          "model_format": "onnx",
+          "vocabulary_id": "miditok-remi-bpe-v1",
+          "vocabulary_size": 12000,
+          "runtime": {
+            "token_mode": "remi_bpe",
+            "external_vocabulary_size": 512
+          }
+        })json";
+    }
+    assert(backend.expectedVocabularySize() == 0);
+
+    std::error_code ignored;
+    std::filesystem::remove(path, ignored);
+}
+
 void testUnavailableBridgeDoesNotRunInference() {
     FakeRemiOnnxBridge bridge;
     bridge.available = false;
@@ -73,6 +117,7 @@ void testMissingPathsFailClosed() {
 
 int main() {
     testReturnsTypedExternalTokenIdsAndPaths();
+    testExpectedVocabularySizeMustMatchManifestContract();
     testUnavailableBridgeDoesNotRunInference();
     testMissingPathsFailClosed();
     return 0;
