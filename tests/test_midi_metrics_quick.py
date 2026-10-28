@@ -44,5 +44,84 @@ class TestMidiReopenErrorHandling(unittest.TestCase):
         self.assertEqual(metrics["max_polyphony"], 1)
 
 
+class TestTrackRoleMapping(unittest.TestCase):
+    """_track_role maps GM program + is_drum to a coarse musical role.
+    Not ground truth — only an instrument hint for evaluation reporting."""
+
+    def test_drum_track_is_rhythm(self):
+        from evaluate_models import _track_role
+        self.assertEqual(_track_role(0, True), "rhythm")
+        self.assertEqual(_track_role(127, True), "rhythm")
+
+    def test_bass_program_range(self):
+        from evaluate_models import _track_role
+        for p in range(32, 40):
+            self.assertEqual(_track_role(p, False), "bass")
+
+    def test_lead_program_range(self):
+        from evaluate_models import _track_role
+        for p in range(80, 88):
+            self.assertEqual(_track_role(p, False), "lead")
+
+    def test_pad_program_range(self):
+        from evaluate_models import _track_role
+        for p in range(88, 96):
+            self.assertEqual(_track_role(p, False), "pad")
+
+    def test_harmony_program_ranges(self):
+        from evaluate_models import _track_role
+        for p in list(range(0, 8)) + list(range(24, 32)):
+            self.assertEqual(_track_role(p, False), "harmony")
+
+    def test_other_for_unmapped_programs(self):
+        from evaluate_models import _track_role
+        self.assertEqual(_track_role(40, False), "other")
+        self.assertEqual(_track_role(96, False), "other")
+        self.assertEqual(_track_role(127, False), "other")
+
+
+class TestRoleHintMatching(unittest.TestCase):
+    """_role_hint_matches compares declared role_hint with observed track roles.
+    Role hints are free-text dataset labels — coarse sanity check only."""
+
+    def test_drum_hint_matches_rhythm_track(self):
+        from evaluate_models import _role_hint_matches
+        self.assertTrue(_role_hint_matches("drum-oriented", ["rhythm"]))
+        self.assertTrue(_role_hint_matches("Drums", ["rhythm"]))
+
+    def test_chord_hint_matches_harmony_track(self):
+        from evaluate_models import _role_hint_matches
+        self.assertTrue(_role_hint_matches("chord-oriented", ["harmony"]))
+        self.assertTrue(_role_hint_matches("Chords/Harmony", ["harmony"]))
+
+    def test_bass_hint_matches_bass_track(self):
+        from evaluate_models import _role_hint_matches
+        self.assertTrue(_role_hint_matches("bass", ["bass"]))
+
+    def test_lead_hint_matches_lead_track(self):
+        from evaluate_models import _role_hint_matches
+        self.assertTrue(_role_hint_matches("lead", ["lead"]))
+        self.assertTrue(_role_hint_matches("melody", ["lead"]))
+
+    def test_pad_hint_matches_pad_track(self):
+        from evaluate_models import _role_hint_matches
+        self.assertTrue(_role_hint_matches("pad", ["pad"]))
+
+    def test_mismatched_hint_returns_false(self):
+        from evaluate_models import _role_hint_matches
+        self.assertFalse(_role_hint_matches("drum-oriented", ["harmony", "bass"]))
+        self.assertFalse(_role_hint_matches("bass", ["lead", "pad"]))
+
+    def test_empty_track_roles_returns_none(self):
+        from evaluate_models import _role_hint_matches
+        self.assertIsNone(_role_hint_matches("drum-oriented", []))
+        self.assertIsNone(_role_hint_matches("bass", []))
+
+    def test_unrecognized_hint_returns_none(self):
+        from evaluate_models import _role_hint_matches
+        self.assertIsNone(_role_hint_matches("unknown-style", ["rhythm"]))
+        self.assertIsNone(_role_hint_matches("", ["bass"]))
+
+
 if __name__ == "__main__":
     unittest.main()
