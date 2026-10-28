@@ -5,6 +5,8 @@
 #include "generation/PatternDensity.h"
 #include "generation/PatternSwing.h"
 #include "generation/GenerationService.h"
+#include "generation/RemiToLinkPatternConverter.h"
+#include "remi/GenerationTypes.h"
 #include "generation/ModelCatalog.h"
 #include "generation/NoteRepeat.h"
 #include "midi/MidiTransport.h"
@@ -77,6 +79,12 @@ public:
             generation::GenerationRequest request);
     [[nodiscard]] bool queueGeneratedPattern(
             generation::PatternProposal proposal);
+
+    // Non-realtime entry point for already-decoded REMI/BPE proposals. The
+    // complete proposal is converted and validated before queueing; failure
+    // leaves the scheduler unchanged.
+    [[nodiscard]] bool queueGeneratedRemiPattern(
+            const remi::PatternProposal& proposal);
     [[nodiscard]] bool queueGeneratedResult(
             generation::GenerationResult result);
     [[nodiscard]] bool selectModel(std::string_view modelId);
@@ -102,6 +110,7 @@ private:
     midi::ControllerMapping controllerMapping_{};
     generation::ModelCatalog modelCatalog_{};
     generation::GenerationService generationService_;
+    generation::RemiToLinkPatternConverter remiToLinkConverter_{480};
     mutable std::mutex lifecycleMutex_;
     bool started_ = false;
 };
