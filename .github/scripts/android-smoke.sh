@@ -85,7 +85,7 @@ start_app() {
   (
     set +e
     if [[ "$clear_task" == "true" ]]; then
-      timeout "${START_TIMEOUT}s" adb shell am start --activity-new-task --activity-clear-task -n "$ACTIVITY" --ez mozart.runtime_smoke "$runtime_smoke" > "$START_FILE" 2>&1
+      timeout "${START_TIMEOUT}s" adb shell am start -f 0x10008000 -n "$ACTIVITY" --ez mozart.runtime_smoke "$runtime_smoke" > "$START_FILE" 2>&1
     else
       timeout "${START_TIMEOUT}s" adb shell am start -n "$ACTIVITY" --ez mozart.runtime_smoke "$runtime_smoke" > "$START_FILE" 2>&1
     fi
@@ -461,7 +461,7 @@ exercise_remi_bpe_android_runtime_bridge_smoke() {
   timeout 10s adb shell am force-stop "$PACKAGE" >/dev/null 2>&1 || true
   timeout 5s adb shell logcat -c || true
   local start_rc=0
-  timeout 20s adb shell am start --activity-new-task --activity-clear-task \
+  timeout 20s adb shell am start -f 0x10008000 \
     -n "$ACTIVITY" --ez mozart.remi_bpe_runtime_smoke true \
     > "$START_FILE" 2>&1 || start_rc=$?
   if [[ "$start_rc" -ne 0 ]]; then

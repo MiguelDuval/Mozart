@@ -325,13 +325,20 @@ class AndroidLifecycleContractTest(unittest.TestCase):
         self.assertIn("start_app false", recreate)
         self.assertIn("MainActivity lifecycle cycle", recreate)
 
-    def test_clean_task_start_uses_explicit_clear_and_new_task_flags(self):
+    def test_clean_task_start_uses_supported_am_intent_flags(self):
         smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
         start = smoke.index("start_app() {")
         end = smoke.index("\n}", start)
         launcher = smoke[start:end]
-        self.assertIn("--activity-new-task --activity-clear-task", launcher)
+        self.assertIn("am start -f 0x10008000 -n \"$ACTIVITY\"", launcher)
         self.assertIn('local clear_task="${2:-false}"', launcher)
+
+        bridge_start = smoke.index("exercise_remi_bpe_android_runtime_bridge_smoke() {")
+        bridge_end = smoke.index("\n}", bridge_start)
+        bridge = smoke[bridge_start:bridge_end]
+        self.assertIn("am start -f 0x10008000", bridge)
+        self.assertNotIn("--activity-new-task", smoke)
+        self.assertNotIn("--activity-clear-task", smoke)
 
     def test_home_transition_requires_launcher_to_be_resumed(self):
         smoke = (ROOT / ".github" / "scripts" / "android-smoke.sh").read_text()
