@@ -277,6 +277,28 @@ exercise_runtime_smoke_recreate_guard() {
     return 1
   fi
 
+  # "am start" returning only confirms that ActivityManager accepted the
+  # request; it does not guarantee MainActivity's main thread has consumed
+  # onNewIntent yet. Wait for the scheduled marker before sending HOME, or the
+  # input event can race ahead and background the Activity before callbacks
+  # are armed.
+  local dispatch_deadline=$((SECONDS + 12))
+  local callback_armed=false
+  while (( SECONDS < dispatch_deadline )); do
+    write_logcat
+    if grep -Fq "RUNTIME: Android smoke scheduled tick_delay_ms=${delay_ms}" "$LOGCAT_FILE"; then
+      callback_armed=true
+      break
+    fi
+    sleep 0.25
+  done
+  if [[ "$callback_armed" != "true" ]]; then
+    echo "MainActivity did not acknowledge the delayed runtime-smoke intent before HOME." >&2
+    cat "$START_FILE" >&2 || true
+    grep -F "RUNTIME: Android smoke" "$LOGCAT_FILE" >&2 || true
+    return 1
+  fi
+
   # HOME must arrive while both delayed callbacks are still pending.
   if ! background_activity_to_home "stale-callback lifecycle guard"; then
     return 1

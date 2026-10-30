@@ -308,7 +308,13 @@ class AndroidLifecycleContractTest(unittest.TestCase):
 
         self.assertIn('am start --activity-single-top -n "$ACTIVITY"', guard)
         self.assertIn('--el mozart.runtime_smoke_delay_ms "$delay_ms"', guard)
+        self.assertIn("local dispatch_deadline=$((SECONDS + 12))", guard)
+        self.assertIn('grep -Fq "RUNTIME: Android smoke scheduled tick_delay_ms=${delay_ms}"', guard)
         self.assertIn('background_activity_to_home "stale-callback lifecycle guard"', guard)
+        self.assertLess(
+            guard.index('grep -Fq "RUNTIME: Android smoke scheduled tick_delay_ms=${delay_ms}"'),
+            guard.index('background_activity_to_home "stale-callback lifecycle guard"'),
+        )
         self.assertIn("sleep 18", guard)
         self.assertIn('RUNTIME: Android smoke scheduled tick_delay_ms=${delay_ms}', guard)
         self.assertIn("A delayed runtime-smoke callback escaped Activity onStop.", guard)

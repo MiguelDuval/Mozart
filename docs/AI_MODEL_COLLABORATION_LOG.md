@@ -664,3 +664,8 @@ The first Android smoke run that exercised the real 20k-vocabulary ONNX bridge r
 The emulator-level external-vocabulary ONNX test introduced in commit `662587b33ebc5e90d8e4927f016a444f2098ea26` reached the actual Java runtime, but both final smoke attempts failed at session metadata validation with `NoSuchMethodException: ai.onnxruntime.TensorInfo.getType()`. Confirmed against the official ONNX Runtime Java API: `TensorInfo` exposes a public `type` field and `getShape()`, but does not define `getType()`. Updated `validateSessionTensor` to read the public field reflectively. Reworked the JVM fake TensorInfo to mirror this exact API (no `getType()` method), so both REMI/BPE and legacy session ABI tests catch this mismatch before emulator execution. No model, tokenizer, or inference semantics changed.
 
 API reference: https://onnxruntime.ai/docs/api/java/ai/onnxruntime/TensorInfo.html
+
+
+## 2026-10-31 — ChatGPT — Synchronize lifecycle smoke with onNewIntent delivery
+
+Review of the failed emulator run showed the stale-callback guard treated a successful `adb shell am start` return as proof that `MainActivity.onNewIntent` had executed. Android only guarantees that ActivityManager accepted the launch request; the main-thread callback can still be queued. The script immediately sent HOME, allowing it to race ahead of intent delivery and produce the misleading `Delayed runtime smoke was not delivered through onNewIntent` failure. The guard now waits (bounded to 12 seconds) for the explicit `scheduled tick_delay_ms=15000` marker before sending HOME, and fails with focused diagnostics if the intent was not acknowledged. The lifecycle contract test asserts this ordering so a future refactor cannot reintroduce the race.
