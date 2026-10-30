@@ -849,12 +849,13 @@ public final class OnnxInferenceBridge {
                         .getMethod("getInfo")
                         .invoke(nodeInfo);
 
-        final String actualType =
-                normalizeOrtType(
-                        String.valueOf(
-                                valueInfo.getClass()
-                                        .getMethod("getType")
-                                        .invoke(valueInfo)));
+        // ONNX Runtime Java exposes TensorInfo.type as a public field;
+        // unlike OnnxValue, TensorInfo has no getType() method (1.30.0).
+        final Object rawType =
+                valueInfo.getClass()
+                        .getField("type")
+                        .get(valueInfo);
+        final String actualType = normalizeOrtType(String.valueOf(rawType));
         final String expectedType =
                 normalizeOrtType(manifestTensor.getString("dtype"));
 

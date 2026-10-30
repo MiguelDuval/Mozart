@@ -516,17 +516,22 @@ public class OnnxInferenceBridgeTest {
         }
     }
 
+    public enum FakeOnnxJavaType {
+        FLOAT,
+        INT64
+    }
+
+    // Mirrors ai.onnxruntime.TensorInfo from the pinned 1.30.0 Java API:
+    // public final OnnxJavaType type plus getShape(), but no getType().
     public static final class FakeValueInfo {
-        private final String type;
+        public final FakeOnnxJavaType type;
         private final long[] shape;
 
-        FakeValueInfo(String type, long[] shape) {
-            this.type = type;
+        FakeValueInfo(String tensorType, long[] shape) {
+            this.type = tensorType.toLowerCase().contains("int64")
+                    ? FakeOnnxJavaType.INT64
+                    : FakeOnnxJavaType.FLOAT;
             this.shape = shape;
-        }
-
-        public String getType() {
-            return type;
         }
 
         public long[] getShape() {

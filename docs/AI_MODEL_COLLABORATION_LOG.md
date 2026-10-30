@@ -657,3 +657,10 @@ The fixture generator is `.github/scripts/create_remi_bpe_android_runtime_fixtur
 ## 2026-10-29 — ChatGPT — Fix Android emulator launch using unsupported am start options
 
 The first Android smoke run that exercised the real 20k-vocabulary ONNX bridge reached the fixture staging step, then failed both emulator attempts because `adb shell am start` does not support the invented options `--activity-new-task` and `--activity-clear-task`. Replaced both call sites with the supported intent flag `-f 0x10008000` (NEW_TASK | CLEAR_TASK), preserving the intended clean-task semantics. Updated the lifecycle contract test to require the supported flags in both generic clean-task relaunch and the REMI/BPE bridge smoke launcher, and to reject the invalid option spellings.
+
+
+## 2026-10-31 — ChatGPT — Fix ONNX Runtime 1.30 TensorInfo reflection contract
+
+The emulator-level external-vocabulary ONNX test introduced in commit `662587b33ebc5e90d8e4927f016a444f2098ea26` reached the actual Java runtime, but both final smoke attempts failed at session metadata validation with `NoSuchMethodException: ai.onnxruntime.TensorInfo.getType()`. Confirmed against the official ONNX Runtime Java API: `TensorInfo` exposes a public `type` field and `getShape()`, but does not define `getType()`. Updated `validateSessionTensor` to read the public field reflectively. Reworked the JVM fake TensorInfo to mirror this exact API (no `getType()` method), so both REMI/BPE and legacy session ABI tests catch this mismatch before emulator execution. No model, tokenizer, or inference semantics changed.
+
+API reference: https://onnxruntime.ai/docs/api/java/ai/onnxruntime/TensorInfo.html
