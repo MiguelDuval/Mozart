@@ -138,17 +138,35 @@ std::optional<BpeTokenizer> BpeTokenizer::loadFromJson(const std::string& jsonPa
             tokenizer.continuingSubwordPrefix_ = model["continuing_subword_prefix"].get<std::string>();
         if (model.contains("end_of_word_suffix") && model["end_of_word_suffix"].is_string())
             tokenizer.endOfWordSuffix_ = model["end_of_word_suffix"].get<std::string>();
-        if (modelDocument.contains("added_tokens") && modelDocument["added_tokens"].is_array()) {
+        if (modelDocument.contains("added_tokens")) {
+            if (!modelDocument["added_tokens"].is_array()) return std::nullopt;
             for (const auto& added : modelDocument["added_tokens"]) {
                 if (!added.is_object() || !added.contains("id") ||
                     !added["id"].is_number_integer() || !added.contains("content") ||
-                    !added["content"].is_string()) continue;
+                    !added["content"].is_string()) {
+                    return std::nullopt;
+                }
+
                 const auto rawId = added["id"].get<std::int64_t>();
-                if (rawId < 0 || static_cast<std::uint64_t>(rawId) >= kMaximumVocabEntries) continue;
+                if (rawId < 0 ||
+                    static_cast<std::uint64_t>(rawId) >= kMaximumVocabEntries) {
+                    return std::nullopt;
+                }
+
+                const auto content = added["content"].get<std::string>();
+                if (content.empty()) return std::nullopt;
+
                 const auto id = static_cast<std::size_t>(rawId);
-                if (id >= tokenizer.idToEncodedToken_.size()) tokenizer.idToEncodedToken_.resize(id+1U);
-                if (tokenizer.idToEncodedToken_[id].empty())
-                    tokenizer.idToEncodedToken_[id] = added["content"].get<std::string>();
+                if (id >= tokenizer.idToEncodedToken_.size()) {
+                    tokenizer.idToEncodedToken_.resize(id + 1U);
+                }
+
+                auto& existing = tokenizer.idToEncodedToken_[id];
+                // Some tokenizer serializers repeat a special token in both
+                // model.vocab and added_tokens. That is safe only when both
+                // records assign the exact same string to the same ID.
+                if (!existing.empty() && existing != content) return std::nullopt;
+                existing = content;
             }
         }
         bool found = false;
@@ -157,6 +175,15 @@ std::optional<BpeTokenizer> BpeTokenizer::loadFromJson(const std::string& jsonPa
     }
 
     tokenizer.hasLearnedBpeVocabulary_ = hasModelVocab;
+
+    // The output layer can emit every ID in [0, vocabSize). A hole left by an
+    // added token beyond the learned vocabulary would pass a size-only ABI
+    // check but fail only when inference happens to select that ID.
+    if (hasModelVocab &&
+        std::find(tokenizer.idToEncodedToken_.begin(), tokenizer.idToEncodedToken_.end(),
+                  std::string{}) != tokenizer.idToEncodedToken_.end()) {
+        return std::nullopt;
+    }
 
     // If no trained BPE model exists, IDs come from the base vocabulary.
     // This fallback is useful for inspecting plain MidiTok tokenizers, but it
