@@ -3,8 +3,11 @@
 #include "remi/RemiEventAdapter.h"
 #include "remi/BpeTokenizer.h"
 #include "generation/RemiToLinkPatternConverter.h"
+#include "json.hpp"
 
 #include <cassert>
+#include <chrono>
+#include <fstream>
 #include <cstdint>
 #include <iostream>
 #include <vector>
@@ -33,12 +36,35 @@ using mozart::remi::GenerationRequest;
 
 namespace {
 
+using json = nlohmann::json;
+
 #ifndef MOZART_TEST_SOURCE_DIR
 #define MOZART_TEST_SOURCE_DIR "."
 #endif
 
 std::filesystem::path fixtureTokenizerPath() {
     return fs::path(MOZART_TEST_SOURCE_DIR) / "fixtures" / "remi_tokenizer_fixture.json";
+}
+
+std::filesystem::path writeTokenizerFixtureWithAddedTokens(const json& addedTokens) {
+    std::ifstream input(fixtureTokenizerPath());
+    assert(input.is_open());
+    json document;
+    input >> document;
+    auto model = json::parse(document["_model"].get<std::string>());
+    model["added_tokens"] = addedTokens;
+    document["_model"] = model.dump();
+    document["_vocab_base_byte_to_token"]["@"] = "Pitch_60";
+
+    const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
+    const auto path = fs::temp_directory_path() /
+        ("mozart-remi-added-tokens-" + std::to_string(nonce) + ".json");
+    std::ofstream output(path);
+    assert(output.is_open());
+    output << document.dump();
+    output.close();
+    assert(output.good());
+    return path;
 }
 
 void testBpeTokenizerLoadsFixture() {
@@ -64,6 +90,50 @@ void testBaseOnlyMidiTokTokenizerIsNotLearnedBpe() {
     assert(tokenizer.has_value());
     assert(tokenizer->vocabSize() == 6);
     assert(!tokenizer->hasLearnedBpeVocabulary());
+}
+
+void testAddedTokensPreserveACompleteUnambiguousVocabulary() {
+    {
+        json added = json::array();
+        added.push_back({{"id", 23}, {"content", "@"}, {"special", false}});
+        const auto path = writeTokenizerFixtureWithAddedTokens(added);
+        const auto tokenizer = BpeTokenizer::loadFromJson(path.string());
+        assert(tokenizer.has_value());
+        assert(tokenizer->vocabSize() == 24);
+        const auto decoded = tokenizer->decodeTokens({23});
+        assert((decoded == std::vector<std::string>{"Pitch_60"}));
+        fs::remove(path);
+    }
+
+    {
+        // An added-token record must not silently shadow a different learned
+        // token already assigned to the same logit ID.
+        json added = json::array();
+        added.push_back({{"id", 5}, {"content", "#"}, {"special", true}});
+        const auto path = writeTokenizerFixtureWithAddedTokens(added);
+        assert(!BpeTokenizer::loadFromJson(path.string()).has_value());
+        fs::remove(path);
+    }
+
+    {
+        // Conflicting duplicate IDs inside added_tokens are also ambiguous.
+        json added = json::array();
+        added.push_back({{"id", 23}, {"content", "@"}, {"special", false}});
+        added.push_back({{"id", 23}, {"content", "#"}, {"special", true}});
+        const auto path = writeTokenizerFixtureWithAddedTokens(added);
+        assert(!BpeTokenizer::loadFromJson(path.string()).has_value());
+        fs::remove(path);
+    }
+
+    {
+        // A sparse vector can match a manifest size while one model logit ID
+        // has no token mapping. Reject that tokenizer at load time.
+        json added = json::array();
+        added.push_back({{"id", 24}, {"content", "@"}, {"special", false}});
+        const auto path = writeTokenizerFixtureWithAddedTokens(added);
+        assert(!BpeTokenizer::loadFromJson(path.string()).has_value());
+        fs::remove(path);
+    }
 }
 
 void testBpeTokenizerDecodeKnownIds() {
@@ -584,6 +654,7 @@ void testUnsupportedRemiTokenRejectsAtomically() {
 int main() {
     testBpeTokenizerLoadsFixture();
     testBaseOnlyMidiTokTokenizerIsNotLearnedBpe();
+    testAddedTokensPreserveACompleteUnambiguousVocabulary();
     testBpeTokenizerDecodeKnownIds();
     testRemiDecoderConfigLoadsTokenizerArtifactFields();
     testConverterNoteEvent();

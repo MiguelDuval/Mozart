@@ -669,3 +669,11 @@ API reference: https://onnxruntime.ai/docs/api/java/ai/onnxruntime/TensorInfo.ht
 ## 2026-10-31 — ChatGPT — Synchronize lifecycle smoke with onNewIntent delivery
 
 Review of the failed emulator run showed the stale-callback guard treated a successful `adb shell am start` return as proof that `MainActivity.onNewIntent` had executed. Android only guarantees that ActivityManager accepted the launch request; the main-thread callback can still be queued. The script immediately sent HOME, allowing it to race ahead of intent delivery and produce the misleading `Delayed runtime smoke was not delivered through onNewIntent` failure. The guard now waits (bounded to 12 seconds) for the explicit `scheduled tick_delay_ms=15000` marker before sending HOME, and fails with focused diagnostics if the intent was not acknowledged. The lifecycle contract test asserts this ordering so a future refactor cannot reintroduce the race.
+
+## 2026-10-31 — ChatGPT — Reject ambiguous and sparse learned BPE token IDs
+
+Review of the production C++ tokenizer loader found that the learned BPE vocabulary was checked for contiguous IDs before added tokens were applied, but malformed, conflicting, and out-of-range added-token records were silently skipped. An added token could also extend the ID vector with a hole; a manifest size check could then pass even though one model output ID had no decoder mapping.
+
+The loader now fails closed when an added-token array is malformed, contains an invalid/empty record, assigns different token strings to the same ID, or leaves a gap in the final learned BPE vocabulary. Exact duplicate assignments are allowed because some serializers repeat the same special token in both the learned vocabulary and added-token list.
+
+Added native REMI-to-Link regression coverage for a valid appended token, collision with a learned token ID, conflicting duplicate added-token IDs, and a sparse final vocabulary. This is an ABI-validation hardening only: no checkpoint, tokenizer training, generation strategy, token mapping, or musical semantics were changed. The shikhr/music_maker compatibility block remains unchanged pending recovery of its original trained tokenizer.
