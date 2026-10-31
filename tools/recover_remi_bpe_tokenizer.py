@@ -95,6 +95,34 @@ def _neighbor_model_vocab(path: Path) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
+def download_hub_snapshot(repo_id: str, revision: str = "main") -> Path:
+    """Download only tokenizer/config metadata, using locally configured Hub auth."""
+    parts = repo_id.split("/")
+    if len(parts) != 2 or not all(parts):
+        raise ValueError("Hub repository must use the namespace/repository form")
+    if not revision.strip():
+        raise ValueError("Hub revision must not be empty")
+
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError as exc:
+        raise RuntimeError(
+            "Hugging Face lookup requires huggingface_hub; install huggingface_hub==0.23.4"
+        ) from exc
+
+    # token=None lets huggingface_hub use the user's existing local login or
+    # HF_TOKEN configuration when available; this tool never reads or prints it.
+    snapshot = snapshot_download(
+        repo_id=repo_id,
+        revision=revision,
+        allow_patterns=["tokenizer.json", "config.json"],
+    )
+    path = Path(snapshot)
+    if not path.is_dir():
+        raise RuntimeError("Hugging Face snapshot download did not return a directory")
+    return path
+
+
 def scan_roots(roots: list[Path], expected_vocab_size: int = 12000) -> dict[str, Any]:
     """Inspect locally found tokenizer.json files and report valid BPE candidates."""
     if isinstance(expected_vocab_size, bool) or expected_vocab_size < 1:
@@ -182,6 +210,14 @@ def main(argv: list[str] | None = None) -> int:
         help="additional local directory to scan; repeat for Hugging Face caches and training outputs",
     )
     parser.add_argument(
+        "--hub-repo", action="append", default=None,
+        help="optional Hugging Face repo to check with locally configured auth; fetches only tokenizer.json and config.json",
+    )
+    parser.add_argument(
+        "--hub-revision", default="main",
+        help="revision for every --hub-repo lookup (default: main; resolved commit is recorded)",
+    )
+    parser.add_argument(
         "--expected-vocab-size", type=int, default=12000,
         help="expected external checkpoint vocabulary size (default: 12000)",
     )
@@ -193,7 +229,42 @@ def main(argv: list[str] | None = None) -> int:
     roots = default_roots()
     if args.root:
         roots.extend(args.root)
+
+    hub_lookups: list[dict[str, Any]] = []
+    for repo_id in args.hub_repo or []:
+        try:
+            snapshot = download_hub_snapshot(repo_id, args.hub_revision)
+            roots.append(snapshot)
+            tokenizer_path = snapshot / "tokenizer.json"
+            config_path = snapshot / "config.json"
+            hub_lookups.append({
+                "repo_id": repo_id,
+                "requested_revision": args.hub_revision,
+                "status": "downloaded",
+                "snapshot_path": str(snapshot),
+                "snapshot_revision_hint": _snapshot_revision(tokenizer_path),
+                "tokenizer_present": tokenizer_path.is_file(),
+                "config_present": config_path.is_file(),
+                "downloaded_files": ["tokenizer.json", "config.json"],
+            })
+        except Exception as exc:
+            print(
+                f"Hub lookup for {repo_id} failed ({type(exc).__name__}). "
+                "Check the repository/revision, network, and locally configured Hugging Face access.",
+                file=sys.stderr,
+            )
+            hub_lookups.append({
+                "repo_id": repo_id,
+                "requested_revision": args.hub_revision,
+                "status": "inaccessible_or_missing",
+                "error_type": type(exc).__name__,
+                "downloaded_files": [],
+            })
+
     report = scan_roots(roots, args.expected_vocab_size)
+    if hub_lookups:
+        report["hub_lookups"] = hub_lookups
+        report["network_access"] = "used only for explicitly requested --hub-repo metadata downloads"
     rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.report:
         report_path = args.report.expanduser().resolve()

@@ -24,6 +24,25 @@ To include other training/output locations, add one or more roots:
 
 The report can contain private local paths; keep it local and do not commit it.
 
+## Optional authenticated Hugging Face lookup
+
+The local scan remains offline by default. To check whether the currently configured Hugging Face account can access the original private tokenizer repository, run:
+
+PowerShell:
+
+    python -m pip install huggingface_hub==0.23.4
+    python tools/recover_remi_bpe_tokenizer.py --hub-repo shikhr/miditok2_12k --hub-revision main --report "$env:USERPROFILE\Desktop\remi-tokenizer-hub-scan.json"
+
+Command Prompt:
+
+    python tools/recover_remi_bpe_tokenizer.py --hub-repo shikhr/miditok2_12k --hub-revision main --report "%USERPROFILE%\Desktop\remi-tokenizer-hub-scan.json"
+
+This explicit option uses the Hugging Face Hub client and its existing local authentication (or `HF_TOKEN` environment configuration). It downloads **only** `tokenizer.json` and `config.json`; it never downloads model weights, prints credentials, or uploads local files. The resolved cache snapshot commit and tokenizer SHA-256 are included in the local report.
+
+A failed lookup is reported as `inaccessible_or_missing`. Hugging Face intentionally makes private repositories appear not found to accounts without access, so this result cannot distinguish a private repository from a misspelled or deleted repository. A successful download and a 12,000-token vocabulary match are still only recovery evidence, not proof that this tokenizer was paired with the checkpoint weights.
+
+Do not share the full report publicly if its local paths are sensitive.
+
 ## How to interpret the report
 
 - Prioritize a complete local directory or cache entry associated with shikhr/miditok2_12k.

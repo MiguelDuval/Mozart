@@ -7,11 +7,13 @@ import hashlib
 from pathlib import Path
 import sys
 import tempfile
+import types
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from recover_remi_bpe_tokenizer import scan_roots  # noqa: E402
+from recover_remi_bpe_tokenizer import download_hub_snapshot, scan_roots  # noqa: E402
 
 FIXTURE = ROOT / "tests" / "fixtures" / "remi_tokenizer_fixture.json"
 
@@ -77,6 +79,31 @@ class RemiBpeTokenizerRecoveryTests(unittest.TestCase):
             self.assertEqual(candidate["snapshot_revision_hint"], revision)
             self.assertIn("shikhr/miditok2_12k Hub-cache path", candidate["source_hint"])
             self.assertEqual(candidate["sha256"], hashlib.sha256(FIXTURE.read_bytes()).hexdigest())
+
+    def test_hub_lookup_fetches_only_tokenizer_metadata_and_uses_local_auth_context(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            snapshot = Path(temporary) / "snapshot"
+            snapshot.mkdir()
+            calls: dict[str, object] = {}
+            fake_hub = types.ModuleType("huggingface_hub")
+
+            def fake_snapshot_download(**kwargs):
+                calls.update(kwargs)
+                return str(snapshot)
+
+            fake_hub.snapshot_download = fake_snapshot_download
+            with patch.dict(sys.modules, {"huggingface_hub": fake_hub}):
+                result = download_hub_snapshot("shikhr/miditok2_12k", "main")
+
+            self.assertEqual(result, snapshot)
+            self.assertEqual(calls["repo_id"], "shikhr/miditok2_12k")
+            self.assertEqual(calls["revision"], "main")
+            self.assertEqual(calls["allow_patterns"], ["tokenizer.json", "config.json"])
+            self.assertNotIn("token", calls)
+
+    def test_hub_lookup_rejects_malformed_repo_id_before_network_access(self) -> None:
+        with self.assertRaisesRegex(ValueError, "namespace/repository"):
+            download_hub_snapshot("miditok2_12k", "main")
 
     def test_missing_roots_are_reported_without_crashing(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

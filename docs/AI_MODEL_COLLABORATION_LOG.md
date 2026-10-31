@@ -677,3 +677,9 @@ Review of the production C++ tokenizer loader found that the learned BPE vocabul
 The loader now fails closed when an added-token array is malformed, contains an invalid/empty record, assigns different token strings to the same ID, or leaves a gap in the final learned BPE vocabulary. Exact duplicate assignments are allowed because some serializers repeat the same special token in both the learned vocabulary and added-token list.
 
 Added native REMI-to-Link regression coverage for a valid appended token, collision with a learned token ID, conflicting duplicate added-token IDs, and a sparse final vocabulary. This is an ABI-validation hardening only: no checkpoint, tokenizer training, generation strategy, token mapping, or musical semantics were changed. The shikhr/music_maker compatibility block remains unchanged pending recovery of its original trained tokenizer.
+
+## 2026-10-31 — ChatGPT — Add an explicit authenticated Hub recovery check
+
+Extended the original-tokenizer recovery scanner with an opt-in `--hub-repo` path. The default scanner remains fully offline. When explicitly requested, the new path calls `huggingface_hub.snapshot_download` with an allow-list containing only `tokenizer.json` and `config.json`, relying on the user's existing local Hub authentication or HF_TOKEN configuration. It records the requested revision, resolved cache snapshot hint, and file-presence metadata without downloading model weights or exposing credentials.
+
+Added mocked tests proving that the download allow-list contains only those two metadata files and that malformed repository IDs are rejected before any network call. Documentation explains that an inaccessible/missing response cannot distinguish a private repository from a deleted or misspelled one, and that a vocabulary-size match still does not prove exact checkpoint pairing. No model or tokenizer is regenerated; no weights are uploaded.
