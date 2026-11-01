@@ -24,8 +24,13 @@ public final class MainActivity extends Activity {
 
         TextView title = new TextView(this);
         title.setText("MOZART");
-        title.setTextSize(28.0f);
+        title.setTextSize(32.0f);
         title.setGravity(Gravity.CENTER);
+
+        TextView version = new TextView(this);
+        version.setText("v0.1.0-foundation");
+        version.setTextSize(14.0f);
+        version.setGravity(Gravity.CENTER);
 
         TextView status = new TextView(this);
         status.setText("\n" + nativeEngineInfo());
@@ -33,6 +38,7 @@ public final class MainActivity extends Activity {
         status.setGravity(Gravity.CENTER);
 
         root.addView(title);
+        root.addView(version);
         root.addView(status);
 
         setContentView(root);
