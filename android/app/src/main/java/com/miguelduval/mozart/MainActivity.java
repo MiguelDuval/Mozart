@@ -3,6 +3,8 @@ package com.miguelduval.mozart;
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.View;
+import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -12,6 +14,8 @@ public final class MainActivity extends Activity {
     }
 
     private static native String nativeEngineInfo();
+
+    private boolean engineInfoVisible = true;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -36,10 +40,22 @@ public final class MainActivity extends Activity {
         status.setText("\n" + nativeEngineInfo());
         status.setTextSize(16.0f);
         status.setGravity(Gravity.CENTER);
+        status.setId(View.generateViewId());
+
+        Button toggle = new Button(this);
+        toggle.setText("Toggle Info");
+        toggle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                engineInfoVisible = !engineInfoVisible;
+                status.setText(engineInfoVisible ? "\n" + nativeEngineInfo() : "\nInfo hidden");
+            }
+        });
 
         root.addView(title);
         root.addView(version);
         root.addView(status);
+        root.addView(toggle);
 
         setContentView(root);
     }
