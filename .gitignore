@@ -23,3 +23,10 @@ Thumbs.db
 .env
 *.keystore
 *.jks
+
+# Pinned third-party dependencies (fetched via tools/fetch_*.sh, not committed)
+third_party/ableton_link/
+third_party/juce/
+third_party/oboe/
+third_party/tracktion_engine/
+third_party/litert/
