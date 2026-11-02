@@ -11,6 +11,10 @@ add_executable(mozart_core_tests
     ../src/core/MidiTypes.cpp
     ../src/core/TransportMath.cpp
     ../src/core/Track.cpp
+    ../src/core/Pattern.cpp
+    ../src/core/Pattern.h
+    ../src/core/Project.cpp
+    ../src/core/Project.h
     ../src/core/ChannelMixer.cpp
     ../src/core/Metronome.cpp
     ../src/generation/RhythmGenerator.cpp

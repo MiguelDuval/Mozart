@@ -2,6 +2,7 @@
 
 #include "ChannelMixer.h"
 #include "Metronome.h"
+#include "Project.h"
 #include "Track.h"
 
 #include <algorithm>
@@ -9,15 +10,14 @@
 namespace mozart {
 
 MozartEngine::MozartEngine() {
+    project_ = new Project();
     channelMixer_ = new ChannelMixer();
     metronome_ = new Metronome();
 }
 
 MozartEngine::~MozartEngine() {
-    for (Track* track : tracks_) {
-        delete track;
-    }
-    tracks_.clear();
+    delete project_;
+    project_ = nullptr;
     delete channelMixer_;
     channelMixer_ = nullptr;
     delete metronome_;
@@ -28,45 +28,41 @@ std::string MozartEngine::info() const {
     return "Mozart v0.1.0 | C++20 core | MIDI foundation | Ableton Link 4.0";
 }
 
+Project& MozartEngine::project() noexcept {
+    return *project_;
+}
+
+const Project& MozartEngine::project() const noexcept {
+    return *project_;
+}
+
 std::uint32_t MozartEngine::addTrack(std::string name) {
-    const std::uint32_t id = nextTrackId_++;
-    Track* track = new Track(id, std::move(name));
-    tracks_.push_back(track);
-    channelMixer_->addTrack(track);
+    const std::uint32_t id = project_->addTrack(std::move(name));
+    Track* track = project_->track(id);
+    if (track != nullptr) {
+        channelMixer_->addTrack(track);
+    }
     return id;
 }
 
 void MozartEngine::removeTrack(std::uint32_t trackId) {
-    for (auto it = tracks_.begin(); it != tracks_.end(); ++it) {
-        if ((*it)->id() == trackId) {
-            channelMixer_->removeTrack(*it);
-            delete *it;
-            tracks_.erase(it);
-            return;
-        }
+    Track* track = project_->track(trackId);
+    if (track != nullptr) {
+        channelMixer_->removeTrack(track);
     }
+    project_->removeTrack(trackId);
 }
 
 Track* MozartEngine::track(std::uint32_t trackId) noexcept {
-    for (Track* track : tracks_) {
-        if (track->id() == trackId) {
-            return track;
-        }
-    }
-    return nullptr;
+    return project_->track(trackId);
 }
 
 const Track* MozartEngine::track(std::uint32_t trackId) const noexcept {
-    for (const Track* track : tracks_) {
-        if (track->id() == trackId) {
-            return track;
-        }
-    }
-    return nullptr;
+    return project_->track(trackId);
 }
 
 std::size_t MozartEngine::trackCount() const noexcept {
-    return tracks_.size();
+    return project_->tracks().size();
 }
 
 ChannelMixer& MozartEngine::channelMixer() noexcept {

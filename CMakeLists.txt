@@ -11,6 +11,11 @@ add_library(mozart-core STATIC
     src/core/MidiTypes.cpp
     src/core/TransportMath.cpp
     src/core/Track.cpp
+    src/core/MidiEvent.h
+    src/core/Pattern.cpp
+    src/core/Pattern.h
+    src/core/Project.cpp
+    src/core/Project.h
     src/core/ChannelMixer.cpp
     src/core/Metronome.cpp
     src/generation/RhythmGenerator.cpp

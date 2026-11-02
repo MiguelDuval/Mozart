@@ -1,6 +1,9 @@
 #include "core/MidiTypes.h"
 #include "core/TransportMath.h"
 #include "core/Track.h"
+#include "core/MidiEvent.h"
+#include "core/Pattern.h"
+#include "core/Project.h"
 #include "core/ChannelMixer.h"
 #include "core/Metronome.h"
 #include "generation/RhythmGenerator.h"
@@ -288,6 +291,187 @@ int main() {
         l = 0.0f; r = 0.0f;
         bool pulsed = metro.process(44100.0f, 0.1, l, r);
         assert(!pulsed);
+    }
+
+    // --- MidiEvent tests ---
+
+    {
+        mozart::MidiEvent event;
+        event.id = 1;
+        event.trackId = 10;
+        event.patternId = 20;
+        event.tick = 480;
+        event.note = 60;
+        event.velocity = 100;
+        event.durationTicks = 240;
+        event.probability = 80;
+        event.ratchet = 2;
+        event.nudgeTicks = 5;
+
+        assert(event.id == 1);
+        assert(event.trackId == 10);
+        assert(event.patternId == 20);
+        assert(event.tick == 480);
+        assert(event.note == 60);
+        assert(event.velocity == 100);
+        assert(event.durationTicks == 240);
+        assert(event.probability == 80);
+        assert(event.ratchet == 2);
+        assert(event.nudgeTicks == 5);
+        assert(event.isValid());
+    }
+
+    {
+        mozart::MidiEvent event;
+        event.note = 128; // invalid
+        assert(!event.isValid());
+
+        event.note = 60;
+        event.velocity = 128; // invalid
+        assert(!event.isValid());
+
+        event.velocity = 100;
+        event.probability = 101; // invalid
+        assert(!event.isValid());
+    }
+
+    // --- Pattern tests ---
+
+    {
+        mozart::Pattern pattern(1, 10, "Pattern 1");
+
+        assert(pattern.id() == 1);
+        assert(pattern.trackId() == 10);
+        assert(pattern.name() == "Pattern 1");
+        assert(pattern.events().empty());
+
+        mozart::MidiEvent event;
+        event.tick = 0;
+        event.note = 60;
+        event.velocity = 100;
+        std::uint32_t eventId = pattern.addEvent(event);
+        assert(eventId == 1);
+        assert(pattern.events().size() == 1);
+        assert(pattern.findEvent(eventId) != nullptr);
+        assert(pattern.findEvent(eventId)->note == 60);
+        assert(pattern.findEvent(999) == nullptr);
+    }
+
+    {
+        mozart::Pattern pattern(2, 20, "Pattern 2");
+
+        mozart::MidiEvent e1;
+        e1.tick = 0;
+        e1.note = 60;
+        e1.velocity = 100;
+        std::uint32_t id1 = pattern.addEvent(e1);
+
+        mozart::MidiEvent e2;
+        e2.tick = 120;
+        e2.note = 64;
+        e2.velocity = 80;
+        std::uint32_t id2 = pattern.addEvent(e2);
+
+        assert(pattern.events().size() == 2);
+
+        // Edit note
+        assert(pattern.setEventNote(id1, 67));
+        assert(pattern.findEvent(id1)->note == 67);
+
+        // Edit velocity
+        assert(pattern.setEventVelocity(id2, 110));
+        assert(pattern.findEvent(id2)->velocity == 110);
+
+        // Edit tick
+        assert(pattern.setEventTick(id1, 240));
+        assert(pattern.findEvent(id1)->tick == 240);
+
+        // Edit duration
+        assert(pattern.setEventDuration(id2, 480));
+        assert(pattern.findEvent(id2)->durationTicks == 480);
+
+        // Edit probability
+        assert(pattern.setEventProbability(id1, 50));
+        assert(pattern.findEvent(id1)->probability == 50);
+
+        // Edit ratchet
+        assert(pattern.setEventRatchet(id2, 3));
+        assert(pattern.findEvent(id2)->ratchet == 3);
+
+        // Edit nudge
+        assert(pattern.setEventNudge(id1, -10));
+        assert(pattern.findEvent(id1)->nudgeTicks == -10);
+
+        // Invalid edits
+        assert(!pattern.setEventNote(999, 60)); // non-existent event
+        assert(!pattern.setEventNote(id1, 128)); // invalid note
+        assert(!pattern.setEventVelocity(id1, 128)); // invalid velocity
+        assert(!pattern.setEventProbability(id1, 101)); // invalid probability
+
+        // Remove event
+        assert(pattern.removeEvent(id1));
+        assert(pattern.findEvent(id1) == nullptr);
+        assert(pattern.events().size() == 1);
+
+        assert(!pattern.removeEvent(999)); // non-existent
+    }
+
+    // --- Project tests ---
+
+    {
+        mozart::Project project;
+
+        // Add tracks
+        std::uint32_t trackId1 = project.addTrack("Track 1");
+        std::uint32_t trackId2 = project.addTrack("Track 2");
+        assert(trackId1 == 1);
+        assert(trackId2 == 2);
+        assert(project.trackCount() == 2);
+        assert(project.track(trackId1) != nullptr);
+        assert(project.track(trackId1)->name() == "Track 1");
+
+        // Add patterns to tracks
+        std::uint32_t patternId1 = project.addPattern(trackId1, "Pattern A");
+        std::uint32_t patternId2 = project.addPattern(trackId1, "Pattern B");
+        std::uint32_t patternId3 = project.addPattern(trackId2, "Pattern C");
+        assert(patternId1 == 1);
+        assert(patternId2 == 2);
+        assert(patternId3 == 3);
+
+        // Patterns for track
+        auto patterns1 = project.patternsForTrack(trackId1);
+        assert(patterns1.size() == 2);
+        auto patterns2 = project.patternsForTrack(trackId2);
+        assert(patterns2.size() == 1);
+
+        // Invalid pattern (non-existent track)
+        std::uint32_t badPatternId = project.addPattern(999, "Bad");
+        assert(badPatternId == 0);
+
+        // Find event across tracks/patterns
+        mozart::MidiEvent event;
+        event.tick = 0;
+        event.note = 60;
+        event.velocity = 100;
+        project.pattern(patternId1)->addEvent(event);
+        std::uint32_t eventId = project.pattern(patternId1)->events()[0].id;
+
+        mozart::MidiEvent* found = project.findEvent(trackId1, patternId1, eventId);
+        assert(found != nullptr);
+        assert(found->note == 60);
+
+        // Wrong track should not find event
+        assert(project.findEvent(trackId2, patternId1, eventId) == nullptr);
+
+        // Wrong pattern should not find event
+        assert(project.findEvent(trackId1, patternId2, eventId) == nullptr);
+
+        // Remove track cascades to patterns
+        project.removeTrack(trackId1);
+        assert(project.trackCount() == 1);
+        assert(project.track(trackId1) == nullptr);
+        assert(project.patternsForTrack(trackId1).empty());
+        assert(project.findEvent(trackId1, patternId1, eventId) == nullptr);
     }
 
     return 0;
