@@ -10,6 +10,9 @@ add_library(mozart-core STATIC
     src/core/MozartEngine.cpp
     src/core/MidiTypes.cpp
     src/core/TransportMath.cpp
+    src/core/Track.cpp
+    src/core/ChannelMixer.cpp
+    src/core/Metronome.cpp
     src/generation/RhythmGenerator.cpp
 )
 
