@@ -16,6 +16,7 @@ public final class MainActivity extends Activity {
     private static native String nativeEngineInfo();
 
     private boolean engineInfoVisible = true;
+    private MpcUiState.DataDialFocus dataDialFocus = MpcUiState.DataDialFocus.LEVEL;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -36,6 +37,30 @@ public final class MainActivity extends Activity {
         version.setTextSize(14.0f);
         version.setGravity(Gravity.CENTER);
 
+        // Channel mixer view — demonstrates explicit DataDialFocus -> ControlFocus mapping
+        MpcChannelMixerView channelMixerView = new MpcChannelMixerView(this);
+        channelMixerView.setControlFocus(
+                MpcChannelMixerView.fromDataDialFocus(dataDialFocus));
+
+        TextView focusLabel = new TextView(this);
+        focusLabel.setText("Data Dial Focus: " + dataDialFocus);
+        focusLabel.setTextSize(14.0f);
+        focusLabel.setGravity(Gravity.CENTER);
+
+        // PANEL_2 color token from unified MpcStyle — single source of visual tokens
+        TextView panelToken = new TextView(this);
+        panelToken.setText("Panel token: PANEL_2 = #2A2A2A");
+        panelToken.setTextSize(12.0f);
+        panelToken.setGravity(Gravity.CENTER);
+        panelToken.setTextColor(MpcStyle.TEXT_SECONDARY);
+
+        // Touch Strip mode label — single implementation via TouchStripHelper
+        TextView touchLabel = new TextView(this);
+        touchLabel.setText("Touch Strip: " + TouchStripHelper.touchStripModeLabel(
+                MpcStyle.TOUCH_STRIP_MODE_LEVEL));
+        touchLabel.setTextSize(14.0f);
+        touchLabel.setGravity(Gravity.CENTER);
+
         TextView status = new TextView(this);
         status.setText("\n" + nativeEngineInfo());
         status.setTextSize(16.0f);
@@ -54,6 +79,10 @@ public final class MainActivity extends Activity {
 
         root.addView(title);
         root.addView(version);
+        root.addView(focusLabel);
+        root.addView(panelToken);
+        root.addView(touchLabel);
+        root.addView(channelMixerView);
         root.addView(status);
         root.addView(toggle);
 
